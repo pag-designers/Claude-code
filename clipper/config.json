@@ -1,0 +1,28 @@
+{
+  "campaign": "Preme x Deen x AB Livestream",
+  "source_url": "https://kick.com/preme/videos/01a0eff5-9420-738b-be87-ff9e40189c4b",
+  "keywords": [
+    "preme",
+    "deen",
+    "adrien",
+    "broner"
+  ],
+  "banned_words": [
+    "drake"
+  ],
+  "clip_seconds": 30,
+  "scan_step_seconds": 5,
+  "whisper_model": "small",
+  "layout": "fit",
+  "download_max_height": 720,
+  "watermark": {
+    "path": "assets/watermark.png",
+    "width_ratio": 0.28,
+    "x": "(W-w)/2",
+    "y": "H*0.12"
+  },
+  "subtitles": {
+    "font_size": 9,
+    "margin_v": 80
+  }
+}

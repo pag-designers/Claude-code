@@ -1,3 +1,4 @@
 work/
 out/
 assets/watermark.png
+__pycache__/

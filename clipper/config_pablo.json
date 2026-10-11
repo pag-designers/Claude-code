@@ -19,5 +19,18 @@
   "subtitles": {
     "font_size": 9,
     "margin_v": 80
-  }
+  },
+  "censor_words": [
+    "cabron",
+    "cabrón",
+    "culo",
+    "puta",
+    "puto",
+    "mierda",
+    "joder",
+    "coño",
+    "polla",
+    "hostia",
+    "gilipollas"
+  ]
 }

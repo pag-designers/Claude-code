@@ -181,7 +181,16 @@ def to_seconds(ts):
     return int(h) * 3600 + int(m) * 60 + int(s)
 
 
-def write_srt(segments, start, end, path):
+def censor(text, words):
+    """Star out profanity, keeping the first letter: 'cabrón' -> 'c*****'."""
+    text = text.replace("[&nbsp;__&nbsp;]", "***").replace("[ __ ]", "***")
+    for w in words:
+        text = re.sub(rf"\b{re.escape(w)}\w*", lambda m: m.group(0)[0] + "*" * (len(m.group(0)) - 1),
+                      text, flags=re.IGNORECASE)
+    return text
+
+
+def write_srt(segments, start, end, path, censor_words=()):
     """Subtitle lines overlapping [start, end), shifted so the clip starts at 0."""
     lines = []
     n = 0
@@ -191,7 +200,7 @@ def write_srt(segments, start, end, path):
         n += 1
         s = max(0.0, seg["start"] - start)
         e = min(end - start, seg["end"] - start)
-        lines.append(f"{n}\n{_srt_time(s)} --> {_srt_time(e)}\n{seg['text']}\n")
+        lines.append(f"{n}\n{_srt_time(s)} --> {_srt_time(e)}\n{censor(seg['text'], censor_words)}\n")
     path.write_text("\n".join(lines), encoding="utf-8")
     return n
 
@@ -229,7 +238,7 @@ def cmd_cut(args):
         sub_filter = ""
         if segments is not None:
             srt = WORK / f"{r['id']}.srt"
-            count = write_srt(segments, start, end, srt)
+            count = write_srt(segments, start, end, srt, cfg.get("censor_words", []))
             if count:
                 st = cfg["subtitles"]
                 style = f"FontName=Arial,Bold=1,FontSize={st['font_size']},Alignment=2,MarginV={st['margin_v']}"

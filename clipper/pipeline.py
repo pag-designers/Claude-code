@@ -15,13 +15,15 @@ import os
 import re
 import subprocess
 import sys
+import unicodedata
 from pathlib import Path
 
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
-WORK = HERE / "work"
-OUT = HERE / "out"
+# CLIPPER_WORK / CLIPPER_CONFIG let one install handle several campaigns and sources
+WORK = Path(os.environ.get("CLIPPER_WORK", HERE / "work"))
+OUT = Path(os.environ.get("CLIPPER_OUT", HERE / "out"))
 SOURCE = WORK / "source.mp4"
 TRANSCRIPT = WORK / "transcript.json"
 CANDIDATES = WORK / "candidates.csv"
@@ -30,8 +32,12 @@ CAND_FIELDS = ["id", "start", "end", "score", "keyword_hits", "snippet",
 
 
 def load_config():
-    cfg = json.loads((HERE / "config.json").read_text())
-    return cfg
+    return json.loads(Path(os.environ.get("CLIPPER_CONFIG", HERE / "config.json")).read_text())
+
+
+def norm(text):
+    """Lowercase and strip accents, so 'Capítulo' matches 'capitulo'."""
+    return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower()
 
 
 def fmt_ts(seconds):
@@ -63,7 +69,12 @@ def cmd_transcribe(args):
 
     cfg = load_config()
     model = WhisperModel(cfg["whisper_model"], device="cpu", compute_type="int8")
-    segments, info = model.transcribe(str(SOURCE), vad_filter=True, word_timestamps=True)
+    # decode audio with ffmpeg and hand Whisper the samples; avoids the PyAV path
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", str(SOURCE), "-vn", "-ac", "1",
+                          "-ar", "16000", "-f", "f32le", "-"], check=True, capture_output=True).stdout
+    audio = np.frombuffer(raw, dtype=np.float32)
+    segments, info = model.transcribe(audio, language=cfg.get("language"),
+                                      vad_filter=True, word_timestamps=True)
     out = []
     for seg in segments:
         out.append({
@@ -199,9 +210,9 @@ def cmd_cut(args):
         sys.exit("No source video. Run: download")
     if not CANDIDATES.exists():
         sys.exit("No candidates yet. Run: candidates")
-    wm_path = HERE / cfg["watermark"]["path"]
-    if not wm_path.exists():
-        sys.exit(f"Missing watermark at {wm_path}. Add the Preme watermark PNG there first.")
+    wm_path = HERE / cfg["watermark"]["path"] if cfg["watermark"] else None
+    if cfg["watermark"] and not wm_path.exists():
+        sys.exit(f"Missing watermark at {wm_path}. Add the watermark PNG there first.")
     segments = json.loads(TRANSCRIPT.read_text())["segments"] if TRANSCRIPT.exists() else None
 
     rows = list(csv.DictReader(CANDIDATES.open()))
@@ -214,7 +225,7 @@ def cmd_cut(args):
         start = to_seconds(r["start"])
         end = to_seconds(r["end"])
         dur = end - start
-        wm = cfg["watermark"]
+        wm = cfg["watermark"]  # None means no watermark (campaigns that ban them)
         sub_filter = ""
         if segments is not None:
             srt = WORK / f"{r['id']}.srt"
@@ -224,13 +235,16 @@ def cmd_cut(args):
                 style = f"FontName=Arial,Bold=1,FontSize={st['font_size']},Alignment=2,MarginV={st['margin_v']}"
                 sub_filter = f";[v1]subtitles={srt.name}:force_style='{style}'[v2]"
         base = "[0:v]split[a][b];[a]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=25[bg];[b]scale=1080:-2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2[v0]"
-        wm_chain = f";[1:v]scale={int(1080 * wm['width_ratio'])}:-1,format=rgba[wm];[v0][wm]overlay={wm['x']}:{wm['y']}[v1]"
+        if wm:
+            wm_chain = f";[1:v]scale={int(1080 * wm['width_ratio'])}:-1,format=rgba[wm];[v0][wm]overlay={wm['x']}:{wm['y']}[v1]"
+        else:
+            wm_chain = ";[v0]null[v1]"
         graph = base + wm_chain + sub_filter
         final_label = "[v2]" if sub_filter else "[v1]"
         out_path = OUT / f"{r['id']}.mp4"
         cmd = [
             "ffmpeg", "-y", "-v", "error", "-ss", str(start), "-t", str(dur),
-            "-i", str(SOURCE), "-i", str(wm_path),
+            "-i", str(SOURCE), *(["-i", str(wm_path)] if wm_path else []),
             "-filter_complex", graph, "-map", final_label, "-map", "0:a?",
             "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart",
@@ -250,12 +264,13 @@ def cmd_check(args):
     for r in rows:
         if r["approved"].strip().lower() != "yes":
             continue
-        cap = r["post_caption"]
-        if "preme" not in cap.lower():
-            print(f"{r['id']}: caption must mention Preme")
-            problems += 1
-        for word in cfg["banned_words"]:
-            if word in cap.lower():
+        cap = norm(r["post_caption"])
+        for phrase in cfg.get("caption_must_contain", []):
+            if norm(phrase) not in cap:
+                print(f"{r['id']}: caption must contain '{phrase}'")
+                problems += 1
+        for word in cfg.get("banned_words", []):
+            if norm(word) in cap:
                 print(f"{r['id']}: caption contains banned word '{word}'")
                 problems += 1
         if not (OUT / f"{r['id']}.mp4").exists():

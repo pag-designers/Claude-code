@@ -1,18 +1,104 @@
 [
-  { "id": "first-steps", "name": "Hello, Shell", "description": "Completed the First Steps mission.", "emoji": "🐚" },
-  { "id": "prompt-smith", "name": "Prompt Smith", "description": "Completed the Talking to Claude mission.", "emoji": "✍️" },
-  { "id": "memory-keeper", "name": "Memory Keeper", "description": "Wrote your first CLAUDE.md.", "emoji": "🧠" },
-  { "id": "context-keeper", "name": "Context Keeper", "description": "Mastered /clear and /compact.", "emoji": "🧹" },
-  { "id": "plan-first", "name": "Plan First", "description": "Used plan mode before writing code.", "emoji": "🗺️" },
-  { "id": "command-crafter", "name": "Command Crafter", "description": "Built your own slash command.", "emoji": "⚡" },
-  { "id": "agent-wrangler", "name": "Agent Wrangler", "description": "Created a custom subagent.", "emoji": "🤖" },
-  { "id": "hook-master", "name": "Hook Master", "description": "Wired up your first hook.", "emoji": "🪝" },
-  { "id": "mcp-explorer", "name": "MCP Explorer", "description": "Connected an MCP server.", "emoji": "🔌" },
-  { "id": "git-pilot", "name": "Git Pilot", "description": "Shipped a commit and PR with Claude.", "emoji": "🌿" },
-  { "id": "headless-hero", "name": "Headless Hero", "description": "Automated Claude with claude -p.", "emoji": "🛰️" },
-  { "id": "pro-habits", "name": "Pro Habits", "description": "Ran a full explore → plan → code → commit loop.", "emoji": "🏆" },
-  { "id": "perfect-lesson", "name": "Flawless", "description": "Finished a lesson with zero mistakes.", "emoji": "💎" },
-  { "id": "streak-7", "name": "On Fire", "description": "Kept a 7-day streak.", "emoji": "🔥" },
-  { "id": "legendary", "name": "Legendary", "description": "Turned a unit gold.", "emoji": "👑" },
-  { "id": "healer", "name": "Healer", "description": "Practiced a past lesson to refill hearts.", "emoji": "❤️‍🩹" }
+  {
+    "id": "terminal-tourist",
+    "name": "Terminal Tourist",
+    "description": "Opened a real terminal and ran your first commands.",
+    "emoji": "🧭"
+  },
+  {
+    "id": "first-steps",
+    "name": "Hello, Shell",
+    "description": "Completed the First Steps mission.",
+    "emoji": "🐚"
+  },
+  {
+    "id": "prompt-smith",
+    "name": "Prompt Smith",
+    "description": "Completed the Talking to Claude mission.",
+    "emoji": "✍️"
+  },
+  {
+    "id": "memory-keeper",
+    "name": "Memory Keeper",
+    "description": "Wrote your first CLAUDE.md.",
+    "emoji": "🧠"
+  },
+  {
+    "id": "context-keeper",
+    "name": "Context Keeper",
+    "description": "Mastered /clear and /compact.",
+    "emoji": "🧹"
+  },
+  {
+    "id": "plan-first",
+    "name": "Plan First",
+    "description": "Used plan mode before writing code.",
+    "emoji": "🗺️"
+  },
+  {
+    "id": "command-crafter",
+    "name": "Command Crafter",
+    "description": "Built your own slash command.",
+    "emoji": "⚡"
+  },
+  {
+    "id": "agent-wrangler",
+    "name": "Agent Wrangler",
+    "description": "Created a custom subagent.",
+    "emoji": "🤖"
+  },
+  {
+    "id": "hook-master",
+    "name": "Hook Master",
+    "description": "Wired up your first hook.",
+    "emoji": "🪝"
+  },
+  {
+    "id": "mcp-explorer",
+    "name": "MCP Explorer",
+    "description": "Connected an MCP server.",
+    "emoji": "🔌"
+  },
+  {
+    "id": "git-pilot",
+    "name": "Git Pilot",
+    "description": "Shipped a commit and PR with Claude.",
+    "emoji": "🌿"
+  },
+  {
+    "id": "headless-hero",
+    "name": "Headless Hero",
+    "description": "Automated Claude with claude -p.",
+    "emoji": "🛰️"
+  },
+  {
+    "id": "pro-habits",
+    "name": "Pro Habits",
+    "description": "Ran a full explore → plan → code → commit loop.",
+    "emoji": "🏆"
+  },
+  {
+    "id": "perfect-lesson",
+    "name": "Flawless",
+    "description": "Finished a lesson with zero mistakes.",
+    "emoji": "💎"
+  },
+  {
+    "id": "streak-7",
+    "name": "On Fire",
+    "description": "Kept a 7-day streak.",
+    "emoji": "🔥"
+  },
+  {
+    "id": "legendary",
+    "name": "Legendary",
+    "description": "Turned a unit gold.",
+    "emoji": "👑"
+  },
+  {
+    "id": "healer",
+    "name": "Healer",
+    "description": "Practiced a past lesson to refill hearts.",
+    "emoji": "❤️‍🩹"
+  }
 ]

@@ -1,8 +1,8 @@
+import { testOutUnits } from '../lib/progress';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState } from 'react';
 import Kip, { type KipMood } from '../components/Kip';
 import ProgressBar from '../components/ProgressBar';
-import { units } from '../content';
 import { sfx } from '../lib/sound';
 import { useGame } from '../store/useGame';
 import type { DailyGoal, Experience } from '../types';
@@ -25,7 +25,7 @@ const SPEECH: Record<Step, { text: string; mood: KipMood }> = {
   welcome: { text: "Hi, I'm Kip! I live in a terminal. Let's learn Claude Code together, one bite at a time.", mood: 'happy' },
   goal: { text: "What's your daily goal?", mood: 'thinking' },
   experience: { text: 'How much coding have you done?', mood: 'thinking' },
-  placement: { text: 'Want to skip the basics? You can test out of Unit 1.', mood: 'encourage' },
+  placement: { text: 'Already comfortable in a terminal? You can skip the beginner units.', mood: 'encourage' },
   ready: { text: "You're all set. Let's go!", mood: 'celebrate' },
 };
 
@@ -53,7 +53,7 @@ export default function Onboarding() {
 
   const canContinue = step !== 'experience' || experience !== null;
   const speech = SPEECH[step];
-  const unit1 = units[0];
+  const unit1 = testOutUnits[testOutUnits.length - 1];
 
   return (
     <div className="flex min-h-screen flex-col px-5 pb-6 pt-5">
@@ -152,16 +152,16 @@ export default function Onboarding() {
             <div className="flex flex-col gap-3">
               <button onClick={() => setTestOut(false)} className={`tile py-4 ${!testOut ? 'tile-selected' : ''}`}>
                 <span className="block text-lg">🐣 Start from scratch</span>
-                <span className="block text-sm font-semibold text-muted">Begin with Unit 1 — it goes quickly.</span>
+                <span className="block text-sm font-semibold text-muted">Start with the basics: what a terminal is and how commands work.</span>
               </button>
               <button
                 onClick={() => setTestOut(true)}
                 disabled={!unit1}
                 className={`tile py-4 disabled:opacity-50 ${testOut ? 'tile-selected' : ''}`}
               >
-                <span className="block text-lg">⏩ Test out of Unit 1</span>
+                <span className="block text-lg">⏩ Skip the basics</span>
                 <span className="block text-sm font-semibold text-muted">
-                  {unit1 ? `Mark "${unit1.title}" as done and jump ahead.` : 'No units available yet.'}
+                  {unit1 ? `Mark the beginner units (up to "${unit1.title}") as done and jump ahead.` : 'No units available yet.'}
                 </span>
               </button>
             </div>
@@ -175,7 +175,7 @@ export default function Onboarding() {
                 {testOut && unit1 && (
                   <>
                     <br />
-                    Starting after <span className="text-ink">Unit 1</span>
+                    Starting after <span className="text-ink">{unit1.title}</span>
                   </>
                 )}
               </p>

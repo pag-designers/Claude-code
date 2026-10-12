@@ -47,6 +47,8 @@ export type FillBlankExercise = Base & {
   wordBank: string[];
   /** For display only: 'json' | 'markdown' | 'bash' | ... */
   language?: string;
+  /** Optional hint shown on demand (e.g. the syntax pattern being practiced). */
+  hint?: string;
 };
 
 export type OrderStepsExercise = Base & {
@@ -112,7 +114,7 @@ export type Lesson = {
   title: string;
   /** Short subtitle on the path tooltip. */
   description: string;
-  theory: TheoryCard[]; // 1–2
+  theory: TheoryCard[]; // 1–3: must teach every command/syntax the exercises ask for
   exercises: Exercise[]; // 6–10
 };
 

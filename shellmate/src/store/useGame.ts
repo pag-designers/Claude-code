@@ -4,7 +4,7 @@ import { units } from '../content';
 import type { DailyGoal, Experience } from '../types';
 import { addDays, diffDays, isoWeekId, todayStr, weekDates } from '../lib/date';
 import { createLeague, type League } from '../lib/league';
-import { isLessonDone, unitById, type LessonRecord } from '../lib/progress';
+import { isLessonDone, unitById, type LessonRecord, testOutUnits } from '../lib/progress';
 import { setMuteSource } from '../lib/sound';
 import { toast } from './useToast';
 
@@ -26,7 +26,8 @@ export type ReviewItem = { box: 1 | 2 | 3 | 4 | 5; due: string; lessonId: string
 
 export type Streak = { count: number; lastDay: string | null; freezesUsedWeek: string | null };
 
-export type Settings = { muted: boolean; theme: 'dark' | 'light' };
+/** `unlimitedHearts` is undefined for saves made before the setting existed; treat that as on. */
+export type Settings = { muted: boolean; theme: 'dark' | 'light'; unlimitedHearts?: boolean };
 
 export type SessionResult = {
   mode: SessionMode;
@@ -78,6 +79,7 @@ type GameActions = {
   setDailyGoal: (goal: DailyGoal) => void;
   setTheme: (theme: Settings['theme']) => void;
   toggleMute: () => void;
+  toggleUnlimitedHearts: () => void;
   /** Lazily regenerate hearts (1 per 30 min). */
   tickHearts: () => void;
   loseHeart: () => void;
@@ -111,7 +113,7 @@ function initialData(): GameData {
     badges: [],
     reviewDeck: {},
     league: createLeague(),
-    settings: { muted: false, theme: 'dark' },
+    settings: { muted: false, theme: 'dark', unlimitedHearts: true },
     testedOut: false,
   };
 }
@@ -131,8 +133,8 @@ export const useGame = create<GameState>()(
 
       completeOnboarding: (dailyGoal, experience, testOut) => {
         const completedLessons = { ...get().completedLessons };
-        if (testOut && units[0]) {
-          for (const l of units[0].lessons) {
+        if (testOut) {
+          for (const l of testOutUnits.flatMap((u) => u.lessons)) {
             completedLessons[l.id] ??= { bestAccuracy: 100, times: 1 };
           }
         }
@@ -142,9 +144,19 @@ export const useGame = create<GameState>()(
       setDailyGoal: (dailyGoal) => set({ dailyGoal }),
       setTheme: (theme) => set((s) => ({ settings: { ...s.settings, theme } })),
       toggleMute: () => set((s) => ({ settings: { ...s.settings, muted: !s.settings.muted } })),
+      toggleUnlimitedHearts: () =>
+        set((s) => ({
+          settings: { ...s.settings, unlimitedHearts: !hasUnlimitedHearts(s) },
+          hearts: MAX_HEARTS,
+          heartsUpdatedAt: Date.now(),
+        })),
 
       tickHearts: () => {
         const s = get();
+        if (hasUnlimitedHearts(s)) {
+          if (s.hearts !== MAX_HEARTS) set({ hearts: MAX_HEARTS, heartsUpdatedAt: Date.now() });
+          return;
+        }
         const next = regen(s.hearts, s.heartsUpdatedAt, Date.now());
         if (next.hearts !== s.hearts || next.heartsUpdatedAt !== s.heartsUpdatedAt) set(next);
       },
@@ -152,6 +164,7 @@ export const useGame = create<GameState>()(
       loseHeart: () => {
         const now = Date.now();
         const s = get();
+        if (hasUnlimitedHearts(s)) return;
         const cur = regen(s.hearts, s.heartsUpdatedAt, now);
         const wasFull = cur.hearts >= MAX_HEARTS;
         set({
@@ -308,6 +321,10 @@ export const useGame = create<GameState>()(
 setMuteSource(() => useGame.getState().settings.muted);
 
 // ---------- Selectors / derived values ----------
+
+export function hasUnlimitedHearts(s: Pick<GameData, 'settings'>): boolean {
+  return s.settings.unlimitedHearts !== false;
+}
 
 /** Streak shown in the UI: 0 if it has lapsed (allowing a not-yet-used freeze). */
 export function displayStreak(s: Pick<GameData, 'streak'>): number {

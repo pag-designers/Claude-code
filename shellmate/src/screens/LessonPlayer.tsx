@@ -2,7 +2,7 @@ import { AnimatePresence, motion, useAnimationControls } from 'framer-motion';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import BottomSheet from '../components/BottomSheet';
 import { ExerciseRenderer, exerciseTitle } from '../components/exercises/ExerciseRenderer';
-import { CheckIcon, CrownIcon, HeartIcon, InfinityIcon, XIcon } from '../components/Icons';
+import { BookIcon, CheckIcon, CrownIcon, HeartIcon, InfinityIcon, XIcon } from '../components/Icons';
 import Kip, { type KipMood } from '../components/Kip';
 import Modal from '../components/Modal';
 import ProgressBar from '../components/ProgressBar';
@@ -10,7 +10,7 @@ import RichText, { CodeBlock, renderInline } from '../components/RichText';
 import { lessonIndex } from '../content';
 import { lastCompletedLesson, unitById } from '../lib/progress';
 import { sfx } from '../lib/sound';
-import { dueReviewIds, useGame, type SessionSpec } from '../store/useGame';
+import { dueReviewIds, useGame, type SessionSpec, hasUnlimitedHearts } from '../store/useGame';
 import { useNav } from '../store/useNav';
 import type { Exercise, GradeResult, TheoryCard } from '../types';
 
@@ -60,6 +60,7 @@ export default function LessonPlayer({ session: spec }: { session: SessionSpec }
   const tab = useNav((s) => s.tab);
   const play = useNav((s) => s.play);
   const hearts = useGame((s) => s.hearts);
+  const unlimited = useGame(hasUnlimitedHearts);
   const { loseHeart, addToReview, answerReview, finishSession, tickHearts } = useGame.getState();
 
   const [session] = useState(() => buildSession(spec));
@@ -74,6 +75,7 @@ export default function LessonPlayer({ session: spec }: { session: SessionSpec }
   const [praise, setPraise] = useState(PRAISE[0]);
   const [kipMood, setKipMood] = useState<KipMood>('thinking');
   const [quitOpen, setQuitOpen] = useState(false);
+  const [tipsOpen, setTipsOpen] = useState(false);
   const [correctIds, setCorrectIds] = useState<Set<string>>(() => new Set());
 
   const gradeRef = useRef<(() => GradeResult) | null>(null);
@@ -85,6 +87,8 @@ export default function LessonPlayer({ session: spec }: { session: SessionSpec }
   const controls = useAnimationControls();
 
   const item = queue[pos];
+  // Theory cards for whichever lesson the current exercise came from (works in review too).
+  const tips: TheoryCard[] = (item && lessonIndex.get(item.lessonId)?.lesson.theory) || session?.theory || [];
   const isLessonMode = spec.mode === 'normal' || spec.mode === 'practice' || spec.mode === 'legendary';
 
   // Starting a normal lesson with no hearts left goes straight to the "Out of hearts" modal.
@@ -184,9 +188,9 @@ export default function LessonPlayer({ session: spec }: { session: SessionSpec }
   }, [spec.mode, pos, queue.length, finish]);
 
   // Keyboard: Enter = Check / Continue (Ctrl/Cmd+Enter inside a textarea).
-  const keyState = useRef({ phase, ready, quitOpen, check, cont, nextTheory });
+  const keyState = useRef({ phase, ready, quitOpen: quitOpen || tipsOpen, check, cont, nextTheory });
   useEffect(() => {
-    keyState.current = { phase, ready, quitOpen, check, cont, nextTheory };
+    keyState.current = { phase, ready, quitOpen: quitOpen || tipsOpen, check, cont, nextTheory };
   });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -232,8 +236,18 @@ export default function LessonPlayer({ session: spec }: { session: SessionSpec }
           <XIcon size={26} />
         </button>
         <ProgressBar value={progress} color={color} />
+        {tips.length > 0 && phase !== 'theory' && (
+          <button
+            className="flex items-center gap-1 rounded-xl px-1.5 py-1 text-xs font-black uppercase tracking-wide text-muted hover:text-ink"
+            onClick={() => setTipsOpen(true)}
+            aria-label="Show this lesson's tips"
+          >
+            <BookIcon size={22} />
+            Tips
+          </button>
+        )}
         <div className="flex min-w-12 items-center justify-end gap-1 font-black">
-          {spec.mode === 'normal' ? (
+          {spec.mode === 'normal' && !unlimited ? (
             <>
               <HeartIcon size={24} className={hearts === 0 ? 'grayscale' : ''} />
               <span className="text-error">{hearts}</span>
@@ -352,12 +366,36 @@ export default function LessonPlayer({ session: spec }: { session: SessionSpec }
             </div>
             {result.feedback && <p className="mt-3 font-bold text-ink">{renderInline(result.feedback)}</p>}
             {item && <p className="mt-2 text-sm font-semibold text-ink/80">{renderInline(item.exercise.explanation)}</p>}
+            {!result.correct && tips.length > 0 && (
+              <button className="mt-2 text-sm font-black underline underline-offset-2" onClick={() => setTipsOpen(true)}>
+                📖 Re-read the tips for this lesson
+              </button>
+            )}
             <button className={`btn3d ${result.correct ? 'btn3d-success' : 'btn3d-error'} mt-4 w-full py-4 text-lg`} onClick={cont}>
               Continue
             </button>
           </div>
         )}
       </BottomSheet>
+
+      <Modal open={tipsOpen} onClose={() => setTipsOpen(false)} title="Lesson tips" wide>
+        <div className="flex flex-col gap-4">
+          {tips.map((card, i) => (
+            <div key={i} className="card">
+              <h3 className="mb-2 text-lg font-black">{card.title}</h3>
+              <RichText text={card.body} className="font-semibold" />
+              {card.code && (
+                <div className="mt-3">
+                  <CodeBlock code={card.code} />
+                </div>
+              )}
+            </div>
+          ))}
+          <button className="btn3d w-full" onClick={() => setTipsOpen(false)}>
+            Back to the exercise
+          </button>
+        </div>
+      </Modal>
 
       <Modal open={quitOpen} onClose={() => setQuitOpen(false)}>
         <div className="flex flex-col items-center text-center">

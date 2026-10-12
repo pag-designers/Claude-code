@@ -5,7 +5,7 @@ import Modal from '../components/Modal';
 import { badges } from '../content';
 import { addDays, todayStr, toDateStr, weekStart } from '../lib/date';
 import { sfx } from '../lib/sound';
-import { displayStreak, lessonsDoneCount, useGame } from '../store/useGame';
+import { displayStreak, lessonsDoneCount, useGame, hasUnlimitedHearts } from '../store/useGame';
 import { useNav } from '../store/useNav';
 import type { DailyGoal } from '../types';
 
@@ -170,6 +170,10 @@ export default function Profile() {
         <div className="flex items-center justify-between">
           <span className="font-extrabold">🔊 Sound effects</span>
           <Toggle label="Sound effects" on={!s.settings.muted} onChange={s.toggleMute} />
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="font-extrabold">❤️ Unlimited hearts</span>
+          <Toggle label="Unlimited hearts" on={hasUnlimitedHearts(s)} onChange={s.toggleUnlimitedHearts} />
         </div>
         <button className="btn3d btn3d-error w-full" onClick={() => setConfirmReset(true)}>
           Reset progress

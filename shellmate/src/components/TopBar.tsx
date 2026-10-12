@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { displayStreak, MAX_HEARTS, msToNextHeart, todayXp, useGame } from '../store/useGame';
+import { displayStreak, hasUnlimitedHearts, MAX_HEARTS, msToNextHeart, todayXp, useGame } from '../store/useGame';
 import { formatDuration } from '../lib/date';
-import { FlameIcon, GemIcon, HeartIcon } from './Icons';
+import { FlameIcon, GemIcon, HeartIcon, InfinityIcon } from './Icons';
 import Modal from './Modal';
 import ProgressRing from './ProgressRing';
 
@@ -14,6 +14,7 @@ export default function TopBar() {
   const today = todayXp(s);
   const goalPct = today / s.dailyGoal;
   const nextHeart = msToNextHeart(s);
+  const unlimited = hasUnlimitedHearts(s);
 
   const item = 'flex items-center gap-1.5 rounded-xl px-2 py-1.5 font-black hover:bg-surface-2';
 
@@ -28,9 +29,9 @@ export default function TopBar() {
           <GemIcon size={24} />
           <span className="text-gold">{s.xpTotal}</span>
         </button>
-        <button className={item} onClick={() => setInfo('hearts')} aria-label={`${s.hearts} hearts`}>
-          <HeartIcon size={26} className={s.hearts === 0 ? 'opacity-40 grayscale' : ''} />
-          <span className="text-error">{s.hearts}</span>
+        <button className={item} onClick={() => setInfo('hearts')} aria-label={unlimited ? 'Unlimited hearts' : `${s.hearts} hearts`}>
+          <HeartIcon size={26} className={!unlimited && s.hearts === 0 ? 'opacity-40 grayscale' : ''} />
+          {unlimited ? <InfinityIcon size={22} className="text-error" /> : <span className="text-error">{s.hearts}</span>}
         </button>
         <button className={item} onClick={() => setInfo('goal')} aria-label="Daily goal progress">
           <ProgressRing value={goalPct} size={34} color={goalPct >= 1 ? 'var(--success)' : 'var(--gold)'}>
@@ -46,7 +47,9 @@ export default function TopBar() {
               ? `You're on a ${streak} day streak. Finish a lesson every day to keep it going. One missed day per week is covered by a streak freeze ❄️.`
               : 'Finish a lesson today to start a streak!')}
           {info === 'hearts' &&
-            (s.hearts >= MAX_HEARTS
+            (unlimited
+              ? 'Unlimited hearts are on, so mistakes never stop you. You can turn this off in Profile if you want the challenge.'
+              : s.hearts >= MAX_HEARTS
               ? 'Your hearts are full. Each mistake in a lesson costs one heart.'
               : `You have ${s.hearts}/${MAX_HEARTS} hearts. Next heart in ${formatDuration(nextHeart ?? 0)}. Practice a finished lesson to refill them all.`)}
           {info === 'xp' && `You've earned ${s.xpTotal} XP in total. 10 XP per correct answer, +5 for a perfect lesson.`}

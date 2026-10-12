@@ -1,3 +1,4 @@
+import Hint from './Hint';
 import { useMemo, useState } from 'react';
 import { LayoutGroup, motion } from 'framer-motion';
 import type { ExerciseProps, FillBlankExercise } from '../../types';
@@ -43,6 +44,7 @@ export function FillBlank({ exercise, locked, onReady }: ExerciseProps<FillBlank
     <LayoutGroup id={`fb-${exercise.id}`}>
       <div className="flex flex-col gap-5">
         <p className="text-lg font-bold text-ink">{exercise.prompt}</p>
+        {exercise.hint && !locked && <Hint text={exercise.hint} />}
 
         <div className="overflow-hidden rounded-2xl border-2 border-[#2a2f3a] bg-code">
           {exercise.language && (

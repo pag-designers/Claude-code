@@ -1,3 +1,4 @@
+import Hint from './Hint';
 import { useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { ExerciseProps, TerminalExercise as TerminalExerciseT } from '../../types';
@@ -6,7 +7,6 @@ import { BOUNCE, SHAKE, useReportReady } from './util';
 
 export function TerminalExercise({ exercise, locked, onReady }: ExerciseProps<TerminalExerciseT>) {
   const [value, setValue] = useState('');
-  const [showHint, setShowHint] = useState(false);
   const [focused, setFocused] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const symbol = exercise.promptSymbol ?? '$';
@@ -86,27 +86,7 @@ export function TerminalExercise({ exercise, locked, onReady }: ExerciseProps<Te
         </div>
       </motion.div>
 
-      {exercise.hint && !locked && (
-        <div className="min-h-12">
-          {showHint ? (
-            <motion.p
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-xl bg-surface-2 px-3 py-2 text-sm text-muted"
-            >
-              💡 {exercise.hint}
-            </motion.p>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowHint(true)}
-              className="min-h-12 text-sm font-bold text-primary underline-offset-4 hover:underline"
-            >
-              Show hint
-            </button>
-          )}
-        </div>
-      )}
+      {exercise.hint && !locked && <Hint text={exercise.hint} />}
     </div>
   );
 }

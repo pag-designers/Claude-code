@@ -1,0 +1,521 @@
+{
+  "id": "u0",
+  "order": 0,
+  "title": "Before You Start",
+  "description": "Never touched a terminal? Start here: typing commands, reading them, and peeking at config files. No coding required.",
+  "color": "#9aa4b8",
+  "lessons": [
+    {
+      "id": "u0-l1",
+      "title": "What's a terminal?",
+      "description": "Type commands instead of clicking, and find your way around folders.",
+      "theory": [
+        {
+          "title": "A window you talk to with text",
+          "body": "Hi, I'm **Kip**, a hermit crab whose shell is a terminal. A **terminal** is a text window where you **type commands** instead of clicking buttons.\n\nWhen it's ready, it shows a **prompt symbol**, usually `$`. It means \"ready, type here\". You **don't type the `$` yourself**: it's already there.\n\nType a command after it and press **Enter**. The answer (called **output**) appears on the lines below. Commands are **case-sensitive**: `pwd` works, `PWD` does not.",
+          "code": "$ pwd\n/Users/kip/projects"
+        },
+        {
+          "title": "Four commands to find your way",
+          "body": "Your computer is a tree of **folders**. The terminal is always standing *inside* one of them.\n\n`pwd` answers \"where am I?\" (it prints the current folder). `ls` answers \"what's here?\" (it lists files and folders). `cd folder` means \"go into that folder\". `cd ..` means \"go up one level\", back to the parent folder.\n\nA **project** is nothing magic: it's just a folder full of files. In the example, anything after `#` is a note for humans; the terminal ignores it.",
+          "code": "$ pwd          # where am I?\n/Users/kip\n$ ls           # what's here?\nprojects  notes.md\n$ cd projects  # go into projects\n$ cd ..        # go back up"
+        },
+        {
+          "title": "Inside Claude Code the prompt changes",
+          "body": "When you start Claude Code (by typing `claude`), you're now *talking to Claude*, and the prompt looks like `>` instead of `$`.\n\nAt the `>` prompt you type **plain English** (\"explain this project\") or **slash commands** that start with `/`, like `/help`.\n\nRule of thumb: `$` = the shell, which wants commands like `ls`. `>` = Claude, which understands sentences.",
+          "code": "$ claude\n> explain this project\n> /help"
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u0-l1-e1",
+          "type": "multiple-choice",
+          "prompt": "Your terminal shows `$` with a blinking cursor. What does the `$` mean?",
+          "options": [
+            "You owe money",
+            "Ready, type your command here",
+            "An error happened",
+            "You must type a $ before every command"
+          ],
+          "answer": 1,
+          "explanation": "The $ is the prompt: the terminal is waiting for you, and it's already printed so you never type it yourself."
+        },
+        {
+          "id": "u0-l1-e2",
+          "type": "match-pairs",
+          "prompt": "Match each command to what it does.",
+          "pairs": [
+            {
+              "left": "pwd",
+              "right": "Where am I?"
+            },
+            {
+              "left": "ls",
+              "right": "What's here?"
+            },
+            {
+              "left": "cd projects",
+              "right": "Go into projects"
+            },
+            {
+              "left": "cd ..",
+              "right": "Go up one folder"
+            }
+          ],
+          "explanation": "These four commands let you look around and move between folders, which is all the navigation you need to start."
+        },
+        {
+          "id": "u0-l1-e3",
+          "type": "spot-bad-prompt",
+          "prompt": "The terminal shows `$`. You want to list what's in this folder. Which one do you type?",
+          "options": [
+            "$ ls",
+            "ls"
+          ],
+          "better": 1,
+          "explanation": "The $ is already on screen as the prompt, so you type only the command itself: ls."
+        },
+        {
+          "id": "u0-l1-e4",
+          "type": "multiple-choice",
+          "prompt": "You started Claude Code and now see a `>` prompt. What can you type there?",
+          "options": [
+            "Only shell commands like ls and pwd",
+            "Nothing, you must wait",
+            "Plain English, or slash commands like /help",
+            "Only numbers"
+          ],
+          "answer": 2,
+          "explanation": "The > prompt means you're talking to Claude, which understands sentences and slash commands instead of shell commands."
+        },
+        {
+          "id": "u0-l1-e5",
+          "type": "fill-blank",
+          "prompt": "Complete Kip's tour: check where you are, list what's here, then go up one folder.",
+          "code": "$ ___\n$ ___\n$ cd ___",
+          "blanks": [
+            "pwd",
+            "ls",
+            ".."
+          ],
+          "wordBank": [
+            "pwd",
+            "ls",
+            "..",
+            "PWD",
+            "$",
+            "up"
+          ],
+          "language": "bash",
+          "hint": "pwd = where am I, ls = what's here, and two dots (..) mean the folder above.",
+          "explanation": "pwd shows your location, ls lists what's inside, and cd .. moves you up to the parent folder."
+        },
+        {
+          "id": "u0-l1-e6",
+          "type": "order-steps",
+          "prompt": "Put the steps of running a command in order.",
+          "steps": [
+            "Open the terminal",
+            "Wait for the $ prompt",
+            "Type the command, for example pwd",
+            "Press Enter",
+            "Read the output on the lines below"
+          ],
+          "explanation": "Every command follows the same rhythm: prompt, type, Enter, read the output."
+        },
+        {
+          "id": "u0-l1-e7",
+          "type": "terminal",
+          "prompt": "Show which folder you're in.",
+          "promptSymbol": "$",
+          "accepted": [
+            "pwd"
+          ],
+          "hint": "It's three letters: p-w-d (no $ needed, it's already there).",
+          "explanation": "pwd prints the folder the terminal is currently standing in."
+        },
+        {
+          "id": "u0-l1-e8",
+          "type": "terminal",
+          "prompt": "You're in a folder named projects. Go up one folder.",
+          "promptSymbol": "$",
+          "accepted": [
+            "cd .."
+          ],
+          "hint": "cd, a space, then two dots: cd ..",
+          "explanation": "cd .. moves you to the parent folder, one level up."
+        }
+      ]
+    },
+    {
+      "id": "u0-l2",
+      "title": "Anatomy of a command",
+      "description": "Command names, arguments, flags, quotes and paths, read left to right.",
+      "theory": [
+        {
+          "title": "Read a command left to right",
+          "body": "A command is like a short sentence. Read it **left to right**:\n\n**1. Command name** first: which program to run, like `claude`.\n\n**2. Arguments**: what to work on, like a folder name in `cd projects`.\n\n**3. Flags**: options that change *how* it behaves. Flags start with **dashes**.\n\nSpaces separate the parts, so `claude --continue` is two parts: the program `claude` and the flag `--continue` (continue your last conversation).",
+          "code": "claude --continue\n└─┬──┘ └───┬────┘\n command    flag"
+        },
+        {
+          "title": "Flags: long, short, and with values",
+          "body": "Flags come in two forms that usually mean the same thing:\n\n**Long form**: two dashes and a word, like `--continue`. Easy to read.\n\n**Short form**: one dash and one letter, like `-c`. Quick to type.\n\nSome flags need a **value** right after them: in `--output-format json`, the flag is `--output-format` and its value is `json`.\n\nIf an argument has **spaces**, wrap it in **double quotes** so it stays one piece: `claude \"explain this project\"` gives Claude the whole sentence as one task.",
+          "code": "claude --continue     # long form\nclaude -c             # short form, same thing\nclaude --output-format json\nclaude \"explain this project\""
+        },
+        {
+          "title": "Paths and file types",
+          "body": "A **path** is an address for a file. Slashes separate folders: `src/app.ts` means the file `app.ts` inside the folder `src`.\n\nShortcuts: `~` means **your home folder**, `.` means **the current folder**, and `..` (you met it already) means the folder above.\n\nThe ending of a file name is its **extension** and hints what's inside: `.md` = Markdown notes, `.json` = settings data, `.ts` / `.js` = code, `.sh` = a shell script (a list of commands).",
+          "code": "src/app.ts           # app.ts inside the src folder\n~/projects           # projects in your home folder\n./CLAUDE.md          # CLAUDE.md in the current folder\n.claude/settings.json"
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u0-l2-e1",
+          "type": "multiple-choice",
+          "prompt": "In `claude --continue`, which part is the flag?",
+          "options": [
+            "claude",
+            "--continue",
+            "The space",
+            "There is no flag"
+          ],
+          "answer": 1,
+          "explanation": "Flags start with dashes, so --continue is the flag and claude is the command name."
+        },
+        {
+          "id": "u0-l2-e2",
+          "type": "match-pairs",
+          "prompt": "Match each piece to what it means.",
+          "pairs": [
+            {
+              "left": "--continue",
+              "right": "Long flag"
+            },
+            {
+              "left": "-c",
+              "right": "Short flag"
+            },
+            {
+              "left": "src/app.ts",
+              "right": "app.ts inside src"
+            },
+            {
+              "left": "~",
+              "right": "Your home folder"
+            },
+            {
+              "left": ".",
+              "right": "Current folder"
+            }
+          ],
+          "explanation": "Dashes mark flags, slashes separate folders in a path, and ~ and . are shortcuts for common folders."
+        },
+        {
+          "id": "u0-l2-e3",
+          "type": "multiple-choice",
+          "prompt": "Which file most likely holds Markdown notes?",
+          "options": [
+            "settings.json",
+            "app.ts",
+            "CLAUDE.md",
+            "setup.sh"
+          ],
+          "answer": 2,
+          "explanation": "The .md extension means Markdown, a simple format for notes and documentation."
+        },
+        {
+          "id": "u0-l2-e4",
+          "type": "spot-bad-prompt",
+          "prompt": "You want to start Claude with the task: explain this project. Which command keeps the task in one piece?",
+          "options": [
+            "claude explain this project",
+            "claude \"explain this project\""
+          ],
+          "better": 1,
+          "explanation": "Double quotes keep text with spaces together as one argument, so Claude gets the whole sentence as its task."
+        },
+        {
+          "id": "u0-l2-e5",
+          "type": "fill-blank",
+          "prompt": "Write the same flag twice: first the long form, then the short form.",
+          "code": "claude ___     # long form\nclaude ___     # short form",
+          "blanks": [
+            "--continue",
+            "-c"
+          ],
+          "wordBank": [
+            "--continue",
+            "-c",
+            "-continue",
+            "--c",
+            "continue"
+          ],
+          "language": "bash",
+          "hint": "Long flags use two dashes and a word; short flags use one dash and one letter.",
+          "explanation": "--continue and -c are the long and short spellings of the same flag."
+        },
+        {
+          "id": "u0-l2-e6",
+          "type": "order-steps",
+          "prompt": "Read `claude --output-format json` left to right. Put the parts in order.",
+          "steps": [
+            "claude: the program to run",
+            "--output-format: a flag that changes how it behaves",
+            "json: the value given to that flag"
+          ],
+          "explanation": "Command name first, then the flag, then the flag's value right after it."
+        },
+        {
+          "id": "u0-l2-e7",
+          "type": "terminal",
+          "prompt": "Start Claude and continue your last conversation, using the long flag.",
+          "promptSymbol": "$",
+          "accepted": [
+            "claude --continue"
+          ],
+          "hint": "The program name, a space, then two dashes and the word continue.",
+          "explanation": "claude --continue opens Claude and picks up your most recent conversation."
+        },
+        {
+          "id": "u0-l2-e8",
+          "type": "terminal",
+          "prompt": "Start Claude with the task explain this project (remember the quotes).",
+          "promptSymbol": "$",
+          "accepted": [
+            "claude \"explain this project\"",
+            "claude 'explain this project'"
+          ],
+          "hint": "claude, a space, then the sentence inside double quotes: claude \"...\"",
+          "explanation": "The quotes turn the whole sentence into one argument, which Claude receives as its first task."
+        }
+      ]
+    },
+    {
+      "id": "u0-l3",
+      "title": "Reading config files",
+      "description": "Just enough Markdown and JSON to read CLAUDE.md and settings.json.",
+      "theory": [
+        {
+          "title": "Markdown: notes with a little structure",
+          "body": "Claude Code reads a notes file called `CLAUDE.md`. The `.md` means it's **Markdown**: plain text with a few symbols for structure.\n\nA line starting with `#` and a space is a **heading** (a title). A line starting with `-` and a space is a **bullet** in a list.\n\nThat's it. Everything else is normal sentences, written for Claude to read.",
+          "code": "# Project notes\n\n- Run tests before committing\n- Use 2-space indentation"
+        },
+        {
+          "title": "JSON: labeled boxes of settings",
+          "body": "Settings live in `.claude/settings.json`, written in **JSON**. The rules are strict, but there are only a few:\n\nCurly braces `{ }` hold **key/value pairs**. The **key** is the label, always in **double quotes**. A **colon** `:` sits between key and value. **Commas** go *between* pairs, but **never after the last one** (no trailing comma).\n\nText values (called **strings**) are in double quotes too, like `\"dark\"`. Square brackets `[ ]` hold a **list**, with commas between items.",
+          "code": "{\n  \"theme\": \"dark\",\n  \"allow\": [\"Read\", \"Edit\"]\n}"
+        },
+        {
+          "title": "You read, steer and check",
+          "body": "A value can itself be another `{ }` box. Just read it from the outside in: here `permissions` holds `allow`, which holds a list.\n\nGood news: you're **not expected to write code from scratch**. In Claude Code, **Claude writes the code**. Your job is to **ask** in plain English, **read** what it changed, **steer** it if something's off, and **check** that it works.\n\nKnowing what `{ }`, `[ ]` and `#` mean is enough to follow along. Kip believes in you.",
+          "code": "{\n  \"permissions\": {\n    \"allow\": [\"Read\", \"Edit\"]\n  }\n}"
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u0-l3-e1",
+          "type": "multiple-choice",
+          "prompt": "In a Markdown file, what is the line `# Project notes`?",
+          "options": [
+            "A comment that Claude ignores",
+            "A heading",
+            "A bullet in a list",
+            "A JSON key"
+          ],
+          "answer": 1,
+          "explanation": "In Markdown, # followed by a space turns the line into a heading."
+        },
+        {
+          "id": "u0-l3-e2",
+          "type": "match-pairs",
+          "prompt": "Match each symbol to its job.",
+          "pairs": [
+            {
+              "left": "{ }",
+              "right": "Holds key/value pairs"
+            },
+            {
+              "left": "[ ]",
+              "right": "Holds a list"
+            },
+            {
+              "left": ":",
+              "right": "Between key and value"
+            },
+            {
+              "left": ",",
+              "right": "Between pairs or items"
+            },
+            {
+              "left": "- (Markdown)",
+              "right": "A bullet point"
+            }
+          ],
+          "explanation": "Each symbol has one small job, and recognizing them is most of what reading JSON and Markdown takes."
+        },
+        {
+          "id": "u0-l3-e3",
+          "type": "spot-bad-prompt",
+          "prompt": "Which settings snippet is valid JSON?",
+          "options": [
+            "{ \"theme\": \"dark\", }",
+            "{ \"theme\": \"dark\" }"
+          ],
+          "better": 1,
+          "explanation": "JSON forbids a comma after the last pair, so the trailing comma makes the first one invalid."
+        },
+        {
+          "id": "u0-l3-e4",
+          "type": "multiple-choice",
+          "prompt": "Which of these is a correct JSON key/value pair?",
+          "options": [
+            "theme: dark",
+            "'theme': 'dark'",
+            "\"theme\": \"dark\"",
+            "\"theme\" = \"dark\""
+          ],
+          "answer": 2,
+          "explanation": "JSON keys and text values use double quotes, with a colon in between."
+        },
+        {
+          "id": "u0-l3-e5",
+          "type": "fill-blank",
+          "prompt": "Complete this settings file.",
+          "code": "___\n  \"theme\"___ \"dark\"___\n  \"allow\": ___\"Read\", \"Edit\"]\n}",
+          "blanks": [
+            "{",
+            ":",
+            ",",
+            "["
+          ],
+          "wordBank": [
+            "{",
+            ":",
+            ",",
+            "[",
+            "=",
+            ";",
+            "("
+          ],
+          "language": "json",
+          "hint": "Curly brace opens the box, a colon goes between key and value, a comma between pairs, and a square bracket opens a list.",
+          "explanation": "{ opens the settings, : links each key to its value, , separates pairs, and [ starts the list that ] closes."
+        },
+        {
+          "id": "u0-l3-e6",
+          "type": "fill-blank",
+          "prompt": "Complete this CLAUDE.md: a heading, then a bullet.",
+          "code": "___ Project notes\n\n___ Use 2-space indentation",
+          "blanks": [
+            "#",
+            "-"
+          ],
+          "wordBank": [
+            "#",
+            "-",
+            "$",
+            "{",
+            ">"
+          ],
+          "language": "markdown",
+          "hint": "In Markdown, # starts a heading and - starts a bullet.",
+          "explanation": "# makes the first line a heading and - makes the second line a list item."
+        },
+        {
+          "id": "u0-l3-e7",
+          "type": "order-steps",
+          "prompt": "Put your role in a Claude Code session in order.",
+          "steps": [
+            "Ask Claude in plain English",
+            "Claude writes the code",
+            "Read what it changed",
+            "Steer it if something's off",
+            "Check that it works"
+          ],
+          "explanation": "You stay in charge by asking, reading, steering and checking, while Claude does the typing."
+        },
+        {
+          "id": "u0-l3-e8",
+          "type": "terminal",
+          "prompt": "Settings live in the .claude folder. Move into the folder named .claude.",
+          "promptSymbol": "$",
+          "accepted": [
+            "cd .claude",
+            "cd ./.claude"
+          ],
+          "hint": "cd, a space, then the folder name (it starts with a dot): cd .claude",
+          "explanation": "cd followed by a folder name moves you into it, here the .claude folder that holds settings.json."
+        }
+      ]
+    }
+  ],
+  "mission": {
+    "id": "u0-mission",
+    "type": "mission",
+    "title": "Open your terminal for real",
+    "intro": "Time to leave the practice tank. Open a real terminal on your computer and take Kip's four-command tour. Nothing you do here can break anything.",
+    "checklist": [
+      "Open your terminal app (macOS: Terminal; Windows: PowerShell or Windows Terminal; Linux: your terminal)",
+      "Find the prompt symbol waiting for you (often $ or >)",
+      "Run pwd to see which folder you're in",
+      "Run ls to see what's in it",
+      "cd into one of the folders you saw",
+      "Come back with cd .."
+    ],
+    "bonusXp": 20,
+    "badge": "terminal-tourist",
+    "explanation": "You just navigated your computer by typing, which is the exact skill every later unit builds on."
+  },
+  "cheatsheet": [
+    {
+      "term": "$",
+      "description": "Shell prompt: ready for a command. Don't type it yourself.",
+      "kind": "concept"
+    },
+    {
+      "term": ">",
+      "description": "Claude Code prompt: type plain English or /commands.",
+      "kind": "concept"
+    },
+    {
+      "term": "pwd",
+      "description": "Show which folder you're in.",
+      "kind": "command"
+    },
+    {
+      "term": "ls",
+      "description": "List files and folders here.",
+      "kind": "command"
+    },
+    {
+      "term": "cd folder / cd ..",
+      "description": "Go into a folder / go up one level.",
+      "kind": "command"
+    },
+    {
+      "term": "--flag / -f",
+      "description": "Flags change how a command behaves; long form has two dashes, short form one.",
+      "kind": "flag"
+    },
+    {
+      "term": "\"quoted text\"",
+      "description": "Keeps text with spaces together as one argument.",
+      "kind": "concept"
+    },
+    {
+      "term": "~  .  ..",
+      "description": "Home folder, current folder, parent folder.",
+      "kind": "concept"
+    },
+    {
+      "term": "CLAUDE.md",
+      "description": "Markdown notes for Claude: # heading, - bullet.",
+      "kind": "file"
+    },
+    {
+      "term": "settings.json",
+      "description": "JSON settings: { } pairs, \"double-quoted\" keys, [ ] lists, no trailing comma.",
+      "kind": "file"
+    }
+  ]
+}

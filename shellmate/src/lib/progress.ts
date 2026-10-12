@@ -15,13 +15,16 @@ export const flatLessons: FlatLesson[] = units.flatMap((unit) =>
   unit.lessons.map((lesson, indexInUnit) => ({ lesson, unit, indexInUnit, flatIndex: 0 })),
 ).map((f, i) => ({ ...f, flatIndex: i }));
 
+/** Units skipped by "test out" in onboarding: the basics (Unit 0) and First Steps (Unit 1). */
+export const testOutUnits: Unit[] = units.filter((u) => u.order <= 1);
+
 const flatById = new Map(flatLessons.map((f) => [f.lesson.id, f]));
 
 export function isLessonDone(s: ProgressState, lessonId: string): boolean {
   if (s.completedLessons[lessonId]) return true;
   if (s.testedOut) {
     const f = flatById.get(lessonId);
-    return !!f && f.unit === units[0];
+    return !!f && testOutUnits.includes(f.unit);
   }
   return false;
 }

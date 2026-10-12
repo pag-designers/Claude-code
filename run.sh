@@ -4,6 +4,13 @@
 set -e
 cd "$(dirname "$0")"
 
+# Auto-update: if this folder came from "git clone", pull the newest version first.
+# Your videos, clips, exports and API key (data/, output/, .env) are never touched by this.
+if [ -d .git ] && command -v git >/dev/null 2>&1; then
+  echo "Checking for updates…"
+  git pull --ff-only --quiet && echo "Up to date." || echo "Could not update right now — starting the version you have."
+fi
+
 PY=""
 for c in python3.12 python3.11 python3.13 python3; do
   if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)'; then PY="$c"; break; fi
@@ -25,11 +32,11 @@ if [ ! -x .venv/bin/python ]; then
   echo "Creating Python environment (.venv)…"
   "$PY" -m venv .venv
 fi
-if [ ! -f .venv/.installed ] || [ requirements.txt -nt .venv/.installed ]; then
-  echo "Installing dependencies (first time: 3–5 minutes)…"
+if ! cmp -s requirements.txt .venv/requirements.installed; then  # first run, or requirements changed in an update
+  echo "Installing dependencies (first time: 3–5 minutes; after updates: usually under a minute)…"
   .venv/bin/pip install -q --upgrade pip
   .venv/bin/pip install -q -r requirements.txt
-  touch .venv/.installed
+  cp requirements.txt .venv/requirements.installed
 fi
 [ -f .env ] || cp .env.example .env
 

@@ -7,6 +7,12 @@ REM run.bat must sit inside the full Clipper folder (next to requirements.txt an
 if not exist requirements.txt goto :notinfolder
 if not exist backend\app\main.py goto :notinfolder
 
+REM Auto-update: if this folder came from "git clone", pull the newest version first.
+REM Your videos, clips, exports and API key (data, output, .env) are never touched by this.
+if exist .git (
+  where git >nul 2>nul && call :update
+)
+
 REM Tools installed with winget after Explorer started aren't on this window's PATH yet.
 REM Re-read PATH from the registry and add winget's usual folders, so no restart is needed.
 for /f "usebackq delims=" %%P in (`powershell -NoProfile -Command "[Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')"`) do set "PATH=%%P;%PATH%"
@@ -57,11 +63,12 @@ if not exist .venv\Scripts\python.exe (
   echo Creating Python environment ^(.venv^)...
   %PY% -m venv .venv || (pause & exit /b 1)
 )
-if not exist .venv\.installed (
-  echo Installing dependencies ^(first time: 3-5 minutes^)...
+REM Install packages on first run, and again whenever requirements.txt changes after an update.
+fc /b requirements.txt .venv\requirements.installed >nul 2>nul || (
+  echo Installing dependencies ^(first time: 3-5 minutes; after updates: usually under a minute^)...
   .venv\Scripts\python -m pip install -q --upgrade pip
   .venv\Scripts\pip install -q -r requirements.txt || (pause & exit /b 1)
-  type nul > .venv\.installed
+  copy /y requirements.txt .venv\requirements.installed >nul
 )
 if not exist .env copy .env.example .env >nul
 
@@ -90,3 +97,14 @@ echo This window is running from: %CD%
 echo.
 pause
 exit /b 1
+
+:update
+echo Checking for updates...
+for /f %%H in ('git rev-parse HEAD') do set "OLDHEAD=%%H"
+git pull --ff-only --quiet || (echo Could not update right now - starting the version you have. & exit /b)
+for /f %%H in ('git rev-parse HEAD') do set "NEWHEAD=%%H"
+if "%OLDHEAD%"=="%NEWHEAD%" (echo Up to date. & exit /b)
+REM This file may have just changed on disk: restart from the top with the new version.
+echo Updated to the newest version - restarting...
+start "" cmd /c "%~f0"
+exit

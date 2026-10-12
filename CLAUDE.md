@@ -54,7 +54,12 @@ python scripts/doctor.py                 # every line should say OK
 - archive.org, Wikimedia Commons and api.anthropic.com are reachable from the cloud container.
 
 ## Current status
-**Phase 0: setup. DONE.**
-- Verified: Python 3.12.3 (venv), Node 22.22, ffmpeg/ffprobe 6.1.1, yt-dlp 2026.08.19 (in .venv).
-- Waiting on: ANTHROPIC_API_KEY (as a cloud environment secret, or in local `.env`).
-- Next: Phase 1, WayinVideo teardown → `docs/wayin-teardown.md` + `docs/spec.md` (needs user OK).
+**Phase 0: setup. DONE.** Python 3.12.3 (.venv), Node 22.22, ffmpeg 6.1.1, yt-dlp 2026.08.19.
+
+**Phase 1: Wayin teardown. IN PROGRESS.**
+- Done: public pages, help center, pricing, Whop rules research → `docs/wayin-teardown.md` (§1–5, 7–8), `docs/spec.md` draft.
+- Pending: §6, the logged-in results page. The user logs in themselves in their own Opera browser; Claude reads it via the
+  Opera MCP connector (needs "Allow AI connection" enabled in Opera's Browser Connector).
+- Pending: the user's OK on `docs/spec.md`.
+- Waiting on: ANTHROPIC_API_KEY as a cloud environment secret (needed from Phase 3).
+- Dev tooling: Playwright is in .venv; launch with executable_path=/opt/pw-browsers/chromium-1194/chrome-linux/chrome in the cloud.

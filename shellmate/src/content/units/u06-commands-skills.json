@@ -298,7 +298,7 @@
             "CONTRIBUTING.md",
             ".claude/skills/"
           ],
-          "sample": "Create a project skill at .claude/skills/commit-message/SKILL.md. Base the rules on the commit section of @CONTRIBUTING.md (Conventional Commits: type(scope): summary, max 72 chars, body explains why). Give it a description that says to use it whenever I ask for a commit message, and include two good examples.",
+          "sample": "Create a project skill at .claude/skills/commit-message/SKILL.md. Base the rules on the commit section of @CONTRIBUTING.md (Conventional Commits: type(scope): summary, max 72 chars, body explains why). Give it a description that says to use it whenever I ask for a commit message, and include two good examples. Keep it under 40 lines and don't touch any existing skills.",
           "keywords": [
             "skill",
             "SKILL.md",

@@ -1,27 +1,27 @@
 import { motion } from 'framer-motion';
-import { useMemo } from 'react';
+import { useState } from 'react';
 
 const COLORS = ['#ff7a45', '#ffc83d', '#3ddc84', '#4aa8ff', '#ff5c6c', '#b18cff'];
 
+function makeParticles(count: number) {
+  return Array.from({ length: count }, (_, i) => ({
+    id: i,
+    x: (Math.random() - 0.5) * 520,
+    y: -(Math.random() * 380 + 120),
+    fall: Math.random() * 300 + 520,
+    rotate: Math.random() * 720 - 360,
+    color: COLORS[i % COLORS.length],
+    w: Math.random() * 6 + 6,
+    h: Math.random() * 8 + 8,
+    round: Math.random() > 0.6,
+    delay: Math.random() * 0.25,
+    duration: Math.random() * 1.2 + 1.8,
+  }));
+}
+
 /** Lightweight confetti burst made of framer-motion particles. */
 export default function Confetti({ count = 70 }: { count?: number }) {
-  const parts = useMemo(
-    () =>
-      Array.from({ length: count }, (_, i) => ({
-        id: i,
-        x: (Math.random() - 0.5) * 520,
-        y: -(Math.random() * 380 + 120),
-        fall: Math.random() * 300 + 520,
-        rotate: Math.random() * 720 - 360,
-        color: COLORS[i % COLORS.length],
-        w: Math.random() * 6 + 6,
-        h: Math.random() * 8 + 8,
-        round: Math.random() > 0.6,
-        delay: Math.random() * 0.25,
-        duration: Math.random() * 1.2 + 1.8,
-      })),
-    [count],
-  );
+  const [parts] = useState(() => makeParticles(count));
   return (
     <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden" aria-hidden>
       <div className="absolute left-1/2 top-[38%]">

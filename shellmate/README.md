@@ -20,7 +20,7 @@ npm run preview    # serve the production build
 
 ## What's inside
 
-- **12 units / 32 lessons**, each with 1–2 theory cards and 6–10 exercises, plus a real-world
+- **12 units / 34 lessons / 273 exercises**, each with 1–2 theory cards and 6–10 exercises, plus a real-world
   **mission** at the end of every unit (bonus XP + badge).
 - **8 exercise types**: multiple choice, fake terminal, fill-the-blank, order the steps, match pairs,
   spot the bad prompt, prompt workshop (local rubric grading, 1–3 ★), real-world mission.
@@ -47,9 +47,12 @@ src/
   components/
     exercises/             # one component per Exercise type + ExerciseRenderer
     Kip.tsx, TopBar.tsx, …
-  screens/                 # Onboarding, Path, LessonPlayer, LessonComplete, Review, CheatSheet, League, Profile
-  store/                   # zustand store persisted to localStorage
+  screens/                 # Onboarding, Home (path), LessonPlayer, LessonComplete, Review, CheatSheet, League, Profile
+  store/useGame.ts         # zustand game store persisted to localStorage (XP, hearts, streak, Leitner deck…)
+  store/useNav.ts          # tiny in-memory screen router
   lib/grading.ts           # command equivalence + prompt-workshop rubric
+  lib/progress.ts          # unlock rules for the path
+  lib/league.ts            # deterministic weekly bots
   lib/sound.ts             # Web Audio beeps
 ```
 
@@ -132,4 +135,10 @@ Every exercise also needs a one-sentence `explanation`.
 - **Content accuracy**: commands, flags and shortcuts were checked against the official Claude Code docs
   (code.claude.com/docs) as of October 2026. Features whose behavior has changed recently (e.g. the old
   `#` memory shortcut) were deliberately left out.
+- **Legendary is per lesson**: replay each finished lesson of a unit with zero mistakes; once every lesson
+  in the unit is legendary, the unit's nodes turn gold.
+- **Theory cards only show on the first run**; practice/legendary go straight to exercises (the
+  Guidebook on each unit banner keeps all theory one tap away).
+- **Navigation is in-memory**, so a browser refresh returns to the path (progress is never lost).
+- **One bundle** (~190 kB gzipped, content included); code-splitting wasn't worth the complexity for an MVP.
 - **Kip** is an original SVG character (no third-party mascots or logos).

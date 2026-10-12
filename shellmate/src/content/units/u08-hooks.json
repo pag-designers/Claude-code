@@ -299,7 +299,7 @@
             ".claude/settings.json",
             ".claude/hooks/"
           ],
-          "sample": "Create .claude/hooks/protect-files.sh that reads the hook JSON from stdin, extracts tool_input.file_path with jq, and exits 2 with a clear stderr message if the path matches .env, .env.* or package-lock.json. Make it executable and register it in @.claude/settings.json as a PreToolUse hook with matcher Edit|Write using \"$CLAUDE_PROJECT_DIR\". Show me the final config.",
+          "sample": "Create .claude/hooks/protect-files.sh that reads the hook JSON from stdin, extracts tool_input.file_path with jq, and exits 2 with a clear stderr message if the path matches .env, .env.* or package-lock.json. Make it executable and register it in @.claude/settings.json as a PreToolUse hook with matcher Edit|Write using \"$CLAUDE_PROJECT_DIR\". Show me the final config. Don't modify any other hooks already in the file.",
           "keywords": [
             "PreToolUse",
             "exit 2",

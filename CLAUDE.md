@@ -75,6 +75,9 @@ First run downloads the Whisper model (~500 MB for "small") and the MediaPipe fa
 On headless Linux, MediaPipe needs `sudo apt install libegl1 libgles2` (otherwise it falls back to OpenCV faces).
 
 ## Conventions
+- **Before every push run the `/ship-check` skill** (`.claude/skills/ship-check/`): four reviewer agents in
+  `.claude/agents/` (windows-checker, code-verifier, first-run-tester, ui-designer) check the change in parallel;
+  verify findings, fix, re-test, then push. The user runs Windows and isn't a programmer: it must work first try.
 - Commit after every phase; update "Current status" below first.
 - All Claude calls return strict JSON validated against a schema; prompts live in `prompts/`.
 - Cache everything expensive (downloads, transcripts, AI results) under `data/<video_id>/`.

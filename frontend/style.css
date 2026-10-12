@@ -28,6 +28,10 @@ h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: v
 .campaign-pick select { width: 220px; padding: 6px 10px; }
 .badge { font-size: 12px; padding: 4px 10px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
 .badge.ok { color: var(--good); border-color: #1f5f3c; } .badge.bad { color: var(--warn); border-color: #6a4a10; }
+button.badge { cursor: pointer; background: transparent; } button.badge:hover { border-color: #555b70; }
+.modal { position: fixed; inset: 0; z-index: 30; background: rgba(0,0,0,.6); display: grid; place-items: center; padding: 16px; }
+.modal-box { position: relative; width: min(560px, 100%); background: var(--bg); border: 1px solid var(--line); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 6px; max-height: 92vh; overflow: auto; }
+.modal-box code { background: var(--panel2); padding: 1px 5px; border-radius: 4px; }
 
 main { max-width: 1240px; margin: 0 auto; padding: 22px 20px 120px; }
 .hero { padding: 26px 0 18px; }

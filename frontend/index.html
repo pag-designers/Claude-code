@@ -14,9 +14,28 @@
     <label class="campaign-pick">Campaign
       <select id="campaignSelect"><option value="">— none —</option></select>
     </label>
-    <span id="keyBadge" class="badge"></span>
+    <button id="keyBadge" class="badge" title="Settings"></button>
   </div>
 </header>
+
+<!-- Settings -->
+<div id="settings" class="modal hidden">
+  <div class="modal-box">
+    <button class="close" id="settingsClose" aria-label="Close">✕</button>
+    <h2>⚙ Settings</h2>
+    <h3>Anthropic API key</h3>
+    <p class="muted small">Get one at <b>console.anthropic.com → API Keys</b> (add a few dollars of credit under Billing).
+      It's saved to the <code>.env</code> file next to the code, never sent anywhere but Anthropic.</p>
+    <input id="sKey" type="password" placeholder="sk-ant-…" autocomplete="off">
+    <div class="muted small" id="sKeyHint"></div>
+    <h3>AI model</h3>
+    <select id="sModel"></select>
+    <p class="muted small">Start with Haiku. Move up when the clips are earning: Sonnet picks better moments, Opus writes the best hooks.</p>
+    <h3>Effort <span class="muted small">(how hard the model thinks: lower = cheaper and faster)</span></h3>
+    <select id="sEffort"></select>
+    <div class="row-gap"><button id="sSave" class="primary">Save</button><span id="sMsg" class="muted small"></span></div>
+  </div>
+</div>
 
 <main id="app"></main>
 

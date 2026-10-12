@@ -6,7 +6,7 @@ from typing import Callable, TypeVar
 
 from pydantic import BaseModel
 
-from .config import CLAUDE_EFFORT, CLAUDE_MODEL, DATA, PRICES, PROMPTS, has_api_key, video_dir
+from .config import DATA, PRICES, PROMPTS, api_key, claude_effort, claude_model, has_api_key, video_dir
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -14,6 +14,7 @@ T = TypeVar("T", bound=BaseModel)
 fake_call: Callable[[str, str, type], BaseModel] | None = None
 
 _client = None
+_client_key = None
 _FALLBACK_MODELS = {"claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5-1", "claude-opus-5"}
 
 
@@ -26,17 +27,18 @@ def prompt(name: str) -> str:
 
 
 def _get_client():
-    global _client
-    if _client is None:
-        if not has_api_key():
-            raise LLMError("ANTHROPIC_API_KEY is not set. Put it in .env (local) or the cloud environment secrets.")
+    global _client, _client_key
+    if not has_api_key():
+        raise LLMError("No API key yet. Open Settings (⚙ top right) and paste your Anthropic API key.")
+    if _client is None or _client_key != api_key():  # key changed in Settings → new client
         import anthropic
-        _client = anthropic.Anthropic(max_retries=4, timeout=600)
+        _client = anthropic.Anthropic(api_key=api_key(), max_retries=4, timeout=600)
+        _client_key = api_key()
     return _client
 
 
 def cost_usd(model: str, usage) -> float:
-    pin, pout = PRICES.get(model, PRICES["claude-opus-5-5"])
+    pin, pout = PRICES.get(model, PRICES["claude-haiku-5-5"])
     cache_w = getattr(usage, "cache_creation_input_tokens", 0) or 0
     cache_r = getattr(usage, "cache_read_input_tokens", 0) or 0
     return (usage.input_tokens * pin + cache_w * pin * 1.25 + cache_r * pin * 0.1
@@ -81,8 +83,9 @@ def call_json(schema: type[T], system: str, user: str, *, context: str | None = 
     system_blocks = [{"type": "text", "text": system}]
     if context:
         system_blocks.append({"type": "text", "text": context, "cache_control": {"type": "ephemeral"}})
+    model = claude_model()
     kwargs = {}
-    if CLAUDE_MODEL in _FALLBACK_MODELS:
+    if model in _FALLBACK_MODELS:
         # If a safety classifier declines (rare false positives on e.g. medical/crime podcasts),
         # the API retries on a fallback model inside the same call.
         kwargs = {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
@@ -90,9 +93,9 @@ def call_json(schema: type[T], system: str, user: str, *, context: str | None = 
     import anthropic
     try:
         with client.beta.messages.stream(
-            model=CLAUDE_MODEL, max_tokens=max_tokens, system=system_blocks,
+            model=model, max_tokens=max_tokens, system=system_blocks,
             messages=[{"role": "user", "content": user}], output_format=schema,
-            output_config={"effort": effort or CLAUDE_EFFORT}, **kwargs,
+            output_config={"effort": effort or claude_effort()}, **kwargs,
         ) as stream:
             resp = stream.get_final_message()
     except anthropic.AuthenticationError as e:
@@ -103,7 +106,7 @@ def call_json(schema: type[T], system: str, user: str, *, context: str | None = 
         raise LLMError(f"Claude API error {e.status_code}: {e.message}") from e
     except anthropic.APIConnectionError as e:
         raise LLMError("Could not reach the Claude API (network).") from e
-    _log(video_id, tag, resp.model or CLAUDE_MODEL, resp.usage, time.time() - t0)
+    _log(video_id, tag, resp.model or model, resp.usage, time.time() - t0)
     if resp.stop_reason == "refusal":
         raise LLMError("Claude declined this request (safety classifier).")
     if resp.stop_reason == "max_tokens":

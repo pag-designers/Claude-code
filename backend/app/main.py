@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import boundaries, campaign, captions, moments, pipeline, store, timeline, variants
-from .config import CLAUDE_MODEL, DATA, OUTPUT, ROOT, WHISPER_MODEL, has_api_key
+from .config import DATA, EFFORTS, MODEL_CHOICES, OUTPUT, ROOT, WHISPER_MODEL, api_key, claude_effort, claude_model, has_api_key, save_settings
 from .llm import LLMError
 
 app = FastAPI(title="Clipper")
@@ -48,11 +48,49 @@ def output_file(path: str):
     return FileResponse(p)
 
 
-@app.get("/api/config")
-def config():
-    return {"has_api_key": has_api_key(), "model": CLAUDE_MODEL, "whisper_model": WHISPER_MODEL,
+def _config() -> dict:
+    key = api_key()
+    return {"has_api_key": has_api_key(), "key_hint": (key[:7] + "…" + key[-4:]) if len(key) > 12 else "",
+            "model": claude_model(), "effort": claude_effort(), "whisper_model": WHISPER_MODEL,
+            "models": {k: v["label"] for k, v in MODEL_CHOICES.items()}, "efforts": EFFORTS,
             "caption_styles": {k: v["label"] for k, v in captions.STYLES.items()},
             "layouts": ["auto", "track", "split", "speaker", "fit"]}
+
+
+@app.get("/api/config")
+def config():
+    return _config()
+
+
+class SettingsIn(BaseModel):
+    api_key: str | None = None   # leave empty to keep the current key
+    model: str | None = None
+    effort: str | None = None
+
+
+@app.post("/api/settings")
+def settings(body: SettingsIn):
+    """Saves to .env next to the code (git-ignored) and applies immediately: no restart needed."""
+    if body.model and body.model not in MODEL_CHOICES:
+        raise HTTPException(400, "Unknown model")
+    if body.effort and body.effort not in EFFORTS:
+        raise HTTPException(400, "Unknown effort")
+    key = (body.api_key or "").strip()
+    if key and not key.startswith("sk-ant-"):
+        raise HTTPException(400, "That doesn't look like an Anthropic key (they start with sk-ant-)")
+    save_settings(ANTHROPIC_API_KEY=key or None, CLIPPER_MODEL=body.model, CLIPPER_EFFORT=body.effort)
+    if key:  # one tiny call so a bad key fails here, not mid-pipeline
+        try:
+            import anthropic
+            anthropic.Anthropic(api_key=key, max_retries=1, timeout=30).models.retrieve(claude_model())
+        except anthropic.AuthenticationError:
+            save_settings(ANTHROPIC_API_KEY="")
+            raise HTTPException(400, "Anthropic rejected that key. Copy it again from console.anthropic.com → API Keys.")
+        except anthropic.APIStatusError as e:
+            raise HTTPException(400, f"Key saved, but the API answered {e.status_code}: {e.message}")
+        except anthropic.APIConnectionError:
+            raise HTTPException(400, "Key saved, but the API could not be reached (network).")
+    return _config()
 
 
 # ---------- videos ----------

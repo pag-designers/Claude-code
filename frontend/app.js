@@ -38,12 +38,43 @@ const scoreColor = (s) => (s >= 80 ? "var(--good)" : s >= 60 ? "var(--accent)" :
 const campaignSlug = () => $("#campaignSelect").value;
 
 // ---------------- boot & routing ----------------
-async function boot() {
-  state.config = await api("/api/config");
+function applyConfig(c) {
+  state.config = c;
   const kb = $("#keyBadge");
-  kb.textContent = state.config.has_api_key ? `AI: ${state.config.model}` : "AI off: no API key";
-  kb.className = "badge " + (state.config.has_api_key ? "ok" : "bad");
-  kb.title = state.config.has_api_key ? "" : "Add ANTHROPIC_API_KEY to .env and restart to enable AI clipping, scoring and captions.";
+  kb.textContent = c.has_api_key ? `⚙ AI: ${c.model.replace("claude-", "")}` : "⚙ AI off: add API key";
+  kb.className = "badge " + (c.has_api_key ? "ok" : "bad");
+}
+
+function openSettings() {
+  const c = state.config;
+  $("#sModel").innerHTML = Object.entries(c.models).map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join("");
+  $("#sModel").value = c.model;
+  $("#sEffort").innerHTML = c.efforts.map((e) => `<option>${e}</option>`).join("");
+  $("#sEffort").value = c.effort;
+  $("#sKey").value = "";
+  $("#sKeyHint").textContent = c.has_api_key ? `Current key: ${c.key_hint} (leave empty to keep it)` : "No key saved yet.";
+  $("#sMsg").textContent = "";
+  $("#settings").classList.remove("hidden");
+}
+
+async function saveSettings() {
+  const btn = $("#sSave"), msg = $("#sMsg");
+  btn.disabled = true; msg.textContent = "Saving & checking the key…";
+  try {
+    applyConfig(await api("/api/settings", { method: "POST", body: { api_key: $("#sKey").value, model: $("#sModel").value, effort: $("#sEffort").value } }));
+    msg.textContent = "Saved ✓"; setTimeout(() => $("#settings").classList.add("hidden"), 600);
+    if (state.video) refreshVideo(state.video.id);
+  } catch (e) { msg.textContent = e.message; msg.style.color = "var(--bad)"; setTimeout(() => (msg.style.color = ""), 4000); }
+  btn.disabled = false;
+}
+
+async function boot() {
+  applyConfig(await api("/api/config"));
+  $("#keyBadge").onclick = openSettings;
+  $("#settingsClose").onclick = () => $("#settings").classList.add("hidden");
+  $("#settings").addEventListener("click", (e) => { if (e.target.id === "settings") $("#settings").classList.add("hidden"); });
+  $("#sSave").onclick = saveSettings;
+  if (!state.config.has_api_key && !localStorage.getItem("seenSettings")) { localStorage.setItem("seenSettings", "1"); setTimeout(openSettings, 400); }
   await loadCampaigns();
   $("#campaignSelect").addEventListener("change", () => { localStorage.setItem("campaign", campaignSlug()); if (state.video) renderClips(); });
   window.addEventListener("hashchange", route);
@@ -179,7 +210,7 @@ function renderClips() {
   if (state.sort === "time") clips.sort((a, b) => a.start - b.start);
   else if (state.sort === "compliance") { const o = { pass: 0, warn: 1, fail: 2 }; clips.sort((a, b) => (o[compliance(a)?.after_fixes] ?? 3) - (o[compliance(b)?.after_fixes] ?? 3) || (b.score ?? 0) - (a.score ?? 0)); }
   else clips.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
-  $("#clipCount").textContent = clips.length ? `${clips.length} clips` : (v.status?.stage === "needs_key" ? "Transcript ready. AI clipping needs an API key; you can still make clips from the Transcript tab." : "No clips yet.");
+  $("#clipCount").textContent = clips.length ? `${clips.length} clips` : (v.status?.stage === "needs_key" ? "Transcript ready. Add your API key in Settings (⚙ top right), then press “Re-run AI clipping”. You can already make clips from the Transcript tab." : "No clips yet.");
   $("#clips").innerHTML = clips.map((c) => {
     const comp = compliance(c), dur = c.edited_duration ?? c.duration;
     return `<article class="card" data-id="${c.id}">

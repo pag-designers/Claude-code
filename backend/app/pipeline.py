@@ -57,7 +57,7 @@ def _process(video_id: str, progress, url: str | None = None) -> dict:
         stage("cues", 0.70, 0.75, "Finding loud moments and scene changes")
         cues.compute(video_id)
         if not has_api_key():
-            store.set_status(video_id, "needs_key", 0.75, "Transcript ready. Add ANTHROPIC_API_KEY to run AI clipping.")
+            store.set_status(video_id, "needs_key", 0.75, "Transcript ready. Add your API key in Settings (⚙), then press Re-run AI clipping.")
             return {"video_id": video_id, "clips": 0}
         stage("clipping", 0.75, 0.88, "AI is finding the best moments")
         found = clipping.find_candidates(video_id)

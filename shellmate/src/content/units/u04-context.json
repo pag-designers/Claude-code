@@ -12,7 +12,12 @@
       "theory": [
         {
           "title": "Claude's desk has limited space",
-          "body": "Everything in a session (your messages, Claude's replies, files it read, command output) piles into the **context window**. It's big, but finite.\n\nAs a session runs long, old and irrelevant content **crowds out** what matters now. Claude may lose track of earlier decisions or get distracted by stale details, and every turn costs more tokens.\n\nKip's rule: a tidy shell is a fast shell."
+          "body": "Everything in a session (your messages, Claude's replies, files it read, command output, and `CLAUDE.md`) piles into the **context window**: Claude's working memory. It's big, but finite, and it's measured in **tokens** (small chunks of text).\n\nAs a session runs long, old and irrelevant content **crowds out** what matters now. Typical drift: one focused task → an unrelated side task → piles of logs and files → stale details → less focused answers. Every turn also costs more tokens.\n\nKip's rule: a tidy shell is a fast shell."
+        },
+        {
+          "title": "Check the gauge with /context",
+          "body": "Type `/context` inside a session to see how full the window is and what's filling it. Ask for targeted output (one failing test, not the whole verbose suite) to keep it lean.",
+          "code": "> /context"
         }
       ],
       "exercises": [
@@ -51,7 +56,7 @@
               "right": "Yes, loaded every session"
             }
           ],
-          "explanation": "Everything Claude sees during a session takes up room in its context window."
+          "explanation": "Everything Claude sees in a session takes up room in the context window, including memory loaded at the start."
         },
         {
           "id": "u4-l1-e3",
@@ -94,12 +99,12 @@
           "id": "u4-l1-e6",
           "type": "terminal",
           "promptSymbol": ">",
-          "prompt": "Check how full your context window is right now.",
+          "prompt": "Type the slash command that shows how full your context window is right now.",
           "accepted": [
             "/context"
           ],
-          "hint": "The command shares its name with the thing you're inspecting.",
-          "explanation": "/context visualizes how your context window is being used."
+          "hint": "/ + the name of the thing you're inspecting: /con…",
+          "explanation": "/context shows what is filling the window, so you can tell when it's time to clean up."
         }
       ]
     },
@@ -110,22 +115,15 @@
       "theory": [
         {
           "title": "Wipe the whiteboard",
-          "body": "`/clear` **wipes the conversation history** so you start with an empty context, while staying in the same session and project. Your `CLAUDE.md` still loads, so Claude keeps its project briefing.\n\nMake it a habit: **finished a task? `/clear` before the next one.** Unrelated history only gets in the way.",
+          "body": "`/clear` **wipes the conversation history** so you start with an empty context, while staying in the same session and project. Your `CLAUDE.md` still loads, so Claude keeps its project briefing, but it forgets everything you said before.\n\nMake it a habit: **finished a task? Commit it, then `/clear` before the next one.** After clearing, write a **self-contained** prompt: name the files with `@` instead of saying \"the thing we discussed\".",
           "code": "> (bug fixed and committed)\n> /clear\n> Now add a CSV export to @src/reports/"
+        },
+        {
+          "title": "Pick the right move",
+          "body": "Not every situation calls for `/clear`:\n\n**Unrelated new task** → `/clear`.\n\n**Same task, context getting full** → `/compact` (summarizes instead of wiping; next lesson).\n\n**Back tomorrow on yesterday's work** → `claude --continue` from Unit 1.\n\nNever `/clear` mid-task while Claude still needs the details."
         }
       ],
       "exercises": [
-        {
-          "id": "u4-l2-e1",
-          "type": "terminal",
-          "promptSymbol": ">",
-          "prompt": "You just finished a bug fix. Wipe the conversation before starting an unrelated feature.",
-          "accepted": [
-            "/clear"
-          ],
-          "hint": "Like clearing a whiteboard.",
-          "explanation": "/clear empties the conversation history so the next task starts clean."
-        },
         {
           "id": "u4-l2-e2",
           "type": "multiple-choice",
@@ -151,18 +149,6 @@
           ],
           "answer": 1,
           "explanation": "Clearing mid-task throws away context you still need; consider /compact instead."
-        },
-        {
-          "id": "u4-l2-e4",
-          "type": "order-steps",
-          "prompt": "Order a clean task-by-task workflow.",
-          "steps": [
-            "Describe task A and let Claude implement it",
-            "Verify and commit task A",
-            "Run /clear",
-            "Describe task B with full context in the prompt"
-          ],
-          "explanation": "Finishing, committing, then clearing keeps each task in a focused conversation."
         },
         {
           "id": "u4-l2-e5",
@@ -193,7 +179,19 @@
               "right": "claude --continue"
             }
           ],
-          "explanation": "Clear for new tasks, compact to keep going, continue to come back later."
+          "explanation": "Clear when the old history is useless, compact when you still need its gist, and continue when you want it all back."
+        },
+        {
+          "id": "u4-l2-e4",
+          "type": "order-steps",
+          "prompt": "Order a clean task-by-task workflow.",
+          "steps": [
+            "Describe task A and let Claude implement it",
+            "Verify and commit task A",
+            "Run /clear",
+            "Describe task B with full context in the prompt"
+          ],
+          "explanation": "Finishing, committing, then clearing keeps each task in a focused conversation."
         },
         {
           "id": "u4-l2-e7",
@@ -211,7 +209,19 @@
             "memory"
           ],
           "language": "markdown",
-          "explanation": "/clear between tasks keeps each conversation focused."
+          "explanation": "/clear between tasks keeps each conversation focused on one job.",
+          "hint": "The habit is: finish, commit, then wipe the conversation."
+        },
+        {
+          "id": "u4-l2-e1",
+          "type": "terminal",
+          "promptSymbol": ">",
+          "prompt": "You just finished and committed a bug fix. Type the slash command that wipes the conversation before an unrelated feature.",
+          "accepted": [
+            "/clear"
+          ],
+          "hint": "/ + what you do to a whiteboard: /cl…",
+          "explanation": "/clear empties the history so leftovers from the last task can't confuse the next one."
         }
       ]
     },
@@ -222,35 +232,15 @@
       "theory": [
         {
           "title": "Keep the gist, drop the bulk",
-          "body": "`/compact` **summarizes the conversation** so far and replaces the history with that summary, freeing up context while keeping the important bits.\n\nGive it focus instructions to steer what's kept: `/compact keep the API design decisions and the failing test list`.\n\nClaude Code also **auto-compacts** when you get close to the context limit, but compacting yourself at a natural breakpoint gives you control over what survives.",
-          "code": "> /compact focus on the database schema decisions"
+          "body": "`/compact` **summarizes the conversation** so far and replaces the history with that summary, freeing up context while keeping the important bits. Unlike `/clear`, the gist survives, so it's for staying on the **same** task.\n\nAdd **focus instructions** after the command, in plain English, to steer what's kept.",
+          "code": "> /compact\n> /compact focus on the database schema decisions\n> /compact keep the list of failing tests and the chosen fix"
+        },
+        {
+          "title": "Compact at a checkpoint",
+          "body": "Claude Code also **auto-compacts** when you get close to the context limit, but compacting yourself gives you control over what survives. The routine: notice the session is long but the task isn't done → reach a natural checkpoint (like tests passing) → `/compact` with focus → keep going."
         }
       ],
       "exercises": [
-        {
-          "id": "u4-l3-e1",
-          "type": "terminal",
-          "promptSymbol": ">",
-          "prompt": "Summarize the conversation to free up context while staying on the same task.",
-          "accepted": [
-            "/compact"
-          ],
-          "hint": "Make it smaller.",
-          "explanation": "/compact replaces the history with a summary so you can keep working with more room."
-        },
-        {
-          "id": "u4-l3-e2",
-          "type": "terminal",
-          "promptSymbol": ">",
-          "prompt": "Compact the conversation with the focus instruction: focus on the auth flow decisions",
-          "accepted": [
-            "/compact focus on the auth flow decisions",
-            "/compact keep the auth flow decisions",
-            "/compact auth flow decisions"
-          ],
-          "hint": "Add your instructions after the command.",
-          "explanation": "Text after /compact tells Claude what to prioritize in the summary."
-        },
         {
           "id": "u4-l3-e3",
           "type": "multiple-choice",
@@ -278,6 +268,17 @@
           "explanation": "Auto-compact kicks in near the limit, but manual compaction lets you choose what's kept."
         },
         {
+          "id": "u4-l3-e7",
+          "type": "spot-bad-prompt",
+          "prompt": "You're mid-migration and context is getting heavy. Which command keeps the most useful information?",
+          "options": [
+            "/compact",
+            "/compact keep the migration plan, completed steps, and remaining TODOs"
+          ],
+          "better": 1,
+          "explanation": "Specific focus instructions make sure the summary keeps the plan and progress."
+        },
+        {
           "id": "u4-l3-e5",
           "type": "fill-blank",
           "prompt": "Steer the summary.",
@@ -294,7 +295,8 @@
             "init"
           ],
           "language": "bash",
-          "explanation": "Focus instructions after /compact protect the details you still need."
+          "explanation": "Focus instructions after /compact protect the details you still need, like which tests are failing.",
+          "hint": "Command first, then plain-English focus: keep the tests that still fail."
         },
         {
           "id": "u4-l3-e6",
@@ -309,15 +311,28 @@
           "explanation": "Compacting at a checkpoint with focus keeps what matters and drops the noise."
         },
         {
-          "id": "u4-l3-e7",
-          "type": "spot-bad-prompt",
-          "prompt": "You're mid-migration and context is getting heavy. Which command keeps the most useful information?",
-          "options": [
-            "/compact",
-            "/compact keep the migration plan, completed steps, and remaining TODOs"
+          "id": "u4-l3-e1",
+          "type": "terminal",
+          "promptSymbol": ">",
+          "prompt": "Type the slash command that summarizes the conversation to free up context while you stay on the same task (no focus text).",
+          "accepted": [
+            "/compact"
           ],
-          "better": 1,
-          "explanation": "Specific focus instructions make sure the summary keeps the plan and progress."
+          "hint": "/ + a word meaning \"make smaller\": /com…",
+          "explanation": "/compact swaps the history for a summary, giving you room to keep going without losing the thread."
+        },
+        {
+          "id": "u4-l3-e2",
+          "type": "terminal",
+          "promptSymbol": ">",
+          "prompt": "Type /compact followed by this focus instruction: focus on the auth flow decisions",
+          "accepted": [
+            "/compact focus on the auth flow decisions",
+            "/compact keep the auth flow decisions",
+            "/compact auth flow decisions"
+          ],
+          "hint": "Pattern: /compact <focus text>, e.g. /compact focus on …",
+          "explanation": "Text after /compact tells Claude what to prioritize, so the summary keeps the decisions you still need."
         }
       ]
     },
@@ -328,32 +343,16 @@
       "theory": [
         {
           "title": "Look at the gauges",
-          "body": "`/context` shows a **visual breakdown** of what's filling your context window: system prompt, tools, memory files, messages.\n\n`/cost` shows **token usage and cost** for the current session (most relevant for API users).\n\n`/usage` shows your **plan's usage limits** if you're on a subscription.\n\nCheck the gauges before a big task, not after you've hit the wall."
+          "body": "`/context` shows a **visual breakdown** of what's filling your context window: system prompt, tools, memory files, messages. If memory files take a big share, trim CLAUDE.md.\n\n`/cost` shows **token usage and cost** for the current session (most relevant if you pay per token through the API).\n\n`/usage` shows your **plan's usage limits** if you're on a subscription.\n\nCheck the gauges before a big task, then `/clear` or `/compact` as needed.",
+          "code": "> /context    # what's in my window?\n> /cost       # what has this session cost? (API)\n> /usage      # how much of my plan is used? (subscription)"
+        },
+        {
+          "title": "Self-contained prompts after /clear",
+          "body": "After `/clear`, Claude remembers nothing from the conversation, so your prompt must carry all five parts: **context**, a **specific goal**, **constraints** (`don't…`, `only…`, `keep…`), a **definition of done** (`done when npm test passes`), and **@ file references**.",
+          "code": "Our POST /login in @src/routes/auth.ts has no rate limit.\nAdd one using @src/middleware/rateLimit.ts: 5 tries per IP\nper 15 min. Don't change other routes.\nDone when npm test passes."
         }
       ],
       "exercises": [
-        {
-          "id": "u4-l4-e1",
-          "type": "terminal",
-          "promptSymbol": ">",
-          "prompt": "You're paying per token through the API. Check this session's token usage and cost.",
-          "accepted": [
-            "/cost"
-          ],
-          "hint": "What does it cost?",
-          "explanation": "/cost reports token usage and cost for the current session."
-        },
-        {
-          "id": "u4-l4-e2",
-          "type": "terminal",
-          "promptSymbol": ">",
-          "prompt": "You're on a subscription plan. Check your plan's usage limits.",
-          "accepted": [
-            "/usage"
-          ],
-          "hint": "How much have you used?",
-          "explanation": "/usage shows plan usage limits for subscribers."
-        },
         {
           "id": "u4-l4-e3",
           "type": "match-pairs",
@@ -376,7 +375,7 @@
               "right": "Summarizes history to free space"
             }
           ],
-          "explanation": "Three gauges and one action: look, then act."
+          "explanation": "Three commands show you the numbers and /compact acts on them, so look first and then act."
         },
         {
           "id": "u4-l4-e4",
@@ -417,25 +416,6 @@
           "explanation": "Checking first lets you start big work with plenty of room."
         },
         {
-          "id": "u4-l4-e7",
-          "type": "prompt-workshop",
-          "scenario": "You just ran /clear after finishing a bug fix. Next task: add rate limiting to the login endpoint. Write a self-contained prompt, since Claude no longer has the earlier conversation.",
-          "files": [
-            "src/routes/auth.ts",
-            "src/middleware/rateLimit.ts"
-          ],
-          "sample": "Add rate limiting to POST /login in @src/routes/auth.ts using the existing middleware in @src/middleware/rateLimit.ts: max 5 attempts per IP per 15 minutes, returning 429 with a Retry-After header. Don't change other routes. Add tests; done when npm test passes.",
-          "keywords": [
-            "rate",
-            "limit",
-            "login",
-            "429",
-            "middleware",
-            "tests"
-          ],
-          "explanation": "A fresh context needs a self-contained prompt with files, limits, and a definition of done."
-        },
-        {
           "id": "u4-l4-e8",
           "type": "fill-blank",
           "prompt": "Pick the right gauge for each question.",
@@ -452,7 +432,49 @@
             "init"
           ],
           "language": "bash",
-          "explanation": "/context shows window usage while /cost shows session spend."
+          "explanation": "/context shows what fills the window while /cost shows what the session has spent.",
+          "hint": "Each gauge is named after what it measures."
+        },
+        {
+          "id": "u4-l4-e1",
+          "type": "terminal",
+          "promptSymbol": ">",
+          "prompt": "You're paying per token through the API. Type the slash command that shows this session's token usage and cost.",
+          "accepted": [
+            "/cost"
+          ],
+          "hint": "/ + what something costs: /co…",
+          "explanation": "/cost reports token usage and spend for this session, which is what API billing is based on."
+        },
+        {
+          "id": "u4-l4-e2",
+          "type": "terminal",
+          "promptSymbol": ">",
+          "prompt": "You're on a subscription plan. Type the slash command that shows your plan's usage limits.",
+          "accepted": [
+            "/usage"
+          ],
+          "hint": "/ + how much you've used: /us…",
+          "explanation": "/usage shows plan limits, which matter for subscribers rather than per-token cost."
+        },
+        {
+          "id": "u4-l4-e7",
+          "type": "prompt-workshop",
+          "scenario": "You just ran /clear after finishing a bug fix. Next task: add rate limiting to the login endpoint. Write a self-contained prompt, since Claude no longer has the earlier conversation.",
+          "files": [
+            "src/routes/auth.ts",
+            "src/middleware/rateLimit.ts"
+          ],
+          "sample": "Our Express API has no rate limiting on POST /login in @src/routes/auth.ts. Add it using the existing middleware in @src/middleware/rateLimit.ts: max 5 attempts per IP per 15 minutes, returning 429 with a Retry-After header. Don't change other routes. Add tests; done when npm test passes.",
+          "keywords": [
+            "rate",
+            "limit",
+            "login",
+            "429",
+            "middleware",
+            "tests"
+          ],
+          "explanation": "After /clear Claude has no history, so a prompt with context, files, limits and a definition of done is the only briefing it gets."
         }
       ]
     }

@@ -12,12 +12,16 @@
       "theory": [
         {
           "title": "Look before you leap",
-          "body": "Kip never scuttles into a new tide pool without scouting it first. **Plan mode** is Claude Code's scouting mode: Claude reads files and runs read-only commands to explore, then proposes a step-by-step plan, but it does **not** edit your source files.\n\nEdits stay blocked until you **approve the plan**. Use it for big refactors, unfamiliar code, or any time you want to agree on the approach before a single line changes.",
-          "code": "# start a session already in plan mode\nclaude --permission-mode plan"
+          "body": "Kip never scuttles into a new tide pool without scouting it first. **Plan mode** is Claude Code's scouting mode: Claude reads files and runs read-only commands to explore, then proposes a step-by-step plan, but it does **not** edit your source files. Edits stay blocked until you **approve the plan**.\n\nTo start a session already in plan mode, add the `--permission-mode` flag and the mode name `plan`. Both spellings work:\n`claude --permission-mode plan`\n`claude --permission-mode=plan`",
+          "code": "# program  flag               value\nclaude    --permission-mode  plan"
         },
         {
-          "title": "Getting into plan mode",
-          "body": "Mid-session, press `Shift+Tab` to cycle permission modes. The mode indicator under the prompt shows where you are: Manual (`default`), then **accept edits** (`acceptEdits`), then **plan** (`plan`).\n\nTo make a project always start in plan mode, set `defaultMode` under `permissions` in a settings file.",
+          "title": "Switching modes with Shift+Tab",
+          "body": "Already in a session? Press `Shift+Tab` to cycle permission modes. The indicator under the prompt shows where you are:\n• **Manual** (`default`): asks before edits and commands\n• **accept edits** (`acceptEdits`): auto-approves file edits\n• **plan** (`plan`): explores read-only and proposes a plan\nThere is also `bypassPermissions`, which skips prompts entirely and belongs only in containers or VMs (more next lesson).\n\nA typical plan-mode flow: switch to plan → describe the change → Claude explores and proposes a plan → you ask questions and refine it → you approve → Claude edits → you review the diffs."
+        },
+        {
+          "title": "Make plan mode the default",
+          "body": "Want every session in a project to start in plan mode? Put this in the project settings file `.claude/settings.json`:\n• `\"permissions\"` is the section for permission settings; its `{ }` holds the options.\n• `\"defaultMode\"` is the exact key name (camelCase) for the mode sessions start in.\n• `\"plan\"` is the value: a mode name, written as a JSON string in double quotes.\n\nSwap the value for `\"acceptEdits\"` or `\"default\"` to start in those modes instead.",
           "code": "{\n  \"permissions\": {\n    \"defaultMode\": \"plan\"\n  }\n}"
         }
       ],
@@ -33,18 +37,7 @@
             "Runs every command without asking for permission"
           ],
           "answer": 1,
-          "explanation": "Plan mode is read-only exploration plus a proposed plan; edits wait for your approval."
-        },
-        {
-          "id": "u5-l1-e2",
-          "type": "terminal",
-          "prompt": "Start a new Claude Code session directly in plan mode.",
-          "accepted": [
-            "claude --permission-mode plan",
-            "claude --permission-mode=plan"
-          ],
-          "hint": "The flag is --permission-mode followed by the mode name.",
-          "explanation": "`--permission-mode plan` starts the session in plan mode so nothing is edited until you approve a plan."
+          "explanation": "Plan mode exists so you can agree on the approach first, which is why Claude only reads and proposes while edits wait for your approval."
         },
         {
           "id": "u5-l1-e3",
@@ -57,7 +50,7 @@
             "Alt+Enter"
           ],
           "answer": 0,
-          "explanation": "`Shift+Tab` cycles permission modes, and plan mode is one of the stops."
+          "explanation": "`Shift+Tab` cycles the permission modes mid-session, so you can enter plan mode without restarting."
         },
         {
           "id": "u5-l1-e4",
@@ -81,7 +74,18 @@
               "right": "Skips prompts; containers and VMs only"
             }
           ],
-          "explanation": "Each mode trades convenience for oversight differently, from asking every time to skipping prompts entirely."
+          "explanation": "Each mode trades convenience for oversight differently, so you pick the one that matches how much you want to review."
+        },
+        {
+          "id": "u5-l1-e6",
+          "type": "spot-bad-prompt",
+          "prompt": "You are in plan mode before a risky payments refactor. Which prompt is better?",
+          "options": [
+            "Refactor the payments code.",
+            "Explore src/payments and propose a step-by-step plan to move Stripe calls behind a PaymentProvider interface. List the files you would touch and the risks; do not edit anything yet."
+          ],
+          "better": 1,
+          "explanation": "Naming the scope, the goal and the expected output (a plan, no edits) gives Claude a clear job for the planning phase."
         },
         {
           "id": "u5-l1-e5",
@@ -95,18 +99,7 @@
             "Approve the plan so Claude can start editing",
             "Review the resulting diffs"
           ],
-          "explanation": "You agree on the approach first, and edits only begin once you approve the plan."
-        },
-        {
-          "id": "u5-l1-e6",
-          "type": "spot-bad-prompt",
-          "prompt": "You are in plan mode before a risky payments refactor. Which prompt is better?",
-          "options": [
-            "Refactor the payments code.",
-            "Explore src/payments and propose a step-by-step plan to move Stripe calls behind a PaymentProvider interface. List the files you would touch and the risks; do not edit anything yet."
-          ],
-          "better": 1,
-          "explanation": "The second prompt names the scope, the goal, and the expected output of the planning phase."
+          "explanation": "Refining and approving the plan before any edit means mistakes are caught while they are still cheap words, not code."
         },
         {
           "id": "u5-l1-e7",
@@ -125,7 +118,19 @@
             "\"acceptEdits\""
           ],
           "language": "json",
-          "explanation": "`permissions.defaultMode` sets the mode sessions start in, and `\"plan\"` is plan mode."
+          "explanation": "`permissions.defaultMode` is the setting Claude Code reads at startup, so setting it to `\"plan\"` makes every session begin in plan mode.",
+          "hint": "Pattern: \"permissions\": { \"defaultMode\": \"<mode name>\" }, with the mode as a quoted string."
+        },
+        {
+          "id": "u5-l1-e2",
+          "type": "terminal",
+          "prompt": "Start a new Claude Code session directly in plan mode by typing `claude` with the permission-mode flag set to `plan`.",
+          "accepted": [
+            "claude --permission-mode plan",
+            "claude --permission-mode=plan"
+          ],
+          "hint": "Pattern: claude --permission-mode <mode>",
+          "explanation": "The `--permission-mode` flag picks the starting mode, so `plan` guarantees nothing is edited until you approve a plan."
         },
         {
           "id": "u5-l1-e8",
@@ -135,7 +140,7 @@
             "src/api/login.ts",
             "src/middleware/"
           ],
-          "sample": "Read @src/api/login.ts and the existing middleware in @src/middleware/. Propose a plan to add rate limiting to the login endpoint (5 attempts per minute per IP): which files change, whether to reuse an existing middleware pattern, how to test it, and any risks. Do not edit files yet.",
+          "sample": "I'm new to this codebase and we're in plan mode. Read @src/api/login.ts and the existing middleware in @src/middleware/. Goal: plan rate limiting for the login endpoint (5 attempts per minute per IP). Constraints: reuse an existing middleware pattern if there is one, no new dependencies, and do not edit any files yet. Done when you've given me a numbered plan listing the files to change, how to test it, and the risks.",
           "keywords": [
             "rate limit",
             "login",
@@ -143,7 +148,7 @@
             "plan",
             "test"
           ],
-          "explanation": "A strong plan-mode prompt points at the relevant files, states the goal precisely, and asks for a plan rather than edits."
+          "explanation": "Context, file references, a precise goal and a clear \"done\" let Claude return a plan you can actually approve."
         }
       ]
     },
@@ -154,12 +159,18 @@
       "theory": [
         {
           "title": "Auto-accept edits",
-          "body": "In `acceptEdits` mode Claude Code automatically approves **file edits** and common filesystem commands such as `mkdir`, `touch`, `mv` and `cp` inside your working directory.\n\nOther shell commands (installing packages, pushing, publishing) still ask. It is perfect when you are iterating on code you'll review in the diff anyway.",
+          "body": "In `acceptEdits` mode Claude Code automatically approves **file edits** and common filesystem commands such as `mkdir`, `touch`, `mv` and `cp` inside your working directory.\n\nOther shell commands (installing packages, pushing, publishing like `npm publish`) **still ask**. It is perfect when you are iterating on code you'll review in the diff anyway. Start in it with the same flag as plan mode, just a different value. The value is case-sensitive camelCase: `acceptEdits`.",
           "code": "claude --permission-mode acceptEdits"
         },
         {
           "title": "Cycling and the danger zone",
-          "body": "`Shift+Tab` cycles Manual (`default`) → `acceptEdits` → `plan`, and, when they are available, `bypassPermissions` and `auto` as well. Watch the indicator under the prompt.\n\n`--dangerously-skip-permissions` starts in `bypassPermissions`, which skips permission prompts. Kip only uses it inside a **container or VM** where nothing precious can be crushed."
+          "body": "`Shift+Tab` moves one step each press: Manual (`default`) → `acceptEdits` → `plan`, and, when they are available, `bypassPermissions` and `auto` as well. So from Manual, one press gives accept edits and a second press gives plan. Watch the indicator under the prompt.\n\n`--dangerously-skip-permissions` starts in `bypassPermissions`, which skips **all** permission prompts. Kip only uses it inside an isolated **container or VM**, never on a laptop with real credentials.",
+          "code": "claude --dangerously-skip-permissions   # sandbox only!"
+        },
+        {
+          "title": "Your control panel",
+          "body": "Three kinds of controls, three moments:\n• **Flags** pick the mode when you launch `claude`.\n• **Shift+Tab** switches modes mid-session.\n• `/permissions` (typed inside a session) shows and edits your allow, ask and deny rules. You'll write those rules in the next lesson.",
+          "code": "claude --permission-mode default       # Manual: asks first\nclaude --permission-mode acceptEdits   # auto-approve edits\nclaude --permission-mode plan          # read-only planning\nclaude --dangerously-skip-permissions  # skip prompts (sandbox)\n\n> /permissions                         # inside a session"
         }
       ],
       "exercises": [
@@ -174,18 +185,7 @@
             "You are still asked, since it is not a file edit or common filesystem command"
           ],
           "answer": 3,
-          "explanation": "acceptEdits only auto-approves file edits and common filesystem commands; other shell commands still prompt."
-        },
-        {
-          "id": "u5-l2-e2",
-          "type": "terminal",
-          "prompt": "Start a session that automatically accepts file edits.",
-          "accepted": [
-            "claude --permission-mode acceptEdits",
-            "claude --permission-mode=acceptEdits"
-          ],
-          "hint": "Same flag as plan mode, different value (camelCase).",
-          "explanation": "`--permission-mode acceptEdits` auto-approves edits from the first turn."
+          "explanation": "acceptEdits only removes friction for file edits, so risky actions like publishing still need your explicit yes."
         },
         {
           "id": "u5-l2-e3",
@@ -198,17 +198,7 @@
             "plan"
           ],
           "answer": 2,
-          "explanation": "The cycle goes Manual (default) → acceptEdits → plan."
-        },
-        {
-          "id": "u5-l2-e4",
-          "type": "terminal",
-          "prompt": "Inside a throwaway Docker container, start Claude Code so it skips permission prompts entirely.",
-          "accepted": [
-            "claude --dangerously-skip-permissions"
-          ],
-          "hint": "The flag name literally warns you that it is dangerous.",
-          "explanation": "`--dangerously-skip-permissions` starts in bypassPermissions mode and belongs only in isolated environments."
+          "explanation": "Each `Shift+Tab` press moves one step along Manual → acceptEdits → plan, so one press from default lands on acceptEdits."
         },
         {
           "id": "u5-l2-e5",
@@ -232,20 +222,7 @@
               "right": "Skip prompts; sandboxes only"
             }
           ],
-          "explanation": "Keys switch modes mid-session, flags set them at launch, and /permissions manages rules."
-        },
-        {
-          "id": "u5-l2-e6",
-          "type": "order-steps",
-          "prompt": "Starting in Manual mode, walk to plan mode and then implement.",
-          "steps": [
-            "Run claude --permission-mode default",
-            "Press Shift+Tab: the indicator shows accept edits",
-            "Press Shift+Tab again: the indicator shows plan mode",
-            "Ask Claude to research and propose a plan",
-            "Approve the plan and let Claude start editing"
-          ],
-          "explanation": "Each Shift+Tab press moves one step around the mode cycle."
+          "explanation": "Flags set the mode at launch, keys switch it mid-session, and `/permissions` manages the rules, so each control fits a different moment."
         },
         {
           "id": "u5-l2-e7",
@@ -256,7 +233,7 @@
             "rename the date thing everywhere"
           ],
           "better": 0,
-          "explanation": "With edits auto-approved, a precise scope and a verification step matter even more."
+          "explanation": "With edits auto-approved you review less as you go, so a precise scope and a test step are your safety net."
         },
         {
           "id": "u5-l2-e8",
@@ -269,7 +246,41 @@
             "A shared server everyone logs into"
           ],
           "answer": 1,
-          "explanation": "Skipping all prompts is only safe where Claude cannot damage anything that matters."
+          "explanation": "Skipping prompts removes your last check, so it is only safe where Claude cannot reach anything that matters."
+        },
+        {
+          "id": "u5-l2-e6",
+          "type": "order-steps",
+          "prompt": "Starting in Manual mode, walk to plan mode and then implement.",
+          "steps": [
+            "Run claude --permission-mode default",
+            "Press Shift+Tab: the indicator shows accept edits",
+            "Press Shift+Tab again: the indicator shows plan mode",
+            "Ask Claude to research and propose a plan",
+            "Approve the plan and let Claude start editing"
+          ],
+          "explanation": "Each Shift+Tab press moves exactly one step, so from Manual you need two presses to reach plan mode."
+        },
+        {
+          "id": "u5-l2-e2",
+          "type": "terminal",
+          "prompt": "Start a new session that automatically accepts file edits, using the permission-mode flag with the value `acceptEdits`.",
+          "accepted": [
+            "claude --permission-mode acceptEdits",
+            "claude --permission-mode=acceptEdits"
+          ],
+          "hint": "Pattern: claude --permission-mode <mode> (the value is camelCase: acceptEdits)",
+          "explanation": "Mode values are exact names, so `acceptEdits` (camelCase) auto-approves edits from the very first turn."
+        },
+        {
+          "id": "u5-l2-e4",
+          "type": "terminal",
+          "prompt": "You are inside a throwaway Docker container. Start Claude Code with the flag that skips all permission prompts.",
+          "accepted": [
+            "claude --dangerously-skip-permissions"
+          ],
+          "hint": "Pattern: claude --dangerously-skip-permissions",
+          "explanation": "The flag is named \"dangerously\" because it removes every safety prompt, which is only acceptable where nothing real can be damaged."
         }
       ]
     },
@@ -280,34 +291,21 @@
       "theory": [
         {
           "title": "Where rules live",
-          "body": "Permission rules live in settings files:\n\n`~/.claude/settings.json` applies to **you in every project**. `.claude/settings.json` is the **project** file you commit so the team shares it. `.claude/settings.local.json` is **personal** to this project and not committed.\n\nRules go in three lists under `permissions`: `allow`, `ask` and `deny`. Run `/permissions` to see every rule and which file it came from.",
-          "code": "{\n  \"permissions\": {\n    \"allow\": [\"Bash(npm run *)\", \"Read(~/.zshrc)\"],\n    \"ask\": [\"Bash(git push *)\"],\n    \"deny\": [\"Read(./.env)\", \"Bash(curl *)\"]\n  }\n}"
+          "body": "Permission rules live in settings files:\n• `~/.claude/settings.json` applies to **you in every project**.\n• `.claude/settings.json` is the **project** file you commit so the team shares it.\n• `.claude/settings.local.json` is **personal** to this project and not committed.\n\nInside a session, type `/permissions` to see every rule and which file it came from.",
+          "code": "> /permissions"
         },
         {
-          "title": "Rule syntax",
-          "body": "A rule is a tool name, optionally with a specifier: `Tool` or `Tool(specifier)`. Tool names include `Bash`, `Read`, `Edit`, `Write`, `WebFetch`, `WebSearch`, `Glob` and `Grep`.\n\n`Bash(npm run build)` matches that exact command. `Bash(npm run *)` matches `npm run build` and `npm run test --watch` but not `npm install`. The older `:*` suffix is equivalent: `Bash(ls:*)` = `Bash(ls *)`.\n\n`Read(./.env)` targets a path; `WebFetch(domain:github.com)` targets a domain."
+          "title": "The three lists",
+          "body": "Rules go in three lists inside `\"permissions\"`:\n• `\"allow\"`: runs **without asking**.\n• `\"ask\"`: always **asks you first**.\n• `\"deny\"`: **blocked**, never runs.\n\nEach list is a JSON array `[ ]` of rule strings in double quotes, separated by commas. In this example tests and the docs folder are free, `git push` needs a yes, and `.env` and `curl` are off-limits.",
+          "code": "{\n  \"permissions\": {\n    \"allow\": [\"Bash(npm run test *)\", \"Read(./docs/**)\"],\n    \"ask\":   [\"Bash(git push *)\"],\n    \"deny\":  [\"Read(./.env)\", \"Bash(curl *)\"]\n  }\n}"
+        },
+        {
+          "title": "Rule syntax: Tool(specifier)",
+          "body": "A rule is a tool name, optionally followed by a specifier in parentheses: `Tool` or `Tool(specifier)`. Tool names are capitalized: `Bash`, `Read`, `Edit`, `Write`, `WebFetch`, `WebSearch`, `Glob`, `Grep`.\n\n• `Bash(...)` takes a command; `*` is a wildcard for \"anything here\". The older `:*` suffix means the same: `Bash(ls:*)` = `Bash(ls *)`.\n• `Read(...)` / `Edit(...)` take a path; `./` means the project folder and `**` means any files in any subfolder.\n• `WebFetch(domain:...)` takes a website domain.",
+          "code": "Bash(npm run build)          exactly that command\nBash(npm run *)              npm run build, npm run test --watch\n                             (but NOT npm install)\nRead(./.env)                 the .env file in the project\nRead(./docs/**)              everything under docs/\nWebFetch(domain:github.com)  fetches from github.com"
         }
       ],
       "exercises": [
-        {
-          "id": "u5-l3-e1",
-          "type": "fill-blank",
-          "prompt": "Let Claude run test scripts and read docs freely, but never read the .env file.",
-          "code": "{\n  \"permissions\": {\n    \"___\": [\"Bash(npm run test *)\", \"Read(./docs/**)\"],\n    \"___\": [\"Read(./.env)\"]\n  }\n}",
-          "blanks": [
-            "allow",
-            "deny"
-          ],
-          "wordBank": [
-            "allow",
-            "deny",
-            "ask",
-            "block",
-            "permit"
-          ],
-          "language": "json",
-          "explanation": "`allow` pre-approves matching calls and `deny` blocks them."
-        },
         {
           "id": "u5-l3-e2",
           "type": "match-pairs",
@@ -326,7 +324,7 @@
               "right": "Just you, this project only"
             }
           ],
-          "explanation": "User, project and local settings let you share some rules and keep others personal."
+          "explanation": "Splitting settings into user, project and local files lets you share team rules while keeping personal ones out of git."
         },
         {
           "id": "u5-l3-e3",
@@ -339,12 +337,56 @@
             "Bash(npm install *)"
           ],
           "answer": 0,
-          "explanation": "The wildcard after `npm run ` only matches commands that start with `npm run`."
+          "explanation": "The `*` only replaces what comes after `npm run `, so commands that start differently, like `npm install`, do not match."
+        },
+        {
+          "id": "u5-l3-e6",
+          "type": "multiple-choice",
+          "prompt": "Your team wants the same allow rules for lint and tests on every machine. Where do they go?",
+          "options": [
+            ".claude/settings.local.json",
+            "~/.claude/settings.json on each laptop",
+            "CLAUDE.md",
+            ".claude/settings.json, committed to the repo"
+          ],
+          "answer": 3,
+          "explanation": "Only the committed `.claude/settings.json` travels with the repo, so it is the one file every teammate gets."
+        },
+        {
+          "id": "u5-l3-e7",
+          "type": "spot-bad-prompt",
+          "prompt": "You want Claude to configure permissions for the repo. Which prompt is better?",
+          "options": [
+            "make permissions less annoying",
+            "In .claude/settings.json, add allow rules for Bash(npm run lint) and Bash(npm run test *), and a deny rule for Read(./.env). Leave other settings untouched."
+          ],
+          "better": 1,
+          "explanation": "Naming the file, the exact rules and the boundaries prevents Claude from guessing and adding an overly broad allow."
+        },
+        {
+          "id": "u5-l3-e1",
+          "type": "fill-blank",
+          "prompt": "Let Claude run test scripts and read docs freely, but never read the .env file.",
+          "code": "{\n  \"permissions\": {\n    \"___\": [\"Bash(npm run test *)\", \"Read(./docs/**)\"],\n    \"___\": [\"Read(./.env)\"]\n  }\n}",
+          "blanks": [
+            "allow",
+            "deny"
+          ],
+          "wordBank": [
+            "allow",
+            "deny",
+            "ask",
+            "block",
+            "permit"
+          ],
+          "language": "json",
+          "explanation": "Putting a rule in `allow` skips the prompt and putting it in `deny` blocks the call, so the list name decides the outcome.",
+          "hint": "Rule lists are \"allow\" (runs freely), \"ask\" (confirm first) and \"deny\" (blocked)."
         },
         {
           "id": "u5-l3-e4",
           "type": "fill-blank",
-          "prompt": "Block reading .env and restrict web fetches to the Python docs.",
+          "prompt": "Block reading .env, and let Claude fetch pages from the Python docs without asking.",
           "code": "{\n  \"permissions\": {\n    \"deny\": [\"___(./.env)\", \"Bash(curl *)\"],\n    \"allow\": [\"___(domain:docs.python.org)\"]\n  }\n}",
           "blanks": [
             "Read",
@@ -358,42 +400,19 @@
             "Fetch"
           ],
           "language": "json",
-          "explanation": "`Read(path)` scopes file reads and `WebFetch(domain:...)` scopes fetches by domain."
+          "explanation": "The tool name before the parentheses decides what is being controlled: `Read` for file reads and `WebFetch` for web requests.",
+          "hint": "Pattern: Tool(specifier). File paths go in Read(...), domains go in WebFetch(domain:...)."
         },
         {
           "id": "u5-l3-e5",
           "type": "terminal",
-          "prompt": "Open the dialog that lists your permission rules and the file each one comes from.",
+          "prompt": "Inside a session, open the dialog that lists your permission rules and the file each one comes from.",
           "promptSymbol": ">",
           "accepted": [
             "/permissions"
           ],
-          "hint": "It is a slash command named after what it manages.",
-          "explanation": "`/permissions` shows allow, ask and deny rules and lets you add or remove them."
-        },
-        {
-          "id": "u5-l3-e6",
-          "type": "multiple-choice",
-          "prompt": "Your team wants the same allow rules for lint and tests on every machine. Where do they go?",
-          "options": [
-            ".claude/settings.local.json",
-            "~/.claude/settings.json on each laptop",
-            "CLAUDE.md",
-            ".claude/settings.json, committed to the repo"
-          ],
-          "answer": 3,
-          "explanation": "The project settings file is shared through version control."
-        },
-        {
-          "id": "u5-l3-e7",
-          "type": "spot-bad-prompt",
-          "prompt": "You want Claude to configure permissions for the repo. Which prompt is better?",
-          "options": [
-            "make permissions less annoying",
-            "In .claude/settings.json, add allow rules for Bash(npm run lint) and Bash(npm run test *), and a deny rule for Read(./.env). Leave other settings untouched."
-          ],
-          "better": 1,
-          "explanation": "Naming the file, the exact rules and the boundaries leaves no room for an overly broad allow."
+          "hint": "Pattern: / + the name of the feature (the same word as the settings section).",
+          "explanation": "`/permissions` shows every allow, ask and deny rule with its source file, so you can see why something is or isn't allowed."
         },
         {
           "id": "u5-l3-e8",
@@ -403,7 +422,7 @@
             ".claude/settings.json",
             "package.json"
           ],
-          "sample": "Update @.claude/settings.json (create it if missing). Using the scripts in @package.json, add allow rules for Bash(npm run lint) and Bash(npm run test *). Add deny rules for Read(./.env), Read(./.env.*) and Bash(curl *). Do not change any other settings, and show me the final file.",
+          "sample": "Our team keeps getting prompted for routine commands, and we need secrets locked down. Update @.claude/settings.json (create it if missing). Using the scripts in @package.json, add allow rules for Bash(npm run lint) and Bash(npm run test *). Add deny rules for Read(./.env), Read(./.env.*) and Bash(curl *). Constraints: don't change any other settings and don't add broader rules than these. Done when you show me the final file and confirm it is valid JSON.",
           "keywords": [
             "allow",
             "deny",
@@ -412,7 +431,7 @@
             "settings.json",
             "test"
           ],
-          "explanation": "Good permission prompts name exact rules and the file, so nothing broader than intended gets allowed."
+          "explanation": "Stating the reason, the exact rules, the file and what \"done\" looks like means nothing broader than intended gets allowed."
         }
       ]
     },
@@ -423,11 +442,17 @@
       "theory": [
         {
           "title": "Deny first, always",
-          "body": "Rules are evaluated in a fixed order: **deny**, then **ask**, then **allow**. The first match decides, and specificity does not change the order.\n\nSo a broad deny like `Bash(aws *)` blocks `aws s3 ls` even if `Bash(aws s3 ls)` is in `allow`. An allow rule can never carve an exception out of a deny rule, and a matching ask rule still prompts even if an allow rule also matches."
+          "body": "Rules are checked in a fixed order: **deny**, then **ask**, then **allow**. The first match decides, and how specific a rule is does not change the order. If **nothing** matches, Claude Code falls back to the current permission mode (for example, Manual asks).\n\nSo with this config, `git status` runs freely, `git push origin main` asks, and `rm -rf build` is blocked. An allow rule can never carve an exception out of a deny rule.",
+          "code": "{\n  \"permissions\": {\n    \"allow\": [\"Bash(git status)\", \"Bash(git diff *)\"],\n    \"ask\":   [\"Bash(git push *)\"],\n    \"deny\":  [\"Bash(rm -rf *)\"]\n  }\n}"
+        },
+        {
+          "title": "Worked examples",
+          "body": "• allow `Bash(git *)` + deny `Bash(git push *)` → `git push` is **blocked** (deny checked first).\n• allow `Bash(npm *)` + ask `Bash(npm publish *)` → `npm publish` **asks** (ask beats allow).\n• allow `Bash(aws s3 ls)` + deny `Bash(aws *)` → `aws s3 ls` is **blocked**, even though the allow is more specific.\n\nReminder: `Bash(ls *)` and the older `Bash(ls:*)` mean the same thing."
         },
         {
           "title": "Enforced, not requested",
-          "body": "Permission rules are enforced **by Claude Code**, not by the model. Writing \"never read .env\" in `CLAUDE.md` shapes what Claude *tries*; a `deny` rule decides what is *allowed*.\n\nA bare tool name in `deny`, like `\"WebFetch\"`, removes that tool from Claude's context entirely. A scoped rule like `Bash(rm *)` keeps the tool but blocks matching calls."
+          "body": "Permission rules are enforced **by Claude Code**, not by the model. Writing \"never read .env\" in `CLAUDE.md` shapes what Claude *tries*; a `deny` rule decides what is *allowed*.\n\nA bare tool name in `deny`, like `\"WebFetch\"`, removes that tool from Claude's context entirely. A scoped rule like `\"Bash(rm *)\"` keeps the tool but blocks matching calls.",
+          "code": "\"deny\": [\"WebFetch\", \"Read(./.env)\", \"Read(./.env.*)\"]"
         }
       ],
       "exercises": [
@@ -442,7 +467,7 @@
             "It runs, because allow is listed first"
           ],
           "answer": 2,
-          "explanation": "Deny is checked first and the first match wins."
+          "explanation": "Deny is always checked first and the first match wins, so a broad allow can never override a deny."
         },
         {
           "id": "u5-l4-e2",
@@ -455,38 +480,7 @@
             "It is blocked"
           ],
           "answer": 1,
-          "explanation": "Ask is checked before allow, so the ask rule wins."
-        },
-        {
-          "id": "u5-l4-e3",
-          "type": "fill-blank",
-          "prompt": "Make `git push` always ask first, and block `rm -rf` outright.",
-          "code": "{\n  \"permissions\": {\n    \"allow\": [\"Bash(git status)\", \"Bash(git diff *)\"],\n    \"___\": [\"Bash(git push *)\"],\n    \"___\": [\"Bash(rm -rf *)\"]\n  }\n}",
-          "blanks": [
-            "ask",
-            "deny"
-          ],
-          "wordBank": [
-            "ask",
-            "deny",
-            "allow",
-            "confirm",
-            "block"
-          ],
-          "language": "json",
-          "explanation": "`ask` forces a confirmation prompt and `deny` blocks the call."
-        },
-        {
-          "id": "u5-l4-e4",
-          "type": "order-steps",
-          "prompt": "Put Claude Code's rule evaluation in order.",
-          "steps": [
-            "Check deny rules",
-            "Check ask rules",
-            "Check allow rules",
-            "No match: fall back to the current permission mode"
-          ],
-          "explanation": "Deny, then ask, then allow; the first match determines the outcome."
+          "explanation": "Ask is checked before allow, so a matching ask rule always forces a confirmation even when an allow also matches."
         },
         {
           "id": "u5-l4-e5",
@@ -510,7 +504,7 @@
               "right": "Always confirm before pushing"
             }
           ],
-          "explanation": "Where a rule sits (allow, ask, deny) matters as much as what it matches."
+          "explanation": "The same pattern behaves completely differently depending on which list it sits in, so placement matters as much as matching."
         },
         {
           "id": "u5-l4-e6",
@@ -523,7 +517,7 @@
             "CLAUDE.md cannot contain file names"
           ],
           "answer": 0,
-          "explanation": "Instructions shape behavior, but only permission rules actually block a tool call."
+          "explanation": "CLAUDE.md only guides what the model tries, while Claude Code itself enforces deny rules on every tool call."
         },
         {
           "id": "u5-l4-e7",
@@ -536,7 +530,7 @@
             "Bash(ls:*)"
           ],
           "answer": 3,
-          "explanation": "The `:*` suffix is an equivalent way to write a trailing wildcard."
+          "explanation": "The older `:*` suffix is just another way to write a trailing wildcard, so both rules match the same commands."
         },
         {
           "id": "u5-l4-e8",
@@ -547,7 +541,39 @@
             "Add Read(./.env) and Read(./.env.*) to the deny list in .claude/settings.json."
           ],
           "better": 1,
-          "explanation": "A deny rule is enforced every time, whereas a note is only guidance."
+          "explanation": "A deny rule is enforced by Claude Code every time, whereas a note can be overlooked by the model."
+        },
+        {
+          "id": "u5-l4-e3",
+          "type": "fill-blank",
+          "prompt": "Make `git push` always ask first, and block `rm -rf` outright.",
+          "code": "{\n  \"permissions\": {\n    \"allow\": [\"Bash(git status)\", \"Bash(git diff *)\"],\n    \"___\": [\"Bash(git push *)\"],\n    \"___\": [\"Bash(rm -rf *)\"]\n  }\n}",
+          "blanks": [
+            "ask",
+            "deny"
+          ],
+          "wordBank": [
+            "ask",
+            "deny",
+            "allow",
+            "confirm",
+            "block"
+          ],
+          "language": "json",
+          "explanation": "Putting `git push` in `ask` keeps you in the loop for pushes, while `deny` makes `rm -rf` impossible no matter what else is allowed.",
+          "hint": "\"ask\" = confirm before running, \"deny\" = never run, \"allow\" = run without asking."
+        },
+        {
+          "id": "u5-l4-e4",
+          "type": "order-steps",
+          "prompt": "Put Claude Code's rule evaluation in order.",
+          "steps": [
+            "Check deny rules",
+            "Check ask rules",
+            "Check allow rules",
+            "No match: fall back to the current permission mode"
+          ],
+          "explanation": "Checking deny first makes blocks unbreakable, and the current mode only decides when no rule matches at all."
         }
       ]
     }

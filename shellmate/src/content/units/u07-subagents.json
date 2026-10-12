@@ -12,11 +12,17 @@
       "theory": [
         {
           "title": "Specialists with their own shell",
-          "body": "A **subagent** is a specialized assistant Claude can hand work to. Each runs in its **own separate context window** with its own system prompt and, optionally, a restricted set of tools.\n\nThe subagent does the digging and returns a summary, so your main conversation stays clean. Built-ins include **Explore** (fast, read-only codebase search), **Plan** (gathers context during plan mode) and **general-purpose** (multi-step tasks that explore and act)."
+          "body": "A **subagent** is a specialized assistant Claude can hand work to. Each runs in its **own separate context window** with its own system prompt and, optionally, a restricted set of tools.\n\nThe subagent does the digging and returns a **summary**, so your main conversation stays clean. Built-ins include:\n• **Explore**: fast, read-only codebase search\n• **Plan**: gathers context during plan mode\n• **general-purpose**: multi-step tasks that explore and act\nYou can also define your own custom agents (next lesson)."
         },
         {
           "title": "When to delegate",
-          "body": "Delegate when work is **noisy or parallel**: researching across many files, investigating independent questions at once, or running something with lots of output.\n\nClaude delegates automatically based on each subagent's description, or you ask explicitly: \"Use the code-reviewer subagent to check my changes\". Subagent files live in `.claude/agents/` (project) and `~/.claude/agents/` (personal)."
+          "body": "Delegate when work is **noisy or parallel**: searching across many files, investigating independent questions at once, or running something with lots of output. Skip it for tiny local edits, where a separate context only adds overhead.\n\nThe flow: you ask → Claude picks a subagent by its description → it works in its own context → it returns a summary → your conversation continues with just that summary.\n\nSubagent files live in `.claude/agents/` (project) and `~/.claude/agents/` (personal). The slash command for managing them is `/agents`: in recent versions it reminds you to ask Claude or edit `.claude/agents/`; older versions open an interactive manager.",
+          "code": "> /agents"
+        },
+        {
+          "title": "Asking for subagents",
+          "body": "Claude delegates on its own, but you can be explicit. Name the subagent (or say \"in parallel\"), give each one a clear, independent job and scope, and say what you want back.",
+          "code": "Use the Explore subagent to find every call to\nlegacyFetch in @src/ and list file:line hits.\n\nUse two subagents in parallel: one maps token issuing in\n@src/auth, the other lists permission checks in @src/api.\nCombine both into a short summary. Do not edit anything."
         }
       ],
       "exercises": [
@@ -31,7 +37,7 @@
             "It always uses a bigger model"
           ],
           "answer": 1,
-          "explanation": "Separate context keeps exploration noise out of your main conversation."
+          "explanation": "A separate context window keeps the subagent's noisy exploration out of your main conversation, which only receives the summary."
         },
         {
           "id": "u7-l1-e2",
@@ -44,7 +50,7 @@
             "statusline-setup"
           ],
           "answer": 0,
-          "explanation": "Explore is optimized for searching and analyzing code without changing it."
+          "explanation": "Explore is built for searching and reading code without changing it, which makes it fast and safe to delegate to."
         },
         {
           "id": "u7-l1-e3",
@@ -68,7 +74,7 @@
               "right": "Specialist you define yourself"
             }
           ],
-          "explanation": "Built-ins cover common jobs; custom agents cover your own workflows."
+          "explanation": "Built-ins cover common jobs out of the box, while custom agents encode your own team-specific workflows."
         },
         {
           "id": "u7-l1-e4",
@@ -79,18 +85,7 @@
             "Find where we handle auth."
           ],
           "better": 0,
-          "explanation": "Splitting independent questions across subagents runs them in parallel and keeps results focused."
-        },
-        {
-          "id": "u7-l1-e5",
-          "type": "terminal",
-          "prompt": "Run the slash command associated with managing subagents.",
-          "promptSymbol": ">",
-          "accepted": [
-            "/agents"
-          ],
-          "hint": "Named after what it manages.",
-          "explanation": "In recent versions `/agents` reminds you to ask Claude or edit `.claude/agents/`; older versions open an interactive manager."
+          "explanation": "Independent questions can run side by side in separate contexts, so splitting them is faster and keeps each answer focused."
         },
         {
           "id": "u7-l1-e6",
@@ -103,7 +98,7 @@
             "Fixing a one-character typo in the file you are already editing"
           ],
           "answer": 3,
-          "explanation": "Tiny, local edits gain nothing from a separate context and just add overhead."
+          "explanation": "A separate context only pays off for big or noisy work, so a tiny local edit just gains overhead."
         },
         {
           "id": "u7-l1-e7",
@@ -116,7 +111,18 @@
             "The subagent returns a summary",
             "The main conversation continues with just the summary"
           ],
-          "explanation": "Only the summary returns, so the main context stays small."
+          "explanation": "Only the summary comes back, which is exactly why delegation keeps your main context small."
+        },
+        {
+          "id": "u7-l1-e5",
+          "type": "terminal",
+          "prompt": "Inside a session, type the slash command for managing subagents.",
+          "promptSymbol": ">",
+          "accepted": [
+            "/agents"
+          ],
+          "hint": "Pattern: / + the plural of \"agent\".",
+          "explanation": "`/agents` is the entry point for subagents: recent versions point you to asking Claude or editing `.claude/agents/`, older ones open a manager."
         },
         {
           "id": "u7-l1-e8",
@@ -126,7 +132,7 @@
             "package.json",
             "src/components/"
           ],
-          "sample": "Use two subagents in parallel. One: search @src/components/ for APIs deprecated or removed in React 19 (e.g. string refs, legacy context, defaultProps on function components) and list file:line hits. Two: report which components in @src/components/ have no tests. Then combine both into a short upgrade-risk report. Do not edit anything.",
+          "sample": "We're upgrading from React 18 to 19 (see @package.json). Use two subagents in parallel. One: search @src/components/ for APIs deprecated or removed in React 19 (e.g. string refs, legacy context, defaultProps on function components) and list file:line hits. Two: report which components in @src/components/ have no tests. Constraint: do not edit anything. Done when you combine both into a short upgrade-risk report ranked by risk.",
           "keywords": [
             "subagent",
             "parallel",
@@ -135,7 +141,7 @@
             "tests",
             "report"
           ],
-          "explanation": "Naming independent tasks, scope and the desired combined output makes parallel delegation effective."
+          "explanation": "Giving context, independent tasks, scope and the combined deliverable lets the subagents work in parallel without overlap."
         }
       ]
     },
@@ -146,36 +152,20 @@
       "theory": [
         {
           "title": "Anatomy of an agent file",
-          "body": "A subagent is a Markdown file in `.claude/agents/` (project) or `~/.claude/agents/` (personal). YAML frontmatter configures it; the **body is its system prompt**.\n\nOnly `name` and `description` are required. `tools` is a comma-separated list; omit it and the agent inherits every tool available to subagents. `model` can be `sonnet`, `opus`, `haiku` or `inherit`. If two agents share a name, the project one beats the personal one.",
-          "code": "---\nname: code-reviewer\ndescription: Reviews code for quality and best practices\ntools: Read, Glob, Grep\nmodel: sonnet\n---\n\nYou are a code reviewer. When invoked, analyze the code and\nprovide specific, actionable feedback on quality, security,\nand best practices."
+          "body": "A custom subagent is a Markdown file: `.claude/agents/<name>.md` (project, commit it to share) or `~/.claude/agents/<name>.md` (personal). Like commands and skills, it starts with **YAML frontmatter** between `---` lines (`key: value` per line), and the **body below is the agent's system prompt**.\n• `name:` unique identifier (required)\n• `description:` when Claude should delegate to it (required)\n• `tools:` comma-separated list of allowed tools (optional; **omit it and the agent inherits every tool** available to subagents)\n• `model:` `sonnet`, `opus`, `haiku` or `inherit` (optional)",
+          "code": "---\nname: code-reviewer\ndescription: Reviews code for quality and best practices.\n  Use after code changes.\ntools: Read, Glob, Grep\nmodel: sonnet\n---\n\nYou are a code reviewer. When invoked, analyze the code and\nprovide specific, actionable feedback on quality, security,\nand best practices."
+        },
+        {
+          "title": "Restrict and describe",
+          "body": "Give an agent only the tools it needs: a reviewer that only reads gets `tools: Read, Glob, Grep`, so it can't edit anything.\n\nWrite the `description` as a trigger: say **what it does and when to use it** (\"Runs the test suite and fixes failures. Use proactively after code changes.\"). Vague descriptions like \"helps with tests\" rarely get picked.\n\nIf a project agent and a personal agent share a name, the project one wins."
         },
         {
           "title": "Calling your specialist",
-          "body": "Write the `description` as a trigger: say what it does and when to use it, and Claude will delegate on its own.\n\nOr be explicit: \"Use the test-runner subagent to fix failing tests\". You can even run a whole session as an agent with `claude --agent code-reviewer`."
+          "body": "Three ways to use it:\n• Let Claude delegate automatically when the description matches.\n• Ask explicitly: \"Use the test-runner subagent to fix failing tests\".\n• Run a **whole session** as the agent with the `--agent` flag (singular) followed by its name.",
+          "code": "claude --agent code-reviewer"
         }
       ],
       "exercises": [
-        {
-          "id": "u7-l2-e1",
-          "type": "fill-blank",
-          "prompt": "Complete this read-only reviewer agent that runs on Sonnet.",
-          "code": "---\nname: code-reviewer\n___: Reviews changed code for bugs and security issues. Use after code changes.\n___: Read, Grep, Glob\nmodel: ___\n---\nYou are a senior code reviewer...",
-          "blanks": [
-            "description",
-            "tools",
-            "sonnet"
-          ],
-          "wordBank": [
-            "description",
-            "tools",
-            "sonnet",
-            "prompt",
-            "permissions",
-            "fast"
-          ],
-          "language": "markdown",
-          "explanation": "`description` drives delegation, `tools` restricts access, and `model` picks the model."
-        },
         {
           "id": "u7-l2-e2",
           "type": "multiple-choice",
@@ -187,7 +177,7 @@
             "name, tools and model"
           ],
           "answer": 2,
-          "explanation": "Everything else, including tools and model, is optional."
+          "explanation": "Claude needs a name to identify the agent and a description to know when to use it; everything else has a sensible default."
         },
         {
           "id": "u7-l2-e3",
@@ -200,7 +190,7 @@
             "It can only read files"
           ],
           "answer": 1,
-          "explanation": "Omitting `tools` means the agent inherits the available tools; list them to restrict it."
+          "explanation": "Omitting `tools` means the agent inherits every tool available, so you list tools only when you want to restrict it."
         },
         {
           "id": "u7-l2-e4",
@@ -213,7 +203,7 @@
             ".claude/skills/agents/"
           ],
           "answer": 0,
-          "explanation": "Project agents live in `.claude/agents/` and are committed with the repo."
+          "explanation": "Files in `.claude/agents/` are committed with the repo, so every teammate gets the same agent."
         },
         {
           "id": "u7-l2-e5",
@@ -241,7 +231,7 @@
               "right": "The subagent's system prompt"
             }
           ],
-          "explanation": "Frontmatter configures the agent and the body tells it how to behave."
+          "explanation": "Frontmatter configures who the agent is and what it may use, while the body is the system prompt that shapes how it behaves."
         },
         {
           "id": "u7-l2-e6",
@@ -252,7 +242,29 @@
             "description: Runs the test suite, diagnoses failures and fixes them. Use proactively after code changes."
           ],
           "better": 1,
-          "explanation": "A specific description tells Claude exactly when to delegate."
+          "explanation": "Claude delegates by matching tasks against the description, so a specific \"what and when\" gets the agent used at the right times."
+        },
+        {
+          "id": "u7-l2-e1",
+          "type": "fill-blank",
+          "prompt": "Complete this read-only reviewer agent that runs on Sonnet.",
+          "code": "---\nname: code-reviewer\n___: Reviews changed code for bugs and security issues. Use after code changes.\n___: Read, Grep, Glob\nmodel: ___\n---\nYou are a senior code reviewer...",
+          "blanks": [
+            "description",
+            "tools",
+            "sonnet"
+          ],
+          "wordBank": [
+            "description",
+            "tools",
+            "sonnet",
+            "prompt",
+            "permissions",
+            "fast"
+          ],
+          "language": "markdown",
+          "explanation": "`description` tells Claude when to delegate, `tools` limits the reviewer to reading, and `model` chooses which model runs it.",
+          "hint": "Frontmatter keys: name, description (when to delegate), tools (comma list), model (sonnet, opus, haiku or inherit)."
         },
         {
           "id": "u7-l2-e7",
@@ -265,17 +277,17 @@
             "Write the system prompt in the body",
             "Say: Use the test-runner subagent to fix failing tests"
           ],
-          "explanation": "Define, restrict, instruct, then delegate."
+          "explanation": "Restricting tools before writing the prompt keeps the agent safe, and naming it explicitly guarantees it gets used."
         },
         {
           "id": "u7-l2-e8",
           "type": "terminal",
-          "prompt": "Start a whole session running as your `code-reviewer` subagent.",
+          "prompt": "Start a whole new session running as your `code-reviewer` subagent, using the `--agent` flag.",
           "accepted": [
             "claude --agent code-reviewer"
           ],
-          "hint": "The flag is singular: --agent followed by the name.",
-          "explanation": "`claude --agent <name>` runs the session with that agent as the main agent."
+          "hint": "Pattern: claude --agent <agent-name>",
+          "explanation": "`--agent` makes the named agent the main agent for the whole session, so its prompt and tool limits apply from the start."
         }
       ]
     }

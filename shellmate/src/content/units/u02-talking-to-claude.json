@@ -11,13 +11,18 @@
       "description": "Context, goal, constraints, definition of done.",
       "theory": [
         {
-          "title": "Four ingredients",
-          "body": "Claude is smart, but it can't read your mind. A strong task prompt usually has:\n\n**Context**: what's going on and where (`the checkout page in src/checkout/`).\n\n**Goal**: the specific outcome you want.\n\n**Constraints**: what to avoid or keep (`don't add dependencies`).\n\n**Definition of done**: how you'll both know it worked (`all tests in cart.test.ts pass`).",
-          "code": "Users report the cart total is wrong when a coupon is applied.\nFix the calculation in src/cart/total.ts.\nDon't change the public function signatures.\nDone = existing tests pass and you add a test for the coupon case."
+          "title": "Five ingredients",
+          "body": "Claude is smart, but it can't read your mind. A strong prompt has **five parts**:\n\n**Context**: where this happens and what is going on (`our Express API`, `the checkout page`).\n\n**Specific goal**: one clear action and target (`add pagination to GET /users`).\n\n**Constraints**: guardrails that start with words like `don't…`, `only…` or `keep…`.\n\n**Definition of done**: how you will both know it worked (`done when npm test passes`).\n\n**File references**: point at the files with `@path`, like `@src/cart/total.ts`.",
+          "code": "Users report the cart total is wrong when a coupon is applied.   ← context\nFix the calculation in @src/cart/total.ts.                       ← goal + file\nDon't change the public function signatures.                     ← constraint\nDone when existing tests pass and you add a coupon test.         ← done"
+        },
+        {
+          "title": "A fill-in template",
+          "body": "When you're starting out, write the parts as labeled lines. Claude reads it fine, and you won't forget a part. (You'll learn more about `@` in the next lesson.)",
+          "code": "Context: the login form in @src/auth/\nGoal: show an error when the password is wrong\nConstraint: don't change the API client\nDone when: the error renders and tests pass"
         },
         {
           "title": "Specific beats short",
-          "body": "\"fix the bug\" forces Claude to guess which bug. Every guess burns time and tokens. A couple of extra sentences up front saves several rounds of back-and-forth. Kip calls this \"measure twice, prompt once\"."
+          "body": "\"fix the bug\" forces Claude to guess which bug. Every guess burns time and tokens (the small chunks of text Claude reads and you pay for). A concrete target like `GET /users under 200ms` beats a vague wish like \"make it faster\". Kip calls this \"measure twice, prompt once\"."
         }
       ],
       "exercises": [
@@ -54,7 +59,7 @@
               "right": "Definition of done"
             }
           ],
-          "explanation": "Context, goal, constraints and a definition of done together remove guesswork."
+          "explanation": "Each fragment answers a different question Claude would otherwise have to guess: where, what, what not, and when to stop."
         },
         {
           "id": "u2-l1-e3",
@@ -68,46 +73,6 @@
           ],
           "answer": 2,
           "explanation": "A concrete target and location turns a vague wish into a measurable task."
-        },
-        {
-          "id": "u2-l1-e4",
-          "type": "prompt-workshop",
-          "scenario": "Your Express API's GET /users endpoint returns every user at once and is getting slow. You want page-based pagination added without breaking the existing mobile client.",
-          "files": [
-            "src/api/users.ts",
-            "src/api/users.test.ts"
-          ],
-          "sample": "Add pagination to GET /users in @src/api/users.ts. Accept ?page and ?limit query params (default limit 20, max 100) and return { data, page, total }. Keep the default response compatible for the mobile client when no params are sent. Add tests in @src/api/users.test.ts; done when npm test passes.",
-          "keywords": [
-            "pagination",
-            "page",
-            "limit",
-            "users",
-            "tests",
-            "compatible"
-          ],
-          "explanation": "A great prompt names the file, the exact behavior, the compatibility constraint, and how success is checked."
-        },
-        {
-          "id": "u2-l1-e5",
-          "type": "fill-blank",
-          "prompt": "Fill in the missing ingredients of this prompt template.",
-          "code": "Context: the login form in src/auth/\n___: show an error when the password is wrong\n___: don't change the API client\nDone ___: the error renders and tests pass",
-          "blanks": [
-            "Goal",
-            "Constraint",
-            "when"
-          ],
-          "wordBank": [
-            "Goal",
-            "Constraint",
-            "when",
-            "Vibe",
-            "maybe",
-            "Style"
-          ],
-          "language": "markdown",
-          "explanation": "Goal, constraint, and a 'done when' line complete the four-part prompt."
         },
         {
           "id": "u2-l1-e6",
@@ -132,6 +97,47 @@
           ],
           "better": 0,
           "explanation": "Naming the component, the reusable pieces, and the exact behavior gets it right in one pass."
+        },
+        {
+          "id": "u2-l1-e5",
+          "type": "fill-blank",
+          "prompt": "Fill in the missing ingredients of this prompt template.",
+          "code": "Context: the login form in src/auth/\n___: show an error when the password is wrong\n___: don't change the API client\nDone ___: the error renders and tests pass",
+          "blanks": [
+            "Goal",
+            "Constraint",
+            "when"
+          ],
+          "wordBank": [
+            "Goal",
+            "Constraint",
+            "when",
+            "Vibe",
+            "maybe",
+            "Style"
+          ],
+          "language": "markdown",
+          "explanation": "Labeling the goal, the constraint and a \"done when\" line makes sure no ingredient is forgotten.",
+          "hint": "The template labels are Context, Goal, Constraint, and \"Done when\"."
+        },
+        {
+          "id": "u2-l1-e4",
+          "type": "prompt-workshop",
+          "scenario": "Your Express API's GET /users endpoint returns every user at once and is getting slow. You want page-based pagination added without breaking the existing mobile client.",
+          "files": [
+            "src/api/users.ts",
+            "src/api/users.test.ts"
+          ],
+          "sample": "Our Express API's GET /users in @src/api/users.ts returns every user at once and is getting slow. Add page-based pagination: accept ?page and ?limit query params (default limit 20, max 100) and return { data, page, total }. Keep the response unchanged when no params are sent, so the mobile client doesn't break. Add tests in @src/api/users.test.ts; done when npm test passes.",
+          "keywords": [
+            "pagination",
+            "page",
+            "limit",
+            "users",
+            "tests",
+            "compatible"
+          ],
+          "explanation": "Context, a precise goal, a compatibility constraint, a test-based finish line and @ file references leave Claude nothing to guess."
         }
       ]
     },
@@ -142,22 +148,16 @@
       "theory": [
         {
           "title": "@ means \"look here\"",
-          "body": "Type `@` followed by a path to pull a file into the conversation: `@src/utils/date.ts`. Press `Tab` to autocomplete paths, so you don't have to remember them.\n\nReference a whole directory with a trailing slash: `@src/components/`.\n\nReferencing files saves Claude from searching and makes your intent unambiguous.",
-          "code": "> Explain how @src/auth/session.ts refreshes tokens\n> What does each file in @src/hooks/ do?"
+          "body": "Type `@` followed by a path to pull a file into the conversation, with **no space** between `@` and the path: `@src/utils/date.ts`. Press `Tab` while typing to **autocomplete** the path, so you don't have to remember it.\n\nAdd a trailing slash to point at a whole folder: `@src/components/`.\n\nReferencing files saves Claude from searching and makes your intent unambiguous.",
+          "code": "> explain @src/utils/date.ts\n> What does each file in @src/hooks/ do?\n> Refactor @src/api/client.ts to use the helpers in @src/lib/"
+        },
+        {
+          "title": "@ inside a full prompt",
+          "body": "File references are one of the five parts of a good prompt (context, goal, constraints, done, files). Combine them all:",
+          "code": "In @src/lib/validators.ts, isValidEmail accepts \"a@b\".   ← context + file\nRequire a domain with a dot.                             ← goal\nDon't change the function signature.                     ← constraint\nDone when the new unit tests pass.                       ← done"
         }
       ],
       "exercises": [
-        {
-          "id": "u2-l2-e1",
-          "type": "terminal",
-          "promptSymbol": ">",
-          "prompt": "Ask Claude to explain the file src/utils/date.ts by referencing it directly. Type: explain @ followed by the path.",
-          "accepted": [
-            "explain @src/utils/date.ts"
-          ],
-          "hint": "No space between @ and the path.",
-          "explanation": "@path/to/file pulls that file into the conversation so Claude doesn't have to hunt for it."
-        },
         {
           "id": "u2-l2-e2",
           "type": "multiple-choice",
@@ -169,7 +169,7 @@
             "file:src/components"
           ],
           "answer": 1,
-          "explanation": "The @ prefix with a directory path references the folder and its structure."
+          "explanation": "@ is the reference prefix, and the trailing slash tells Claude you mean the whole folder."
         },
         {
           "id": "u2-l2-e3",
@@ -182,26 +182,7 @@
             "Restart Claude"
           ],
           "answer": 0,
-          "explanation": "Tab completion works on @ file paths."
-        },
-        {
-          "id": "u2-l2-e4",
-          "type": "fill-blank",
-          "prompt": "Reference a file and a folder in one prompt.",
-          "code": "Refactor ___src/api/client.ts to use the helpers in ___src/lib/",
-          "blanks": [
-            "@",
-            "@"
-          ],
-          "wordBank": [
-            "@",
-            "@",
-            "#",
-            "!",
-            "/"
-          ],
-          "language": "markdown",
-          "explanation": "The @ prefix works for both files and directories."
+          "explanation": "Tab completes @ paths, so you never have to remember or mistype a long file name."
         },
         {
           "id": "u2-l2-e5",
@@ -213,24 +194,6 @@
           ],
           "better": 1,
           "explanation": "An @ reference plus an example output leaves nothing to guess."
-        },
-        {
-          "id": "u2-l2-e6",
-          "type": "prompt-workshop",
-          "scenario": "The signup form accepts invalid emails. Validation lives in a shared validators file, and the form component uses it. Ask Claude to fix it.",
-          "files": [
-            "src/lib/validators.ts",
-            "src/components/SignupForm.tsx"
-          ],
-          "sample": "In @src/lib/validators.ts, isValidEmail accepts strings like 'a@b' with no TLD. Tighten it to require a domain with a dot, update @src/components/SignupForm.tsx to show the error under the field, and add unit tests for valid and invalid cases. Don't change the function's signature.",
-          "keywords": [
-            "email",
-            "validation",
-            "validators",
-            "signup",
-            "tests"
-          ],
-          "explanation": "Referencing both files with @ and describing the bad input makes the fix precise."
         },
         {
           "id": "u2-l2-e7",
@@ -251,6 +214,55 @@
             }
           ],
           "explanation": "File paths pull in a file, while a trailing slash points at a folder."
+        },
+        {
+          "id": "u2-l2-e4",
+          "type": "fill-blank",
+          "prompt": "Reference a file and a folder in one prompt.",
+          "code": "Refactor ___src/api/client.ts to use the helpers in ___src/lib/",
+          "blanks": [
+            "@",
+            "@"
+          ],
+          "wordBank": [
+            "@",
+            "@",
+            "#",
+            "!",
+            "/"
+          ],
+          "language": "markdown",
+          "explanation": "The @ prefix works for files and folders alike, so one prompt can point Claude at both.",
+          "hint": "Both files and folders use the same prefix; a folder just ends with /."
+        },
+        {
+          "id": "u2-l2-e1",
+          "type": "terminal",
+          "promptSymbol": ">",
+          "prompt": "Ask Claude to explain the file src/utils/date.ts by referencing it directly. Type the word explain, a space, then @ followed by the path.",
+          "accepted": [
+            "explain @src/utils/date.ts"
+          ],
+          "hint": "explain + @ + path, no space after @: explain @src/…",
+          "explanation": "@path pulls that exact file into the conversation, so Claude doesn't have to hunt for it."
+        },
+        {
+          "id": "u2-l2-e6",
+          "type": "prompt-workshop",
+          "scenario": "The signup form accepts invalid emails. Validation lives in a shared validators file, and the form component uses it. Ask Claude to fix it.",
+          "files": [
+            "src/lib/validators.ts",
+            "src/components/SignupForm.tsx"
+          ],
+          "sample": "In @src/lib/validators.ts, isValidEmail accepts strings like 'a@b' with no TLD, so the signup form lets bad emails through. Tighten it to require a domain with a dot, and update @src/components/SignupForm.tsx to show the error under the field. Don't change the function's signature. Add unit tests for valid and invalid cases; done when npm test passes.",
+          "keywords": [
+            "email",
+            "validation",
+            "validators",
+            "signup",
+            "tests"
+          ],
+          "explanation": "Referencing both files with @, describing the bad input and naming a finish line makes the fix precise."
         }
       ]
     },
@@ -261,8 +273,17 @@
       "theory": [
         {
           "title": "Paste the real thing",
-          "body": "Don't paraphrase an error. **Paste the full error text or stack trace** straight into the prompt. Exact messages and line numbers are gold.\n\nFor UI bugs or mockups, **paste an image** with `Ctrl+V` or drag and drop a screenshot into the terminal.\n\nNeed command output in the chat? Start a line with `!` to run a shell command directly (bash mode), and its output lands in the conversation.",
-          "code": "> ! npm test\n> The test above fails, fix the cause, not the test"
+          "body": "Don't paraphrase an error. **Paste the full error text or stack trace** (the list of files and line numbers that led to the crash) straight into the prompt. Exact messages and line numbers are gold.\n\nFor UI bugs or mockups, **paste an image** with `Ctrl+V` or drag and drop a screenshot into the terminal.",
+          "code": "> Build fails with:\n  TypeError: Cannot read properties of undefined (reading 'map')\n      at ProductList (src/components/ProductList.tsx:42:18)\n  Expected the list to render empty. Fix the root cause."
+        },
+        {
+          "title": "Bash mode with !",
+          "body": "Start a line with `!` to run a shell command yourself without leaving Claude. This is **bash mode**: the command runs directly and its output lands in the conversation, so Claude can see it. A space after `!` is optional.",
+          "code": "> !git status\n> ! npm test\n> The test above fails. Fix the cause, not the test."
+        },
+        {
+          "title": "A bug report Claude can act on",
+          "body": "Follow this order: **reproduce** the bug → **copy** the full error → **paste** it → say what you **expected** → ask for the **root cause** fix.\n\nFor a visual bug, still use all five prompt parts: context (the screenshot plus what's wrong), goal, a constraint like `don't change the desktop layout`, a \"done when\", and `@` file references."
         }
       ],
       "exercises": [
@@ -291,31 +312,6 @@
           "explanation": "Claude Code accepts pasted or dragged-in images, which is great for UI bugs and mockups."
         },
         {
-          "id": "u2-l3-e3",
-          "type": "terminal",
-          "promptSymbol": ">",
-          "prompt": "Run git status directly from the Claude prompt using bash mode.",
-          "accepted": [
-            "!git status",
-            "! git status"
-          ],
-          "hint": "Start the line with an exclamation mark.",
-          "explanation": "The ! prefix runs a shell command directly and adds its output to the conversation."
-        },
-        {
-          "id": "u2-l3-e4",
-          "type": "order-steps",
-          "prompt": "Order an efficient bug report to Claude.",
-          "steps": [
-            "Reproduce the bug",
-            "Copy the full error or stack trace",
-            "Paste it into the prompt",
-            "Add what you expected to happen",
-            "Ask Claude to find and fix the root cause"
-          ],
-          "explanation": "Real evidence plus expected behavior gives Claude everything to diagnose the issue."
-        },
-        {
           "id": "u2-l3-e5",
           "type": "match-pairs",
           "prompt": "Match the input to the best way to share it.",
@@ -337,26 +333,7 @@
               "right": "Reference it with @"
             }
           ],
-          "explanation": "Each kind of evidence has a fast, lossless way into the conversation."
-        },
-        {
-          "id": "u2-l3-e6",
-          "type": "prompt-workshop",
-          "scenario": "Your header navigation overlaps the logo on mobile widths. You have a screenshot of the bug and know the header lives in one component file.",
-          "files": [
-            "src/components/Header.tsx",
-            "src/styles/header.css"
-          ],
-          "sample": "[screenshot pasted] On screens under 400px the nav links in @src/components/Header.tsx overlap the logo, as shown. Fix the layout in @src/styles/header.css so links collapse into the existing hamburger menu below 640px. Don't change the desktop layout.",
-          "keywords": [
-            "mobile",
-            "overlap",
-            "header",
-            "screenshot",
-            "layout",
-            "breakpoint"
-          ],
-          "explanation": "A screenshot plus a file reference and a constraint makes a visual bug easy to fix."
+          "explanation": "Each kind of evidence has a fast, lossless way in, so Claude sees exactly what you see."
         },
         {
           "id": "u2-l3-e7",
@@ -370,6 +347,50 @@
           ],
           "answer": 1,
           "explanation": "The precise text carries the clues Claude needs to locate the problem."
+        },
+        {
+          "id": "u2-l3-e4",
+          "type": "order-steps",
+          "prompt": "Order an efficient bug report to Claude.",
+          "steps": [
+            "Reproduce the bug",
+            "Copy the full error or stack trace",
+            "Paste it into the prompt",
+            "Add what you expected to happen",
+            "Ask Claude to find and fix the root cause"
+          ],
+          "explanation": "Real evidence plus expected behavior gives Claude everything to diagnose the issue."
+        },
+        {
+          "id": "u2-l3-e3",
+          "type": "terminal",
+          "promptSymbol": ">",
+          "prompt": "You're inside Claude. Run git status directly using bash mode, so its output lands in the conversation.",
+          "accepted": [
+            "!git status",
+            "! git status"
+          ],
+          "hint": "! + the shell command: !git …",
+          "explanation": "The ! prefix runs the command yourself and adds its exact output to the conversation, so Claude sees real evidence."
+        },
+        {
+          "id": "u2-l3-e6",
+          "type": "prompt-workshop",
+          "scenario": "Your header navigation overlaps the logo on mobile widths. You have a screenshot of the bug and know the header lives in one component file.",
+          "files": [
+            "src/components/Header.tsx",
+            "src/styles/header.css"
+          ],
+          "sample": "[screenshot pasted] On screens under 400px the nav links in @src/components/Header.tsx overlap the logo, as shown. Fix the layout in @src/styles/header.css so the links collapse into the existing hamburger menu below 640px. Don't change the desktop layout. Done when nothing overlaps at 375px wide and desktop looks the same as before.",
+          "keywords": [
+            "mobile",
+            "overlap",
+            "header",
+            "screenshot",
+            "layout",
+            "breakpoint"
+          ],
+          "explanation": "A screenshot, file references, a constraint and a visible finish line make a visual bug easy to fix."
         }
       ]
     },
@@ -380,8 +401,18 @@
       "theory": [
         {
           "title": "Think first, type later",
-          "body": "For anything bigger than a one-liner, ask Claude to **explore and plan before writing code**. Say it outright: `don't write any code yet`.\n\nYou review the plan, poke holes in it, and only then say go. Fixing a plan costs one message, while fixing a wrong implementation costs many.\n\nYou can also nudge Claude to reason harder by asking it to **think** through tricky problems.",
-          "code": "> Read @src/billing/ and propose a plan to add yearly plans.\n> Don't write any code yet. List the files you'd change and why."
+          "body": "For anything bigger than a one-liner, ask Claude to **explore and plan before writing code**. Say it outright: `don't write any code yet`.\n\nYou review the plan, poke holes in it, and only then say go. Fixing a plan costs one message, while fixing a wrong implementation costs many. A typo fix doesn't need a plan; a migration does.\n\nYou can also nudge Claude to reason harder by asking it to **think** through tricky problems, e.g. `think through edge cases`.",
+          "code": "> Read @src/billing/ and propose a plan for yearly plans.\n> Don't write any code yet. List the files you'd change and why."
+        },
+        {
+          "title": "The plan-first loop",
+          "body": "Five steps, always in this order. If the plan touches something you want left alone, say so at step 3; it's cheap to fix before code exists.",
+          "code": "1. Explore:   \"Read @src/billing/ …\"\n2. Plan:      \"Propose a plan. Don't write any code yet.\"\n3. Review:    \"Revise it without touching @src/legacy/.\"\n4. Implement: \"Go ahead and implement the plan.\"\n5. Verify:    \"Run the tests and fix any failures.\""
+        },
+        {
+          "title": "A planning prompt, five parts",
+          "body": "Planning prompts still need context, a goal, a constraint (`don't write code yet`), a definition of done (what the plan must cover) and `@` file references.",
+          "code": "Our Next.js app has no roles yet. Read @src/lib/auth.ts and\npropose a plan to add admin/editor/viewer roles.\nDon't write code yet. Done when the plan lists files, steps\nin order, and how we'll test it."
         }
       ],
       "exercises": [
@@ -397,19 +428,6 @@
           "explanation": "For a big change, a reviewed plan prevents expensive wrong turns."
         },
         {
-          "id": "u2-l4-e2",
-          "type": "order-steps",
-          "prompt": "Order the plan-first workflow.",
-          "steps": [
-            "Ask Claude to read the relevant code",
-            "Ask for a plan and say don't write code yet",
-            "Review and correct the plan",
-            "Tell Claude to implement the plan",
-            "Verify with tests"
-          ],
-          "explanation": "Explore, plan, review, implement, verify: the order matters."
-        },
-        {
           "id": "u2-l4-e3",
           "type": "multiple-choice",
           "prompt": "When is asking for a plan LEAST necessary?",
@@ -421,45 +439,6 @@
           ],
           "answer": 1,
           "explanation": "Trivial, well-scoped changes don't need a planning round."
-        },
-        {
-          "id": "u2-l4-e4",
-          "type": "fill-blank",
-          "prompt": "Complete the plan-first prompt.",
-          "code": "Read @src/billing/ and propose a ___ for yearly plans.\nDon't write any ___ yet.",
-          "blanks": [
-            "plan",
-            "code"
-          ],
-          "wordBank": [
-            "plan",
-            "code",
-            "commit",
-            "tests",
-            "poem"
-          ],
-          "language": "markdown",
-          "explanation": "Asking for a plan and explicitly holding off on code keeps Claude in exploration mode."
-        },
-        {
-          "id": "u2-l4-e5",
-          "type": "prompt-workshop",
-          "scenario": "You want to add role-based access control (admin, editor, viewer) to an existing Next.js app. You don't want any code written until you've approved an approach.",
-          "files": [
-            "src/middleware.ts",
-            "src/lib/auth.ts",
-            "src/app/admin/page.tsx"
-          ],
-          "sample": "Read @src/lib/auth.ts and @src/middleware.ts and propose a plan to add role-based access control with admin, editor and viewer roles. Don't write code yet. Cover where roles are stored, how middleware checks them, which routes need protection (e.g. @src/app/admin/page.tsx), and how we'll test it.",
-          "keywords": [
-            "roles",
-            "plan",
-            "middleware",
-            "admin",
-            "access",
-            "permissions"
-          ],
-          "explanation": "Pointing Claude at the key files and asking for a reviewed plan sets up a safe, large change."
         },
         {
           "id": "u2-l4-e6",
@@ -496,7 +475,60 @@
               "right": "Approve the plan"
             }
           ],
-          "explanation": "These phrases move Claude from exploration to execution on your terms."
+          "explanation": "Each phrase moves Claude one step from exploring to building, so you stay in control of when code gets written."
+        },
+        {
+          "id": "u2-l4-e2",
+          "type": "order-steps",
+          "prompt": "Order the plan-first workflow.",
+          "steps": [
+            "Ask Claude to read the relevant code",
+            "Ask for a plan and say don't write code yet",
+            "Review and correct the plan",
+            "Tell Claude to implement the plan",
+            "Verify with tests"
+          ],
+          "explanation": "Explore, plan, review, implement, verify: the order matters."
+        },
+        {
+          "id": "u2-l4-e4",
+          "type": "fill-blank",
+          "prompt": "Complete the plan-first prompt.",
+          "code": "Read @src/billing/ and propose a ___ for yearly plans.\nDon't write any ___ yet.",
+          "blanks": [
+            "plan",
+            "code"
+          ],
+          "wordBank": [
+            "plan",
+            "code",
+            "commit",
+            "tests",
+            "poem"
+          ],
+          "language": "markdown",
+          "explanation": "Asking for a plan and explicitly holding off on code keeps Claude exploring until you approve.",
+          "hint": "Ask for a \"plan\" and hold off on writing \"code\"."
+        },
+        {
+          "id": "u2-l4-e5",
+          "type": "prompt-workshop",
+          "scenario": "You want to add role-based access control (admin, editor, viewer) to an existing Next.js app. You don't want any code written until you've approved an approach.",
+          "files": [
+            "src/middleware.ts",
+            "src/lib/auth.ts",
+            "src/app/admin/page.tsx"
+          ],
+          "sample": "Our Next.js app has no roles yet. Read @src/lib/auth.ts and @src/middleware.ts and propose a plan to add role-based access control with admin, editor and viewer roles. Don't write code yet. Done when the plan covers where roles are stored, how middleware checks them, which routes need protection (e.g. @src/app/admin/page.tsx), and how we'll test it.",
+          "keywords": [
+            "roles",
+            "plan",
+            "middleware",
+            "admin",
+            "access",
+            "permissions"
+          ],
+          "explanation": "Pointing Claude at the key files, forbidding code and defining what the plan must cover sets up a safe, large change."
         }
       ]
     }

@@ -1,0 +1,416 @@
+{
+  "id": "u3",
+  "order": 3,
+  "title": "Memory & CLAUDE.md",
+  "description": "Teach Claude your project once, so it remembers every session.",
+  "color": "#b67cff",
+  "lessons": [
+    {
+      "id": "u3-l1",
+      "title": "Meet CLAUDE.md",
+      "description": "The file Claude reads at the start of every session.",
+      "theory": [
+        {
+          "title": "A briefing that loads itself",
+          "body": "Each new session starts with a blank conversation. `CLAUDE.md` fixes that: it's a plain Markdown file that Claude Code **loads automatically** at the start of every session.\n\nPut it at your project root and it travels with the repo. Kip keeps his tucked inside his shell, so he never forgets how to run the tests.",
+          "code": "# CLAUDE.md\n\n## Commands\n- npm run dev: start the dev server\n- npm test: run unit tests\n\n## Conventions\n- TypeScript strict mode; no `any`\n- Use named exports"
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u3-l1-e1",
+          "type": "multiple-choice",
+          "prompt": "When does Claude Code read your project's CLAUDE.md?",
+          "options": [
+            "Only when you type /memory",
+            "Automatically at the start of each session",
+            "Only after you commit it",
+            "Never; it's documentation for humans"
+          ],
+          "answer": 1,
+          "explanation": "CLAUDE.md files are loaded into context automatically when a session starts."
+        },
+        {
+          "id": "u3-l1-e2",
+          "type": "multiple-choice",
+          "prompt": "What format is CLAUDE.md?",
+          "options": ["JSON", "YAML", "Plain Markdown", "A binary database"],
+          "answer": 2,
+          "explanation": "It's ordinary Markdown, so headings and bullet lists keep it readable for you and Claude."
+        },
+        {
+          "id": "u3-l1-e3",
+          "type": "fill-blank",
+          "prompt": "Complete the project memory file's name and location.",
+          "code": "my-app/\n├── src/\n├── package.json\n└── ___.md",
+          "blanks": ["CLAUDE"],
+          "wordBank": ["CLAUDE", "README", "MEMORY", "AGENTS", "NOTES"],
+          "language": "bash",
+          "explanation": "The project memory file is CLAUDE.md at the project root."
+        },
+        {
+          "id": "u3-l1-e4",
+          "type": "match-pairs",
+          "prompt": "Match the problem to how CLAUDE.md solves it.",
+          "pairs": [
+            { "left": "Claude uses npm, you use pnpm", "right": "List your commands" },
+            { "left": "Claude writes default exports", "right": "Document code conventions" },
+            { "left": "Tests need Docker running", "right": "Record the gotcha" }
+          ],
+          "explanation": "Anything you'd otherwise repeat every session belongs in CLAUDE.md."
+        },
+        {
+          "id": "u3-l1-e5",
+          "type": "spot-bad-prompt",
+          "prompt": "Which CLAUDE.md entry is more useful?",
+          "options": [
+            "Write good code and be careful.",
+            "Run `pnpm test --filter api` for API tests; they need `docker compose up db` first."
+          ],
+          "better": 1,
+          "explanation": "Concrete, actionable instructions help, while vague advice adds noise."
+        },
+        {
+          "id": "u3-l1-e6",
+          "type": "order-steps",
+          "prompt": "Order what happens when you start a session in a repo with CLAUDE.md.",
+          "steps": [
+            "You run claude in the project",
+            "Claude Code loads CLAUDE.md into context",
+            "You ask Claude to run the tests",
+            "Claude uses the test command from CLAUDE.md"
+          ],
+          "explanation": "Because memory loads at startup, Claude already knows your commands when you ask."
+        },
+        {
+          "id": "u3-l1-e7",
+          "type": "multiple-choice",
+          "prompt": "Why commit the project CLAUDE.md to git?",
+          "options": [
+            "Claude Code only reads committed files",
+            "Your whole team gets the same project instructions",
+            "It's required for /init to work",
+            "It makes the repo smaller"
+          ],
+          "answer": 1,
+          "explanation": "A checked-in CLAUDE.md shares commands and conventions with everyone working in the repo."
+        }
+      ]
+    },
+    {
+      "id": "u3-l2",
+      "title": "Bootstrap with /init",
+      "description": "Let Claude write the first draft for you.",
+      "theory": [
+        {
+          "title": "Don't start from a blank page",
+          "body": "Run `/init` inside a session and Claude **analyzes your codebase** (package files, configs, structure) and generates a starter `CLAUDE.md`.\n\nTreat it as a **first draft**: read it, delete what's obvious, and add the tribal knowledge only your team knows."
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u3-l2-e1",
+          "type": "terminal",
+          "promptSymbol": ">",
+          "prompt": "Generate a starter CLAUDE.md for this project.",
+          "accepted": ["/init"],
+          "hint": "Short for initialize.",
+          "explanation": "/init analyzes your codebase and drafts a CLAUDE.md."
+        },
+        {
+          "id": "u3-l2-e2",
+          "type": "multiple-choice",
+          "prompt": "What does /init base its CLAUDE.md on?",
+          "options": [
+            "A generic template, identical for every repo",
+            "An analysis of your codebase",
+            "Your shell history",
+            "Your GitHub profile"
+          ],
+          "answer": 1,
+          "explanation": "/init reads your project's files to describe its commands, structure, and conventions."
+        },
+        {
+          "id": "u3-l2-e3",
+          "type": "order-steps",
+          "prompt": "Order the steps to set up project memory.",
+          "steps": [
+            "cd into the project and run claude",
+            "Run /init",
+            "Review the generated CLAUDE.md",
+            "Add team gotchas and remove fluff",
+            "Commit CLAUDE.md to git"
+          ],
+          "explanation": "Generate, refine, then share: the draft only becomes great after your edits."
+        },
+        {
+          "id": "u3-l2-e4",
+          "type": "multiple-choice",
+          "prompt": "/init generated a CLAUDE.md. What should you do next?",
+          "options": [
+            "Never touch it again",
+            "Delete it; generated files are useless",
+            "Review it and add knowledge only your team has",
+            "Run /init ten more times"
+          ],
+          "answer": 2,
+          "explanation": "The draft captures what's visible in code; you add what isn't, like deploy quirks."
+        },
+        {
+          "id": "u3-l2-e5",
+          "type": "terminal",
+          "prompt": "Start Claude Code in your project so you can run /init.",
+          "accepted": ["claude"],
+          "hint": "Slash commands run inside a session, so start one first.",
+          "explanation": "Slash commands like /init run inside an interactive session started with claude."
+        },
+        {
+          "id": "u3-l2-e6",
+          "type": "match-pairs",
+          "prompt": "Who adds what to CLAUDE.md?",
+          "pairs": [
+            { "left": "Build and test commands", "right": "/init can detect these" },
+            { "left": "Folder structure", "right": "/init can detect this" },
+            { "left": "\"Staging DB resets nightly\"", "right": "You add this" },
+            { "left": "\"Ask before touching billing\"", "right": "You add this" }
+          ],
+          "explanation": "/init finds what's in the code; team knowledge and preferences come from you."
+        },
+        {
+          "id": "u3-l2-e7",
+          "type": "spot-bad-prompt",
+          "prompt": "You want Claude to improve your existing CLAUDE.md. Which request is better?",
+          "options": [
+            "Make CLAUDE.md better",
+            "Review @CLAUDE.md: remove anything obvious from the code, and add our test command (pnpm test) and the rule that migrations live in db/migrations/."
+          ],
+          "better": 1,
+          "explanation": "Specific additions and removals produce a tighter memory file."
+        }
+      ]
+    },
+    {
+      "id": "u3-l3",
+      "title": "Project vs User Memory",
+      "description": "Team rules in the repo, personal rules in your home.",
+      "theory": [
+        {
+          "title": "Two places, two audiences",
+          "body": "**Project memory**: `./CLAUDE.md` in the repo. Shared with your team through git: build commands, architecture, conventions.\n\n**User memory**: `~/.claude/CLAUDE.md`. Applies to **all your projects**, but only for you: personal preferences like your favorite tone or tooling.\n\nBoth load automatically.",
+          "code": "./CLAUDE.md            # project: shared via git\n~/.claude/CLAUDE.md    # user: all your projects"
+        },
+        {
+          "title": "Imports keep it tidy",
+          "body": "A CLAUDE.md can pull in other files with `@path/to/file`. Point at existing docs instead of copying them.",
+          "code": "See @README.md for an overview.\nGit workflow: @docs/git-workflow.md"
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u3-l3-e1",
+          "type": "multiple-choice",
+          "prompt": "Where does user memory, which applies to all your projects, live?",
+          "options": ["./CLAUDE.md", "~/.claude/CLAUDE.md", "/etc/claude.md", "./.git/CLAUDE.md"],
+          "answer": 1,
+          "explanation": "~/.claude/CLAUDE.md is your personal memory, loaded in every project."
+        },
+        {
+          "id": "u3-l3-e2",
+          "type": "match-pairs",
+          "prompt": "Match the instruction to the right memory file.",
+          "pairs": [
+            { "left": "\"Run tests with pnpm test\"", "right": "./CLAUDE.md" },
+            { "left": "\"I prefer concise answers\"", "right": "~/.claude/CLAUDE.md" },
+            { "left": "\"API routes live in src/api\"", "right": "./CLAUDE.md" },
+            { "left": "\"Always use my vim keybinds\"", "right": "~/.claude/CLAUDE.md" }
+          ],
+          "explanation": "Repo facts go in project memory; personal preferences go in user memory."
+        },
+        {
+          "id": "u3-l3-e3",
+          "type": "fill-blank",
+          "prompt": "Complete the paths for both memory files.",
+          "code": "./___               # project memory\n~/.claude/___       # user memory",
+          "blanks": ["CLAUDE.md", "CLAUDE.md"],
+          "wordBank": ["CLAUDE.md", "CLAUDE.md", "settings.json", "memory.txt", "README.md"],
+          "language": "bash",
+          "explanation": "Both use the same filename; location decides whether it's project or user memory."
+        },
+        {
+          "id": "u3-l3-e4",
+          "type": "fill-blank",
+          "prompt": "Import your existing docs into CLAUDE.md.",
+          "code": "Project overview: ___README.md\nGit workflow: ___docs/git-workflow.md",
+          "blanks": ["@", "@"],
+          "wordBank": ["@", "@", "#", "!", "include:"],
+          "language": "markdown",
+          "explanation": "The @path syntax inside CLAUDE.md imports another file's contents."
+        },
+        {
+          "id": "u3-l3-e5",
+          "type": "multiple-choice",
+          "prompt": "Your teammate shouldn't get your personal \"answer in Spanish\" preference. Where does it go?",
+          "options": [
+            "Project ./CLAUDE.md",
+            "User ~/.claude/CLAUDE.md",
+            "package.json",
+            "A git commit message"
+          ],
+          "answer": 1,
+          "explanation": "User memory isn't in the repo, so it only affects you."
+        },
+        {
+          "id": "u3-l3-e6",
+          "type": "spot-bad-prompt",
+          "prompt": "Your 400-line CONTRIBUTING.md already explains the PR process. How should CLAUDE.md use it?",
+          "options": [
+            "PR process: see @CONTRIBUTING.md",
+            "Copy-paste all 400 lines into CLAUDE.md"
+          ],
+          "better": 0,
+          "explanation": "An import keeps one source of truth instead of a stale duplicate."
+        },
+        {
+          "id": "u3-l3-e7",
+          "type": "terminal",
+          "prompt": "Open your user memory file in nano from the shell.",
+          "accepted": ["nano ~/.claude/CLAUDE.md"],
+          "hint": "User memory lives in the .claude folder in your home directory.",
+          "explanation": "User memory is a regular file at ~/.claude/CLAUDE.md, so any editor works."
+        }
+      ]
+    },
+    {
+      "id": "u3-l4",
+      "title": "What Belongs in Memory",
+      "description": "Commands, conventions, gotchas, and /memory.",
+      "theory": [
+        {
+          "title": "High signal only",
+          "body": "Great CLAUDE.md content is **specific and repeatedly useful**:\n\n**Commands**: build, test, lint, run a single test.\n\n**Conventions**: naming, file layout, preferred libraries.\n\n**Gotchas**: the weird stuff (`tests need Redis running`, `never edit generated/`).\n\nSkip things Claude can see in the code anyway. Every line costs context in every session, so keep it short."
+        },
+        {
+          "title": "Edit with /memory",
+          "body": "Run `/memory` in a session to see which memory files are loaded and **open one in your editor**. Update it whenever you catch yourself repeating an instruction."
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u3-l4-e1",
+          "type": "terminal",
+          "promptSymbol": ">",
+          "prompt": "Open your memory files for editing from inside the session.",
+          "accepted": ["/memory"],
+          "hint": "The command is named after what CLAUDE.md is.",
+          "explanation": "/memory lets you pick a loaded memory file and opens it in your editor."
+        },
+        {
+          "id": "u3-l4-e2",
+          "type": "multiple-choice",
+          "prompt": "Which line is the WORST fit for CLAUDE.md?",
+          "options": [
+            "Run a single test: pnpm vitest run path/to/file",
+            "Never edit files in src/generated/; run pnpm codegen",
+            "The full text of every source file",
+            "Use zod for all request validation"
+          ],
+          "answer": 2,
+          "explanation": "Claude can read the code itself; dumping it into memory wastes context every session."
+        },
+        {
+          "id": "u3-l4-e3",
+          "type": "match-pairs",
+          "prompt": "Classify each CLAUDE.md line.",
+          "pairs": [
+            { "left": "pnpm lint --fix", "right": "Command" },
+            { "left": "Components use PascalCase files", "right": "Convention" },
+            { "left": "E2E tests need the API on :4000", "right": "Gotcha" }
+          ],
+          "explanation": "Commands, conventions and gotchas are the three pillars of a useful CLAUDE.md."
+        },
+        {
+          "id": "u3-l4-e4",
+          "type": "fill-blank",
+          "prompt": "Finish this CLAUDE.md skeleton.",
+          "code": "## ___\n- pnpm test: unit tests\n\n## ___\n- Named exports only\n\n## ___\n- Never edit src/generated/",
+          "blanks": ["Commands", "Conventions", "Gotchas"],
+          "wordBank": ["Commands", "Conventions", "Gotchas", "Feelings", "Changelog"],
+          "language": "markdown",
+          "explanation": "Grouping memory under clear headings keeps it scannable for you and Claude."
+        },
+        {
+          "id": "u3-l4-e5",
+          "type": "prompt-workshop",
+          "scenario": "For the third session in a row you've had to tell Claude that your monorepo uses pnpm workspaces, that API tests need `docker compose up db`, and that files in packages/sdk/generated/ are auto-generated. Ask Claude to capture this in project memory.",
+          "files": ["CLAUDE.md", "docker-compose.yml"],
+          "sample": "Update @CLAUDE.md with: under Commands, 'pnpm -r test' runs all workspace tests and API tests require 'docker compose up db' first (see @docker-compose.yml); under Gotchas, never edit packages/sdk/generated/, regenerate with 'pnpm codegen'. Keep each entry to one line.",
+          "keywords": ["pnpm", "docker", "generated", "commands", "gotchas", "memory"],
+          "explanation": "Turning repeated corrections into short CLAUDE.md entries means you never type them again."
+        },
+        {
+          "id": "u3-l4-e6",
+          "type": "multiple-choice",
+          "prompt": "Why keep CLAUDE.md concise?",
+          "options": [
+            "There's a 10-line hard limit",
+            "It's loaded into context every session, so every line has a cost",
+            "Git can't store long Markdown",
+            "Claude ignores files over 1 KB"
+          ],
+          "answer": 1,
+          "explanation": "Memory is always in context, so lean files leave more room for the actual task."
+        },
+        {
+          "id": "u3-l4-e7",
+          "type": "spot-bad-prompt",
+          "prompt": "Which gotcha entry will actually prevent a mistake?",
+          "options": [
+            "Be careful with the database.",
+            "Never run `pnpm db:reset` without `--env=local`; it targets staging by default."
+          ],
+          "better": 1,
+          "explanation": "A precise rule with the reason is something Claude can act on."
+        },
+        {
+          "id": "u3-l4-e8",
+          "type": "order-steps",
+          "prompt": "Order the habit loop for keeping memory fresh.",
+          "steps": [
+            "Notice you're repeating an instruction",
+            "Run /memory",
+            "Pick the project or user memory file",
+            "Add a short, specific line",
+            "Save; future sessions load it automatically"
+          ],
+          "explanation": "Turning repetition into memory is how CLAUDE.md grows into something valuable."
+        }
+      ]
+    }
+  ],
+  "mission": {
+    "id": "u3-mission",
+    "type": "mission",
+    "title": "Memory Keeper",
+    "intro": "Give a real project a memory that makes every future session smarter.",
+    "checklist": [
+      "Run /init in a real project and read the generated CLAUDE.md",
+      "Add at least one command, one convention, and one gotcha that /init missed",
+      "Create ~/.claude/CLAUDE.md with one personal preference",
+      "Start a new session and ask Claude how to run the tests to confirm it remembers",
+      "Use /memory to open and tweak one of the files"
+    ],
+    "bonusXp": 30,
+    "badge": "memory-keeper",
+    "explanation": "With project and user memory in place, Claude starts every session already briefed."
+  },
+  "cheatsheet": [
+    { "term": "CLAUDE.md", "description": "Markdown instructions loaded automatically at the start of every session.", "kind": "file" },
+    { "term": "./CLAUDE.md", "description": "Project memory, shared with your team via git.", "kind": "file" },
+    { "term": "~/.claude/CLAUDE.md", "description": "User memory, applies to all your projects.", "kind": "file" },
+    { "term": "/init", "description": "Analyze the codebase and generate a starter CLAUDE.md.", "kind": "slash" },
+    { "term": "/memory", "description": "Open a loaded memory file in your editor.", "kind": "slash" },
+    { "term": "@path/to/file (in CLAUDE.md)", "description": "Import another file's contents into memory.", "kind": "concept" },
+    { "term": "Commands, conventions, gotchas", "description": "The high-signal content that belongs in CLAUDE.md.", "kind": "concept" },
+    { "term": "Keep it short", "description": "Memory loads every session, so every line costs context.", "kind": "concept" }
+  ]
+}

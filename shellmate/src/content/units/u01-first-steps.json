@@ -1,0 +1,428 @@
+{
+  "id": "u1",
+  "order": 1,
+  "title": "First Steps",
+  "description": "Install Claude Code, start a session, steer it, and come back later.",
+  "color": "#3ddc84",
+  "lessons": [
+    {
+      "id": "u1-l1",
+      "title": "Install & Launch",
+      "description": "Get Claude Code on your machine and say hello.",
+      "theory": [
+        {
+          "title": "Meet your new pair programmer",
+          "body": "Claude Code is an **agentic coding tool** that lives in your terminal. It reads your code, edits files, and runs commands, always with your permission.\n\nThe recommended install is the **native installer**. If you prefer npm, `npm install -g @anthropic-ai/claude-code` works too.",
+          "code": "curl -fsSL https://claude.ai/install.sh | bash"
+        },
+        {
+          "title": "Launch it where the code lives",
+          "body": "`cd` into your project first, then type `claude`. Claude works with the files in the directory you launched it from, so the starting folder matters.\n\nWant to skip the small talk? Pass your first task as an argument: `claude \"explain this project\"` starts a session with that prompt already sent. Kip approves of efficiency.",
+          "code": "cd ~/code/my-app\nclaude"
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u1-l1-e1",
+          "type": "multiple-choice",
+          "prompt": "What is the recommended way to install Claude Code?",
+          "options": [
+            "The native installer: curl -fsSL https://claude.ai/install.sh | bash",
+            "pip install claude-code",
+            "brew install anthropic-cli",
+            "Download a ZIP and add it to your PATH manually"
+          ],
+          "answer": 0,
+          "explanation": "The native install script is the recommended method; npm install -g @anthropic-ai/claude-code is the alternative."
+        },
+        {
+          "id": "u1-l1-e2",
+          "type": "terminal",
+          "prompt": "Install Claude Code globally using npm.",
+          "accepted": ["npm install -g @anthropic-ai/claude-code", "npm i -g @anthropic-ai/claude-code"],
+          "hint": "The package is scoped under @anthropic-ai and needs a global flag.",
+          "explanation": "npm install -g @anthropic-ai/claude-code installs the CLI globally so the claude command is on your PATH."
+        },
+        {
+          "id": "u1-l1-e3",
+          "type": "terminal",
+          "prompt": "You're already inside your project folder. Start an interactive Claude Code session.",
+          "accepted": ["claude"],
+          "hint": "It's just the tool's name.",
+          "explanation": "Running claude with no arguments opens an interactive session in the current directory."
+        },
+        {
+          "id": "u1-l1-e4",
+          "type": "fill-blank",
+          "prompt": "Start a session in your project with an initial task already sent.",
+          "code": "___ ~/code/my-app\n___ \"explain the folder structure\"",
+          "blanks": ["cd", "claude"],
+          "wordBank": ["cd", "claude", "ls", "npm", "run"],
+          "language": "bash",
+          "explanation": "You move into the project with cd, then claude \"...\" starts a session with that first prompt."
+        },
+        {
+          "id": "u1-l1-e5",
+          "type": "order-steps",
+          "prompt": "Put the first-run steps in order.",
+          "steps": [
+            "Install Claude Code with the native installer",
+            "Open a terminal and cd into your project",
+            "Run claude",
+            "Log in when prompted on first launch",
+            "Type your first question about the codebase"
+          ],
+          "explanation": "Install once, then always launch from the project folder; the first launch asks you to log in."
+        },
+        {
+          "id": "u1-l1-e6",
+          "type": "multiple-choice",
+          "prompt": "Why should you launch claude from your project's root folder?",
+          "options": [
+            "It's faster to type there",
+            "Claude works with the files in the directory it was started from",
+            "Claude refuses to run in your home folder",
+            "It only matters on Windows"
+          ],
+          "answer": 1,
+          "explanation": "The launch directory sets Claude's working directory, so starting at the project root gives it the right files to explore."
+        },
+        {
+          "id": "u1-l1-e7",
+          "type": "match-pairs",
+          "prompt": "Match each command to what it does.",
+          "pairs": [
+            { "left": "claude", "right": "Start an interactive session" },
+            { "left": "claude \"fix the build\"", "right": "Start with an initial prompt" },
+            { "left": "npm install -g @anthropic-ai/claude-code", "right": "Install via npm" },
+            { "left": "cd my-app", "right": "Move into the project folder" }
+          ],
+          "explanation": "These four commands cover getting installed, getting in place, and getting started."
+        },
+        {
+          "id": "u1-l1-e8",
+          "type": "spot-bad-prompt",
+          "prompt": "It's your first session in an unfamiliar repo. Which opening message is more useful?",
+          "options": [
+            "hi",
+            "Give me an overview of this codebase: main folders, how the app starts, and how to run the tests."
+          ],
+          "better": 1,
+          "explanation": "A concrete exploration request gets Claude reading the right files immediately instead of waiting for direction."
+        }
+      ]
+    },
+    {
+      "id": "u1-l2",
+      "title": "You Hold the Keys",
+      "description": "Permission prompts: approve, remember, or redirect.",
+      "theory": [
+        {
+          "title": "Claude asks before it acts",
+          "body": "Reading files is low risk, but **editing files** and **running shell commands** trigger a permission prompt. Nothing changes on disk until you say so.\n\nWhen a prompt appears you can:\n\n**Yes**: approve this one action.\n\n**Yes, and don't ask again**: approve this kind of action (for example, a specific command) so Claude stops asking about it.\n\n**No**: deny it and tell Claude what to do differently instead."
+        },
+        {
+          "title": "Deny is a steering wheel",
+          "body": "Saying no isn't rude. Kip says no all the time. When you deny, add a short note like `use pnpm, not npm` and Claude adjusts its plan.\n\nOnly choose **don't ask again** for actions you'd happily approve every time, like running your test command."
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u1-l2-e1",
+          "type": "multiple-choice",
+          "prompt": "Claude wants to run `npm test`. You'll be running tests constantly today. Which choice saves you the most clicks safely?",
+          "options": [
+            "Deny it and run tests yourself",
+            "Approve with \"don't ask again\" for this command",
+            "Approve once every time",
+            "Exit and restart Claude"
+          ],
+          "answer": 1,
+          "explanation": "\"Don't ask again\" is perfect for safe, repetitive commands like your test runner."
+        },
+        {
+          "id": "u1-l2-e2",
+          "type": "multiple-choice",
+          "prompt": "Claude asks to run `npm install lodash`, but your project uses pnpm. What's the best move?",
+          "options": [
+            "Approve it and fix the lockfile later",
+            "Approve with \"don't ask again\"",
+            "Deny it and tell Claude to use pnpm instead",
+            "Close the terminal"
+          ],
+          "answer": 2,
+          "explanation": "Denying with a correction steers Claude toward the right tool without losing the session."
+        },
+        {
+          "id": "u1-l2-e3",
+          "type": "match-pairs",
+          "prompt": "Match the permission choice to when you'd use it.",
+          "pairs": [
+            { "left": "Yes", "right": "One-off action you're fine with" },
+            { "left": "Yes, don't ask again", "right": "Safe command you'll repeat" },
+            { "left": "No + a note", "right": "Wrong approach, redirect Claude" }
+          ],
+          "explanation": "Each permission option fits a different level of trust in the action."
+        },
+        {
+          "id": "u1-l2-e4",
+          "type": "order-steps",
+          "prompt": "Claude proposes an edit you don't like. Order what happens.",
+          "steps": [
+            "Claude shows the proposed file edit",
+            "You read the diff",
+            "You choose No",
+            "You explain what you want instead",
+            "Claude proposes a revised edit"
+          ],
+          "explanation": "Reviewing, denying, and explaining turns a bad edit into a better one in a single loop."
+        },
+        {
+          "id": "u1-l2-e5",
+          "type": "multiple-choice",
+          "prompt": "Which of these normally does NOT need your approval?",
+          "options": [
+            "Reading a file to understand the code",
+            "Editing src/app.ts",
+            "Running rm -rf build/",
+            "Running git push"
+          ],
+          "answer": 0,
+          "explanation": "Reading is read-only, while edits and shell commands require permission by default."
+        },
+        {
+          "id": "u1-l2-e6",
+          "type": "spot-bad-prompt",
+          "prompt": "You denied an edit. Which follow-up helps Claude most?",
+          "options": [
+            "no",
+            "No: keep the existing function signature and add the null check inside it instead."
+          ],
+          "better": 1,
+          "explanation": "A denial with a concrete reason gives Claude what it needs to try again correctly."
+        },
+        {
+          "id": "u1-l2-e7",
+          "type": "terminal",
+          "prompt": "Start a session that immediately asks Claude to add a test for the login function.",
+          "accepted": ["claude \"add a test for the login function\""],
+          "hint": "Pass the task as a quoted argument to claude.",
+          "explanation": "claude \"task\" opens a session with your first prompt already sent; Claude will still ask before writing the test file."
+        }
+      ]
+    },
+    {
+      "id": "u1-l3",
+      "title": "Brakes & Exits",
+      "description": "Interrupt with Esc, rewind, and leave cleanly.",
+      "theory": [
+        {
+          "title": "Esc: the brake pedal",
+          "body": "See Claude heading the wrong way? Press `Esc` to **interrupt** it mid-action. The conversation stays intact, so you can immediately type a correction.\n\nPress `Esc` **twice** to rewind: jump back to a previous message and edit it, or use `/rewind`."
+        },
+        {
+          "title": "Leaving the shell",
+          "body": "Done for now? Type `/exit`, press `Ctrl+D`, or press `Ctrl+C` twice. Kip retreats into his shell and your conversation is saved, ready to resume later."
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u1-l3-e1",
+          "type": "multiple-choice",
+          "prompt": "Claude starts refactoring the wrong module. What do you press to stop it right now?",
+          "options": ["Esc", "Ctrl+Z", "Tab", "Shift+Enter"],
+          "answer": 0,
+          "explanation": "Esc interrupts Claude's current action while keeping your conversation."
+        },
+        {
+          "id": "u1-l3-e2",
+          "type": "terminal",
+          "promptSymbol": ">",
+          "prompt": "End your Claude Code session with a slash command.",
+          "accepted": ["/exit"],
+          "hint": "It's the word you'd use for leaving a building.",
+          "explanation": "/exit closes the session; your conversation is saved so you can resume it."
+        },
+        {
+          "id": "u1-l3-e3",
+          "type": "match-pairs",
+          "prompt": "Match the key to its effect.",
+          "pairs": [
+            { "left": "Esc", "right": "Interrupt Claude mid-action" },
+            { "left": "Esc Esc", "right": "Rewind to a previous message" },
+            { "left": "Ctrl+D", "right": "Exit the session" },
+            { "left": "Ctrl+C twice", "right": "Exit the session" }
+          ],
+          "explanation": "Esc steers, double Esc rewinds, and Ctrl+D or double Ctrl+C gets you out."
+        },
+        {
+          "id": "u1-l3-e4",
+          "type": "terminal",
+          "promptSymbol": ">",
+          "prompt": "Open the rewind menu with a slash command to go back to an earlier point in the conversation.",
+          "accepted": ["/rewind"],
+          "hint": "Like a tape.",
+          "explanation": "/rewind lets you return to an earlier point, the same as pressing Esc twice."
+        },
+        {
+          "id": "u1-l3-e5",
+          "type": "order-steps",
+          "prompt": "Claude misunderstood you and is editing the wrong file. Order your recovery.",
+          "steps": [
+            "Press Esc to interrupt",
+            "Read what Claude already did",
+            "Type a clear correction naming the right file",
+            "Let Claude continue with the corrected plan"
+          ],
+          "explanation": "Interrupt early, assess, then redirect with specifics."
+        },
+        {
+          "id": "u1-l3-e6",
+          "type": "multiple-choice",
+          "prompt": "What happens to the conversation after you press Esc once?",
+          "options": [
+            "It's deleted",
+            "It stays, and you can type a new instruction",
+            "Claude restarts from scratch",
+            "The session exits"
+          ],
+          "answer": 1,
+          "explanation": "Esc only stops the current action; the history stays so you can course-correct."
+        },
+        {
+          "id": "u1-l3-e7",
+          "type": "spot-bad-prompt",
+          "prompt": "You interrupted Claude because it was rewriting tests instead of fixing the bug. What do you type next?",
+          "options": [
+            "Stop touching the tests. The bug is in src/cart/total.ts: the discount is applied twice. Fix it there.",
+            "wrong, try again"
+          ],
+          "better": 0,
+          "explanation": "Naming the file and the actual problem gives Claude a precise new direction."
+        }
+      ]
+    },
+    {
+      "id": "u1-l4",
+      "title": "Pick Up Where You Left Off",
+      "description": "Continue or resume past conversations.",
+      "theory": [
+        {
+          "title": "Sessions don't vanish",
+          "body": "Every conversation is saved. To jump straight back into the **most recent** conversation in this directory, run `claude --continue` (or `claude -c`).\n\nNeed an older one? `claude --resume` (or `claude -r`) opens a **picker** of past sessions. Inside a running session, `/resume` does the same.",
+          "code": "claude -c        # most recent conversation here\nclaude -r        # pick from past sessions"
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u1-l4-e1",
+          "type": "terminal",
+          "prompt": "Continue the most recent conversation in this project.",
+          "accepted": ["claude --continue", "claude -c"],
+          "hint": "The long flag means \"keep going\".",
+          "explanation": "claude --continue (or -c) reopens your latest conversation in the current directory."
+        },
+        {
+          "id": "u1-l4-e2",
+          "type": "terminal",
+          "prompt": "Open a picker to choose which past conversation to resume.",
+          "accepted": ["claude --resume", "claude -r"],
+          "hint": "The flag is a word that means \"start again from where it paused\".",
+          "explanation": "claude --resume (or -r) lists past sessions so you can pick one."
+        },
+        {
+          "id": "u1-l4-e3",
+          "type": "terminal",
+          "promptSymbol": ">",
+          "prompt": "You're already in a session. Switch to a different past conversation.",
+          "accepted": ["/resume"],
+          "hint": "Same word as the CLI flag, as a slash command.",
+          "explanation": "/resume opens the session picker from inside Claude Code."
+        },
+        {
+          "id": "u1-l4-e4",
+          "type": "match-pairs",
+          "prompt": "Match the command to the session it opens.",
+          "pairs": [
+            { "left": "claude", "right": "A brand-new conversation" },
+            { "left": "claude -c", "right": "The most recent conversation" },
+            { "left": "claude -r", "right": "A picker of past sessions" },
+            { "left": "/resume", "right": "Picker, from inside a session" }
+          ],
+          "explanation": "Plain claude starts fresh; -c, -r, and /resume bring back earlier work."
+        },
+        {
+          "id": "u1-l4-e5",
+          "type": "multiple-choice",
+          "prompt": "Yesterday you had three separate sessions. You want the second one. What should you run?",
+          "options": ["claude -c", "claude -r", "claude --new", "claude --history 2"],
+          "answer": 1,
+          "explanation": "--continue only grabs the latest one, so use --resume to pick a specific session."
+        },
+        {
+          "id": "u1-l4-e6",
+          "type": "fill-blank",
+          "prompt": "Complete the commands to continue the latest chat, then to resume a specific session by ID.",
+          "code": "claude ___\nclaude ___ 550e8400-e29b-41d4",
+          "blanks": ["--continue", "--resume"],
+          "wordBank": ["--continue", "--resume", "--restart", "--last", "--open"],
+          "language": "bash",
+          "explanation": "--continue picks the latest conversation, while --resume accepts a session ID or opens a picker."
+        },
+        {
+          "id": "u1-l4-e7",
+          "type": "order-steps",
+          "prompt": "Order a typical two-day workflow.",
+          "steps": [
+            "Day 1: run claude in the project and start the feature",
+            "Exit with /exit when you're done for the day",
+            "Day 2: cd back into the project",
+            "Run claude --continue",
+            "Pick up the feature with the full previous context"
+          ],
+          "explanation": "Exiting saves the conversation, and --continue restores it from the same directory."
+        },
+        {
+          "id": "u1-l4-e8",
+          "type": "spot-bad-prompt",
+          "prompt": "You just ran claude --continue after lunch. Which first message gets you moving fastest?",
+          "options": [
+            "Where were we? Remind me of everything.",
+            "Pick up where we stopped: finish the pagination in src/api/posts.ts, then run the tests."
+          ],
+          "better": 1,
+          "explanation": "The context is already restored, so a specific next step is more productive than a full recap."
+        }
+      ]
+    }
+  ],
+  "mission": {
+    "id": "u1-mission",
+    "type": "mission",
+    "title": "Hello, Shell",
+    "intro": "Time to leave the simulator. Install Claude Code for real and run your first full session loop.",
+    "checklist": [
+      "Install Claude Code with the native installer (or npm) and log in",
+      "cd into a real project and run claude, then ask for an overview of the codebase",
+      "Ask Claude to make a small edit, and approve or deny the permission prompt yourself",
+      "Interrupt Claude once with Esc, then exit with /exit",
+      "Run claude --continue and confirm your conversation is still there"
+    ],
+    "bonusXp": 30,
+    "badge": "first-steps",
+    "explanation": "You've completed the core loop: launch, steer, approve, exit, and resume."
+  },
+  "cheatsheet": [
+    { "term": "curl -fsSL https://claude.ai/install.sh | bash", "description": "Recommended native install.", "kind": "command" },
+    { "term": "npm install -g @anthropic-ai/claude-code", "description": "Install via npm instead.", "kind": "command" },
+    { "term": "claude", "description": "Start an interactive session in the current directory.", "kind": "command" },
+    { "term": "claude \"task\"", "description": "Start a session with an initial prompt.", "kind": "command" },
+    { "term": "claude -c / --continue", "description": "Continue the most recent conversation in this directory.", "kind": "flag" },
+    { "term": "claude -r / --resume", "description": "Pick a past session to resume, or pass a session ID.", "kind": "flag" },
+    { "term": "/resume", "description": "Open the session picker from inside a session.", "kind": "slash" },
+    { "term": "Esc", "description": "Interrupt Claude mid-action without losing the conversation.", "kind": "shortcut" },
+    { "term": "Esc Esc", "description": "Rewind to and edit a previous message.", "kind": "shortcut" },
+    { "term": "/exit", "description": "Exit the session (also Ctrl+D or Ctrl+C twice).", "kind": "slash" },
+    { "term": "Permission prompt", "description": "Approve once, don't ask again, or deny and redirect.", "kind": "concept" }
+  ]
+}

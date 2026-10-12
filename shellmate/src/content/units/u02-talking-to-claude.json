@@ -1,0 +1,400 @@
+{
+  "id": "u2",
+  "order": 2,
+  "title": "Talking to Claude",
+  "description": "Write prompts that get great results on the first try.",
+  "color": "#4aa8ff",
+  "lessons": [
+    {
+      "id": "u2-l1",
+      "title": "Anatomy of a Great Prompt",
+      "description": "Context, goal, constraints, definition of done.",
+      "theory": [
+        {
+          "title": "Four ingredients",
+          "body": "Claude is smart, but it can't read your mind. A strong task prompt usually has:\n\n**Context**: what's going on and where (`the checkout page in src/checkout/`).\n\n**Goal**: the specific outcome you want.\n\n**Constraints**: what to avoid or keep (`don't add dependencies`).\n\n**Definition of done**: how you'll both know it worked (`all tests in cart.test.ts pass`).",
+          "code": "Users report the cart total is wrong when a coupon is applied.\nFix the calculation in src/cart/total.ts.\nDon't change the public function signatures.\nDone = existing tests pass and you add a test for the coupon case."
+        },
+        {
+          "title": "Specific beats short",
+          "body": "\"fix the bug\" forces Claude to guess which bug. Every guess burns time and tokens. A couple of extra sentences up front saves several rounds of back-and-forth. Kip calls this \"measure twice, prompt once\"."
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u2-l1-e1",
+          "type": "spot-bad-prompt",
+          "prompt": "You want Claude to fix a failing test.",
+          "options": [
+            "tests are broken, fix",
+            "The test 'applies coupon' in src/cart/total.test.ts fails since yesterday's refactor. Find the cause and fix the code, not the test. Done when npm test passes."
+          ],
+          "better": 1,
+          "explanation": "The better prompt names the test, the likely cause, a constraint, and a clear finish line."
+        },
+        {
+          "id": "u2-l1-e2",
+          "type": "match-pairs",
+          "prompt": "Match each prompt fragment to the ingredient it provides.",
+          "pairs": [
+            { "left": "\"in the settings page of our React app\"", "right": "Context" },
+            { "left": "\"add a dark mode toggle\"", "right": "Goal" },
+            { "left": "\"don't add new dependencies\"", "right": "Constraint" },
+            { "left": "\"done when the toggle persists on reload\"", "right": "Definition of done" }
+          ],
+          "explanation": "Context, goal, constraints and a definition of done together remove guesswork."
+        },
+        {
+          "id": "u2-l1-e3",
+          "type": "multiple-choice",
+          "prompt": "Which addition most improves the prompt \"make the API faster\"?",
+          "options": [
+            "Adding \"please\" and \"thanks\"",
+            "Writing it in all caps",
+            "Naming the slow endpoint and a target, e.g. GET /users under 200ms",
+            "Asking Claude to be creative"
+          ],
+          "answer": 2,
+          "explanation": "A concrete target and location turns a vague wish into a measurable task."
+        },
+        {
+          "id": "u2-l1-e4",
+          "type": "prompt-workshop",
+          "scenario": "Your Express API's GET /users endpoint returns every user at once and is getting slow. You want page-based pagination added without breaking the existing mobile client.",
+          "files": ["src/api/users.ts", "src/api/users.test.ts"],
+          "sample": "Add pagination to GET /users in @src/api/users.ts. Accept ?page and ?limit query params (default limit 20, max 100) and return { data, page, total }. Keep the default response compatible for the mobile client when no params are sent. Add tests in @src/api/users.test.ts; done when npm test passes.",
+          "keywords": ["pagination", "page", "limit", "users", "tests", "compatible"],
+          "explanation": "A great prompt names the file, the exact behavior, the compatibility constraint, and how success is checked."
+        },
+        {
+          "id": "u2-l1-e5",
+          "type": "fill-blank",
+          "prompt": "Fill in the missing ingredients of this prompt template.",
+          "code": "Context: the login form in src/auth/\n___: show an error when the password is wrong\n___: don't change the API client\nDone ___: the error renders and tests pass",
+          "blanks": ["Goal", "Constraint", "when"],
+          "wordBank": ["Goal", "Constraint", "when", "Vibe", "maybe", "Style"],
+          "language": "markdown",
+          "explanation": "Goal, constraint, and a 'done when' line complete the four-part prompt."
+        },
+        {
+          "id": "u2-l1-e6",
+          "type": "multiple-choice",
+          "prompt": "Why include a definition of done?",
+          "options": [
+            "Claude refuses tasks without one",
+            "It tells Claude how to verify its work and when to stop",
+            "It makes the response shorter",
+            "It's required syntax"
+          ],
+          "answer": 1,
+          "explanation": "A clear finish line, like passing tests, lets Claude check its own work."
+        },
+        {
+          "id": "u2-l1-e7",
+          "type": "spot-bad-prompt",
+          "prompt": "You want a new feature added to a component.",
+          "options": [
+            "Add a 'copy link' button to the ShareMenu component in src/components/ShareMenu.tsx. Use the existing Button component and show a 'Copied!' toast for 2 seconds.",
+            "can you add some sharing stuff"
+          ],
+          "better": 0,
+          "explanation": "Naming the component, the reusable pieces, and the exact behavior gets it right in one pass."
+        }
+      ]
+    },
+    {
+      "id": "u2-l2",
+      "title": "Point with @",
+      "description": "Reference files and folders directly.",
+      "theory": [
+        {
+          "title": "@ means \"look here\"",
+          "body": "Type `@` followed by a path to pull a file into the conversation: `@src/utils/date.ts`. Press `Tab` to autocomplete paths, so you don't have to remember them.\n\nReference a whole directory with a trailing slash: `@src/components/`.\n\nReferencing files saves Claude from searching and makes your intent unambiguous.",
+          "code": "> Explain how @src/auth/session.ts refreshes tokens\n> What does each file in @src/hooks/ do?"
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u2-l2-e1",
+          "type": "terminal",
+          "promptSymbol": ">",
+          "prompt": "Ask Claude to explain the file src/utils/date.ts by referencing it directly. Type: explain @ followed by the path.",
+          "accepted": ["explain @src/utils/date.ts"],
+          "hint": "No space between @ and the path.",
+          "explanation": "@path/to/file pulls that file into the conversation so Claude doesn't have to hunt for it."
+        },
+        {
+          "id": "u2-l2-e2",
+          "type": "multiple-choice",
+          "prompt": "How do you reference an entire directory?",
+          "options": ["#src/components", "@src/components/", "$src/components", "file:src/components"],
+          "answer": 1,
+          "explanation": "The @ prefix with a directory path references the folder and its structure."
+        },
+        {
+          "id": "u2-l2-e3",
+          "type": "multiple-choice",
+          "prompt": "You can't remember the exact path after typing @src/au. What helps?",
+          "options": ["Press Tab to autocomplete", "Press Esc", "Type /path", "Restart Claude"],
+          "answer": 0,
+          "explanation": "Tab completion works on @ file paths."
+        },
+        {
+          "id": "u2-l2-e4",
+          "type": "fill-blank",
+          "prompt": "Reference a file and a folder in one prompt.",
+          "code": "Refactor ___src/api/client.ts to use the helpers in ___src/lib/",
+          "blanks": ["@", "@"],
+          "wordBank": ["@", "@", "#", "!", "/"],
+          "language": "markdown",
+          "explanation": "The @ prefix works for both files and directories."
+        },
+        {
+          "id": "u2-l2-e5",
+          "type": "spot-bad-prompt",
+          "prompt": "You want Claude to update the date formatting helper.",
+          "options": [
+            "Update the date thing somewhere in utils so it shows the weekday",
+            "Update formatDate in @src/utils/date.ts so it includes the short weekday, e.g. 'Mon, 3 Mar'"
+          ],
+          "better": 1,
+          "explanation": "An @ reference plus an example output leaves nothing to guess."
+        },
+        {
+          "id": "u2-l2-e6",
+          "type": "prompt-workshop",
+          "scenario": "The signup form accepts invalid emails. Validation lives in a shared validators file, and the form component uses it. Ask Claude to fix it.",
+          "files": ["src/lib/validators.ts", "src/components/SignupForm.tsx"],
+          "sample": "In @src/lib/validators.ts, isValidEmail accepts strings like 'a@b' with no TLD. Tighten it to require a domain with a dot, update @src/components/SignupForm.tsx to show the error under the field, and add unit tests for valid and invalid cases.",
+          "keywords": ["email", "validation", "validators", "signup", "tests"],
+          "explanation": "Referencing both files with @ and describing the bad input makes the fix precise."
+        },
+        {
+          "id": "u2-l2-e7",
+          "type": "match-pairs",
+          "prompt": "Match each reference to what Claude receives.",
+          "pairs": [
+            { "left": "@README.md", "right": "One file at the root" },
+            { "left": "@src/", "right": "A directory" },
+            { "left": "@src/app.ts", "right": "One file in src" }
+          ],
+          "explanation": "File paths pull in a file, while a trailing slash points at a folder."
+        }
+      ]
+    },
+    {
+      "id": "u2-l3",
+      "title": "Show, Don't Describe",
+      "description": "Paste errors, screenshots, and command output.",
+      "theory": [
+        {
+          "title": "Paste the real thing",
+          "body": "Don't paraphrase an error. **Paste the full error text or stack trace** straight into the prompt. Exact messages and line numbers are gold.\n\nFor UI bugs or mockups, **paste an image** with `Ctrl+V` or drag and drop a screenshot into the terminal.\n\nNeed command output in the chat? Start a line with `!` to run a shell command directly (bash mode), and its output lands in the conversation.",
+          "code": "> ! npm test\n> The test above fails, fix the cause, not the test"
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u2-l3-e1",
+          "type": "spot-bad-prompt",
+          "prompt": "Your build crashes. What do you send?",
+          "options": [
+            "The build has some type error about undefined, can you look?",
+            "Build fails with:\nTypeError: Cannot read properties of undefined (reading 'map')\n    at ProductList (src/components/ProductList.tsx:42:18)\nFix the root cause."
+          ],
+          "better": 1,
+          "explanation": "The exact error and stack trace point Claude to the file and line immediately."
+        },
+        {
+          "id": "u2-l3-e2",
+          "type": "multiple-choice",
+          "prompt": "How do you paste a screenshot into Claude Code?",
+          "options": [
+            "Ctrl+V (or drag and drop the image)",
+            "Type /image",
+            "Convert it to base64 first",
+            "You can't, it's text-only"
+          ],
+          "answer": 0,
+          "explanation": "Claude Code accepts pasted or dragged-in images, which is great for UI bugs and mockups."
+        },
+        {
+          "id": "u2-l3-e3",
+          "type": "terminal",
+          "promptSymbol": ">",
+          "prompt": "Run git status directly from the Claude prompt using bash mode.",
+          "accepted": ["!git status", "! git status"],
+          "hint": "Start the line with an exclamation mark.",
+          "explanation": "The ! prefix runs a shell command directly and adds its output to the conversation."
+        },
+        {
+          "id": "u2-l3-e4",
+          "type": "order-steps",
+          "prompt": "Order an efficient bug report to Claude.",
+          "steps": [
+            "Reproduce the bug",
+            "Copy the full error or stack trace",
+            "Paste it into the prompt",
+            "Add what you expected to happen",
+            "Ask Claude to find and fix the root cause"
+          ],
+          "explanation": "Real evidence plus expected behavior gives Claude everything to diagnose the issue."
+        },
+        {
+          "id": "u2-l3-e5",
+          "type": "match-pairs",
+          "prompt": "Match the input to the best way to share it.",
+          "pairs": [
+            { "left": "Stack trace", "right": "Paste the full text" },
+            { "left": "Broken layout", "right": "Paste a screenshot" },
+            { "left": "Test output", "right": "Run it with ! prefix" },
+            { "left": "A source file", "right": "Reference it with @" }
+          ],
+          "explanation": "Each kind of evidence has a fast, lossless way into the conversation."
+        },
+        {
+          "id": "u2-l3-e6",
+          "type": "prompt-workshop",
+          "scenario": "Your header navigation overlaps the logo on mobile widths. You have a screenshot of the bug and know the header lives in one component file.",
+          "files": ["src/components/Header.tsx", "src/styles/header.css"],
+          "sample": "[screenshot pasted] On screens under 400px the nav links in @src/components/Header.tsx overlap the logo, as shown. Fix the layout in @src/styles/header.css so links collapse into the existing hamburger menu below 640px. Don't change the desktop layout.",
+          "keywords": ["mobile", "overlap", "header", "screenshot", "layout", "breakpoint"],
+          "explanation": "A screenshot plus a file reference and a constraint makes a visual bug easy to fix."
+        },
+        {
+          "id": "u2-l3-e7",
+          "type": "multiple-choice",
+          "prompt": "Why paste the exact error instead of summarizing it?",
+          "options": [
+            "Summaries are not allowed",
+            "Exact messages include file paths, line numbers and details a summary loses",
+            "It uses fewer tokens",
+            "Claude only reads red text"
+          ],
+          "answer": 1,
+          "explanation": "The precise text carries the clues Claude needs to locate the problem."
+        }
+      ]
+    },
+    {
+      "id": "u2-l4",
+      "title": "Plan Before Code",
+      "description": "Ask for a plan, review it, then build.",
+      "theory": [
+        {
+          "title": "Think first, type later",
+          "body": "For anything bigger than a one-liner, ask Claude to **explore and plan before writing code**. Say it outright: `don't write any code yet`.\n\nYou review the plan, poke holes in it, and only then say go. Fixing a plan costs one message, while fixing a wrong implementation costs many.\n\nYou can also nudge Claude to reason harder by asking it to **think** through tricky problems.",
+          "code": "> Read @src/billing/ and propose a plan to add yearly plans.\n> Don't write any code yet. List the files you'd change and why."
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u2-l4-e1",
+          "type": "spot-bad-prompt",
+          "prompt": "You need to migrate the app from REST calls to a GraphQL client.",
+          "options": [
+            "Migrate everything to GraphQL now.",
+            "Look through @src/api/ and propose a step-by-step plan to migrate to our GraphQL client. Don't write code yet; list files, risks, and the order of changes."
+          ],
+          "better": 1,
+          "explanation": "For a big change, a reviewed plan prevents expensive wrong turns."
+        },
+        {
+          "id": "u2-l4-e2",
+          "type": "order-steps",
+          "prompt": "Order the plan-first workflow.",
+          "steps": [
+            "Ask Claude to read the relevant code",
+            "Ask for a plan and say don't write code yet",
+            "Review and correct the plan",
+            "Tell Claude to implement the plan",
+            "Verify with tests"
+          ],
+          "explanation": "Explore, plan, review, implement, verify: the order matters."
+        },
+        {
+          "id": "u2-l4-e3",
+          "type": "multiple-choice",
+          "prompt": "When is asking for a plan LEAST necessary?",
+          "options": [
+            "Adding authentication to an app",
+            "Fixing a typo in a README",
+            "Refactoring the data layer",
+            "Migrating to a new framework"
+          ],
+          "answer": 1,
+          "explanation": "Trivial, well-scoped changes don't need a planning round."
+        },
+        {
+          "id": "u2-l4-e4",
+          "type": "fill-blank",
+          "prompt": "Complete the plan-first prompt.",
+          "code": "Read @src/billing/ and propose a ___ for yearly plans.\nDon't write any ___ yet.",
+          "blanks": ["plan", "code"],
+          "wordBank": ["plan", "code", "commit", "tests", "poem"],
+          "language": "markdown",
+          "explanation": "Asking for a plan and explicitly holding off on code keeps Claude in exploration mode."
+        },
+        {
+          "id": "u2-l4-e5",
+          "type": "prompt-workshop",
+          "scenario": "You want to add role-based access control (admin, editor, viewer) to an existing Next.js app. You don't want any code written until you've approved an approach.",
+          "files": ["src/middleware.ts", "src/lib/auth.ts", "src/app/admin/page.tsx"],
+          "sample": "Read @src/lib/auth.ts and @src/middleware.ts and propose a plan to add role-based access control with admin, editor and viewer roles. Don't write code yet. Cover where roles are stored, how middleware checks them, which routes need protection (e.g. @src/app/admin/page.tsx), and how we'll test it.",
+          "keywords": ["roles", "plan", "middleware", "admin", "access", "permissions"],
+          "explanation": "Pointing Claude at the key files and asking for a reviewed plan sets up a safe, large change."
+        },
+        {
+          "id": "u2-l4-e6",
+          "type": "multiple-choice",
+          "prompt": "Claude's plan touches a file you want left alone. What now?",
+          "options": [
+            "Approve and revert later",
+            "Tell Claude to revise the plan without touching that file",
+            "Start a new project",
+            "Ignore it"
+          ],
+          "answer": 1,
+          "explanation": "Correcting the plan is cheap, so fix it before any code exists."
+        },
+        {
+          "id": "u2-l4-e7",
+          "type": "match-pairs",
+          "prompt": "Match the phrase to its purpose.",
+          "pairs": [
+            { "left": "\"Don't write code yet\"", "right": "Keep Claude in planning" },
+            { "left": "\"Think through edge cases\"", "right": "Encourage deeper reasoning" },
+            { "left": "\"List files you'd change\"", "right": "Make the plan concrete" },
+            { "left": "\"Go ahead and implement\"", "right": "Approve the plan" }
+          ],
+          "explanation": "These phrases move Claude from exploration to execution on your terms."
+        }
+      ]
+    }
+  ],
+  "mission": {
+    "id": "u2-mission",
+    "type": "mission",
+    "title": "Prompt Smith",
+    "intro": "Forge a real prompt on a real codebase and see the difference specificity makes.",
+    "checklist": [
+      "Pick a small real task and write a prompt with context, goal, constraints and a definition of done",
+      "Reference at least one file with @ (use Tab to autocomplete the path)",
+      "Paste a real error message or screenshot into the prompt",
+      "Ask Claude for a plan with \"don't write code yet\", correct it once, then let it implement"
+    ],
+    "bonusXp": 30,
+    "badge": "prompt-smith",
+    "explanation": "Clear, grounded prompts plus a reviewed plan are the fastest path to correct code."
+  },
+  "cheatsheet": [
+    { "term": "Context + Goal + Constraints + Done", "description": "The four ingredients of a strong task prompt.", "kind": "concept" },
+    { "term": "@path/to/file", "description": "Pull a file into the conversation; Tab autocompletes.", "kind": "shortcut" },
+    { "term": "@dir/", "description": "Reference a whole directory.", "kind": "shortcut" },
+    { "term": "Ctrl+V", "description": "Paste an image; drag and drop also works.", "kind": "shortcut" },
+    { "term": "! command", "description": "Bash mode: run a shell command and add its output.", "kind": "shortcut" },
+    { "term": "Paste the full error", "description": "Exact stack traces beat paraphrased descriptions.", "kind": "concept" },
+    { "term": "\"Don't write code yet\"", "description": "Ask for a plan first and review it before building.", "kind": "concept" },
+    { "term": "\"think\"", "description": "Nudge Claude to reason more carefully on hard problems.", "kind": "concept" }
+  ]
+}

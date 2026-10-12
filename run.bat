@@ -3,6 +3,10 @@ REM One-click launcher for Windows: creates the Python env, installs deps, start
 REM Double-click run.bat (first run takes a few minutes; later runs start in seconds).
 cd /d "%~dp0"
 
+REM run.bat must sit inside the full Clipper folder (next to requirements.txt and the backend folder).
+if not exist requirements.txt goto :notinfolder
+if not exist backend\app\main.py goto :notinfolder
+
 REM Tools installed with winget after Explorer started aren't on this window's PATH yet.
 REM Re-read PATH from the registry and add winget's usual folders, so no restart is needed.
 for /f "usebackq delims=" %%P in (`powershell -NoProfile -Command "[Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')"`) do set "PATH=%%P;%PATH%"
@@ -50,3 +54,17 @@ exit /b
 :addpath
 if exist "%~1\ffmpeg.exe" set "PATH=%PATH%;%~1"
 exit /b
+
+:notinfolder
+echo.
+echo run.bat is not inside the full Clipper folder, so it can't find the app's files.
+echo   1. If you opened the ZIP by double-clicking it: close this window, right-click the ZIP,
+echo      choose "Extract All...", then open the extracted folder and double-click run.bat there.
+echo   2. Otherwise download the whole app again: github.com/pag-designers/Claude-code
+echo      switch the branch to claude/eager-ptolemy-aaxhn3, then Code - Download ZIP, then Extract All.
+echo   The folder with run.bat must also contain: requirements.txt, backend, frontend.
+echo.
+echo This window is running from: %CD%
+echo.
+pause
+exit /b 1

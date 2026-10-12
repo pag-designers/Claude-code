@@ -8,7 +8,12 @@ cd "$(dirname "$0")"
 # Your videos, clips, exports and API key (data/, output/, .env) are never touched by this.
 if [ -d .git ] && command -v git >/dev/null 2>&1; then
   echo "Checking for updates…"
-  git pull --ff-only --quiet && echo "Up to date." || echo "Could not update right now — starting the version you have."
+  before=$(git rev-parse HEAD)
+  if git pull --ff-only --quiet; then
+    [ "$before" = "$(git rev-parse HEAD)" ] && echo "Up to date." || echo "Updated to the newest version."
+  else
+    echo "Could not update right now — starting the version you have."
+  fi
 fi
 
 PY=""

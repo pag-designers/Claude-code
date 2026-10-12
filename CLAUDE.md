@@ -57,6 +57,10 @@ server and opens http://localhost:8000. First run takes a few minutes. Then past
 app's ⚙ Settings panel (top right), which writes `.env` for you. The default model is Haiku (cheapest);
 switch to Sonnet/Opus in the same panel once clips are earning.
 
+Updating: install the app with `git clone -b claude/eager-ptolemy-aaxhn3 https://github.com/pag-designers/Claude-code.git Clipper`
+(not the ZIP). Then run.sh / run.bat `git pull` the newest version on every start (Windows restarts itself after an update),
+and reinstall packages only when requirements.txt changed. data/, output/ and .env are git-ignored, so nothing is lost.
+
 Manual equivalent:
 ```bash
 python3.12 -m venv .venv                 # isolated Python env for this project

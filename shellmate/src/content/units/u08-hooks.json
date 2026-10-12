@@ -1,0 +1,384 @@
+{
+  "id": "u8",
+  "order": 8,
+  "title": "Hooks",
+  "description": "Run your own scripts at key moments: format after edits, block dangerous commands.",
+  "color": "#ff5c6c",
+  "lessons": [
+    {
+      "id": "u8-l1",
+      "title": "Hook Events 101",
+      "description": "Events, matchers and auto-formatting",
+      "theory": [
+        {
+          "title": "Deterministic reflexes",
+          "body": "**Hooks** are shell commands Claude Code runs at specific points in its lifecycle. Unlike an instruction in `CLAUDE.md`, a hook **always** runs; it doesn't rely on Claude remembering.\n\nKey events: `PreToolUse` (before a tool runs, can block it), `PostToolUse` (after a tool call succeeds), `UserPromptSubmit`, `Notification` (Claude needs input or permission), `Stop` (Claude finishes responding), `SubagentStop`, `PreCompact`, `SessionStart` and `SessionEnd`."
+        },
+        {
+          "title": "Event → matcher → handler",
+          "body": "Hooks live under `\"hooks\"` in a settings file. Each event holds matcher groups; `matcher` filters by tool name, like `\"Bash\"` or `\"Edit|Write\"`, and `\"*\"` or an empty matcher matches everything.\n\nThe hook gets JSON on **stdin** with fields like `tool_name` and `tool_input`. Type `/hooks` to browse what is configured.",
+          "code": "{\n  \"hooks\": {\n    \"PostToolUse\": [\n      {\n        \"matcher\": \"Edit|Write\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"jq -r '.tool_input.file_path' | xargs npx prettier --write\"\n          }\n        ]\n      }\n    ]\n  }\n}"
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u8-l1-e1",
+          "type": "match-pairs",
+          "prompt": "Match each hook event to when it fires.",
+          "pairs": [
+            {
+              "left": "PreToolUse",
+              "right": "Before a tool call runs"
+            },
+            {
+              "left": "PostToolUse",
+              "right": "After a tool call succeeds"
+            },
+            {
+              "left": "Stop",
+              "right": "Claude finishes responding"
+            },
+            {
+              "left": "Notification",
+              "right": "Claude needs input or permission"
+            },
+            {
+              "left": "SessionStart",
+              "right": "A session begins or resumes"
+            }
+          ],
+          "explanation": "Each event is a different moment in the lifecycle you can attach a script to."
+        },
+        {
+          "id": "u8-l1-e2",
+          "type": "multiple-choice",
+          "prompt": "Why use a hook instead of \"always run prettier\" in CLAUDE.md?",
+          "options": [
+            "CLAUDE.md cannot mention tools",
+            "Hooks make Claude use fewer tokens",
+            "Prettier only works from hooks",
+            "A hook runs every time, deterministically; an instruction depends on Claude remembering"
+          ],
+          "answer": 3,
+          "explanation": "Hooks give guaranteed behavior instead of relying on the model."
+        },
+        {
+          "id": "u8-l1-e3",
+          "type": "fill-blank",
+          "prompt": "Run Prettier on every file Claude edits or writes.",
+          "code": "{\n  \"hooks\": {\n    \"___\": [\n      {\n        \"matcher\": \"___\",\n        \"hooks\": [\n          { \"type\": \"___\", \"command\": \"jq -r '.tool_input.file_path' | xargs npx prettier --write\" }\n        ]\n      }\n    ]\n  }\n}",
+          "blanks": [
+            "PostToolUse",
+            "Edit|Write",
+            "command"
+          ],
+          "wordBank": [
+            "PostToolUse",
+            "Edit|Write",
+            "command",
+            "PreToolUse",
+            "Bash",
+            "script"
+          ],
+          "language": "json",
+          "explanation": "PostToolUse fires after the edit, `Edit|Write` limits it to file-editing tools, and `command` runs a shell command."
+        },
+        {
+          "id": "u8-l1-e4",
+          "type": "multiple-choice",
+          "prompt": "How does a command hook find out which file Claude just edited?",
+          "options": [
+            "It reads CLAUDE.md",
+            "It parses the terminal screen",
+            "It reads JSON from stdin, e.g. tool_input.file_path",
+            "Claude passes it as $1"
+          ],
+          "answer": 2,
+          "explanation": "Hook input arrives as JSON on stdin, so `jq` is a handy way to extract fields."
+        },
+        {
+          "id": "u8-l1-e5",
+          "type": "terminal",
+          "prompt": "Open the browser that shows your configured hooks.",
+          "promptSymbol": ">",
+          "accepted": [
+            "/hooks"
+          ],
+          "hint": "Named after the feature.",
+          "explanation": "`/hooks` lets you view the hooks configured across your settings files."
+        },
+        {
+          "id": "u8-l1-e6",
+          "type": "multiple-choice",
+          "prompt": "Which matcher value matches every tool?",
+          "options": [
+            "\"any\"",
+            "\"*\"",
+            "\"all\"",
+            "\"Tools\""
+          ],
+          "answer": 1,
+          "explanation": "`\"*\"`, an empty string, or omitting the matcher all match every tool."
+        },
+        {
+          "id": "u8-l1-e7",
+          "type": "order-steps",
+          "prompt": "An edit happens. Put the hook moments in order.",
+          "steps": [
+            "You submit a prompt (UserPromptSubmit)",
+            "PreToolUse hooks run before the Edit",
+            "The Edit tool changes the file",
+            "PostToolUse hooks run, e.g. Prettier",
+            "Claude finishes responding (Stop)"
+          ],
+          "explanation": "Pre hooks run before a tool, Post hooks after it, and Stop when the response ends."
+        },
+        {
+          "id": "u8-l1-e8",
+          "type": "spot-bad-prompt",
+          "prompt": "You want consistent formatting after every edit. Which request to Claude is better?",
+          "options": [
+            "Please remember to format files from now on.",
+            "Add a PostToolUse hook to .claude/settings.json with matcher Edit|Write that pipes tool_input.file_path to npx prettier --write."
+          ],
+          "better": 1,
+          "explanation": "A hook makes formatting automatic; a reminder is only a request."
+        }
+      ]
+    },
+    {
+      "id": "u8-l2",
+      "title": "Guardrail Hooks",
+      "description": "Block dangerous commands with exit 2",
+      "theory": [
+        {
+          "title": "Exit codes are the verdict",
+          "body": "A `PreToolUse` hook can **block** a tool call. Exit code `0` means success, so things proceed. Exit code `2` blocks the call, and whatever the script printed to **stderr** is shown to Claude as the reason.\n\nKip's rule: read the command from stdin, refuse anything scary, explain why on stderr.",
+          "code": "#!/bin/bash\n# .claude/hooks/block-rm.sh\nCMD=$(jq -r '.tool_input.command')\nif echo \"$CMD\" | grep -q 'rm -rf'; then\n  echo \"Blocked: rm -rf is not allowed\" >&2\n  exit 2\nfi\nexit 0"
+        },
+        {
+          "title": "Wiring it up",
+          "body": "Make the script executable (`chmod +x`), then register it under `PreToolUse` with matcher `\"Bash\"`. `$CLAUDE_PROJECT_DIR` points at the project root, so the path works from any subfolder.\n\nHooks can live in `~/.claude/settings.json`, `.claude/settings.json` or `.claude/settings.local.json`. Note that a hook cannot override a **deny** rule: deny still wins.",
+          "code": "{\n  \"hooks\": {\n    \"PreToolUse\": [\n      {\n        \"matcher\": \"Bash\",\n        \"hooks\": [\n          { \"type\": \"command\", \"command\": \"\\\"$CLAUDE_PROJECT_DIR\\\"/.claude/hooks/block-rm.sh\" }\n        ]\n      }\n    ]\n  }\n}"
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u8-l2-e1",
+          "type": "multiple-choice",
+          "prompt": "Which exit code from a PreToolUse hook blocks the tool call?",
+          "options": [
+            "2",
+            "0",
+            "1",
+            "127"
+          ],
+          "answer": 0,
+          "explanation": "Exit code 2 is the blocking code; 0 means success."
+        },
+        {
+          "id": "u8-l2-e2",
+          "type": "multiple-choice",
+          "prompt": "When a PreToolUse hook exits with 2, where does its explanation go?",
+          "options": [
+            "It is written to CLAUDE.md",
+            "It is silently discarded",
+            "It is emailed to you",
+            "Its stderr is shown to Claude as the reason"
+          ],
+          "answer": 3,
+          "explanation": "Claude sees the stderr message, so it can adjust its approach."
+        },
+        {
+          "id": "u8-l2-e3",
+          "type": "fill-blank",
+          "prompt": "Finish the guard script: read the Bash command from stdin and block it.",
+          "code": "CMD=$(jq -r '.tool_input.___')\nif echo \"$CMD\" | grep -q 'rm -rf'; then\n  echo \"Blocked: rm -rf is not allowed\" >&2\n  exit ___\nfi\nexit 0",
+          "blanks": [
+            "command",
+            "2"
+          ],
+          "wordBank": [
+            "command",
+            "2",
+            "file_path",
+            "0",
+            "1"
+          ],
+          "language": "bash",
+          "explanation": "For the Bash tool, `tool_input.command` holds the command, and exit 2 blocks it."
+        },
+        {
+          "id": "u8-l2-e4",
+          "type": "fill-blank",
+          "prompt": "Register the guard so it runs before every Bash command.",
+          "code": "{\n  \"hooks\": {\n    \"___\": [\n      {\n        \"matcher\": \"___\",\n        \"hooks\": [\n          { \"type\": \"command\", \"command\": \"\\\"$___\\\"/.claude/hooks/block-rm.sh\" }\n        ]\n      }\n    ]\n  }\n}",
+          "blanks": [
+            "PreToolUse",
+            "Bash",
+            "CLAUDE_PROJECT_DIR"
+          ],
+          "wordBank": [
+            "PreToolUse",
+            "Bash",
+            "CLAUDE_PROJECT_DIR",
+            "PostToolUse",
+            "Edit",
+            "PROJECT_ROOT"
+          ],
+          "language": "json",
+          "explanation": "Blocking must happen before the tool runs, matched on the Bash tool, using the project root variable."
+        },
+        {
+          "id": "u8-l2-e5",
+          "type": "terminal",
+          "prompt": "Make your hook script executable.",
+          "accepted": [
+            "chmod +x .claude/hooks/block-rm.sh",
+            "chmod u+x .claude/hooks/block-rm.sh",
+            "chmod 755 .claude/hooks/block-rm.sh"
+          ],
+          "hint": "chmod, plus the executable bit, plus the script path.",
+          "explanation": "A command hook must be executable for Claude Code to run it."
+        },
+        {
+          "id": "u8-l2-e6",
+          "type": "order-steps",
+          "prompt": "Set up a guardrail hook from scratch.",
+          "steps": [
+            "Write .claude/hooks/block-rm.sh that exits 2 on rm -rf",
+            "Run chmod +x on the script",
+            "Add a PreToolUse entry with matcher Bash in .claude/settings.json",
+            "Run /hooks to confirm it is registered",
+            "Ask Claude to rm -rf a temp folder and watch it get blocked"
+          ],
+          "explanation": "Write it, make it executable, register it, verify it, test it."
+        },
+        {
+          "id": "u8-l2-e7",
+          "type": "match-pairs",
+          "prompt": "Match each piece to its meaning.",
+          "pairs": [
+            {
+              "left": "exit 0",
+              "right": "Success, carry on"
+            },
+            {
+              "left": "exit 2",
+              "right": "Block the action"
+            },
+            {
+              "left": "stderr on exit 2",
+              "right": "Reason shown to Claude"
+            },
+            {
+              "left": "tool_input.command",
+              "right": "The Bash command to run"
+            }
+          ],
+          "explanation": "Exit codes and stderr are how a command hook talks back to Claude Code."
+        },
+        {
+          "id": "u8-l2-e8",
+          "type": "multiple-choice",
+          "prompt": "A deny rule blocks `Bash(rm *)`, but your PreToolUse hook returns \"allow\". What happens to `rm temp.txt`?",
+          "options": [
+            "You are asked",
+            "The hook is disabled",
+            "It is still blocked by the deny rule",
+            "The hook wins, so it runs"
+          ],
+          "answer": 2,
+          "explanation": "Deny and ask rules are evaluated regardless of what a PreToolUse hook returns."
+        },
+        {
+          "id": "u8-l2-e9",
+          "type": "prompt-workshop",
+          "scenario": "Ask Claude to create a hook that stops it from ever editing .env files or package-lock.json.",
+          "files": [
+            ".claude/settings.json",
+            ".claude/hooks/"
+          ],
+          "sample": "Create .claude/hooks/protect-files.sh that reads the hook JSON from stdin, extracts tool_input.file_path with jq, and exits 2 with a clear stderr message if the path matches .env, .env.* or package-lock.json. Make it executable and register it in @.claude/settings.json as a PreToolUse hook with matcher Edit|Write using \"$CLAUDE_PROJECT_DIR\". Show me the final config.",
+          "keywords": [
+            "PreToolUse",
+            "exit 2",
+            "Edit|Write",
+            ".env",
+            "package-lock",
+            "stdin"
+          ],
+          "explanation": "A precise hook request names the event, matcher, protected paths and the blocking mechanism."
+        }
+      ]
+    }
+  ],
+  "mission": {
+    "id": "u8-mission",
+    "type": "mission",
+    "title": "Hook Master",
+    "intro": "Give Kip some reflexes: auto-format after edits and refuse dangerous commands.",
+    "checklist": [
+      "Add a PostToolUse hook with matcher `Edit|Write` that runs Prettier to `.claude/settings.json`",
+      "Ask Claude to edit a JS file and confirm it comes out formatted",
+      "Write `.claude/hooks/block-rm.sh` that exits 2 on `rm -rf`, `chmod +x` it, and register it under PreToolUse with matcher `Bash`",
+      "Run `/hooks` and confirm both hooks are listed",
+      "Ask Claude to `rm -rf` a temp folder and watch the hook block it"
+    ],
+    "bonusXp": 30,
+    "badge": "hook-master",
+    "explanation": "Hooks turn your team rules into guarantees that run every single time."
+  },
+  "cheatsheet": [
+    {
+      "term": "PreToolUse",
+      "description": "Runs before a tool call; exit 2 blocks it.",
+      "kind": "concept"
+    },
+    {
+      "term": "PostToolUse",
+      "description": "Runs after a tool call succeeds, e.g. to format files.",
+      "kind": "concept"
+    },
+    {
+      "term": "Stop",
+      "description": "Fires when Claude finishes responding.",
+      "kind": "concept"
+    },
+    {
+      "term": "Notification",
+      "description": "Fires when Claude needs your input or permission.",
+      "kind": "concept"
+    },
+    {
+      "term": "SessionStart",
+      "description": "Fires when a session begins or resumes.",
+      "kind": "concept"
+    },
+    {
+      "term": "matcher",
+      "description": "Filters by tool name, e.g. \"Bash\" or \"Edit|Write\".",
+      "kind": "concept"
+    },
+    {
+      "term": "exit 2",
+      "description": "Blocks the action; stderr is shown to Claude.",
+      "kind": "concept"
+    },
+    {
+      "term": "stdin JSON",
+      "description": "Hook input: tool_name, tool_input, session_id and more.",
+      "kind": "concept"
+    },
+    {
+      "term": "/hooks",
+      "description": "Browse the hooks configured in your settings.",
+      "kind": "slash"
+    },
+    {
+      "term": "$CLAUDE_PROJECT_DIR",
+      "description": "Project root path, handy for hook script paths.",
+      "kind": "concept"
+    }
+  ]
+}

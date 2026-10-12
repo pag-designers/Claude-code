@@ -1,0 +1,387 @@
+{
+  "id": "u6",
+  "order": 6,
+  "title": "Slash Commands & Skills",
+  "description": "Built-in commands, your own reusable commands, and skills Claude loads on demand.",
+  "color": "#2ec4b6",
+  "lessons": [
+    {
+      "id": "u6-l1",
+      "title": "Commands",
+      "description": "Built-ins and your own /commands",
+      "theory": [
+        {
+          "title": "The built-in toolbox",
+          "body": "Type `/` in a session to open the command menu. A few Kip uses daily:\n\n`/clear` starts a fresh conversation, `/compact` summarizes it to free context, `/init` creates a `CLAUDE.md`, `/model` switches models, `/rewind` rolls back to an earlier point, `/usage` (alias `/cost`) shows usage, and `/help` lists everything."
+        },
+        {
+          "title": "Write your own",
+          "body": "A custom command is just a Markdown file. Put `fix-issue.md` in `.claude/commands/` (project, shared) or `~/.claude/commands/` (personal) and you get `/fix-issue`.\n\n`$ARGUMENTS` is replaced with whatever you type after the command. Optional frontmatter adds `description`, `argument-hint`, `allowed-tools` and `model`.\n\nCommands have been merged into **skills**, but `.claude/commands/` files keep working.",
+          "code": "---\ndescription: Fix a GitHub issue by number\nargument-hint: [issue-number]\n---\nFix issue #$ARGUMENTS. Read the issue, find the root cause,\nwrite a failing test, then fix it."
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u6-l1-e1",
+          "type": "match-pairs",
+          "prompt": "Match each built-in command to what it does.",
+          "pairs": [
+            {
+              "left": "/clear",
+              "right": "Fresh conversation, empty context"
+            },
+            {
+              "left": "/compact",
+              "right": "Summarize conversation to free context"
+            },
+            {
+              "left": "/init",
+              "right": "Create a CLAUDE.md guide"
+            },
+            {
+              "left": "/model",
+              "right": "Switch the AI model"
+            },
+            {
+              "left": "/rewind",
+              "right": "Roll back to an earlier point"
+            }
+          ],
+          "explanation": "Built-in commands control the session itself rather than asking Claude to do work."
+        },
+        {
+          "id": "u6-l1-e2",
+          "type": "terminal",
+          "prompt": "Your context is filling up but you want to keep the same conversation going. Free up space.",
+          "promptSymbol": ">",
+          "accepted": [
+            "/compact"
+          ],
+          "hint": "It summarizes rather than wiping.",
+          "explanation": "`/compact` summarizes the conversation so far, while `/clear` would start over."
+        },
+        {
+          "id": "u6-l1-e3",
+          "type": "terminal",
+          "prompt": "Generate a CLAUDE.md guide for this project.",
+          "promptSymbol": ">",
+          "accepted": [
+            "/init"
+          ],
+          "hint": "Short for initialize.",
+          "explanation": "`/init` initializes the project with a CLAUDE.md file."
+        },
+        {
+          "id": "u6-l1-e4",
+          "type": "multiple-choice",
+          "prompt": "You create `.claude/commands/fix-issue.md`. How do you run it?",
+          "options": [
+            "claude fix-issue.md",
+            "/run fix-issue",
+            "/fix-issue",
+            "/commands fix-issue"
+          ],
+          "answer": 2,
+          "explanation": "The file name without `.md` becomes the command name."
+        },
+        {
+          "id": "u6-l1-e5",
+          "type": "fill-blank",
+          "prompt": "Complete this command file so it shows a description and passes the file path through.",
+          "code": "---\n___: Write unit tests for a file\nargument-hint: [file-path]\n---\nWrite thorough unit tests for $___.\nCover edge cases and run the test suite afterwards.",
+          "blanks": [
+            "description",
+            "ARGUMENTS"
+          ],
+          "wordBank": [
+            "description",
+            "ARGUMENTS",
+            "summary",
+            "INPUT",
+            "title"
+          ],
+          "language": "markdown",
+          "explanation": "`description` labels the command and `$ARGUMENTS` is replaced with what you type after it."
+        },
+        {
+          "id": "u6-l1-e6",
+          "type": "terminal",
+          "prompt": "Your project has a /fix-issue command. Run it for issue 482.",
+          "promptSymbol": ">",
+          "accepted": [
+            "/fix-issue 482"
+          ],
+          "hint": "Type the command, then the argument.",
+          "explanation": "Everything after the command name becomes `$ARGUMENTS`."
+        },
+        {
+          "id": "u6-l1-e7",
+          "type": "multiple-choice",
+          "prompt": "Where do you put a command you want available in ALL your projects?",
+          "options": [
+            ".claude/settings.json",
+            "~/.claude/commands/",
+            ".claude/commands/",
+            "/usr/local/claude/"
+          ],
+          "answer": 1,
+          "explanation": "The `~/.claude/` folder holds personal configuration that follows you across projects."
+        },
+        {
+          "id": "u6-l1-e8",
+          "type": "spot-bad-prompt",
+          "prompt": "Which body makes a better /review-diff command?",
+          "options": [
+            "Review the code.",
+            "Review the staged diff for bugs, missing tests and security issues. Focus on $ARGUMENTS if provided. List findings by severity with file:line references."
+          ],
+          "better": 1,
+          "explanation": "A reusable command should spell out scope, criteria and output format once, so every run is consistent."
+        },
+        {
+          "id": "u6-l1-e9",
+          "type": "order-steps",
+          "prompt": "Create and share a /changelog command.",
+          "steps": [
+            "Create the .claude/commands/ folder",
+            "Add changelog.md with a description in frontmatter",
+            "Write the instructions, using $ARGUMENTS for the version",
+            "Run /changelog v2.3.0 in a session",
+            "Commit the file so teammates get it too"
+          ],
+          "explanation": "A command is just a committed Markdown file, so sharing it is a normal git commit."
+        }
+      ]
+    },
+    {
+      "id": "u6-l2",
+      "title": "Skills",
+      "description": "Know-how Claude loads on demand",
+      "theory": [
+        {
+          "title": "What is a skill?",
+          "body": "A **skill** is a folder with a `SKILL.md` file: YAML frontmatter plus Markdown instructions. Put it in `.claude/skills/<name>/SKILL.md` (project) or `~/.claude/skills/<name>/SKILL.md` (personal).\n\nClaude reads each skill's `description` and **loads the skill automatically when it is relevant**. You can also invoke it yourself with `/skill-name`. Because it is a folder, a skill can bundle extra files like scripts and templates.",
+          "code": "---\nname: release-notes\ndescription: Drafts release notes from merged PRs. Use when the\n  user asks for a changelog or release notes.\n---\n1. List PRs merged since the last tag.\n2. Group them into Features, Fixes and Chores."
+        },
+        {
+          "title": "Who gets to trigger it",
+          "body": "`disable-model-invocation: true` means only **you** can invoke the skill (great for `/deploy`). `user-invocable: false` means only **Claude** can.\n\n`/skills` lists the skills available in this session. A file at `.claude/commands/deploy.md` and a skill at `.claude/skills/deploy/SKILL.md` both create `/deploy`; skills are recommended for new work because they support extra files."
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u6-l2-e1",
+          "type": "multiple-choice",
+          "prompt": "Where does a project skill named `pdf-forms` live?",
+          "options": [
+            ".claude/skills/pdf-forms/SKILL.md",
+            ".claude/pdf-forms.skill",
+            ".claude/commands/skills/pdf-forms.json",
+            "skills.json in the repo root"
+          ],
+          "answer": 0,
+          "explanation": "Each skill is a folder named after it, containing SKILL.md."
+        },
+        {
+          "id": "u6-l2-e2",
+          "type": "multiple-choice",
+          "prompt": "What does Claude use to decide whether to load a skill automatically?",
+          "options": [
+            "The file size of SKILL.md",
+            "Alphabetical order of skill names",
+            "The last skill you used",
+            "The skill's description"
+          ],
+          "answer": 3,
+          "explanation": "The description tells Claude what the skill does and when to use it."
+        },
+        {
+          "id": "u6-l2-e3",
+          "type": "fill-blank",
+          "prompt": "Finish this SKILL.md so Claude knows when to use it, but only you can trigger it.",
+          "code": "---\nname: deploy\n___: Deploys the app to staging. Use when the user asks to deploy.\ndisable-model-invocation: ___\n---\nRun the deploy script and report the URL.",
+          "blanks": [
+            "description",
+            "true"
+          ],
+          "wordBank": [
+            "description",
+            "true",
+            "trigger",
+            "false",
+            "auto"
+          ],
+          "language": "markdown",
+          "explanation": "`description` explains the skill and `disable-model-invocation: true` stops Claude from invoking it on its own."
+        },
+        {
+          "id": "u6-l2-e4",
+          "type": "match-pairs",
+          "prompt": "Match each skill piece to its role.",
+          "pairs": [
+            {
+              "left": "SKILL.md",
+              "right": "Frontmatter plus instructions"
+            },
+            {
+              "left": "description",
+              "right": "Tells Claude when to use it"
+            },
+            {
+              "left": "disable-model-invocation: true",
+              "right": "Only you can invoke it"
+            },
+            {
+              "left": "user-invocable: false",
+              "right": "Only Claude can invoke it"
+            },
+            {
+              "left": "/skills",
+              "right": "List available skills"
+            }
+          ],
+          "explanation": "Frontmatter fields control discovery and who can trigger a skill."
+        },
+        {
+          "id": "u6-l2-e5",
+          "type": "terminal",
+          "prompt": "List the skills available in this session.",
+          "promptSymbol": ">",
+          "accepted": [
+            "/skills"
+          ],
+          "hint": "Plural of what you are listing.",
+          "explanation": "`/skills` lists available skills and lets you filter them."
+        },
+        {
+          "id": "u6-l2-e6",
+          "type": "spot-bad-prompt",
+          "prompt": "Which skill description will help Claude load it at the right moment?",
+          "options": [
+            "description: Helpers",
+            "description: Generates Prisma migration files. Use when the user asks to change the database schema or add a table."
+          ],
+          "better": 1,
+          "explanation": "Claude matches tasks against the description, so say what it does and when to use it."
+        },
+        {
+          "id": "u6-l2-e7",
+          "type": "order-steps",
+          "prompt": "Build a project skill for writing API docs.",
+          "steps": [
+            "Create the .claude/skills/api-docs/ folder",
+            "Write SKILL.md with name and description frontmatter",
+            "Add instructions, plus any helper script in the folder",
+            "Ask for API docs, or type /api-docs",
+            "Check that Claude followed the skill's steps"
+          ],
+          "explanation": "A skill is a folder with SKILL.md, triggered by a matching task or by name."
+        },
+        {
+          "id": "u6-l2-e8",
+          "type": "multiple-choice",
+          "prompt": "What can a skill do that a single command file cannot?",
+          "options": [
+            "Change permission modes",
+            "Bypass deny rules",
+            "Bundle supporting files like scripts and templates in its folder",
+            "Run without any instructions"
+          ],
+          "answer": 2,
+          "explanation": "A skill is a directory, so it can carry extra resources alongside SKILL.md."
+        },
+        {
+          "id": "u6-l2-e9",
+          "type": "prompt-workshop",
+          "scenario": "Ask Claude to create a project skill that writes commit messages following your team's Conventional Commits rules.",
+          "files": [
+            "CONTRIBUTING.md",
+            ".claude/skills/"
+          ],
+          "sample": "Create a project skill at .claude/skills/commit-message/SKILL.md. Base the rules on the commit section of @CONTRIBUTING.md (Conventional Commits: type(scope): summary, max 72 chars, body explains why). Give it a description that says to use it whenever I ask for a commit message, and include two good examples.",
+          "keywords": [
+            "skill",
+            "SKILL.md",
+            "description",
+            "commit",
+            "conventional"
+          ],
+          "explanation": "A good skill request names the location, the source of the rules, and a description that triggers at the right time."
+        }
+      ]
+    }
+  ],
+  "mission": {
+    "id": "u6-mission",
+    "type": "mission",
+    "title": "Command Crafter",
+    "intro": "Kip keeps a toolbelt of tricks. Build your first custom command and skill in a real repo.",
+    "checklist": [
+      "Type `/` in a session and browse the built-in command menu",
+      "Create `.claude/commands/standup.md` that summarizes recent git commits, using `$ARGUMENTS` for the time range",
+      "Run `/standup yesterday` and tweak the file until the output is useful",
+      "Create `.claude/skills/<name>/SKILL.md` with a clear description, then ask a task that matches it",
+      "Run `/skills` to confirm your skill is listed"
+    ],
+    "bonusXp": 30,
+    "badge": "command-crafter",
+    "explanation": "Reusable commands and skills turn your best prompts into one-keystroke tools."
+  },
+  "cheatsheet": [
+    {
+      "term": "/",
+      "description": "Open the command menu; type letters to filter.",
+      "kind": "shortcut"
+    },
+    {
+      "term": "/clear",
+      "description": "Start a new conversation with empty context.",
+      "kind": "slash"
+    },
+    {
+      "term": "/compact",
+      "description": "Summarize the conversation to free up context.",
+      "kind": "slash"
+    },
+    {
+      "term": "/init",
+      "description": "Create a CLAUDE.md guide for the project.",
+      "kind": "slash"
+    },
+    {
+      "term": "/rewind",
+      "description": "Roll conversation and/or code back to an earlier point.",
+      "kind": "slash"
+    },
+    {
+      "term": ".claude/commands/<name>.md",
+      "description": "Project custom command, run as /<name>.",
+      "kind": "file"
+    },
+    {
+      "term": "$ARGUMENTS",
+      "description": "Replaced with everything typed after the command name.",
+      "kind": "concept"
+    },
+    {
+      "term": ".claude/skills/<name>/SKILL.md",
+      "description": "Project skill: frontmatter plus instructions, loaded when relevant.",
+      "kind": "file"
+    },
+    {
+      "term": "/skills",
+      "description": "List skills available in this session.",
+      "kind": "slash"
+    },
+    {
+      "term": "disable-model-invocation",
+      "description": "Set true so only you can invoke the skill.",
+      "kind": "concept"
+    },
+    {
+      "term": "argument-hint",
+      "description": "Autocomplete hint showing the expected arguments.",
+      "kind": "concept"
+    }
+  ]
+}

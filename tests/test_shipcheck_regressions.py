@@ -73,3 +73,28 @@ def test_speaker_keyframes_start_with_active_speaker():
     f = render.layout_filter(lay, 6.0, "r0", "v0", 1920, 1080, 1.0, dur=2.0)  # piece 6–8 s: speaker 1 only
     x = re.search(r"crop=\d+:\d+:'([^']*)'", f).group(1)
     assert "if(" not in x and int(x) > 1000  # one constant, on the right-hand speaker
+
+
+def test_face_detector_fallback_never_crashes_without_mediapipe(monkeypatch):
+    """Intel Macs have no MediaPipe; OpenCV 5.x has no cascade file. Detection must degrade to 'no faces'."""
+    import sys
+    import numpy as np
+    from backend.app import reframe
+    monkeypatch.setitem(sys.modules, "mediapipe", None)
+    detect, close = reframe._detector()
+    assert detect(np.zeros((90, 160, 3), dtype=np.uint8)) == []
+    close()
+
+
+def test_requirements_markers_cover_every_platform():
+    from packaging.requirements import Requirement
+    lines = [l.strip() for l in (Path(__file__).resolve().parents[1] / "requirements.txt").read_text().splitlines()
+             if l.strip() and not l.startswith("#")]
+    envs = {"apple": {"sys_platform": "darwin", "platform_machine": "arm64"},
+            "intel": {"sys_platform": "darwin", "platform_machine": "x86_64"},
+            "windows": {"sys_platform": "win32", "platform_machine": "AMD64"},
+            "linux": {"sys_platform": "linux", "platform_machine": "x86_64"}}
+    for name, env in envs.items():
+        names = [Requirement(l).name for l in lines if not Requirement(l).marker or Requirement(l).marker.evaluate(env)]
+        assert names.count("numpy") == 1 and names.count("opencv-python-headless") == 1, name  # exactly one version rule
+        assert ("mediapipe" in names) == (name != "intel"), name

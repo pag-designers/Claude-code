@@ -7,6 +7,11 @@ python-dotenv>=1.0
 anthropic>=1.13
 pydantic>=2.14
 faster-whisper>=1.2.1
-mediapipe>=1.1
-opencv-python-headless>=4.10
-numpy>=2.0
+# Face/speaker tracking. Only Apple-Silicon Macs, Windows and Linux have a version; on an Intel Mac Clipper
+# falls back to a simpler face detector automatically.
+mediapipe>=1.1; sys_platform != "darwin" or platform_machine == "arm64"
+# Intel Macs (pre-2020) have no wheels for the newest OpenCV/NumPy, so they get the last versions that do.
+opencv-python-headless>=4.10; sys_platform != "darwin" or platform_machine == "arm64"
+opencv-python-headless>=4.8,<4.10; sys_platform == "darwin" and platform_machine == "x86_64"
+numpy>=2.0; sys_platform != "darwin" or platform_machine == "arm64"
+numpy>=1.26,<2; sys_platform == "darwin" and platform_machine == "x86_64"

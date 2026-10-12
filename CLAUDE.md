@@ -61,6 +61,13 @@ Updating: install the app with `git clone -b claude/eager-ptolemy-aaxhn3 https:/
 (not the ZIP). Then run.sh / run.bat `git pull` the newest version on every start (Windows restarts itself after an update),
 and reinstall packages only when requirements.txt changed. data/, output/ and .env are git-ignored, so nothing is lost.
 
+Mac: `brew install python@3.12 ffmpeg node git gh`, then `gh auth login`, then
+`gh repo clone pag-designers/Claude-code Clipper -- -b claude/eager-ptolemy-aaxhn3`, `cd Clipper`, `./run.sh`.
+Apple-Silicon Macs get the full stack. Intel Macs: requirements.txt markers install OpenCV 4.9 + NumPy 1.x and skip
+MediaPipe (no Intel wheels), so face tracking uses OpenCV's cascade detector (faces only, no mouth tracking;
+if no detector loads at all, clips use the blurred full-frame layout). Resolution checked with `pip --dry-run
+--platform` for both Mac types; NOT run on a real Mac yet.
+
 Manual equivalent:
 ```bash
 python3.12 -m venv .venv                 # isolated Python env for this project

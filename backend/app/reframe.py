@@ -51,6 +51,22 @@ def _merge(faces: list[tuple]) -> list[tuple]:
     return out
 
 
+def _load_cascade():
+    """OpenCV's bundled face detector, or None. (OpenCV 5.x wheels don't ship the file; accents in the install
+    path can also stop OpenCV from opening it, so retry from a plain temp path.)"""
+    import shutil
+    import tempfile
+    src = Path(cv2.data.haarcascades) / "haarcascade_frontalface_default.xml"
+    if not src.exists():
+        return None
+    cascade = cv2.CascadeClassifier(str(src))
+    if cascade.empty():
+        tmp = Path(tempfile.gettempdir()) / "clipper_haar.xml"
+        shutil.copyfile(src, tmp)
+        cascade = cv2.CascadeClassifier(str(tmp))
+    return None if cascade.empty() else cascade
+
+
 def _detector():
     """MediaPipe FaceLandmarker (faces + mouth movement), or OpenCV's bundled detector if MediaPipe can't load.
     Returns detect(rgb) -> [(x0, y0, x1, y1, mouth_open)] in 0..1 coordinates, and a close() function."""
@@ -71,14 +87,11 @@ def _detector():
             return _merge(found)
         return detect, lm.close
     except Exception:  # e.g. missing libEGL on a headless Linux box
-        cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
-        if cascade.empty():  # e.g. a non-ASCII install path on Windows: read it through a FileStorage-free route
-            import shutil, tempfile
-            tmp = Path(tempfile.gettempdir()) / "clipper_haar.xml"
-            shutil.copyfile(cv2.data.haarcascades + "haarcascade_frontalface_default.xml", tmp)
-            cascade = cv2.CascadeClassifier(str(tmp))
+        cascade = _load_cascade()
 
         def detect(rgb):
+            if cascade is None:  # no face detector available at all: clips fall back to the full-frame layout
+                return []
             gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
             h, w = gray.shape
             boxes = cascade.detectMultiScale(gray, 1.15, 6, minSize=(w // 25, w // 25))

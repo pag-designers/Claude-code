@@ -156,7 +156,7 @@ def scene_cuts(video_id: str, start: float, end: float, threshold: float = 0.12)
     p = subprocess.run(["ffmpeg", "-v", "info", "-ss", f"{start:.3f}", "-t", f"{end - start:.3f}",
                         "-i", str(video_dir(video_id) / "source.mp4"), "-an",
                         "-vf", f"scale=320:-2,select='gt(scene,{threshold})',showinfo", "-f", "null", "-"],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, encoding="utf-8", errors="replace")
     raw = [round(start + float(t), 3) for t in re.findall(r"pts_time:([\d.]+)", p.stderr)]
     cuts: list[float] = []  # animated transitions trigger several frames in a row: keep the last of each burst
     for c in raw:

@@ -1,6 +1,7 @@
 """Get a video onto disk: YouTube/URL via yt-dlp, or an uploaded/local file. Then probe it and extract audio."""
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -10,13 +11,18 @@ from pathlib import Path
 from . import store
 from .config import ROOT, video_dir
 
-YTDLP = str(Path(sys.executable).parent / "yt-dlp")  # the copy installed in .venv
-if not Path(YTDLP).exists():
-    YTDLP = shutil.which("yt-dlp") or "yt-dlp"
+# Run yt-dlp through this same Python ("python -m yt_dlp"): works on Windows/Mac/Linux without PATH setup.
+YTDLP = [sys.executable, "-m", "yt_dlp"]
+# Child processes print UTF-8 (video titles can contain any language/emoji); Windows' default code page can't.
+TEXT = {"text": True, "encoding": "utf-8", "errors": "replace"}
+UTF8_ENV = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
 
 
 def run(cmd: list[str], **kw) -> subprocess.CompletedProcess:
-    p = subprocess.run(cmd, capture_output=True, text=True, **kw)
+    try:
+        p = subprocess.run(cmd, capture_output=True, **TEXT, **kw)
+    except FileNotFoundError:
+        raise RuntimeError(f"Could not start '{cmd[0]}'. Is it installed? (run scripts/doctor.py to check)") from None
     if p.returncode != 0:
         raise RuntimeError(f"{Path(cmd[0]).name} failed: {(p.stderr or p.stdout)[-1500:]}")
     return p
@@ -65,12 +71,12 @@ def download_url(url: str, video_id: str, on_progress=None) -> dict:
     if src.exists() and meta.get("duration"):
         return meta
     cmd = [
-        YTDLP, "--js-runtimes", "node", "--no-playlist", "--newline",
+        *YTDLP, "--js-runtimes", "node", "--no-playlist", "--newline",
         "-f", "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/bv*[height<=1080]+ba/b[height<=1080]/b",
         "--merge-output-format", "mp4", "-o", str(d / "source.%(ext)s"),
         "--print-json", "--no-simulate", "--progress", url,
     ]
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, cwd=ROOT)
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=ROOT, env=UTF8_ENV, **TEXT)
     info, tail = {}, []
     for line in p.stdout:  # type: ignore[union-attr]
         tail = (tail + [line])[-30:]

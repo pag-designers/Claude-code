@@ -155,7 +155,7 @@ def render(video_id: str, clip: dict, plan: dict, out_path: Path, preview: bool 
            "-filter_complex", ";".join(fc), "-map", "[vout]", "-map", "[aout]",
            "-c:v", "libx264", *enc, "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
            "-movflags", "+faststart", str(out_path)]
-    p = subprocess.run(cmd, capture_output=True, text=True)
+    p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if p.returncode != 0:
         raise RuntimeError("FFmpeg failed: " + p.stderr[-2500:])
     return {"path": str(out_path), "duration": round(tl.duration, 2),

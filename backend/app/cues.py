@@ -26,7 +26,7 @@ def scene_changes(video_id: str, threshold: float = 0.35) -> list[float]:
     p = subprocess.run(
         ["ffmpeg", "-v", "info", "-skip_frame", "nokey", "-i", str(src), "-vf",
          f"scale=160:-2,select='gt(scene,{threshold})',showinfo", "-an", "-f", "null", "-"],
-        capture_output=True, text=True)
+        capture_output=True, text=True, encoding="utf-8", errors="replace")
     return [round(float(t), 2) for t in re.findall(r"pts_time:([\d.]+)", p.stderr)]
 
 

@@ -31,7 +31,12 @@
           "id": "u11-l1-e3",
           "type": "multiple-choice",
           "prompt": "Which output format streams newline-delimited JSON events in real time?",
-          "options": ["text", "json", "stream-json", "ndjson"],
+          "options": [
+            "text",
+            "json",
+            "stream-json",
+            "ndjson"
+          ],
           "answer": 2,
           "explanation": "`stream-json` sends each event as it happens, so a script can show progress instead of waiting for the final answer."
         },
@@ -39,7 +44,12 @@
           "id": "u11-l1-e7",
           "type": "multiple-choice",
           "prompt": "In `--output-format json`, which field reports the estimated spend for the run?",
-          "options": ["price", "total_cost_usd", "tokens_spent", "bill"],
+          "options": [
+            "price",
+            "total_cost_usd",
+            "tokens_spent",
+            "bill"
+          ],
           "answer": 1,
           "explanation": "JSON output carries metadata like `total_cost_usd` next to the answer, so scripts can track spend without parsing text."
         },
@@ -61,10 +71,22 @@
           "type": "match-pairs",
           "prompt": "Match each flag value to what you get.",
           "pairs": [
-            { "left": "--output-format text", "right": "Plain text (the default)" },
-            { "left": "--output-format json", "right": "One JSON object with metadata" },
-            { "left": "--output-format stream-json", "right": "Newline-delimited JSON events" },
-            { "left": "--json-schema", "right": "Output validated against a schema" }
+            {
+              "left": "--output-format text",
+              "right": "Plain text (the default)"
+            },
+            {
+              "left": "--output-format json",
+              "right": "One JSON object with metadata"
+            },
+            {
+              "left": "--output-format stream-json",
+              "right": "Newline-delimited JSON events"
+            },
+            {
+              "left": "--json-schema",
+              "right": "Output validated against a schema"
+            }
           ],
           "explanation": "Pick by who reads the output: text for humans, json for scripts, stream-json for live progress, --json-schema for a guaranteed shape."
         },
@@ -84,8 +106,18 @@
           "type": "fill-blank",
           "prompt": "Get JSON output and extract just the answer text with jq.",
           "code": "claude -p \"Summarize this project\" --output-format ___ | jq -r '.___'",
-          "blanks": ["json", "result"],
-          "wordBank": ["json", "result", "text", "output", "yaml", "answer"],
+          "blanks": [
+            "json",
+            "result"
+          ],
+          "wordBank": [
+            "json",
+            "result",
+            "text",
+            "output",
+            "yaml",
+            "answer"
+          ],
           "language": "bash",
           "hint": "--output-format json, then jq -r '.<field>' where the answer field is named result.",
           "explanation": "jq can only read JSON, so you ask for json output and then pick the `result` field, which is where the answer lives."
@@ -184,11 +216,26 @@
           "type": "match-pairs",
           "prompt": "Match each flag to its job in a script.",
           "pairs": [
-            { "left": "--allowedTools", "right": "Pre-approve specific tools" },
-            { "left": "--disallowedTools", "right": "Deny or remove tools" },
-            { "left": "--max-turns", "right": "Cap agentic turns" },
-            { "left": "--bare", "right": "Skip local config, start faster" },
-            { "left": "--append-system-prompt", "right": "Add extra system instructions" }
+            {
+              "left": "--allowedTools",
+              "right": "Pre-approve specific tools"
+            },
+            {
+              "left": "--disallowedTools",
+              "right": "Deny or remove tools"
+            },
+            {
+              "left": "--max-turns",
+              "right": "Cap agentic turns"
+            },
+            {
+              "left": "--bare",
+              "right": "Skip local config, start faster"
+            },
+            {
+              "left": "--append-system-prompt",
+              "right": "Add extra system instructions"
+            }
           ],
           "explanation": "With no human watching, these flags decide in advance what Claude may do, for how long, and under which instructions."
         },
@@ -197,8 +244,19 @@
           "type": "fill-blank",
           "prompt": "Complete review.sh: security-review a PR diff and return JSON.",
           "code": "gh pr diff \"$1\" | claude ___ \\\n  --___ \"You are a security engineer. Review for vulnerabilities.\" \\\n  --output-format ___",
-          "blanks": ["-p", "append-system-prompt", "json"],
-          "wordBank": ["-p", "append-system-prompt", "json", "-w", "max-turns", "markdown"],
+          "blanks": [
+            "-p",
+            "append-system-prompt",
+            "json"
+          ],
+          "wordBank": [
+            "-p",
+            "append-system-prompt",
+            "json",
+            "-w",
+            "max-turns",
+            "markdown"
+          ],
           "language": "bash",
           "hint": "Same shape as review.sh in the theory: claude -p, --append-system-prompt \"role\", --output-format json.",
           "explanation": "`-p` is what lets Claude read the piped diff, the appended prompt sets the reviewer role, and json makes the result easy for scripts to use."
@@ -208,8 +266,17 @@
           "type": "fill-blank",
           "prompt": "Complete the workflow step.",
           "code": "- uses: anthropics/___@v1\n  with:\n    anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}\n    claude_args: \"--___ 5\"",
-          "blanks": ["claude-code-action", "max-turns"],
-          "wordBank": ["claude-code-action", "max-turns", "claude-cli", "setup-claude", "max-tokens"],
+          "blanks": [
+            "claude-code-action",
+            "max-turns"
+          ],
+          "wordBank": [
+            "claude-code-action",
+            "max-turns",
+            "claude-cli",
+            "setup-claude",
+            "max-tokens"
+          ],
           "language": "yaml",
           "hint": "uses: owner/name@version. claude_args holds normal CLI flags, like the one that caps turns.",
           "explanation": "`uses` must name the real action, anthropics/claude-code-action, and claude_args takes the same flags as the CLI, so --max-turns caps the run."
@@ -256,7 +323,9 @@
           "type": "terminal",
           "prompt": "Inside a session, type the slash command that starts the quick setup for Claude in GitHub Actions.",
           "promptSymbol": ">",
-          "accepted": ["/install-github-app"],
+          "accepted": [
+            "/install-github-app"
+          ],
           "hint": "/install-<platform>-app",
           "explanation": "`/install-github-app` does the app install, secret and workflow PR for you, so you don't have to write the YAML by hand."
         },
@@ -264,9 +333,17 @@
           "id": "u11-l2-e10",
           "type": "prompt-workshop",
           "scenario": "A nightly CI job pipes `npm test` output into `claude -p`. Write the prompt so the report is useful with nobody around to ask follow-ups.",
-          "files": ["package.json"],
-          "sample": "npm test 2>&1 | claude -p \"Context: these are tonight's CI test results; the test script is defined in @package.json. Goal: for each failing test, give the test name, the likely root cause in one sentence, and the file to look at. Constraints: don't edit any files; output Markdown bullets only, no intro text. Done: one bullet per failing test, or if every test passed, print exactly: ALL GREEN\"",
-          "keywords": ["failing", "root cause", "file", "output", "test"],
+          "files": [
+            "package.json"
+          ],
+          "sample": "npm test 2>&1 | claude -p \"Context: these are tonight's CI test results; the test script is defined in package.json. Goal: for each failing test, give the test name, the likely root cause in one sentence, and the file to look at. Constraints: don't edit any files; output Markdown bullets only, no intro text. Done: one bullet per failing test, or if every test passed, print exactly: ALL GREEN\"",
+          "keywords": [
+            "failing",
+            "root cause",
+            "file",
+            "output",
+            "test"
+          ],
           "explanation": "Nobody can ask follow-ups in CI, so a headless prompt must define the exact output, including what to print when there's nothing to report."
         }
       ]
@@ -289,16 +366,60 @@
     "explanation": "Print mode, pipes, JSON output and guardrail flags are the building blocks of every Claude automation."
   },
   "cheatsheet": [
-    { "term": "claude -p \"query\"", "description": "Run one prompt non-interactively, print, exit (also --print).", "kind": "command" },
-    { "term": "cat file | claude -p \"query\"", "description": "Pipe content into Claude via stdin.", "kind": "command" },
-    { "term": "claude -c -p \"query\"", "description": "Continue the most recent conversation headlessly.", "kind": "command" },
-    { "term": "--output-format text|json|stream-json", "description": "Plain text, one JSON object, or streamed JSON events.", "kind": "flag" },
-    { "term": "--allowedTools", "description": "Pre-approve tools, e.g. \"Read,Edit,Bash(git diff *)\".", "kind": "flag" },
-    { "term": "--disallowedTools", "description": "Deny or remove tools for the run.", "kind": "flag" },
-    { "term": "--max-turns N", "description": "Limit agentic turns in print mode.", "kind": "flag" },
-    { "term": "--append-system-prompt", "description": "Add instructions while keeping the default system prompt.", "kind": "flag" },
-    { "term": "--bare", "description": "Skip auto-discovered config for faster, reproducible scripted runs.", "kind": "flag" },
-    { "term": "/install-github-app", "description": "Set up Claude in GitHub Actions for this repo.", "kind": "slash" },
-    { "term": "@claude", "description": "Mention in an issue or PR comment to trigger the action.", "kind": "concept" }
+    {
+      "term": "claude -p \"query\"",
+      "description": "Run one prompt non-interactively, print, exit (also --print).",
+      "kind": "command"
+    },
+    {
+      "term": "cat file | claude -p \"query\"",
+      "description": "Pipe content into Claude via stdin.",
+      "kind": "command"
+    },
+    {
+      "term": "claude -c -p \"query\"",
+      "description": "Continue the most recent conversation headlessly.",
+      "kind": "command"
+    },
+    {
+      "term": "--output-format text|json|stream-json",
+      "description": "Plain text, one JSON object, or streamed JSON events.",
+      "kind": "flag"
+    },
+    {
+      "term": "--allowedTools",
+      "description": "Pre-approve tools, e.g. \"Read,Edit,Bash(git diff *)\".",
+      "kind": "flag"
+    },
+    {
+      "term": "--disallowedTools",
+      "description": "Deny or remove tools for the run.",
+      "kind": "flag"
+    },
+    {
+      "term": "--max-turns N",
+      "description": "Limit agentic turns in print mode.",
+      "kind": "flag"
+    },
+    {
+      "term": "--append-system-prompt",
+      "description": "Add instructions while keeping the default system prompt.",
+      "kind": "flag"
+    },
+    {
+      "term": "--bare",
+      "description": "Skip auto-discovered config for faster, reproducible scripted runs.",
+      "kind": "flag"
+    },
+    {
+      "term": "/install-github-app",
+      "description": "Set up Claude in GitHub Actions for this repo.",
+      "kind": "slash"
+    },
+    {
+      "term": "@claude",
+      "description": "Mention in an issue or PR comment to trigger the action.",
+      "kind": "concept"
+    }
   ]
 }

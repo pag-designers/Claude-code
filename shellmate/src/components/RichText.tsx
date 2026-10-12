@@ -1,8 +1,8 @@
 import { Fragment, type ReactNode } from 'react';
 
-/** Inline markdown-lite: `code` and **bold**. */
+/** Inline markdown-lite: `code`, **bold** and *italic*. */
 export function renderInline(text: string): ReactNode[] {
-  return text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g).map((part, i) => {
+  return text.split(/(`[^`]+`|\*\*[^*]+\*\*|\*[A-Za-z][^*\n]*?\*)/g).map((part, i) => {
     if (part.startsWith('`') && part.endsWith('`') && part.length > 1) {
       return (
         <code key={i} className="rounded-md border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-[0.88em] font-semibold text-primary">
@@ -15,6 +15,13 @@ export function renderInline(text: string): ReactNode[] {
         <strong key={i} className="font-black">
           {part.slice(2, -2)}
         </strong>
+      );
+    }
+    if (/^\*[A-Za-z][^*\n]*?\*$/.test(part)) {
+      return (
+        <em key={i} className="italic">
+          {part.slice(1, -1)}
+        </em>
       );
     }
     return <Fragment key={i}>{part}</Fragment>;

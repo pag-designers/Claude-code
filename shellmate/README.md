@@ -20,12 +20,13 @@ npm run preview    # serve the production build
 
 ## What's inside
 
-- **12 units / 34 lessons / 273 exercises**, each with 1–2 theory cards and 6–10 exercises, plus a real-world
+- **13 units / 37 lessons / 297 exercises**, starting with **Unit 0 "Before You Start"** (terminal basics,
+  command anatomy, reading JSON and Markdown) for people who have never coded, each with 1–2 theory cards and 6–10 exercises, plus a real-world
   **mission** at the end of every unit (bonus XP + badge).
 - **8 exercise types**: multiple choice, fake terminal, fill-the-blank, order the steps, match pairs,
   spot the bad prompt, prompt workshop (local rubric grading, 1–3 ★), real-world mission.
-- **Game mechanics**: XP (10 per first-try correct answer, +5 perfect lesson), 5 hearts (−1 per mistake,
-  +1 every 30 min, full refill by practising a finished lesson), daily streak with 1 auto-used freeze per
+- **Game mechanics**: XP (10 per first-try correct answer, +5 perfect lesson), **unlimited hearts by default**
+  (switch to 5 hearts in Profile: −1 per mistake, +1 every 30 min, full refill by practising a finished lesson), daily streak with 1 auto-used freeze per
   ISO week, daily goal ring (20/50/100 XP), Leitner-box review deck, weekly league against 9 local bots,
   badges, and **Legendary** (replay a finished unit with zero mistakes to turn it gold).
 - **Screens**: onboarding, winding path with unit guidebooks, lesson player, lesson complete,
@@ -108,6 +109,11 @@ picked up automatically. Every exercise shape is documented in `src/types.ts`:
 Every exercise also needs a one-sentence `explanation`.
 
 ## Design decisions
+
+- **Teach before testing.** Every lesson's theory cards show the exact command or config shape an
+  exercise will ask for, exercises run from recognition (multiple choice, matching) to production
+  (fill-in, terminal, prompt writing), and a **Tips** button in the lesson player reopens the theory at
+  any time. Terminal and fill-in exercises always have a hint.
 
 - **Lives in `shellmate/`.** The repository already contained an unrelated static page (`index.html`
   at the root), so the app was scaffolded in its own folder rather than overwriting it.

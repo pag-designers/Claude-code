@@ -52,11 +52,17 @@ index.html              pre-existing, UNRELATED barbershop landing page. Leave i
 ```
 
 ## How to run
+Easiest: `./run.sh` (Mac/Linux) or double-click `run.bat` (Windows). It creates `.venv`, installs deps, starts the
+server and opens http://localhost:8000. First run takes a few minutes. Then paste the Anthropic API key in the
+app's ⚙ Settings panel (top right), which writes `.env` for you. The default model is Haiku (cheapest);
+switch to Sonnet/Opus in the same panel once clips are earning.
+
+Manual equivalent:
 ```bash
 python3.12 -m venv .venv                 # isolated Python env for this project
 source .venv/bin/activate                # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env                     # then paste your ANTHROPIC_API_KEY into .env
+cp .env.example .env                     # or let the Settings panel create it
 python scripts/doctor.py                 # every line should say OK
 uvicorn backend.app.main:app --port 8000 # then open http://localhost:8000
 pytest -q                                # unit tests (no API calls)
@@ -89,4 +95,6 @@ On headless Linux, MediaPipe needs `sudo apt install libegl1 libgles2` (otherwis
 - **Phase 9 web UI: DONE, tested with Playwright** (home, campaign, clips grid, editor, previews, variants, bulk export, mobile).
 - Known limits: speaker labels from audio are approximate; Playwright's Chromium can't play H.264 (real Chrome/Safari can);
   YouTube download blocked in the cloud container (works on a home connection).
+- Settings panel (⚙): API key / model / effort saved to `.env` and applied live; `POST /api/settings` validates the key
+  against Anthropic. Launchers `run.sh` / `run.bat` tested from a fresh clone. Default model: claude-haiku-5-5.
 - Next: run with a real API key on a real video → tune prompts/scoring.md from results; fill teardown §6 if the user logs in.

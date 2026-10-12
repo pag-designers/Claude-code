@@ -14,10 +14,32 @@ set "PATH=%PATH%;%LOCALAPPDATA%\Microsoft\WinGet\Links;%ProgramFiles%\nodejs"
 for /d %%D in ("%LOCALAPPDATA%\Microsoft\WinGet\Packages\Gyan.FFmpeg*") do for /d %%E in ("%%D\ffmpeg-*") do call :addpath "%%E\bin"
 for /d %%E in ("C:\ffmpeg*") do call :addpath "%%E\bin"
 
-where py >nul 2>nul && (set "PY=py -3") || (set "PY=python")
-%PY% -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)" 2>nul || (
-  echo Python 3.11+ not found. Install it with:  winget install Python.Python.3.12
+REM Find a 64-bit Intel/AMD Python 3.11-3.14 (the speech-recognition package only ships for those on Windows).
+set "PYCHECK=import platform,sys; ok = platform.machine().lower() in ('amd64','x86_64') and sys.maxsize.bit_length() == 63 and sys.version_info[:2] in [(3,11),(3,12),(3,13),(3,14)]; sys.exit(0 if ok else 1)"
+set "PY="
+for %%C in ("py -3.12-64" "py -3.12" "py -3.11-64" "py -3.13-64" "py -3.14-64" "py -3" "python") do (
+  if not defined PY (
+    %%~C -c "%PYCHECK%" >nul 2>nul && set "PY=%%~C"
+  )
+)
+if not defined PY (
+  echo.
+  echo No compatible Python found. Clipper needs 64-bit Python 3.12 for Intel/AMD.
+  echo Your current Python is probably 32-bit or an ARM build.
+  echo   1. Press Start, type cmd, press Enter.
+  echo   2. Paste:  winget install Python.Python.3.12 --architecture x64   and press Enter.
+  echo   3. When it finishes, double-click run.bat again.
+  echo.
   pause & exit /b 1
+)
+echo Using Python: %PY%
+
+REM A .venv made by an unsupported Python (e.g. from an earlier failed run) can't install the packages: rebuild it.
+if exist .venv\Scripts\python.exe (
+  .venv\Scripts\python -c "%PYCHECK%" >nul 2>nul || (
+    echo Removing the old Python environment ^(it was made with an unsupported Python^)...
+    rmdir /s /q .venv
+  )
 )
 where ffmpeg >nul 2>nul || (
   echo.

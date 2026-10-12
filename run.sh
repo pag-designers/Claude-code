@@ -3,6 +3,15 @@
 # Usage:  ./run.sh        (first run takes a few minutes; later runs start in seconds)
 set -e
 cd "$(dirname "$0")"
+PORT="${PORT:-8000}"
+URL="http://localhost:$PORT"
+
+if curl -s -o /dev/null --max-time 2 "http://127.0.0.1:$PORT/api/config"; then
+  echo "Clipper is already running (maybe an older copy in another terminal). Opening it."
+  echo "To restart: stop the other one with Ctrl+C, then run ./run.sh again."
+  (command -v open >/dev/null && open "$URL") || (command -v xdg-open >/dev/null && xdg-open "$URL") || true
+  exit 0
+fi
 
 # Auto-update: if this folder came from "git clone", pull the newest version first.
 # Your videos, clips, exports and API key (data/, output/, .env) are never touched by this.
@@ -39,16 +48,23 @@ if [ ! -x .venv/bin/python ]; then
 fi
 if ! cmp -s requirements.txt .venv/requirements.installed; then  # first run, or requirements changed in an update
   echo "Installing dependencies (first time: 3–5 minutes; after updates: usually under a minute)…"
-  .venv/bin/pip install -q --upgrade pip
-  .venv/bin/pip install -q -r requirements.txt
+  .venv/bin/python -m pip install -q --upgrade pip
+  .venv/bin/python -m pip install -q -r requirements.txt
   cp requirements.txt .venv/requirements.installed
 fi
+echo "Updating the YouTube downloader…"   # YouTube changes often; old yt-dlp versions stop working
+.venv/bin/python -m pip install -q -U "yt-dlp[default]" >/dev/null 2>&1 || true
 [ -f .env ] || cp .env.example .env
 
-PORT="${PORT:-8000}"
-URL="http://localhost:$PORT"
 echo
 echo "Clipper is starting at $URL  (press Ctrl+C to stop)"
 echo "Paste your Anthropic API key in Settings (⚙, top right) the first time."
-( sleep 2; command -v open >/dev/null && open "$URL" || command -v xdg-open >/dev/null && xdg-open "$URL" || true ) &
-exec .venv/bin/uvicorn backend.app.main:app --port "$PORT"
+# Open the browser as soon as the app answers.
+( for _ in $(seq 1 120); do
+    if curl -s -o /dev/null --max-time 1 "http://127.0.0.1:$PORT/api/config"; then
+      (command -v open >/dev/null && open "$URL") || (command -v xdg-open >/dev/null && xdg-open "$URL") || true
+      break
+    fi
+    sleep 0.5
+  done ) &
+exec .venv/bin/python -m uvicorn backend.app.main:app --port "$PORT" --no-access-log

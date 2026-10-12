@@ -60,5 +60,5 @@ def export_clip(video_id: str, clip_id: str, campaign_slug: str | None = None, n
         (folder / "requirements-checklist.md").write_text("\n\n---\n\n".join(md), encoding="utf-8")
     store.write_json(folder / "metadata.json", {"video_id": video_id, "clip": clip, "variants": vs[:n_variants],
                                                 "campaign": rules and rules["slug"], "fixes": fixes})
-    return {"folder": str(folder.relative_to(OUTPUT.parent)), "files": files + ["caption.txt"]
+    return {"folder": folder.relative_to(OUTPUT.parent).as_posix(), "abs_folder": str(folder), "files": files + ["caption.txt"]
             + (["requirements-checklist.md"] if rules else [])}

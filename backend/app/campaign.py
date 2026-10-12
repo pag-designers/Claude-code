@@ -51,7 +51,9 @@ that aren't written.
 
 def slug(s: str) -> str:
     s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
-    return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:60] or "campaign"
+    out = re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:60] or "campaign"
+    reserved = {"con", "prn", "aux", "nul", *(f"com{i}" for i in range(1, 10)), *(f"lpt{i}" for i in range(1, 10))}
+    return out + "-campaign" if out in reserved else out  # Windows can't create files with these names
 
 
 def parse_brief(brief: str, name: str | None = None) -> dict:
@@ -150,6 +152,11 @@ the transcript or captions clearly break the rule. Use 'unsure' when the rule ca
 depends on the poster's account, or on visuals). Give a one-sentence reason."""
 
 
+LANGUAGE_CODES = {"english": "en", "spanish": "es", "español": "es", "espanol": "es", "portuguese": "pt",
+                  "português": "pt", "french": "fr", "german": "de", "italian": "it", "dutch": "nl", "hindi": "hi",
+                  "arabic": "ar", "japanese": "ja", "korean": "ko", "chinese": "zh", "russian": "ru", "turkish": "tr"}
+
+
 def _row(rule: str, status: str, detail: str, by: str = "code") -> dict:
     return {"rule": rule, "status": status, "detail": detail, "by": by}
 
@@ -167,7 +174,8 @@ def check_clip(transcript: dict, clip: dict, rules: dict, render_info: dict | No
         rows.append(_row(f"Length {lo or 0:.0f}–{hi or '∞'}s", "pass" if ok else "fail", f"{dur:.1f}s"))
     if rules.get("language"):
         lang = transcript.get("language")
-        rows.append(_row(f"Language: {rules['language']}", "pass" if lang == rules["language"] else "fail",
+        want = LANGUAGE_CODES.get(rules["language"].strip().lower(), rules["language"].strip().lower()[:2])
+        rows.append(_row(f"Language: {rules['language']}", "pass" if lang == want else "fail",
                          f"spoken language detected: {lang}"))
     for m in rules.get("must_mention", []):
         if _contains(spoken, m):
@@ -186,10 +194,11 @@ def check_clip(transcript: dict, clip: dict, rules: dict, render_info: dict | No
         rows.append(_row("Vertical 9:16", "pass", "rendered at 1080×1920"))
     if rules.get("no_watermark"):
         rows.append(_row("No third-party watermark", "pass", "Clipper adds no watermark; check the source video itself"))
-    if metadata:
+    if metadata is not None:
         for p in rules.get("platforms") or PLATFORMS:
             post = metadata.get(p)
             if not post:
+                rows.append(_row(f"{p}: post caption", "fail", "no caption was written for this platform"))
                 continue
             text = " ".join([post.get("title", ""), post.get("caption", ""), " ".join(post.get("hashtags", []))])
             need = rules.get("required_hashtags", []) + rules.get("required_tags", []) + rules.get("required_caption_text", [])
@@ -210,8 +219,9 @@ def ai_checks(video_id: str, transcript: dict, clips: list[dict], rules: dict) -
         blocks.append(f"### Clip {c['id']}\nTranscript: {text}\nOn-screen hook: {c.get('hook_text') or '-'}")
     user = "Rules:\n" + "\n".join(f"- {r}" for r in fuzzy) + "\n\n" + "\n\n".join(blocks)
     res = llm.call_json(AICheckList, AI_CHECK_SYSTEM, user, video_id=video_id, tag="campaign_check", effort="low")
-    return {c.clip_id: [_row(r.rule, r.status if r.status != "unsure" else "warn", r.reason, "ai") for r in c.results]
-            for c in res.clips}
+    by_id = {boundaries.norm_clip_id(c.clip_id): c for c in res.clips}
+    return {c["id"]: [_row(r.rule, r.status if r.status != "unsure" else "warn", r.reason, "ai") for r in hit.results]
+            for c in clips if (hit := by_id.get(boundaries.norm_clip_id(c["id"])))}
 
 
 def summarize(rows: list[dict]) -> str:

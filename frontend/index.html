@@ -12,27 +12,31 @@
   <a href="#/" class="brand">✂︎ Clipper</a>
   <div class="top-right">
     <label class="campaign-pick">Campaign
-      <select id="campaignSelect"><option value="">— none —</option></select>
+      <select id="campaignSelect"><option value="">No campaign</option></select>
     </label>
     <button id="keyBadge" class="badge" title="Settings"></button>
   </div>
 </header>
 
 <!-- Settings -->
-<div id="settings" class="modal hidden">
+<div id="settings" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
   <div class="modal-box">
-    <button class="close" id="settingsClose" aria-label="Close">✕</button>
-    <h2>⚙ Settings</h2>
+    <button class="close" id="settingsClose" aria-label="Close settings">✕</button>
+    <h2 id="settingsTitle">Settings</h2>
     <h3>Anthropic API key</h3>
     <p class="muted small">Get one at <b>console.anthropic.com → API Keys</b> (add a few dollars of credit under Billing).
-      It's saved to the <code>.env</code> file next to the code, never sent anywhere but Anthropic.</p>
-    <input id="sKey" type="password" placeholder="sk-ant-…" autocomplete="off">
+      It's saved in the <code>.env</code> file inside the Clipper folder and only ever sent to Anthropic.</p>
+    <input id="sKey" type="password" placeholder="sk-ant-…" autocomplete="off" aria-label="Anthropic API key">
     <div class="muted small" id="sKeyHint"></div>
     <h3>AI model</h3>
-    <select id="sModel"></select>
+    <select id="sModel" aria-label="AI model"></select>
     <p class="muted small">Start with Haiku. Move up when the clips are earning: Sonnet picks better moments, Opus writes the best hooks.</p>
-    <h3>Effort <span class="muted small">(how hard the model thinks: lower = cheaper and faster)</span></h3>
-    <select id="sEffort"></select>
+    <h3>Effort</h3>
+    <select id="sEffort" aria-label="Effort"></select>
+    <p class="muted small">How hard the AI thinks. Lower is cheaper and faster.</p>
+    <h3>Alerts</h3>
+    <label class="toggle"><input type="checkbox" id="sChime"> Play a chime when clips are ready</label>
+    <label class="toggle"><input type="checkbox" id="sNotify"> Desktop notification when I'm in another tab</label>
     <div class="row-gap"><button id="sSave" class="primary">Save</button><span id="sMsg" class="muted small"></span></div>
   </div>
 </div>
@@ -44,19 +48,20 @@
   <section class="hero">
     <h1>Long video in. Paid-ready clips out.</h1>
     <form id="urlForm" class="url-row">
-      <input id="urlInput" type="url" placeholder="Paste a YouTube / video URL…" required>
+      <input id="urlInput" type="url" placeholder="Paste a YouTube / video URL…" required aria-label="Video URL">
       <button class="primary" type="submit">Find clips</button>
-      <label class="upload ghost">Upload file<input id="fileInput" type="file" accept="video/*" hidden></label>
+      <button type="button" class="ghost" id="uploadBtn">Upload file</button>
+      <input id="fileInput" type="file" accept="video/*" hidden>
     </form>
-    <p class="muted small" id="homeMsg"></p>
+    <p class="muted small" id="homeMsg">Tip: pick your campaign at the top first, so every clip is checked against its rules. You can also drop a video file here.</p>
   </section>
   <section class="grid2">
     <div class="panel">
       <h2>Campaign requirements</h2>
-      <p class="muted small">Paste a Whop campaign's requirements. They're parsed into rules every clip is checked against.</p>
-      <input id="campName" placeholder="Campaign name (optional)">
-      <textarea id="campBrief" rows="7" placeholder="e.g. Clips 30-60s. Must mention Acme. Use #acme #ad and tag @acmeapp. English only. No profanity or politics. Captions required."></textarea>
-      <button id="campParse" class="primary">Parse rules</button>
+      <p class="muted small">Paste a Whop campaign's requirements. They're turned into rules every clip is checked against.</p>
+      <input id="campName" placeholder="Campaign name (optional)" aria-label="Campaign name">
+      <textarea id="campBrief" rows="7" aria-label="Campaign requirements" placeholder="e.g. Clips 30-60s. Must mention Acme. Use #acme #ad and tag @acmeapp. English only. No profanity or politics. Captions required."></textarea>
+      <button id="campParse" class="primary">Save campaign</button>
       <div id="campResult"></div>
       <div id="campList" class="camp-list"></div>
     </div>
@@ -71,26 +76,41 @@
 <template id="tpl-video">
   <section class="video-head">
     <div>
-      <a href="#/" class="muted small">← all videos</a>
+      <a href="#/" class="muted small">← All videos</a>
       <h1 id="vTitle"></h1>
       <div class="muted small" id="vMeta"></div>
     </div>
     <div class="head-actions">
       <span id="vCost" class="badge"></span>
-      <button id="reclip" class="ghost">Re-run AI clipping</button>
+      <button id="reclip" class="ghost">Find clips again</button>
     </div>
   </section>
-  <div id="vProgress" class="progress hidden"><div class="bar"><span></span></div><div class="msg"></div></div>
-  <nav class="tabs">
-    <button data-tab="clips" class="active">Clips</button>
-    <button data-tab="moments">Find moments</button>
-    <button data-tab="transcript">Transcript</button>
+  <div id="vProgress" class="progress hidden" role="status" aria-live="polite">
+    <ol class="steps">
+      <li data-steps="queued download audio">Download</li>
+      <li data-steps="transcribe">Transcribe</li>
+      <li data-steps="cues clipping">Find moments</li>
+      <li data-steps="scoring">Score</li>
+    </ol>
+    <div class="bar"><span></span></div>
+    <div class="msg"></div>
+    <div class="row-gap hidden" id="errActions"><button class="primary" id="retry">Try again</button><a class="btnlike" href="#/">Upload the file instead</a></div>
+  </div>
+  <div id="keyCta" class="callout hidden">
+    <div><b>Transcript ready.</b> Add your Anthropic API key so the AI can find and score clips. You can already make clips by hand in the Transcript tab.</div>
+    <button class="primary" id="keyCtaBtn">Add API key</button>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button data-tab="clips" class="active" role="tab">Clips</button>
+    <button data-tab="moments" role="tab">Find moments</button>
+    <button data-tab="transcript" role="tab">Transcript</button>
   </nav>
   <section id="tab-clips">
     <div class="toolbar">
       <div class="muted small" id="clipCount"></div>
       <div class="toolbar-right">
-        <select id="sortBy"><option value="score">Sort: viral score</option><option value="time">Sort: timeline</option><option value="compliance">Sort: compliance</option></select>
+        <select id="sortBy" aria-label="Sort clips"><option value="score">Sort: viral score</option><option value="time">Sort: timeline</option><option value="compliance">Sort: meets rules</option></select>
+        <button id="selectAll" class="ghost">Select all</button>
         <button id="checkCamp" class="ghost">Check campaign rules</button>
       </div>
     </div>
@@ -98,9 +118,10 @@
   </section>
   <section id="tab-moments" class="hidden">
     <form id="momentForm" class="url-row">
-      <input id="momentQuery" placeholder='Search inside the video: "funny moments", "when he talks about debt"…' required>
+      <input id="momentQuery" aria-label="Search inside the video" placeholder='Search inside the video: "funny moments", "when he talks about debt"…' required>
       <button class="primary">Search</button>
     </form>
+    <div class="chips ideas" id="momentIdeas"><button class="chip" type="button">funniest moments</button><button class="chip" type="button">hot takes</button><button class="chip" type="button">when they mention the brand</button><button class="chip" type="button">emotional story</button></div>
     <div id="moments" class="moment-list"></div>
   </section>
   <section id="tab-transcript" class="hidden">
@@ -110,43 +131,47 @@
   </section>
   <div id="bulkBar" class="bulk hidden">
     <span id="bulkCount"></span>
-    <label>Variants <select id="bulkVariants"><option>1</option><option>2</option><option selected>3</option></select></label>
+    <label>Variants <select id="bulkVariants" aria-label="Variants per clip"><option>1</option><option>2</option><option selected>3</option></select></label>
     <button id="bulkExport" class="primary">Export selected</button>
   </div>
 </template>
 
 <!-- Editor drawer -->
-<div id="drawer" class="drawer hidden">
+<div id="drawer" class="drawer hidden" role="dialog" aria-modal="true" aria-label="Clip editor">
   <div class="drawer-inner">
-    <button class="close" id="drawerClose" aria-label="Close">✕</button>
+    <button class="close" id="drawerClose" aria-label="Close editor">✕</button>
     <div class="editor">
       <div class="phone-col">
-        <div class="phone"><video id="pv" controls playsinline></video></div>
+        <div class="phone">
+          <video id="pv" controls playsinline></video>
+          <div id="pvBusy" class="pv-busy hidden"><div class="spin"></div><span>Rendering preview…</span></div>
+        </div>
         <div class="pv-actions">
-          <button id="playSource" class="ghost small-btn">Play source</button>
+          <button id="playSource" class="ghost small-btn">Play original</button>
           <button id="renderPreview" class="primary small-btn">Render 9:16 preview</button>
         </div>
         <div id="pvMsg" class="muted small center"></div>
       </div>
       <div class="edit-col">
-        <input id="eTitle" class="title-input">
+        <input id="eTitle" class="title-input" aria-label="Clip title">
         <div class="muted small" id="eMeta"></div>
         <div id="eScore"></div>
-        <h3>Hook text <span class="muted small">(first seconds, on screen)</span></h3>
-        <input id="eHook" maxlength="80">
+        <h3>Hook text <span class="muted small">(on screen for the first seconds)</span></h3>
+        <input id="eHook" maxlength="80" aria-label="Hook text">
         <h3>Caption style</h3>
         <div id="eStyles" class="chips"></div>
         <h3>Layout</h3>
         <div id="eLayouts" class="chips"></div>
         <h3>Transcript <span class="muted small">click words to cut them · <span id="eDur"></span></span></h3>
         <div class="nudge">
-          <span>Start</span><button data-nudge="start,-1">− sentence</button><button data-nudge="start,1">+ sentence</button>
-          <span>End</span><button data-nudge="end,-1">− sentence</button><button data-nudge="end,1">+ sentence</button>
+          <button data-nudge="start,-1">⟵ Start earlier</button><button data-nudge="start,1">Start later ⟶</button>
+          <button data-nudge="end,-1">⟵ End earlier</button><button data-nudge="end,1">End later ⟶</button>
         </div>
         <div id="eWords" class="words"></div>
+        <div class="muted small kbd-hint"><kbd>Space</kbd> play/pause · <kbd>⌫</kbd> cut the word being spoken · <kbd>←</kbd><kbd>→</kbd> previous/next clip · <kbd>Ctrl</kbd>+<kbd>S</kbd> save · <kbd>Esc</kbd> close</div>
         <div class="row-gap">
           <button id="eSave" class="primary">Save edits</button>
-          <button id="eRestore" class="ghost">Restore all words</button>
+          <button id="eRestore" class="ghost">Undo all cuts</button>
           <button id="eDelete" class="ghost danger">Delete clip</button>
         </div>
         <h3>Campaign check</h3>
@@ -159,7 +184,7 @@
   </div>
 </div>
 
-<div id="toast" class="toast hidden"></div>
+<div id="toast" class="toast hidden" aria-live="polite"></div>
 <script src="/static/app.js"></script>
 </body>
 </html>

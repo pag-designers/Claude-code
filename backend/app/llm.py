@@ -91,22 +91,21 @@ def call_json(schema: type[T], system: str, user: str, *, context: str | None = 
         kwargs = {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
     t0 = time.time()
     import anthropic
+    from pydantic import ValidationError
+    # The JSON schema goes in output_config (not output_format): output_format makes the SDK parse every text
+    # block mid-stream, so a cut-off or refused answer would crash before we can check why it stopped.
+    fmt = {"type": "json_schema", "schema": anthropic.transform_schema(schema.model_json_schema())}
     try:
         with client.beta.messages.stream(
             model=model, max_tokens=max_tokens, system=system_blocks,
-            messages=[{"role": "user", "content": user}], output_format=schema,
-            output_config={"effort": effort or claude_effort()}, **kwargs,
+            messages=[{"role": "user", "content": user}],
+            output_config={"effort": effort or claude_effort(), "format": fmt}, **kwargs,
         ) as stream:
             resp = stream.get_final_message()
-    except anthropic.AuthenticationError as e:
-        raise LLMError("The Anthropic API key was rejected. Check ANTHROPIC_API_KEY.") from e
-    except anthropic.RateLimitError as e:
-        raise LLMError("Anthropic rate limit hit; wait a minute and retry.") from e
-    except anthropic.APIStatusError as e:
-        raise LLMError(f"Claude API error {e.status_code}: {e.message}") from e
-    except anthropic.APIConnectionError as e:
-        raise LLMError("Could not reach the Claude API (network).") from e
-    _log(video_id, tag, resp.model or model, resp.usage, time.time() - t0)
+    except anthropic.APIError as e:
+        raise LLMError(friendly_api_error(e)) from e
+    # Cost log: a fallback model is priced at its own rate when known, else at the selected model's rate.
+    _log(video_id, tag, resp.model if resp.model in PRICES else model, resp.usage, time.time() - t0)
     if resp.stop_reason == "refusal":
         raise LLMError("Claude declined this request (safety classifier).")
     if resp.stop_reason == "max_tokens":
@@ -114,6 +113,27 @@ def call_json(schema: type[T], system: str, user: str, *, context: str | None = 
     texts = [b for b in resp.content if b.type == "text"]
     if not texts:
         raise LLMError(f"Claude returned no JSON on step '{tag}'.")
-    block = texts[-1]  # after a fallback, the final text block is the served answer
-    parsed = getattr(block, "parsed_output", None)
-    return parsed if isinstance(parsed, schema) else schema.model_validate_json(block.text)
+    try:  # after a fallback, the final text block is the served answer
+        return schema.model_validate_json(texts[-1].text)
+    except ValidationError as e:
+        raise LLMError(f"Claude's answer on step '{tag}' wasn't valid; press the button again to retry.") from e
+
+
+def friendly_api_error(e) -> str:
+    """Turn API errors into a next step a beginner can act on."""
+    import anthropic
+    msg = str(getattr(e, "message", e))
+    if "credit balance" in msg.lower():
+        return ("Your Anthropic account has no credit. Add $5 at console.anthropic.com → Settings → Billing, "
+                "then press “Find clips again”.")
+    if isinstance(e, anthropic.AuthenticationError):
+        return "Anthropic rejected the API key. Open Settings (⚙, top right) and paste your key again."
+    if isinstance(e, anthropic.PermissionDeniedError):
+        return "This API key isn't allowed to use that model. Pick another model in Settings (⚙)."
+    if isinstance(e, anthropic.RateLimitError):
+        return "Anthropic's rate limit was hit. Wait a minute and try again."
+    if isinstance(e, anthropic.APIConnectionError):
+        return "Couldn't reach Anthropic. Check your internet connection and try again."
+    if isinstance(e, anthropic.APIStatusError) and e.status_code >= 500:
+        return "Anthropic's servers had a hiccup. Wait a minute and try again."
+    return f"Claude API error: {msg}"

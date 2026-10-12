@@ -104,4 +104,9 @@ On headless Linux, MediaPipe needs `sudo apt install libegl1 libgles2` (otherwis
   YouTube download blocked in the cloud container (works on a home connection).
 - Settings panel (⚙): API key / model / effort saved to `.env` and applied live; `POST /api/settings` validates the key
   against Anthropic. Launchers `run.sh` / `run.bat` tested from a fresh clone. Default model: claude-haiku-5-5.
+- **Ship-check #1 (4 reviewer agents) DONE**: fixed ~35 verified issues: structured-output parsing (refusals/truncation
+  now give clear errors), Windows file locks/QuickEdit freeze/self-updating run.bat/pip launchers/VC++ runtime/accented
+  paths/cmd-line length, H.264-preferred YouTube downloads (AV1 broke face tracking), yt-dlp auto-updated each start,
+  credit-less API keys caught in Settings, re-run keeps user clips, previews/exports via .part files, UI overhaul
+  (thumbnails, steps+ETA, chime/notifications, shortcuts, copy buttons, open-folder, mobile, a11y). 21 tests.
 - Next: run with a real API key on a real video → tune prompts/scoring.md from results; fill teardown §6 if the user logs in.

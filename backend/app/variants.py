@@ -2,6 +2,8 @@
 import difflib
 import re
 
+from typing import Literal
+
 from pydantic import BaseModel
 
 from . import boundaries, llm, store
@@ -41,7 +43,7 @@ Per variant:
 
 
 class PlatformPost(BaseModel):
-    platform: str
+    platform: Literal["tiktok", "youtube_shorts", "instagram_reels", "x"]
     title: str
     caption: str
     hashtags: list[str]
@@ -68,14 +70,15 @@ def _enforce(post: dict, platform: str, rules: dict | None) -> dict:
     tags = required + [t for t in tags if t.lower() not in [r.lower() for r in required]]
     tags = tags[:max(tag_max, len(required))]
     caption = post.get("caption", "").strip()
-    for extra in (rules or {}).get("required_caption_text", []) + (rules or {}).get("required_tags", []):
-        if extra.lower() not in caption.lower():
-            caption = f"{caption} {extra}".strip()
     if platform == "youtube_shorts" and "#shorts" not in [t.lower() for t in tags]:
         tags.append("#Shorts")
-    full = f"{caption} {' '.join(tags)}".strip()
-    if len(full) > cap_max:  # trim the free text, never the required bits
-        caption = caption[: max(0, cap_max - len(" ".join(tags)) - 2)].rstrip() + "…"
+    extras = [x for x in (rules or {}).get("required_caption_text", []) + (rules or {}).get("required_tags", [])
+              if x.lower() not in caption.lower()]
+    # Trim the model's free text first so the required pieces always fit, then append them.
+    reserved = len(" ".join(extras + tags)) + 2
+    if len(caption) + reserved > cap_max:
+        caption = caption[: max(0, cap_max - reserved - 1)].rstrip() + "…"
+    caption = " ".join([caption, *extras]).strip()
     title = post.get("title", "")[:title_max] if title_max else ""
     return {"title": title, "caption": caption, "hashtags": tags}
 
@@ -125,16 +128,18 @@ def build_variants(video_id: str, clip: dict, rules: dict | None = None) -> list
     hooks: list[str] = []
     for n, preset in enumerate(PRESETS):
         v = creative.variants[n] if n < len(creative.variants) else None
-        hook = (v.hook_text if v else "") or clip.get("hook_text") or clip.get("title", "")
-        if any(similar(hook, h) > 0.7 for h in hooks):  # difference check: no near-identical hooks
-            hook = clip.get("title", hook) if all(similar(clip.get("title", ""), h) <= 0.7 for h in hooks) else hook
+        # Difference check: take the first candidate that isn't a near-copy of an earlier variant's hook.
+        candidates = [v.hook_text if v else "", clip.get("hook_text", ""), clip.get("title", ""),
+                      " ".join(text.split()[:7]), " ".join(text.split()[7:14])]
+        candidates = [c for c in candidates if c and c.strip()]
+        hook = next((c for c in candidates if all(similar(c, h) <= 0.7 for h in hooks)), candidates[0] if candidates else "")
         hooks.append(hook)
         posts = {p.platform: _enforce(p.model_dump(), p.platform, rules) for p in (v.posts if v else [])
                  if p.platform in PLATFORM_LIMITS}
         out.append({"n": n + 1, "angle": v.angle if v else preset["cut"], "hook_text": hook,
                     "plan": {k: preset[k] for k in ("style", "zoom", "speed", "layout", "hook_seconds")} | {"hook_text": hook},
                     "clip_patch": _cut(t, clip, preset["cut"], rules), "posts": posts})
-    return out
+    return apply_rules(out, rules or {"platforms": platforms})  # fills variants the model skipped
 
 
 def apply_rules(vs: list[dict], rules: dict | None) -> list[dict]:
@@ -143,7 +148,9 @@ def apply_rules(vs: list[dict], rules: dict | None) -> list[dict]:
         return vs
     platforms = rules.get("platforms") or list(PLATFORM_LIMITS)
     out = []
+    first_posts = next((v["posts"] for v in vs if v["posts"]), {})
     for v in vs:
+        v = v if v["posts"] else {**v, "posts": dict(first_posts)}
         posts = {p: _enforce(post, p, rules) for p, post in v["posts"].items() if p in platforms}
         for p in platforms:  # platform the variant was not written for: reuse the first post's text
             if p not in posts and v["posts"]:

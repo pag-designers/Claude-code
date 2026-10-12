@@ -10,7 +10,7 @@ HINTS = {
     "node": "mac: brew install node | win: winget install OpenJS.NodeJS.LTS | ubuntu: sudo apt install nodejs",
     "ffmpeg": "mac: brew install ffmpeg | win: winget install Gyan.FFmpeg | ubuntu: sudo apt install ffmpeg",
     "ffprobe": "comes with ffmpeg (see above)",
-    "yt-dlp": "pip install -r requirements.txt  (inside the activated .venv)",
+    "yt-dlp": "python -m pip install -r requirements.txt  (or just start run.bat / run.sh)",
 }
 
 
@@ -20,7 +20,7 @@ def version_of(cmd: str, flag: str = "--version") -> str | None:
     path = str(venv_bin) if venv_bin.exists() or venv_bin.with_suffix(".exe").exists() else shutil.which(cmd)
     if not path:
         return None
-    out = subprocess.run([path, flag], capture_output=True, text=True).stdout
+    out = subprocess.run([path, flag], capture_output=True, text=True, encoding="utf-8", errors="replace").stdout
     return out.splitlines()[0] if out else "?"
 
 
@@ -29,7 +29,7 @@ def api_key_set() -> bool:
         return True
     env = ROOT / ".env"
     if env.exists():
-        for line in env.read_text().splitlines():
+        for line in env.read_text(encoding="utf-8", errors="replace").splitlines():
             key, _, val = line.partition("=")
             if key.strip() == "ANTHROPIC_API_KEY" and val.strip() and "your-key" not in val:
                 return True

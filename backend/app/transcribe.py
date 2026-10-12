@@ -17,6 +17,12 @@ PAUSE_SPLIT = 1.2         # a silence this long (s) ends a sentence even without
 _model_cache: dict = {}
 
 
+def model_cached(model_name: str | None = None) -> bool:
+    """True once the Whisper model files are on disk (first use downloads ~500 MB for "small")."""
+    name = model_name or WHISPER_MODEL
+    return any((MODELS / "whisper").glob(f"models--Systran--faster-whisper-{name}/snapshots/*/model.bin"))
+
+
 def _whisper(model_name: str):
     if model_name not in _model_cache:
         from faster_whisper import WhisperModel  # imported lazily: slow to import

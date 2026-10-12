@@ -53,6 +53,8 @@ def _process(video_id: str, progress, url: str | None = None) -> dict:
             ingest.download_url(url, video_id, stage("download", 0.0, 0.15, "Downloading video"))
         stage("audio", 0.15, 0.18, "Extracting audio")
         ingest.extract_audio(video_id)
+        if not transcribe.model_cached():
+            stage("transcribe", 0.18, 0.18, "Downloading the speech model (~500 MB, one time only)…")
         transcribe.transcribe(video_id, on_progress=stage("transcribe", 0.18, 0.70, "Transcribing (word timestamps)"))
         stage("cues", 0.70, 0.75, "Finding loud moments and scene changes")
         cues.compute(video_id)
@@ -86,9 +88,27 @@ def start_file(path: Path, title: str | None = None) -> dict:
 
 
 def rerun_clipping(video_id: str) -> dict:
+    """Find clips again. Keeps clips the user made or edited; retries the download if it never finished."""
+    meta = store.load(video_id, "meta", {})
+    url = meta.get("source_url") if not (video_dir(video_id) / "source.mp4").exists() else None
+    store.set_status(video_id, "queued", 0, "Queued")  # so the page sees "busy" right away
+
     def fn(progress):
-        store.save(video_id, "clips", [])
-        return _process(video_id, progress)
+        old = store.load(video_id, "clips", [])
+        keep = [c for c in old if c.get("category") == "moment" or c.get("removed_words") or c.get("variants")
+                or c.get("style") or c.get("layout")]
+        result = _process(video_id, progress, url=url)
+        if keep:  # put the user's clips back next to the new AI clips, with fresh ids where they'd collide
+            new = store.load(video_id, "clips", [])
+            taken = {c["id"] for c in new}
+            n = max([int(c["id"][1:]) for c in new + keep if c["id"][1:].isdigit()] + [0])
+            for c in keep:
+                if c["id"] in taken:
+                    n += 1
+                    c["id"] = f"c{n:02d}"
+                taken.add(c["id"])
+            store.save(video_id, "clips", keep + new)
+        return result
     return _job("process", video_id, fn)
 
 
@@ -101,10 +121,27 @@ def preview(video_id: str, clip: dict, plan: dict) -> dict:
     out = video_dir(video_id) / "renders" / f"{clip['id']}-preview-{key}.mp4"
 
     def fn(progress):
-        if not out.exists():
-            render.render(video_id, clip, plan, out, preview=True)
+        with _preview_lock(out):  # two clicks on the same preview: the second waits for the first, then reuses it
+            if not out.exists():
+                render.render(video_id, clip, plan, out, preview=True)
         return {"url": f"/media/{video_id}/renders/{out.name}"}
     return _job("preview", video_id, fn, pool=_render, clip_id=clip["id"])
+
+
+_preview_locks: dict[str, threading.Lock] = {}
+
+
+def _preview_lock(out: Path) -> threading.Lock:
+    with _lock:
+        return _preview_locks.setdefault(str(out), threading.Lock())
+
+
+def mark_interrupted() -> None:
+    """On server start: a job that was running when the window was closed will never finish. Say so."""
+    for v in store.list_videos():
+        if v.get("status", {}).get("stage") in ("queued", "download", "audio", "transcribe", "cues", "clipping", "scoring"):
+            store.set_status(v["id"], "error", 0, "Interrupted",
+                             error="Clipper was closed while this video was processing. Press “Try again”.")
 
 
 def export_many(video_id: str, clip_ids: list[str], campaign_slug: str | None, n_variants: int = 3) -> dict:

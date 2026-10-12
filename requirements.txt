@@ -1,5 +1,5 @@
-# Install with: pip install -r requirements.txt   (inside the activated .venv)
-yt-dlp>=2026.8.19
+# What the app needs. Install with: python -m pip install -r requirements.txt  (run.bat / run.sh do this for you)
+yt-dlp[default]>=2026.8.19
 fastapi>=0.143
 uvicorn[standard]>=0.54
 python-multipart>=0.0.20
@@ -10,7 +10,3 @@ faster-whisper>=1.2.1
 mediapipe>=1.1
 opencv-python-headless>=4.10
 numpy>=2.0
-# dev / tests
-pytest>=9.0
-httpx>=0.28
-playwright>=1.55

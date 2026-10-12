@@ -1,4 +1,5 @@
 """Render one clip variant to a 1080x1920 MP4 with FFmpeg: cut → reframe → speed/zoom → burned captions."""
+import re
 import subprocess
 from pathlib import Path
 
@@ -17,8 +18,11 @@ def _even(x: float) -> int:
 
 
 def _filter_path(p: Path) -> str:
-    """Escape a path for use inside an FFmpeg filter argument (works on Windows drive letters too)."""
-    return str(p).replace("\\", "/").replace(":", r"\:").replace("'", r"\'")
+    """Escape a path for an unquoted FFmpeg filter option: both escaping levels (option, then graph).
+    Handles Windows drive letters and folders with ' , [ ] ; spaces or accents."""
+    s = str(p).replace("\\", "/")
+    s = re.sub(r"([\\':])", r"\\\1", s)        # option level
+    return re.sub(r"([\\'\[\],;])", r"\\\1", s)  # graph level
 
 
 def _piecewise(keys: list[tuple[float, float]], step: bool = False) -> str:
@@ -65,8 +69,9 @@ def _face_crop(face_h: float, W: int, H: int, zoom: float) -> tuple[int, int]:
     return _even(cw), _even(ch)
 
 
-def layout_filter(lay: dict, t0: float, src: str, dst: str, W: int, H: int, zoom: float) -> str:
-    """Filter chain [src] → [dst] for one shot piece starting at source time t0 (local t = source t - t0)."""
+def layout_filter(lay: dict, t0: float, src: str, dst: str, W: int, H: int, zoom: float, dur: float = 1e9) -> str:
+    """Filter chain [src] → [dst] for one shot piece [t0, t0+dur] in source time (local t = source t - t0).
+    Only keyframes inside the piece are used, keeping the FFmpeg command short (Windows caps it at 32k chars)."""
     kind = lay["layout"]
     tail = f"fps=30,format=yuv420p,setsar=1[{dst}]"
     if kind == "split":
@@ -85,12 +90,15 @@ def layout_filter(lay: dict, t0: float, src: str, dst: str, W: int, H: int, zoom
         face_h = float(np.median([tr["h"] for tr in lay["tracks"]]))
         cw, ch = _face_crop(face_h, W, H, zoom)
         if kind == "track":
-            fx, fy = _smooth_track(lay["path"], t0, W, H, cw, ch)
-        else:  # jump-cut to whoever is talking
+            path = [p for p in lay["path"] if t0 - 1.5 <= p[0] <= t0 + dur + 1.5] or lay["path"]
+            fx, fy = _smooth_track(path, t0, W, H, cw, ch)
+        else:  # jump-cut to whoever is talking: the speaker active at t0, then later changes inside the piece
+            segs = lay["segments"]
+            active = [sg for sg in segs if sg[0] <= t0][-1:] or segs[:1]
             keys_x, keys_y = [], []
-            for t_src, idx in lay["segments"]:
+            for t_src, idx in active + [sg for sg in segs if t0 < sg[0] < t0 + dur]:
                 tr = lay["tracks"][idx]
-                t = 0.0 if not keys_x else max(t_src - t0, 0.0)
+                t = 0.0 if not keys_x else t_src - t0
                 keys_x.append((t, min(max(tr["cx"] * W - cw / 2, 0), W - cw)))
                 keys_y.append((t, min(max(tr["cy"] * H - ch * 0.42, 0), H - ch)))
             fx, fy = _piecewise(keys_x, step=True), _piecewise(keys_y, step=True)
@@ -140,23 +148,30 @@ def render(video_id: str, clip: dict, plan: dict, out_path: Path, preview: bool 
     vparts = pieces(tl.ranges, shot_plans)
     for k, (s, e, sp) in enumerate(vparts):
         fc.append(f"[0:v]trim=start={s - seek:.3f}:end={e - seek:.3f},setpts=PTS-STARTPTS[r{k}]")
-        fc.append(layout_filter(sp, s, f"r{k}", f"v{k}", W, H, float(plan["zoom"])))
+        fc.append(layout_filter(sp, s, f"r{k}", f"v{k}", W, H, float(plan["zoom"]), e - s))
     for k, (s, e) in enumerate(tl.ranges):  # audio follows text-edit ranges only (no dips at shot changes)
         fc.append(f"[0:a]atrim=start={s - seek:.3f}:end={e - seek:.3f},asetpts=PTS-STARTPTS,"
                   f"afade=t=in:d=0.02,afade=t=out:st={max(e - s - 0.03, 0):.3f}:d=0.03[a{k}]")
     fc.append("".join(f"[v{k}]" for k in range(len(vparts))) + f"concat=n={len(vparts)}:v=1:a=0[vl]")
     fc.append("".join(f"[a{k}]" for k in range(len(tl.ranges))) + f"concat=n={len(tl.ranges)}:v=0:a=1[ac]")
-    sub = f"subtitles=filename='{_filter_path(ass_path)}':fontsdir='{_filter_path(FONTS)}'"
+    sub = f"subtitles=filename={_filter_path(ass_path)}:fontsdir={_filter_path(FONTS)}"
     size = ",scale=540:960" if preview else ""
     fc.append(f"[vl]setpts=PTS/{speed},fps=30,{sub}{size}[vout]")
     fc.append(f"[ac]atempo={speed}[aout]" if speed != 1.0 else "[ac]anull[aout]")
     enc = ["-preset", "ultrafast", "-crf", "30"] if preview else ["-preset", "veryfast", "-crf", "20"]
-    cmd = ["ffmpeg", "-v", "error", "-y", "-ss", f"{seek:.3f}", "-i", str(video_dir(video_id) / "source.mp4"),
+    part = out_path.with_name(out_path.stem + ".part.mp4")  # never leave a half-written clip under the real name
+    cmd = ["ffmpeg", "-nostdin", "-v", "error", "-y", "-ss", f"{seek:.3f}", "-i", str(video_dir(video_id) / "source.mp4"),
            "-filter_complex", ";".join(fc), "-map", "[vout]", "-map", "[aout]",
            "-c:v", "libx264", *enc, "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
-           "-movflags", "+faststart", str(out_path)]
+           "-movflags", "+faststart", str(part)]
     p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if p.returncode != 0:
+        part.unlink(missing_ok=True)
         raise RuntimeError("FFmpeg failed: " + p.stderr[-2500:])
+    try:
+        store.replace_retry(part, out_path)
+    except PermissionError:  # Windows: the old file is open in a video player
+        part.unlink(missing_ok=True)
+        raise RuntimeError(f"Close {out_path.name} in your video player, then try again.") from None
     return {"path": str(out_path), "duration": round(tl.duration, 2),
             "layouts": [sp["layout"] for sp in shot_plans], "ranges": tl.ranges, "plan": plan}

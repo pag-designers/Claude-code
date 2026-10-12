@@ -89,3 +89,9 @@ def dedupe(clips: list[dict], threshold: float = 0.75) -> list[dict]:
 def text_of(transcript: dict, w0: int, w1: int, removed: set[int] | None = None) -> str:
     removed = removed or set()
     return " ".join(w["w"] for w in transcript["words"][w0:w1 + 1] if w["i"] not in removed)
+
+
+def norm_clip_id(raw: str) -> str:
+    """'C01', 'Clip c01', 'c1' → 'c01' (models don't always echo ids exactly)."""
+    m = re.search(r"c\s*0*(\d+)", raw.lower())
+    return f"c{int(m.group(1)):02d}" if m else raw

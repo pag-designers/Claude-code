@@ -17,15 +17,18 @@ ANALYSIS_WIDTH = 960
 
 def _model_path() -> Path:
     p = MODELS / "face_landmarker.task"
-    if not p.exists():
-        urllib.request.urlretrieve(MODEL_URL, p)
+    if not p.exists():  # download to .part first so an interrupted download is retried next time
+        tmp = p.with_suffix(".part")
+        urllib.request.urlretrieve(MODEL_URL, tmp)
+        store.replace_retry(tmp, p)
     return p
 
 
 def _landmarker():
     from mediapipe.tasks.python import BaseOptions, vision
     opts = vision.FaceLandmarkerOptions(
-        base_options=BaseOptions(model_asset_path=str(_model_path())),
+        # Pass the bytes, not the path: MediaPipe on Windows can't open paths with accents (C:\\Users\\José).
+        base_options=BaseOptions(model_asset_buffer=_model_path().read_bytes()),
         running_mode=vision.RunningMode.IMAGE, num_faces=3,
         min_face_detection_confidence=0.5, min_face_presence_confidence=0.5)
     return vision.FaceLandmarker.create_from_options(opts)
@@ -69,6 +72,11 @@ def _detector():
         return detect, lm.close
     except Exception:  # e.g. missing libEGL on a headless Linux box
         cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+        if cascade.empty():  # e.g. a non-ASCII install path on Windows: read it through a FileStorage-free route
+            import shutil, tempfile
+            tmp = Path(tempfile.gettempdir()) / "clipper_haar.xml"
+            shutil.copyfile(cv2.data.haarcascades + "haarcascade_frontalface_default.xml", tmp)
+            cascade = cv2.CascadeClassifier(str(tmp))
 
         def detect(rgb):
             gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)

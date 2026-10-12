@@ -1,5 +1,8 @@
 """FastAPI app. Run: uvicorn backend.app.main:app --port 8000   then open http://localhost:8000"""
+import os
 import shutil
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -12,7 +15,22 @@ from . import boundaries, campaign, captions, moments, pipeline, store, timeline
 from .config import DATA, EFFORTS, MODEL_CHOICES, OUTPUT, ROOT, WHISPER_MODEL, api_key, claude_effort, claude_model, has_api_key, save_settings
 from .llm import LLMError
 
+if os.name == "nt":  # Windows 10 console: clicking in the window ("QuickEdit") would freeze the whole app
+    try:
+        import ctypes
+        _k = ctypes.windll.kernel32
+        _h, _m = _k.GetStdHandle(-10), ctypes.c_uint32()
+        if _k.GetConsoleMode(_h, ctypes.byref(_m)):
+            _k.SetConsoleMode(_h, (_m.value & ~0x0040) | 0x0080)
+    except Exception:
+        pass
+
 app = FastAPI(title="Clipper")
+
+
+@app.on_event("startup")
+def _startup():
+    pipeline.mark_interrupted()
 FRONTEND = ROOT / "frontend"
 
 
@@ -78,18 +96,20 @@ def settings(body: SettingsIn):
     key = (body.api_key or "").strip()
     if key and not key.startswith("sk-ant-"):
         raise HTTPException(400, "That doesn't look like an Anthropic key (they start with sk-ant-)")
+    if not key and not has_api_key():
+        raise HTTPException(400, "Paste your API key first (it starts with sk-ant-).")
     save_settings(ANTHROPIC_API_KEY=key or None, CLIPPER_MODEL=body.model, CLIPPER_EFFORT=body.effort)
-    if key:  # one tiny call so a bad key fails here, not mid-pipeline
+    if key:  # one tiny real request (a fraction of a cent) so a bad key or empty account fails here, not mid-video
+        import anthropic
+        from .llm import friendly_api_error
         try:
-            import anthropic
-            anthropic.Anthropic(api_key=key, max_retries=1, timeout=30).models.retrieve(claude_model())
+            anthropic.Anthropic(api_key=key, max_retries=1, timeout=60).messages.create(
+                model=claude_model(), max_tokens=16, messages=[{"role": "user", "content": "Reply with: ok"}])
         except anthropic.AuthenticationError:
             save_settings(ANTHROPIC_API_KEY="")
             raise HTTPException(400, "Anthropic rejected that key. Copy it again from console.anthropic.com → API Keys.")
-        except anthropic.APIStatusError as e:
-            raise HTTPException(400, f"Key saved, but the API answered {e.status_code}: {e.message}")
-        except anthropic.APIConnectionError:
-            raise HTTPException(400, "Key saved, but the API could not be reached (network).")
+        except anthropic.APIError as e:
+            raise HTTPException(400, "Key saved, but: " + friendly_api_error(e))
     return _config()
 
 
@@ -114,6 +134,8 @@ async def upload_video(file: UploadFile = File(...), title: str | None = Form(No
         shutil.copyfileobj(file.file, f)
     try:
         return pipeline.start_file(tmp, title or Path(file.filename or "upload").stem)
+    except ValueError as e:  # not a readable video
+        raise HTTPException(400, str(e))
     finally:
         shutil.rmtree(tmp.parent, ignore_errors=True)
 
@@ -173,6 +195,8 @@ class AddClipIn(BaseModel):
 def add_clip(video_id: str, body: AddClipIn):
     """Save a Find Moments result (or any sentence range) as a clip."""
     t = store.load(video_id, "transcript")
+    if not t:
+        raise HTTPException(404, "This video has no transcript yet")
     snapped = boundaries.snap(t, body.start_sentence, body.end_sentence, min_len=5, max_len=180)
     if not snapped:
         raise HTTPException(400, "Could not make a clean clip from that range")
@@ -215,7 +239,10 @@ def edit_clip(video_id: str, clip_id: str, body: ClipPatch):
         clip.pop("variants", None)
     if "removed_words" in patch:
         removed = [i for i in patch["removed_words"] if clip["w0"] <= i <= clip["w1"]]
-        timeline.build({**clip, "removed_words": removed}, t["words"])  # raises if every word was removed
+        try:
+            timeline.build({**clip, "removed_words": removed}, t["words"])  # raises if every word was removed
+        except ValueError as e:
+            raise HTTPException(400, f"{e} Keep at least one word.")
         patch["removed_words"] = removed
     if patch.get("style") and patch["style"] not in captions.STYLES and patch["style"] != "none":
         raise HTTPException(400, "Unknown caption style")
@@ -250,6 +277,8 @@ def preview(video_id: str, clip_id: str, body: PreviewIn):
     plan = {"style": clip.get("style", "bold-pop"), "hook_text": clip.get("hook_text"),
             "layout": clip.get("layout", "auto"), "brand_text": clip.get("brand_text")}
     if body.variant and clip.get("variants"):
+        if not 1 <= body.variant <= len(clip["variants"]):
+            raise HTTPException(400, "Unknown variant")
         v = clip["variants"][body.variant - 1]
         clip = {**clip, **v.get("clip_patch", {})}
         plan = {**v["plan"], "brand_text": clip.get("brand_text")}
@@ -311,6 +340,42 @@ def export(video_id: str, body: ExportIn):
     if body.campaign and not campaign.load_campaign(body.campaign):
         raise HTTPException(404, "Unknown campaign")
     return pipeline.export_many(video_id, body.clip_ids, body.campaign, max(1, min(3, body.variants)))
+
+
+@app.get("/api/videos/{video_id}/clips/{clip_id}/thumb.jpg")
+def thumb(video_id: str, clip_id: str):
+    """A still from ~1 s into the clip (cached), for the clip cards."""
+    clip = _get_clip(video_id, clip_id)
+    t = clip["start"] + min(1.0, max(0.0, (clip["end"] - clip["start"]) / 3))
+    out = DATA / video_id / "thumbs" / f"{t:.2f}.jpg"
+    if not out.exists():
+        out.parent.mkdir(parents=True, exist_ok=True)
+        tmp = out.with_suffix(".part.jpg")
+        p = subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-y", "-ss", f"{t:.2f}", "-i",
+                            str(DATA / video_id / "source.mp4"), "-frames:v", "1", "-vf", "scale=480:-2", "-q:v", "4",
+                            str(tmp)], capture_output=True)
+        if p.returncode != 0 or not tmp.exists():
+            raise HTTPException(404, "No thumbnail")
+        store.replace_retry(tmp, out)
+    return FileResponse(out, headers={"Cache-Control": "max-age=86400"})
+
+
+class OpenIn(BaseModel):
+    folder: str
+
+
+@app.post("/api/open-folder")
+def open_folder(body: OpenIn):
+    """Open an export folder in Explorer / Finder (the app runs on the user's own computer)."""
+    p = (ROOT / body.folder).resolve()
+    if not p.is_relative_to(OUTPUT.resolve()) or not p.is_dir():
+        raise HTTPException(404, "Folder not found")
+    if os.name == "nt":
+        os.startfile(p)  # type: ignore[attr-defined]
+    else:
+        subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(p)],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return {"ok": True, "path": str(p)}
 
 
 # ---------- jobs ----------

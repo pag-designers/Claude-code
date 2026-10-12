@@ -41,7 +41,10 @@ def find_moments(video_id: str, query: str, limit: int = 8) -> list[dict]:
     user = f"Request: {query}\nReturn at most {limit} moments."
     res = llm.call_json(MomentList, SYSTEM, user, context=context, video_id=video_id, tag="moments")
     out = []
+    n = len(t["sentences"])
     for m in res.moments:
+        if not (0 <= m.start_sentence < n and 0 <= m.end_sentence < n):
+            continue
         snapped = boundaries.snap(t, m.start_sentence, m.end_sentence, min_len=8, max_len=120)
         if snapped:
             out.append({**m.model_dump(), **snapped, "match_score": max(0, min(100, m.match_score)),

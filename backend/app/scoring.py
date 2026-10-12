@@ -79,9 +79,9 @@ def score_clips(video_id: str, clips: list[dict]) -> list[dict]:
         return llm.call_json(ScoreList, system, user, video_id=video_id, tag="scoring").scores
 
     with ThreadPoolExecutor(max_workers=4) as pool:
-        results = {s.clip_id: s for batch in pool.map(ask, batches) for s in batch}
+        results = {boundaries.norm_clip_id(s.clip_id): s for batch in pool.map(ask, batches) for s in batch}
     for c in clips:
-        s = results.get(c["id"])
+        s = results.get(boundaries.norm_clip_id(c["id"]))
         if not s:
             continue
         dims = {k: {**getattr(s, k).model_dump(), "score": max(0, min(100, getattr(s, k).score))} for k in WEIGHTS}

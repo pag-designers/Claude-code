@@ -243,7 +243,11 @@ def cmd_cut(args):
                 st = cfg["subtitles"]
                 style = f"FontName=Arial,Bold=1,FontSize={st['font_size']},Alignment=2,MarginV={st['margin_v']}"
                 sub_filter = f";[v1]subtitles={srt.name}:force_style='{style}'[v2]"
-        base = "[0:v]split[a][b];[a]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=25[bg];[b]scale=1080:-2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2[v0]"
+        if cfg.get("layout") == "crop":
+            # fill the frame: best for a centred speaker talking to camera
+            base = "[0:v]scale=-2:1920,crop=1080:1920:(iw-1080)/2:0[v0]"
+        else:
+            base = "[0:v]split[a][b];[a]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=25[bg];[b]scale=1080:-2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2[v0]"
         if wm:
             wm_chain = f";[1:v]scale={int(1080 * wm['width_ratio'])}:-1,format=rgba[wm];[v0][wm]overlay={wm['x']}:{wm['y']}[v1]"
         else:

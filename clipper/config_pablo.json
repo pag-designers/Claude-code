@@ -14,7 +14,7 @@
   "clip_seconds": 30,
   "scan_step_seconds": 5,
   "whisper_model": "small",
-  "layout": "fit",
+  "layout": "crop",
   "watermark": null,
   "subtitles": {
     "font_size": 9,

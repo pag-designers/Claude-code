@@ -12,12 +12,13 @@
       "theory": [
         {
           "title": "A universal plug for tools",
-          "body": "**MCP** stands for **Model Context Protocol**: an open standard for connecting AI tools like Claude Code to external systems and data.\n\nAn **MCP server** exposes tools Claude can call. Connect the GitHub server and Claude can read issues and open PRs. Connect a database server and it can query your tables. Connect Playwright and it can drive a real browser.\n\nKip's take: MCP is like bolting new limbs onto the shell. Same crab, many more claws.",
-          "code": "# Tools from a server show up with names like\nmcp__github__list_issues\nmcp__db__query"
+          "body": "**MCP** stands for **Model Context Protocol**: an open standard for connecting AI tools like Claude Code to external systems and data.\n\nAn **MCP server** is a small program that exposes **tools** Claude can call. Connect the GitHub server and Claude can read issues and open PRs. Connect a database server and it can query your tables. Connect Playwright and it can drive a real browser.\n\nEvery tool gets a name in the pattern `mcp__<server>__<tool>`: the word `mcp`, the server's name, the tool's name, joined by **two** underscores. You'll see these names in Claude's output and in permission rules.\n\nKip's take: MCP is like bolting new limbs onto the shell. Same crab, many more claws.",
+          "code": "# server named \"github\", tool named \"list_issues\"\nmcp__github__list_issues\n\n# server named \"db\", tool named \"query\"\nmcp__db__query"
         },
         {
           "title": "Local vs remote servers",
-          "body": "Servers come in two main flavors.\n\n**stdio** servers run as a local process on your machine, started by a command such as `npx ...`.\n\n**HTTP** servers live at a URL and are the recommended option for remote services. The older **SSE** transport is deprecated.\n\nOnly add servers you trust: a server that fetches outside content can expose Claude to **prompt injection**."
+          "body": "How Claude talks to a server is called its **transport**. You'll type these names in lowercase:\n\n`stdio` (\"standard input/output\"): the server runs as a **local** program on your machine, started by a command such as `npx ...`. Claude talks to it through that program's input and output.\n\n`http`: the server lives at a **URL** on the internet. This is the recommended option for remote services. The older `sse` transport is deprecated, so avoid it.\n\nOnly add servers you trust. A server that fetches outside content (web pages, issues, emails) could hand Claude hidden instructions written by someone else. That attack is called **prompt injection**.",
+          "code": "stdio -> local program on your machine\nhttp  -> remote server at a URL (recommended for remote)\nsse   -> old remote transport, deprecated"
         }
       ],
       "exercises": [
@@ -27,7 +28,7 @@
           "prompt": "What does MCP stand for?",
           "options": ["Model Context Protocol", "Multi-Command Pipeline", "Managed Code Plugin", "Machine Control Process"],
           "answer": 0,
-          "explanation": "MCP is the Model Context Protocol, an open standard for connecting Claude to external tools and data."
+          "explanation": "MCP is the Model Context Protocol: a shared standard, so any tool that speaks it can plug into Claude the same way."
         },
         {
           "id": "u9-l1-e2",
@@ -40,7 +41,7 @@
             "Automatic git commits"
           ],
           "answer": 1,
-          "explanation": "An MCP server exposes tools (and sometimes resources) that Claude can call to reach an outside system."
+          "explanation": "A server adds tools, not intelligence: it gives Claude new actions it can take in an outside system."
         },
         {
           "id": "u9-l1-e3",
@@ -52,17 +53,7 @@
             { "left": "Playwright server", "right": "Drive a real browser" },
             { "left": "Notion server", "right": "Read and update docs" }
           ],
-          "explanation": "Each server plugs Claude into one external system and exposes that system's actions as tools."
-        },
-        {
-          "id": "u9-l1-e4",
-          "type": "fill-blank",
-          "prompt": "Complete the facts about MCP.",
-          "code": "MCP stands for Model ___ Protocol.\nLocal servers run as a process and talk over ___.\nRemote servers are best connected over ___.",
-          "blanks": ["Context", "stdio", "http"],
-          "wordBank": ["Context", "stdio", "http", "Command", "ftp", "Control"],
-          "language": "text",
-          "explanation": "MCP is the Model Context Protocol; local servers use stdio and remote ones should use the HTTP transport."
+          "explanation": "Each server plugs Claude into one external system, so you add the server for whichever system you need Claude to reach."
         },
         {
           "id": "u9-l1-e5",
@@ -70,7 +61,7 @@
           "prompt": "You're connecting to a remote MCP server hosted at a URL. Which transport is recommended?",
           "options": ["sse", "stdio", "http", "ssh"],
           "answer": 2,
-          "explanation": "HTTP is the recommended transport for remote servers; SSE is deprecated and stdio is for local processes."
+          "explanation": "HTTP is the recommended transport for remote servers because SSE is deprecated and stdio only works for programs on your own machine."
         },
         {
           "id": "u9-l1-e6",
@@ -78,18 +69,7 @@
           "prompt": "Tools from an MCP server named `github` appear to Claude with names like…",
           "options": ["github.create_issue()", "mcp__github__create_issue", "/github create_issue", "github::create_issue"],
           "answer": 1,
-          "explanation": "MCP tools are namespaced as mcp__<server>__<tool>, which is also the name you use in permission rules."
-        },
-        {
-          "id": "u9-l1-e7",
-          "type": "spot-bad-prompt",
-          "prompt": "The GitHub MCP server is connected. You want help with issue #142 in acme/web.",
-          "options": [
-            "Fix the issue.",
-            "Use the GitHub MCP server to read issue #142 in acme/web, summarize the bug, then propose a fix for src/cart.ts. Don't edit anything yet."
-          ],
-          "better": 1,
-          "explanation": "Naming the server, the repo, the issue and the file tells Claude exactly which tool to use and where to look."
+          "explanation": "MCP tools follow mcp__<server>__<tool> so tools from different servers never clash, and you use the same name in permission rules."
         },
         {
           "id": "u9-l1-e8",
@@ -102,16 +82,38 @@
             "Untrusted servers delete your CLAUDE.md"
           ],
           "answer": 1,
-          "explanation": "A server that pulls in external content could feed Claude malicious instructions, so vet what you connect."
+          "explanation": "Content a server pulls in could contain instructions written by a stranger, so a server is only as safe as what it fetches."
+        },
+        {
+          "id": "u9-l1-e7",
+          "type": "spot-bad-prompt",
+          "prompt": "The GitHub MCP server is connected. You want help with issue #142 in acme/web.",
+          "options": [
+            "Fix the issue.",
+            "Use the GitHub MCP server to read issue #142 in acme/web, summarize the bug, then propose a fix for src/cart.ts. Don't edit anything yet."
+          ],
+          "better": 1,
+          "explanation": "Naming the server, repo, issue and file tells Claude which tool to call and where to look, instead of guessing."
+        },
+        {
+          "id": "u9-l1-e4",
+          "type": "fill-blank",
+          "prompt": "Complete the facts about MCP.",
+          "code": "MCP stands for Model ___ Protocol.\nLocal servers run as a process and talk over ___.\nRemote servers are best connected over ___.",
+          "blanks": ["Context", "stdio", "http"],
+          "wordBank": ["Context", "stdio", "http", "Command", "ftp", "Control"],
+          "language": "text",
+          "hint": "Local program on your machine = stdio. Server at a URL = http.",
+          "explanation": "The transport depends on where the server runs: stdio for a program on your machine, http for one at a URL."
         },
         {
           "id": "u9-l1-e9",
           "type": "prompt-workshop",
           "scenario": "A read-only Postgres MCP server named `db` is connected. Signups dropped last week and you want Claude to investigate without changing anything.",
           "files": ["src/signup/handler.ts"],
-          "sample": "Using the db MCP server (read-only), query daily signups for the last 14 days and show where the drop starts. Then read @src/signup/handler.ts and list changes that could explain it. Don't edit code yet; just report your findings.",
+          "sample": "Context: daily signups dropped sharply sometime last week, and the db MCP server is connected (read-only). Goal: find when the drop started and what might explain it. Use db to query daily signups for the last 14 days and show where the drop begins. Then read @src/signup/handler.ts and list recent logic that could explain it. Constraints: read-only queries only, and don't edit any code. Done when you report the query you ran, the first day of the drop, and up to 3 suspects with line numbers.",
           "keywords": ["signups", "query", "week", "read-only", "drop"],
-          "explanation": "Great MCP prompts name the server, the exact data to pull, and what Claude should (and shouldn't) do with it."
+          "explanation": "Great MCP prompts name the server, the exact data to pull, what Claude must not touch, and what the finished report looks like."
         }
       ]
     },
@@ -121,87 +123,22 @@
       "description": "claude mcp add, scopes and /mcp",
       "theory": [
         {
-          "title": "claude mcp add",
-          "body": "Add a **local stdio** server: put the server's launch command after `--`. Everything after `--` goes to the server untouched.\n\nAdd a **remote HTTP** server with `--transport http` followed by a name and a URL.\n\nPass secrets with `-e KEY=value` (or `--env`), and HTTP headers with `--header`.",
-          "code": "# local stdio server\nclaude mcp add playwright -- npx @playwright/mcp@latest\n\n# remote HTTP server\nclaude mcp add --transport http notion https://mcp.notion.com/mcp\n\n# manage them\nclaude mcp list\nclaude mcp get notion\nclaude mcp remove notion"
+          "title": "Reading claude mcp add",
+          "body": "You add servers from your normal shell (not inside a Claude session). The shape is: `claude mcp add`, then any **options**, then a **name** you choose, then where the server is.\n\n**Remote server**: `--transport http` (short `-t http`), a name, then the URL.\n\n**Local stdio server**: a name, then `--`, then the command that launches the server. stdio is the default, so `--transport stdio` is optional. The `--` means \"Claude's options end here\": everything after it is handed to the server untouched, even things that look like flags, such as `--port 8080`.\n\n`npx @playwright/mcp@latest` is a launch command: `npx` runs a Node package without installing it for good, and `@latest` asks for the newest version.\n\nOptions like `--transport`, `--scope` and `-e KEY=value` (an environment variable, often a secret) go **before** the name.",
+          "code": "# remote:  claude mcp add --transport http <name> <url>\nclaude mcp add --transport http notion https://mcp.notion.com/mcp\n\n# local:   claude mcp add <name> -- <launch command>\nclaude mcp add playwright -- npx @playwright/mcp@latest\n\n# options first, then name, then url\nclaude mcp add --transport http --scope project notion https://mcp.notion.com/mcp"
         },
         {
-          "title": "Scopes and /mcp",
-          "body": "`--scope` decides who sees a server:\n\n**local** (default): just you, in this project.\n\n**project**: written to `.mcp.json` at the repo root so the team shares it via git.\n\n**user**: just you, in every project.\n\nInside a session, `/mcp` shows each server's status and handles **OAuth** login for remote servers. Kip checks it for the word `connected`."
+          "title": "Managing servers and scopes",
+          "body": "Three shell commands manage what you've added: `claude mcp list` (all servers), `claude mcp get <name>` (one server's details), `claude mcp remove <name>` (delete it).\n\nInside a session, the slash command `/mcp` shows each server's status. Kip checks it for the word `connected`. Many remote servers need you to log in with **OAuth**: you pick the server in `/mcp`, a browser opens, you sign in there, and no password is ever pasted into Claude.\n\n`--scope` decides who gets a server: `local` (the default) is just you in this project; `project` writes it to `.mcp.json` at the repo root so the team shares it through git; `user` is just you, in every project.",
+          "code": "claude mcp list\nclaude mcp get notion\nclaude mcp remove notion\n\n# inside a session\n> /mcp"
+        },
+        {
+          "title": "Inside .mcp.json",
+          "body": "A project-scoped server is saved as JSON in `.mcp.json`. Part by part:\n\n`\"mcpServers\"`: the one top-level key; every server lives inside it.\n\n`\"notion\"`: the server's name (the same name you gave `claude mcp add`).\n\n`\"type\": \"http\"`: the transport. `\"url\"`: where the remote server lives.\n\nA local server uses `\"command\"` and an `\"args\"` list instead of a URL.",
+          "code": "{\n  \"mcpServers\": {\n    \"notion\": {\n      \"type\": \"http\",\n      \"url\": \"https://mcp.notion.com/mcp\"\n    },\n    \"playwright\": {\n      \"command\": \"npx\",\n      \"args\": [\"@playwright/mcp@latest\"]\n    }\n  }\n}"
         }
       ],
       "exercises": [
-        {
-          "id": "u9-l2-e1",
-          "type": "terminal",
-          "prompt": "Add a local stdio MCP server named playwright that runs `npx @playwright/mcp@latest`.",
-          "accepted": [
-            "claude mcp add playwright -- npx @playwright/mcp@latest",
-            "claude mcp add --transport stdio playwright -- npx @playwright/mcp@latest",
-            "claude mcp add -t stdio playwright -- npx @playwright/mcp@latest"
-          ],
-          "hint": "claude mcp add <name> -- <command> [args]",
-          "explanation": "For stdio servers, the name comes first and the server's launch command goes after `--`."
-        },
-        {
-          "id": "u9-l2-e2",
-          "type": "terminal",
-          "prompt": "Add GitHub's remote MCP server over HTTP, named github, at https://api.githubcopilot.com/mcp/",
-          "accepted": [
-            "claude mcp add --transport http github https://api.githubcopilot.com/mcp/",
-            "claude mcp add -t http github https://api.githubcopilot.com/mcp/"
-          ],
-          "hint": "claude mcp add --transport http <name> <url>",
-          "explanation": "Remote servers use `--transport http` followed by a name and the server URL."
-        },
-        {
-          "id": "u9-l2-e3",
-          "type": "terminal",
-          "prompt": "List every MCP server you've configured.",
-          "accepted": ["claude mcp list"],
-          "hint": "It's a claude mcp subcommand.",
-          "explanation": "`claude mcp list` shows all configured servers."
-        },
-        {
-          "id": "u9-l2-e4",
-          "type": "terminal",
-          "prompt": "Inside a session, check your servers' status and log in to one that needs OAuth.",
-          "promptSymbol": ">",
-          "accepted": ["/mcp"],
-          "hint": "A three-letter slash command.",
-          "explanation": "`/mcp` shows server status and runs the OAuth flow for remote servers that need it."
-        },
-        {
-          "id": "u9-l2-e5",
-          "type": "match-pairs",
-          "prompt": "Match each scope to who gets the server.",
-          "pairs": [
-            { "left": "--scope local", "right": "Just you, this project (default)" },
-            { "left": "--scope project", "right": "Whole team via .mcp.json" },
-            { "left": "--scope user", "right": "Just you, every project" }
-          ],
-          "explanation": "Local is the default, project shares through a checked-in `.mcp.json`, and user follows you everywhere."
-        },
-        {
-          "id": "u9-l2-e6",
-          "type": "fill-blank",
-          "prompt": "Add Notion as a remote server and share it with your team.",
-          "code": "claude mcp add ___ http notion https://mcp.notion.com/mcp ___ project",
-          "blanks": ["--transport", "--scope"],
-          "wordBank": ["--transport", "--scope", "--env", "--header", "--print"],
-          "language": "bash",
-          "explanation": "`--transport http` picks the remote transport and `--scope project` writes it to `.mcp.json` for the team."
-        },
-        {
-          "id": "u9-l2-e7",
-          "type": "fill-blank",
-          "prompt": "Complete this project-scoped config file at the repo root.",
-          "code": "// .mcp.json\n{\n  \"___\": {\n    \"shared-server\": {\n      \"type\": \"___\",\n      \"url\": \"https://example.com/mcp\"\n    }\n  }\n}",
-          "blanks": ["mcpServers", "http"],
-          "wordBank": ["mcpServers", "http", "servers", "stdio", "tools"],
-          "language": "json",
-          "explanation": "`.mcp.json` lists servers under `mcpServers`, and a remote one uses type `http` with a `url`."
-        },
         {
           "id": "u9-l2-e8",
           "type": "multiple-choice",
@@ -213,7 +150,40 @@
             "Marks the server as project-scoped"
           ],
           "answer": 1,
-          "explanation": "Everything after `--` is passed to the server untouched, so `--port 8080` goes to server.py, not to Claude."
+          "explanation": "Without `--`, Claude would try to read `--port 8080` as its own option, so `--` hands everything after it to the server untouched."
+        },
+        {
+          "id": "u9-l2-e5",
+          "type": "match-pairs",
+          "prompt": "Match each scope to who gets the server.",
+          "pairs": [
+            { "left": "--scope local", "right": "Just you, this project (default)" },
+            { "left": "--scope project", "right": "Whole team via .mcp.json" },
+            { "left": "--scope user", "right": "Just you, every project" }
+          ],
+          "explanation": "Pick the scope by who needs the server: only project scope writes a file the team receives through git."
+        },
+        {
+          "id": "u9-l2-e6",
+          "type": "fill-blank",
+          "prompt": "Add Notion as a remote server and share it with your team.",
+          "code": "claude mcp add ___ http ___ project notion https://mcp.notion.com/mcp",
+          "blanks": ["--transport", "--scope"],
+          "wordBank": ["--transport", "--scope", "--env", "--header", "--print"],
+          "language": "bash",
+          "hint": "Options go before the name: --transport http picks the transport, --scope project shares it.",
+          "explanation": "`--transport http` is needed because the server is at a URL, and `--scope project` saves it to `.mcp.json` so teammates get it too."
+        },
+        {
+          "id": "u9-l2-e7",
+          "type": "fill-blank",
+          "prompt": "Complete this project-scoped config file at the repo root.",
+          "code": "// .mcp.json\n{\n  \"___\": {\n    \"shared-server\": {\n      \"type\": \"___\",\n      \"url\": \"https://example.com/mcp\"\n    }\n  }\n}",
+          "blanks": ["mcpServers", "http"],
+          "wordBank": ["mcpServers", "http", "servers", "stdio", "tools"],
+          "language": "json",
+          "hint": "All servers live under one top-level key; a server with a url uses the remote transport.",
+          "explanation": "Claude only looks for servers under `mcpServers`, and a server reached by `url` must use type `http` because it isn't a local program."
         },
         {
           "id": "u9-l2-e9",
@@ -226,15 +196,55 @@
             "Finish the OAuth login in your browser",
             "Confirm it shows connected, then ask Claude to use it"
           ],
-          "explanation": "Add the server from your shell, then authenticate and verify it inside a session with `/mcp`."
+          "explanation": "The server must be added from the shell before a session can see it, and OAuth login happens inside the session through `/mcp`."
+        },
+        {
+          "id": "u9-l2-e1",
+          "type": "terminal",
+          "prompt": "Add a local stdio MCP server named playwright whose launch command is `npx @playwright/mcp@latest`.",
+          "accepted": [
+            "claude mcp add playwright -- npx @playwright/mcp@latest",
+            "claude mcp add --transport stdio playwright -- npx @playwright/mcp@latest",
+            "claude mcp add -t stdio playwright -- npx @playwright/mcp@latest"
+          ],
+          "hint": "claude mcp add <name> -- <launch command>",
+          "explanation": "The name comes first and the launch command goes after `--`, so Claude knows which part to run as the server."
+        },
+        {
+          "id": "u9-l2-e2",
+          "type": "terminal",
+          "prompt": "Add GitHub's remote MCP server over HTTP. Name it github; its URL is https://api.githubcopilot.com/mcp/",
+          "accepted": [
+            "claude mcp add --transport http github https://api.githubcopilot.com/mcp/",
+            "claude mcp add -t http github https://api.githubcopilot.com/mcp/"
+          ],
+          "hint": "claude mcp add --transport http <name> <url>",
+          "explanation": "A server at a URL isn't a local program, so you name the http transport and give the URL instead of a launch command."
+        },
+        {
+          "id": "u9-l2-e3",
+          "type": "terminal",
+          "prompt": "From your shell, list every MCP server you've configured.",
+          "accepted": ["claude mcp list"],
+          "hint": "claude mcp <subcommand>: the one that lists.",
+          "explanation": "`claude mcp list` is the quick check that an add actually saved before you start a session."
+        },
+        {
+          "id": "u9-l2-e4",
+          "type": "terminal",
+          "prompt": "Inside a session, type the slash command that shows your servers' status and lets you log in to one that needs OAuth.",
+          "promptSymbol": ">",
+          "accepted": ["/mcp"],
+          "hint": "A slash followed by the protocol's three letters.",
+          "explanation": "`/mcp` runs inside the session because that's where Claude actually connects to servers and can open the OAuth login."
         },
         {
           "id": "u9-l2-e10",
           "type": "terminal",
-          "prompt": "Remove the MCP server named notion.",
+          "prompt": "From your shell, remove the MCP server named notion.",
           "accepted": ["claude mcp remove notion"],
-          "hint": "claude mcp ___ <name>",
-          "explanation": "`claude mcp remove <name>` deletes a server's config (and stored OAuth tokens for remote servers)."
+          "hint": "claude mcp remove <name>",
+          "explanation": "Removing a server you no longer use cuts off tools Claude doesn't need, and also clears its stored OAuth login."
         }
       ]
     }

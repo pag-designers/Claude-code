@@ -11,13 +11,18 @@
       "description": "Let Claude handle the git chores",
       "theory": [
         {
+          "title": "Git in plain words",
+          "body": "**Git** records the history of your project.\n\nA **diff** is the list of lines added or removed since the last save. A **commit** is a saved snapshot of your changes, with a message saying what changed and why.\n\nBefore committing, you **stage** changes (`git add`): staging picks which edits go into the next commit.\n\nA **branch** is a separate line of work. `main` is the shared one, so new work usually happens on its own branch. A **pull request (PR)** asks teammates to review your branch and merge it into `main`.",
+          "code": "git diff            # changes NOT yet staged\ngit diff --staged   # changes staged for the next commit\n                    # (--cached means the same thing)\ngit log --oneline   # commit history, one line each\ngh pr create        # open a pull request (GitHub CLI)"
+        },
+        {
           "title": "Claude speaks git",
-          "body": "Claude can stage files, write commit messages, commit, and open pull requests. Just ask in plain words: **\"commit my changes with a descriptive message\"** or **\"create a pr\"**.\n\nFor PRs, Claude uses the GitHub `gh` CLI, so install it and run `gh auth login` first.\n\nKip tip: Claude links the session to the PR it creates, so `claude --from-pr 123` finds that conversation later.",
-          "code": "> summarize the changes I've made to the auth module\n> commit them with a message that explains why\n> create a pr"
+          "body": "You don't need to remember git commands to use them with Claude. Ask in plain words, like the prompts below. Ask for a commit message that explains **why** the change was made, not just what changed.\n\nFor PRs, Claude uses the GitHub CLI, `gh`. Install it and run `gh auth login` once so it can act on your GitHub account.\n\nKip tip: Claude links the session to the PR it creates, so `claude --from-pr 123` finds that conversation later.",
+          "code": "> review the staged diff for bugs and missing tests\n> commit with a message explaining why the change was made\n> create a pr"
         },
         {
           "title": "Review the diff before it ships",
-          "body": "Claude's edits can look plausible and still be wrong. Before committing, read the diff yourself (`git diff`, `git diff --staged`) or ask Claude to **review the diff for bugs, edge cases and missing tests**.\n\nAfter Claude writes a PR, ask it to highlight risks you should double-check."
+          "body": "Claude's edits can look plausible and still be wrong. The diff is the ground truth of what changed, so read it yourself with `git diff --staged`, or ask Claude to **review the diff for bugs, edge cases and missing tests**.\n\nKeep work off `main`: ask for a new branch with a clear name like `fix/cart-total`. After Claude writes a PR, ask it to highlight risks you should double-check."
         }
       ],
       "exercises": [
@@ -27,39 +32,7 @@
           "prompt": "Which tool does Claude use to open GitHub pull requests from your terminal?",
           "options": ["The gh CLI", "git push --pr", "npm publish", "A built-in /pr-open command"],
           "answer": 0,
-          "explanation": "Claude creates PRs with `gh pr create`, so the GitHub CLI must be installed and authenticated."
-        },
-        {
-          "id": "u10-l1-e2",
-          "type": "spot-bad-prompt",
-          "prompt": "Claude just fixed a cart total bug and you want it shipped for review.",
-          "options": [
-            "Push everything to main.",
-            "Create a branch fix/cart-total, commit the fix with a message explaining the bug, and open a PR against main describing the change and how you tested it."
-          ],
-          "better": 1,
-          "explanation": "The better prompt keeps work off main and asks for a commit message and PR description that reviewers can use."
-        },
-        {
-          "id": "u10-l1-e3",
-          "type": "order-steps",
-          "prompt": "Order a careful ship-it flow with Claude.",
-          "steps": [
-            "Ask Claude to summarize the changes you made",
-            "Ask Claude to review the diff for bugs and missing tests",
-            "Ask Claude to commit with a descriptive message",
-            "Ask Claude to create a pr",
-            "Read the PR and ask Claude to flag any risks"
-          ],
-          "explanation": "Summarize and review before committing, then open the PR and double-check it before reviewers see it."
-        },
-        {
-          "id": "u10-l1-e4",
-          "type": "terminal",
-          "prompt": "In your shell, show the changes that are staged for the next commit.",
-          "accepted": ["git diff --staged", "git diff --cached"],
-          "hint": "git diff plus one flag.",
-          "explanation": "`git diff --staged` (alias `--cached`) shows exactly what will go into the commit."
+          "explanation": "Git itself knows nothing about pull requests, so Claude needs GitHub's own CLI, `gh`, installed and logged in."
         },
         {
           "id": "u10-l1-e5",
@@ -72,17 +45,15 @@
             "It makes the commit smaller"
           ],
           "answer": 2,
-          "explanation": "The diff is the ground truth of what changed, so it's where you catch subtle mistakes."
+          "explanation": "The diff is the ground truth of what changed, so it's where you catch subtle mistakes before they enter history."
         },
         {
-          "id": "u10-l1-e6",
-          "type": "fill-blank",
-          "prompt": "Complete this session's prompts.",
-          "code": "> review the ___ diff for bugs and missing tests\n> commit with a message explaining ___ the change was made\n> create a ___",
-          "blanks": ["staged", "why", "pr"],
-          "wordBank": ["staged", "why", "pr", "global", "never", "lockfile"],
-          "language": "text",
-          "explanation": "Review what's staged, ask for a message that explains why, then ask Claude to create a pr."
+          "id": "u10-l1-e8",
+          "type": "multiple-choice",
+          "prompt": "Claude opened PR #1234 last week. How do you jump back to that session?",
+          "options": ["claude --pr 1234", "claude --from-pr 1234", "/resume-pr 1234", "gh pr claude 1234"],
+          "answer": 1,
+          "explanation": "Claude links each session to the PR it created, so `claude --from-pr` can find that conversation by PR number."
         },
         {
           "id": "u10-l1-e7",
@@ -94,24 +65,59 @@
             { "left": "git log --oneline", "right": "Compact commit history" },
             { "left": "gh pr create", "right": "Open a pull request" }
           ],
-          "explanation": "These are the commands Claude (and you) use to inspect, record and ship changes."
+          "explanation": "Inspect with diff, check history with log, and ship with gh: knowing which is which lets you verify what Claude did."
         },
         {
-          "id": "u10-l1-e8",
-          "type": "multiple-choice",
-          "prompt": "Claude opened PR #1234 last week. How do you jump back to that session?",
-          "options": ["claude --pr 1234", "claude --from-pr 1234", "/resume-pr 1234", "gh pr claude 1234"],
-          "answer": 1,
-          "explanation": "`claude --from-pr` opens the session picker filtered to sessions linked to that PR."
+          "id": "u10-l1-e2",
+          "type": "spot-bad-prompt",
+          "prompt": "Claude just fixed a cart total bug and you want it shipped for review.",
+          "options": [
+            "Push everything to main.",
+            "Create a branch fix/cart-total, commit the fix with a message explaining the bug, and open a PR against main describing the change and how you tested it."
+          ],
+          "better": 1,
+          "explanation": "Pushing to main skips review entirely, while a branch plus a PR lets teammates check the change before it lands."
+        },
+        {
+          "id": "u10-l1-e6",
+          "type": "fill-blank",
+          "prompt": "Complete this session's prompts.",
+          "code": "> review the ___ diff for bugs and missing tests\n> commit with a message explaining ___ the change was made\n> create a ___",
+          "blanks": ["staged", "why", "pr"],
+          "wordBank": ["staged", "why", "pr", "global", "never", "lockfile"],
+          "language": "text",
+          "hint": "Review what will be committed, ask for the reason behind it, then open a pull request.",
+          "explanation": "The staged diff is exactly what the commit will contain, and a message that explains why helps future readers more than one that lists what."
+        },
+        {
+          "id": "u10-l1-e3",
+          "type": "order-steps",
+          "prompt": "Order a careful ship-it flow with Claude.",
+          "steps": [
+            "Ask Claude to summarize the changes you made",
+            "Ask Claude to review the diff for bugs and missing tests",
+            "Ask Claude to commit with a descriptive message",
+            "Ask Claude to create a pr",
+            "Read the PR and ask Claude to flag any risks"
+          ],
+          "explanation": "Problems are cheapest to fix before the commit, so you summarize and review first and only then commit and open the PR."
+        },
+        {
+          "id": "u10-l1-e4",
+          "type": "terminal",
+          "prompt": "In your shell, show the changes that are staged for the next commit.",
+          "accepted": ["git diff --staged", "git diff --cached"],
+          "hint": "git diff --staged",
+          "explanation": "Plain `git diff` hides staged changes, so you add `--staged` to see exactly what the next commit will contain."
         },
         {
           "id": "u10-l1-e9",
           "type": "prompt-workshop",
           "scenario": "Claude just fixed a timezone bug in the date parser and added tests. Write one prompt that gets the change reviewed, committed and opened as a PR.",
           "files": ["src/utils/date.ts", "tests/date.test.ts"],
-          "sample": "Review the diff for @src/utils/date.ts and @tests/date.test.ts for bugs or missing edge cases and run the tests. If they pass, commit on a new branch fix/date-timezone with a message explaining the timezone bug, then create a pr that describes the fix and how it was tested.",
+          "sample": "Context: you just fixed the timezone bug in @src/utils/date.ts and added tests in @tests/date.test.ts. Goal: get this reviewed and opened as a PR. First review the diff for bugs or missing edge cases, then run the tests. Constraints: don't commit to main; use a new branch fix/date-timezone. If the tests pass, commit with a message explaining the timezone bug and create a pr that describes the fix and how it was tested. Done when the PR is open and you reply with its link and any risks I should double-check.",
           "keywords": ["diff", "commit", "pr", "tests", "timezone"],
-          "explanation": "A strong ship prompt chains review, verification, commit and PR with clear names for the branch and the change."
+          "explanation": "A strong ship prompt chains review, verification, commit and PR in order, so nothing reaches reviewers untested."
         }
       ]
     },
@@ -121,56 +127,22 @@
       "description": "Parallel sessions and test-first work",
       "theory": [
         {
-          "title": "Worktrees: parallel Claudes, no collisions",
-          "body": "A **git worktree** is a separate checkout of your repo on its own branch. Files are independent, git history is shared.\n\nRun one Claude session per worktree and they can't overwrite each other's edits. Kip runs three at once and never pinches his own claw.\n\nThe repo needs at least one commit first. `claude --worktree <name>` (or `-w`) creates one for you under `.claude/worktrees/`.",
-          "code": "git worktree add ../project-feature-a -b feature-a\ncd ../project-feature-a && claude\n\ngit worktree list\ngit worktree remove ../project-feature-a\n\n# or let Claude Code create it\nclaude --worktree feature-auth"
+          "title": "Worktrees in plain words",
+          "body": "Normally your project folder shows one branch at a time. A **git worktree** is an **extra folder** showing a different branch of the same repo. Files are separate; history (commits) is shared.\n\nRun one Claude session per worktree and they can't overwrite each other's edits. Kip runs three at once and never pinches his own claw.\n\nIn `git worktree add ../project-feature-a -b feature-a`: `add` creates a worktree, `../project-feature-a` is the new folder's path (`..` puts it next to your project), and `-b feature-a` creates a new branch with that name.\n\n`&&` joins two commands: run the second only if the first worked. The repo needs at least one commit first.",
+          "code": "# new folder ../project-feature-a on new branch feature-a\ngit worktree add ../project-feature-a -b feature-a\n\n# go there, then start Claude\ncd ../project-feature-a && claude\n\ngit worktree list                          # every worktree + its branch\ngit worktree remove ../project-feature-a   # clean up when done"
+        },
+        {
+          "title": "Let Claude Code make it",
+          "body": "Shortcut: `claude --worktree <name>` (short `-w`) creates a worktree under `.claude/worktrees/` and starts Claude inside it, all in one command.\n\nWhen the work is finished: review it, commit it, and merge its branch (usually through a PR). Then remove the worktree so old folders don't pile up.",
+          "code": "claude --worktree feature-auth\n# same thing\nclaude -w feature-auth"
         },
         {
           "title": "The test-driven loop",
-          "body": "Tests give Claude a clear target it can check itself.\n\n**1.** Ask Claude to write tests from expected inputs and outputs, and say you're doing TDD so it doesn't write the implementation.\n\n**2.** Run them and confirm they **fail**. Commit the tests.\n\n**3.** Ask Claude to write code that makes them pass **without modifying the tests**, iterating until green.\n\n**4.** Commit the code."
+          "body": "A **test** is a small piece of code that checks your code gives the expected output. It **passes** (green) or **fails** (red). TDD means writing tests first. They give Claude a clear target it can check itself.\n\n**1.** Ask Claude to write tests from concrete examples, and say you're doing TDD so it doesn't write the implementation yet.\n\n**2.** Run them and confirm they **fail**. A test that already passes isn't checking anything new. Commit the tests.\n\n**3.** Ask Claude to write code that makes them pass **without modifying the tests**, iterating until green.\n\n**4.** Commit the code.",
+          "code": "> we're doing TDD. write tests for slugify():\n  'Hello World' -> 'hello-world'. no implementation yet\n> run the tests and confirm they fail, then commit them\n> implement slugify until the tests pass. don't modify the tests"
         }
       ],
       "exercises": [
-        {
-          "id": "u10-l2-e1",
-          "type": "order-steps",
-          "prompt": "Order the steps to run a parallel Claude session in a worktree.",
-          "steps": [
-            "git worktree add ../project-feature-a -b feature-a",
-            "cd ../project-feature-a",
-            "Run claude and give it the feature task",
-            "Review, commit and merge the feature-a branch",
-            "git worktree remove ../project-feature-a"
-          ],
-          "explanation": "Create the worktree, work in it with its own Claude, merge the branch, then clean up."
-        },
-        {
-          "id": "u10-l2-e2",
-          "type": "terminal",
-          "prompt": "Create a worktree at ../project-feature-a on a new branch named feature-a.",
-          "accepted": [
-            "git worktree add ../project-feature-a -b feature-a",
-            "git worktree add -b feature-a ../project-feature-a"
-          ],
-          "hint": "git worktree add <path> -b <branch>",
-          "explanation": "`git worktree add <path> -b <branch>` makes a new checkout on a fresh branch."
-        },
-        {
-          "id": "u10-l2-e3",
-          "type": "terminal",
-          "prompt": "Start Claude in an isolated worktree named feature-auth (let Claude Code create it).",
-          "accepted": ["claude --worktree feature-auth", "claude -w feature-auth"],
-          "hint": "A claude flag, long form --worktree.",
-          "explanation": "`claude --worktree <name>` (or `-w`) creates a worktree under `.claude/worktrees/` and starts there."
-        },
-        {
-          "id": "u10-l2-e4",
-          "type": "terminal",
-          "prompt": "List all worktrees for this repository.",
-          "accepted": ["git worktree list"],
-          "hint": "git worktree ___",
-          "explanation": "`git worktree list` shows every checkout and the branch it's on."
-        },
         {
           "id": "u10-l2-e5",
           "type": "multiple-choice",
@@ -182,41 +154,7 @@
             "They let two sessions share one context window"
           ],
           "answer": 1,
-          "explanation": "Separate working files keep concurrent edits from colliding, while commits all land in one repo."
-        },
-        {
-          "id": "u10-l2-e6",
-          "type": "fill-blank",
-          "prompt": "Complete the worktree lifecycle.",
-          "code": "git worktree ___ ../app-bugfix -b bugfix\ncd ../app-bugfix && claude\ngit worktree ___\ngit worktree ___ ../app-bugfix",
-          "blanks": ["add", "list", "remove"],
-          "wordBank": ["add", "list", "remove", "checkout", "clone", "stash"],
-          "language": "bash",
-          "explanation": "add creates the worktree, list shows them, and remove cleans one up."
-        },
-        {
-          "id": "u10-l2-e7",
-          "type": "order-steps",
-          "prompt": "Order the test-driven loop with Claude.",
-          "steps": [
-            "Ask Claude to write tests from expected inputs and outputs, no implementation",
-            "Run the tests and confirm they fail",
-            "Commit the tests",
-            "Ask Claude to write code that passes without changing the tests",
-            "Iterate until green, then commit the code"
-          ],
-          "explanation": "Failing tests first prove the tests check something; locking them keeps Claude aiming at the real target."
-        },
-        {
-          "id": "u10-l2-e8",
-          "type": "spot-bad-prompt",
-          "prompt": "You want to build slugify() test-first.",
-          "options": [
-            "Write tests in tests/slugify.test.ts for slugify(): 'Hello World' -> 'hello-world', '  Trim me  ' -> 'trim-me', '' -> ''. We're doing TDD, so don't write the implementation yet. Run the tests and confirm they fail.",
-            "Write slugify and some tests for it."
-          ],
-          "better": 0,
-          "explanation": "Concrete input/output pairs plus an explicit 'no implementation yet' keep the TDD loop honest."
+          "explanation": "Two sessions editing one folder would clobber each other's files, while separate worktrees keep files apart and commits in one repo."
         },
         {
           "id": "u10-l2-e9",
@@ -229,16 +167,91 @@
             "Run /clear and start over"
           ],
           "answer": 2,
-          "explanation": "The tests encode the spec, so Claude should change the code, unless you decide the test itself is wrong."
+          "explanation": "The tests encode what the code should do, so editing them to pass hides the bug instead of fixing it."
+        },
+        {
+          "id": "u10-l2-e8",
+          "type": "spot-bad-prompt",
+          "prompt": "You want to build slugify() test-first.",
+          "options": [
+            "Write tests in tests/slugify.test.ts for slugify(): 'Hello World' -> 'hello-world', '  Trim me  ' -> 'trim-me', '' -> ''. We're doing TDD, so don't write the implementation yet. Run the tests and confirm they fail.",
+            "Write slugify and some tests for it."
+          ],
+          "better": 0,
+          "explanation": "Concrete input/output pairs define the target, and 'no implementation yet' stops Claude writing tests that just match its own code."
+        },
+        {
+          "id": "u10-l2-e6",
+          "type": "fill-blank",
+          "prompt": "Complete the worktree lifecycle.",
+          "code": "git worktree ___ ../app-bugfix -b bugfix\ncd ../app-bugfix && claude\ngit worktree ___\ngit worktree ___ ../app-bugfix",
+          "blanks": ["add", "list", "remove"],
+          "wordBank": ["add", "list", "remove", "checkout", "clone", "stash"],
+          "language": "bash",
+          "hint": "git worktree add <path> -b <branch>, then list, then remove <path>.",
+          "explanation": "A worktree's life is create, use, check, clean up, and each step is a git worktree subcommand: add, list, remove."
+        },
+        {
+          "id": "u10-l2-e1",
+          "type": "order-steps",
+          "prompt": "Order the steps to run a parallel Claude session in a worktree.",
+          "steps": [
+            "git worktree add ../project-feature-a -b feature-a",
+            "cd ../project-feature-a",
+            "Run claude and give it the feature task",
+            "Review, commit and merge the feature-a branch",
+            "git worktree remove ../project-feature-a"
+          ],
+          "explanation": "The folder must exist before you can work in it, and you remove it only after its branch is merged so no work is lost."
+        },
+        {
+          "id": "u10-l2-e7",
+          "type": "order-steps",
+          "prompt": "Order the test-driven loop with Claude.",
+          "steps": [
+            "Ask Claude to write tests from expected inputs and outputs, no implementation",
+            "Run the tests and confirm they fail",
+            "Commit the tests",
+            "Ask Claude to write code that passes without changing the tests",
+            "Iterate until green, then commit the code"
+          ],
+          "explanation": "Seeing the tests fail first proves they check something, and committing them locks the target before any code is written."
+        },
+        {
+          "id": "u10-l2-e2",
+          "type": "terminal",
+          "prompt": "Create a worktree in the folder ../project-feature-a on a new branch named feature-a.",
+          "accepted": [
+            "git worktree add ../project-feature-a -b feature-a",
+            "git worktree add -b feature-a ../project-feature-a"
+          ],
+          "hint": "git worktree add <path> -b <branch>",
+          "explanation": "`-b` creates a fresh branch for the new folder, so its work stays separate from the branch you're on."
+        },
+        {
+          "id": "u10-l2-e3",
+          "type": "terminal",
+          "prompt": "Start Claude in an isolated worktree named feature-auth, letting Claude Code create the worktree for you.",
+          "accepted": ["claude --worktree feature-auth", "claude -w feature-auth"],
+          "hint": "claude --worktree <name>",
+          "explanation": "`--worktree` creates the folder and starts Claude in it in one step, so you skip the manual add and cd."
+        },
+        {
+          "id": "u10-l2-e4",
+          "type": "terminal",
+          "prompt": "List all worktrees for this repository.",
+          "accepted": ["git worktree list"],
+          "hint": "git worktree <subcommand>: the one that lists.",
+          "explanation": "With several parallel sessions it's easy to lose track, and `git worktree list` shows every folder and its branch."
         },
         {
           "id": "u10-l2-e10",
           "type": "prompt-workshop",
           "scenario": "You need parseDuration(\"1h30m\") to return 5400 (seconds). Kick off a TDD loop with Claude.",
           "files": ["src/time.ts", "tests/time.test.ts"],
-          "sample": "We're doing TDD. Write tests in @tests/time.test.ts for parseDuration in @src/time.ts: \"1h30m\" -> 5400, \"45s\" -> 45, \"2h\" -> 7200, and invalid input throws. Don't write the implementation yet. Run the tests, confirm they fail, and commit them. Then implement parseDuration until all tests pass without modifying the tests.",
+          "sample": "Context: we need parseDuration in @src/time.ts to turn strings like \"1h30m\" into seconds, and we're doing TDD. Goal: write tests in @tests/time.test.ts first: \"1h30m\" -> 5400, \"45s\" -> 45, \"2h\" -> 7200, and invalid input throws. Constraints: don't write the implementation yet. Run the tests, confirm they fail, and commit them. Then implement parseDuration without modifying the tests. Done when every test passes and the implementation is committed separately from the tests.",
           "keywords": ["tests", "fail", "parseDuration", "implementation", "commit"],
-          "explanation": "Concrete examples, a 'tests first' instruction and a 'don't modify tests' rule make a tight TDD prompt."
+          "explanation": "Concrete examples, a tests-first rule and a 'don't modify tests' constraint give Claude a target it can't quietly move."
         }
       ]
     }

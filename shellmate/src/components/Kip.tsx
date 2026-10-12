@@ -29,18 +29,16 @@ const PUPIL: Record<KipMood, [number, number]> = {
 
 function Claw({ x, y, angle, wave = false }: { x: number; y: number; angle: number; wave?: boolean }) {
   return (
-    <g transform={`translate(${x} ${y})`}>
-      <motion.g
-        initial={{ rotate: angle }}
-        animate={wave ? { rotate: [angle, angle - 18, angle] } : { rotate: angle }}
-        transition={wave ? { duration: 0.9, repeat: Infinity, ease: 'easeInOut' } : { type: 'spring', stiffness: 200 }}
-        style={{ originX: '0px', originY: '0px' }}
-      >
+    <g transform={`translate(${x} ${y}) rotate(${angle})`} style={{ transition: 'transform .3s' }}>
+      <g>
+        {wave && (
+          <animateTransform attributeName="transform" type="rotate" values="0;-18;0" dur="0.9s" repeatCount="indefinite" />
+        )}
         <line x1="0" y1="0" x2="0" y2="-14" stroke={BODY_DARK} strokeWidth="8" strokeLinecap="round" />
         <line x1="0" y1="0" x2="0" y2="-14" stroke={BODY} strokeWidth="4.5" strokeLinecap="round" />
         <ellipse cx="-3" cy="-24" rx="7.5" ry="10.5" transform="rotate(-14 -3 -24)" fill={SHELL} stroke={SHELL_DARK} strokeWidth="2.2" />
         <ellipse cx="6.5" cy="-25" rx="3.6" ry="7.5" transform="rotate(22 6.5 -25)" fill={SHELL} stroke={SHELL_DARK} strokeWidth="2.2" />
-      </motion.g>
+      </g>
     </g>
   );
 }
@@ -97,7 +95,6 @@ function Sparkle({ x, y, delay, color }: { x: number; y: number; delay: number; 
       initial={{ opacity: 0, scale: 0.4 }}
       animate={{ opacity: [0, 1, 0], scale: [0.4, 1.15, 0.4] }}
       transition={{ duration: 1.2, repeat: Infinity, delay }}
-      style={{ originX: `${x}px`, originY: `${y}px` }}
     />
   );
 }
@@ -167,18 +164,17 @@ export default function Kip({ mood = 'happy', size = 120, className }: Props) {
         <ellipse cx="55" cy="91" rx="30" ry="15" fill={BODY} stroke={BODY_DARK} strokeWidth="2.5" />
 
         {/* eye stalks */}
-        <motion.g
-          animate={mood === 'thinking' ? { rotate: [0, 3, 0] } : { rotate: 0 }}
-          transition={{ duration: 2, repeat: mood === 'thinking' ? Infinity : 0 }}
-          style={{ originX: '53px', originY: '80px' }}
-        >
+        <g>
+          {mood === 'thinking' && (
+            <animateTransform attributeName="transform" type="rotate" values="0 53 82;4 53 82;0 53 82" dur="2s" repeatCount="indefinite" />
+          )}
           <path d={`M47 82 L41 ${mood === 'sad' ? 52 : 46}`} stroke={BODY_DARK} strokeWidth="7" strokeLinecap="round" />
           <path d={`M47 82 L41 ${mood === 'sad' ? 52 : 46}`} stroke={BODY} strokeWidth="4" strokeLinecap="round" />
           <path d={`M60 81 L63 ${mood === 'sad' ? 50 : 44}`} stroke={BODY_DARK} strokeWidth="7" strokeLinecap="round" />
           <path d={`M60 81 L63 ${mood === 'sad' ? 50 : 44}`} stroke={BODY} strokeWidth="4" strokeLinecap="round" />
           <Eye cx={40} cy={mood === 'sad' ? 46 : 40} mood={mood} />
           <Eye cx={64} cy={mood === 'sad' ? 44 : 38} mood={mood} wink={mood === 'encourage'} />
-        </motion.g>
+        </g>
 
         {/* cheeks + mouth */}
         {mood !== 'sad' && mood !== 'thinking' && (

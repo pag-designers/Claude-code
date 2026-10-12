@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+/* Dark by default; `.light` on <html> switches the palette. */
+@custom-variant light (&:where(.light, .light *));
+
+:root {
+  --bg: #0f1115;
+  --surface: #181b22;
+  --surface-2: #20242d;
+  --border: #2a2f3a;
+  --text: #e9ecf2;
+  --muted: #8b93a5;
+  --primary: #ff7a45;
+  --primary-dark: #d4561f;
+  --success: #3ddc84;
+  --success-dark: #22a85e;
+  --error: #ff5c6c;
+  --error-dark: #c9364a;
+  --gold: #ffc83d;
+  --gold-dark: #c99412;
+  --code-bg: #0b0d10;
+}
+:root.light {
+  --bg: #f7f5f2;
+  --surface: #ffffff;
+  --surface-2: #f0ede8;
+  --border: #e2ddd5;
+  --text: #1d2029;
+  --muted: #6b7180;
+  --code-bg: #1a1d24;
+}
+
+@theme {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--border);
+  --color-ink: var(--text);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-success: var(--success);
+  --color-success-dark: var(--success-dark);
+  --color-error: var(--error);
+  --color-error-dark: var(--error-dark);
+  --color-gold: var(--gold);
+  --color-gold-dark: var(--gold-dark);
+  --color-code: var(--code-bg);
+  --font-sans: "Nunito", ui-rounded, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Chunky Duolingo-style 3D button. Set --btn and --btn-dark (or use variants). */
+@layer components {
+  .btn3d {
+    --btn: var(--primary);
+    --btn-dark: var(--primary-dark);
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 font-extrabold uppercase tracking-wide select-none transition-[transform,border-width,margin] duration-75 disabled:cursor-not-allowed;
+    background: var(--btn);
+    color: #10131a;
+    border-bottom: 4px solid var(--btn-dark);
+  }
+  .btn3d:active:not(:disabled) { transform: translateY(2px); border-bottom-width: 2px; margin-bottom: 2px; }
+  .btn3d:disabled { --btn: var(--surface-2); --btn-dark: var(--border); color: var(--muted); }
+  .btn3d-success { --btn: var(--success); --btn-dark: var(--success-dark); }
+  .btn3d-error { --btn: var(--error); --btn-dark: var(--error-dark); }
+  .btn3d-gold { --btn: var(--gold); --btn-dark: var(--gold-dark); }
+  .btn3d-ghost { --btn: var(--surface); --btn-dark: var(--border); color: var(--text); border: 2px solid var(--border); border-bottom-width: 4px; }
+
+  /* Selectable tile / option card */
+  .tile {
+    @apply rounded-2xl border-2 border-b-4 px-4 py-3 text-left font-bold transition-colors duration-100 select-none;
+    background: var(--surface);
+    border-color: var(--border);
+  }
+  .tile:active:not(:disabled) { transform: translateY(2px); border-bottom-width: 2px; }
+  .tile-selected { border-color: #4aa8ff; background: color-mix(in srgb, #4aa8ff 14%, var(--surface)); color: #8cc8ff; }
+  .light .tile-selected { color: #1f74c4; }
+  .tile-correct { border-color: var(--success); background: color-mix(in srgb, var(--success) 14%, var(--surface)); color: var(--success); }
+  .tile-wrong { border-color: var(--error); background: color-mix(in srgb, var(--error) 14%, var(--surface)); color: var(--error); }
+
+  .card { @apply rounded-3xl border-2 p-4; background: var(--surface); border-color: var(--border); }
+  .chip { @apply rounded-xl border-2 border-b-4 px-3 py-1.5 font-mono text-sm font-semibold select-none; background: var(--surface); border-color: var(--border); }
+}
+
+@keyframes flicker {
+  0%, 100% { transform: scale(1) rotate(-2deg); filter: drop-shadow(0 0 4px #ff7a45aa); }
+  50% { transform: scale(1.08) rotate(2deg); filter: drop-shadow(0 0 8px #ffc83daa); }
+}
+.flame-flicker { animation: flicker 1.4s ease-in-out infinite; transform-origin: 50% 90%; }
+
+@keyframes blink { 50% { opacity: 0; } }
+.cursor-blink { animation: blink 1s step-end infinite; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }

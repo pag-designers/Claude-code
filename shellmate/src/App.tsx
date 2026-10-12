@@ -1,3 +1,4 @@
+import { GlossaryPopup } from './components/Glossary';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect } from 'react';
 import BottomNav from './components/BottomNav';
@@ -99,6 +100,7 @@ export default function App() {
         </>
       )}
       <ToastHost />
+      <GlossaryPopup />
     </div>
   );
 }

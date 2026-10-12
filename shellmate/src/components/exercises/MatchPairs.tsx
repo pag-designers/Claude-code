@@ -1,3 +1,4 @@
+import { renderInline } from '../RichText';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { ExerciseProps, MatchPairsExercise } from '../../types';
@@ -82,7 +83,7 @@ export function MatchPairs({ exercise, locked, onReady }: ExerciseProps<MatchPai
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-lg font-bold text-ink">{exercise.prompt}</p>
+      <p className="text-lg font-bold text-ink">{renderInline(exercise.prompt)}</p>
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-3">{leftOrder.map((i) => renderTile('left', i))}</div>
         <div className="flex flex-col gap-3">{rightOrder.map((i) => renderTile('right', i))}</div>

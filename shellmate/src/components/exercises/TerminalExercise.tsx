@@ -1,3 +1,4 @@
+import { renderInline } from '../RichText';
 import Hint from './Hint';
 import { useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
@@ -21,7 +22,7 @@ export function TerminalExercise({ exercise, locked, onReady }: ExerciseProps<Te
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-lg font-bold text-ink">{exercise.prompt}</p>
+      <p className="text-lg font-bold text-ink">{renderInline(exercise.prompt)}</p>
 
       <motion.div
         animate={result ? (result.correct ? BOUNCE : SHAKE) : {}}

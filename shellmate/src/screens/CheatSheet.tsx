@@ -2,12 +2,14 @@ import { useMemo, useState } from 'react';
 import { CheckIcon, CopyIcon, SearchIcon } from '../components/Icons';
 import Kip from '../components/Kip';
 import { units } from '../content';
+import { glossary } from '../lib/glossary';
 import { isUnitStarted } from '../lib/progress';
 import { useGame } from '../store/useGame';
 import type { CheatItem } from '../types';
 
-const KINDS: { id: CheatItem['kind'] | 'all'; label: string }[] = [
+const KINDS: { id: CheatItem['kind'] | 'all' | 'abbr'; label: string }[] = [
   { id: 'all', label: 'All' },
+  { id: 'abbr', label: 'Abbreviations' },
   { id: 'command', label: 'Commands' },
   { id: 'slash', label: 'Slash' },
   { id: 'shortcut', label: 'Shortcuts' },
@@ -30,10 +32,21 @@ export default function CheatSheet() {
     .map((u) => ({
       unit: u,
       items: u.cheatsheet.filter(
-        (c) => (kind === 'all' || c.kind === kind) && (!q || c.term.toLowerCase().includes(q) || c.description.toLowerCase().includes(q)),
+        (c) => kind !== 'abbr' && (kind === 'all' || c.kind === kind) && (!q || c.term.toLowerCase().includes(q) || c.description.toLowerCase().includes(q)),
       ),
     }))
     .filter((g) => g.items.length > 0);
+
+  const abbreviations =
+    kind === 'abbr'
+      ? glossary.filter(
+          (g) =>
+            !q ||
+            g.term.toLowerCase().includes(q) ||
+            (g.full ?? '').toLowerCase().includes(q) ||
+            g.meaning.toLowerCase().includes(q),
+        )
+      : [];
 
   const copy = async (term: string) => {
     try {
@@ -45,12 +58,17 @@ export default function CheatSheet() {
     window.setTimeout(() => setCopied((c) => (c === term ? null : c)), 1500);
   };
 
-  if (unlocked.length === 0) {
+  if (unlocked.length === 0 && kind !== 'abbr') {
     return (
       <div className="flex flex-col items-center px-6 pt-14 text-center">
         <Kip mood="thinking" size={150} />
         <h1 className="mt-5 text-2xl font-black">Your cheat sheet is empty</h1>
         <p className="mt-2 font-semibold text-muted">Finish your first lesson and Kip will start jotting down commands for you here.</p>
+        {glossary.length > 0 && (
+          <button className="btn3d btn3d-ghost mt-6" onClick={() => setKind('abbr')}>
+            Browse abbreviations
+          </button>
+        )}
       </div>
     );
   }
@@ -67,7 +85,7 @@ export default function CheatSheet() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search commands, flags, files…"
+          placeholder={kind === 'abbr' ? 'Search abbreviations…' : 'Search commands, flags, files…'}
           className="w-full bg-transparent font-semibold outline-none placeholder:text-muted"
         />
       </label>
@@ -86,7 +104,27 @@ export default function CheatSheet() {
         ))}
       </div>
 
-      {groups.length === 0 && <div className="card mt-5 text-center font-semibold text-muted">No matches. Try another search.</div>}
+      {kind === 'abbr' && (
+        <section className="mt-5">
+          <p className="mb-3 text-sm font-semibold text-muted">
+            Every abbreviation used in the lessons. Tip: in a lesson, tap any word with a dotted underline to see this.
+          </p>
+          {abbreviations.length === 0 && <div className="card text-center font-semibold text-muted">No matches. Try another search.</div>}
+          <ul className="flex flex-col gap-2">
+            {abbreviations.map((g) => (
+              <li key={g.term} className="card rounded-2xl p-3">
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <code className="font-mono text-[0.95rem] font-bold text-primary">{g.term}</code>
+                  {g.full && <span className="font-black">= {g.full}</span>}
+                </div>
+                <p className="mt-0.5 text-sm font-semibold text-muted">{g.meaning}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {kind !== 'abbr' && groups.length === 0 && <div className="card mt-5 text-center font-semibold text-muted">No matches. Try another search.</div>}
 
       {groups.map(({ unit, items }) => (
         <section key={unit.id} className="mt-6">

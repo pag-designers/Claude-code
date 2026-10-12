@@ -1,3 +1,4 @@
+import { renderInline } from '../RichText';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Reorder, motion } from 'framer-motion';
@@ -32,7 +33,7 @@ export function OrderSteps({ exercise, locked, onReady }: ExerciseProps<OrderSte
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-lg font-bold text-ink">{exercise.prompt}</p>
+      <p className="text-lg font-bold text-ink">{renderInline(exercise.prompt)}</p>
       {!locked && <p className="-mt-2 text-sm text-muted">Drag the steps, or use the arrows.</p>}
       <Reorder.Group axis="y" values={order} onReorder={locked ? () => {} : setOrder} className="flex flex-col gap-2.5">
         {order.map((stepIdx, pos) => {

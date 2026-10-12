@@ -1,3 +1,4 @@
+import { renderInline } from '../RichText';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { ExerciseProps, MultipleChoiceExercise } from '../../types';
@@ -23,7 +24,7 @@ export function MultipleChoice({ exercise, locked, onReady }: ExerciseProps<Mult
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-lg font-bold text-ink">{exercise.prompt}</p>
+      <p className="text-lg font-bold text-ink">{renderInline(exercise.prompt)}</p>
       <div className="flex flex-col gap-3">
         {exercise.options.map((opt, i) => {
           const isSel = selected === i;
@@ -58,7 +59,7 @@ export function MultipleChoice({ exercise, locked, onReady }: ExerciseProps<Mult
               >
                 {i + 1}
               </span>
-              <span className="flex-1 break-words">{opt}</span>
+              <span className="flex-1 break-words">{renderInline(opt, { glossary: false })}</span>
             </motion.button>
           );
         })}

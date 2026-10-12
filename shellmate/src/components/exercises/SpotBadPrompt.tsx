@@ -1,3 +1,4 @@
+import { renderInline } from '../RichText';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { ExerciseProps, SpotBadPromptExercise } from '../../types';
@@ -25,7 +26,7 @@ export function SpotBadPrompt({ exercise, locked, onReady }: ExerciseProps<SpotB
         <span className="text-2xl" aria-hidden>
           🎯
         </span>
-        <p className="font-bold text-ink">{exercise.prompt}</p>
+        <p className="font-bold text-ink">{renderInline(exercise.prompt)}</p>
       </div>
       <p className="text-sm font-bold text-muted uppercase tracking-wide">Which prompt is better?</p>
       <div className="flex flex-col gap-4">

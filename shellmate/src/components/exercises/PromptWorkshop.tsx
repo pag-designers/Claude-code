@@ -1,3 +1,4 @@
+import { renderInline } from '../RichText';
 import { useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { ExerciseProps, PromptWorkshopExercise } from '../../types';
@@ -43,7 +44,7 @@ export function PromptWorkshop({ exercise, locked, onReady }: ExerciseProps<Prom
         <span className="text-2xl" aria-hidden>
           🛠️
         </span>
-        <p className="font-bold leading-snug text-ink">{exercise.scenario}</p>
+        <p className="font-bold leading-snug text-ink">{renderInline(exercise.scenario)}</p>
       </div>
 
       {!locked && exercise.files && exercise.files.length > 0 && (

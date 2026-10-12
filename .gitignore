@@ -1,0 +1,16 @@
+# secrets
+.env
+
+# python
+.venv/
+__pycache__/
+*.pyc
+
+# node
+node_modules/
+
+# big generated media — cached downloads/transcripts and rendered clips
+data/
+output/
+
+.DS_Store

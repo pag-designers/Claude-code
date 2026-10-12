@@ -1,0 +1,522 @@
+{
+  "id": "u4",
+  "order": 4,
+  "title": "Context Management",
+  "description": "Keep Claude's working memory clean, focused, and affordable.",
+  "color": "#ffc83d",
+  "lessons": [
+    {
+      "id": "u4-l1",
+      "title": "The Context Window",
+      "description": "Why long sessions get worse over time.",
+      "theory": [
+        {
+          "title": "Claude's desk has limited space",
+          "body": "Everything in a session (your messages, Claude's replies, files it read, command output) piles into the **context window**. It's big, but finite.\n\nAs a session runs long, old and irrelevant content **crowds out** what matters now. Claude may lose track of earlier decisions or get distracted by stale details, and every turn costs more tokens.\n\nKip's rule: a tidy shell is a fast shell."
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u4-l1-e1",
+          "type": "multiple-choice",
+          "prompt": "Why does a very long session tend to degrade?",
+          "options": [
+            "Claude gets tired",
+            "Irrelevant earlier content crowds the limited context window",
+            "The terminal runs out of scrollback",
+            "Your API key slowly expires"
+          ],
+          "answer": 1,
+          "explanation": "Stale content competes for attention and space in the context window."
+        },
+        {
+          "id": "u4-l1-e2",
+          "type": "match-pairs",
+          "prompt": "Which of these consume context?",
+          "pairs": [
+            {
+              "left": "Your prompts",
+              "right": "Yes, every message"
+            },
+            {
+              "left": "Files Claude reads",
+              "right": "Yes, their contents"
+            },
+            {
+              "left": "Long test output",
+              "right": "Yes, often a lot"
+            },
+            {
+              "left": "CLAUDE.md",
+              "right": "Yes, loaded every session"
+            }
+          ],
+          "explanation": "Everything Claude sees during a session takes up room in its context window."
+        },
+        {
+          "id": "u4-l1-e3",
+          "type": "multiple-choice",
+          "prompt": "Two hours into a session, Claude starts mixing up details from an earlier, unrelated task. What's the likely cause?",
+          "options": [
+            "A bug in your code",
+            "Old, unrelated context still in the conversation",
+            "Your CLAUDE.md is too short",
+            "The network is slow"
+          ],
+          "answer": 1,
+          "explanation": "Leftovers from a previous task can confuse the current one."
+        },
+        {
+          "id": "u4-l1-e4",
+          "type": "spot-bad-prompt",
+          "prompt": "You only need Claude to check one failing test. Which request is more context-friendly?",
+          "options": [
+            "Run the entire test suite with verbose logging and show me everything.",
+            "Run only the failing test in src/cart/total.test.ts and summarize why it fails."
+          ],
+          "better": 1,
+          "explanation": "Targeted commands keep huge, irrelevant output out of the context window."
+        },
+        {
+          "id": "u4-l1-e5",
+          "type": "order-steps",
+          "prompt": "Order how a session typically drifts.",
+          "steps": [
+            "Session starts focused on one task",
+            "You add an unrelated side task",
+            "Lots of logs and files pile up",
+            "Context fills with stale details",
+            "Answers get less focused"
+          ],
+          "explanation": "Mixing tasks and piling up output is how context quality slowly erodes."
+        },
+        {
+          "id": "u4-l1-e6",
+          "type": "terminal",
+          "promptSymbol": ">",
+          "prompt": "Check how full your context window is right now.",
+          "accepted": [
+            "/context"
+          ],
+          "hint": "The command shares its name with the thing you're inspecting.",
+          "explanation": "/context visualizes how your context window is being used."
+        }
+      ]
+    },
+    {
+      "id": "u4-l2",
+      "title": "Fresh Starts with /clear",
+      "description": "One task, one clean conversation.",
+      "theory": [
+        {
+          "title": "Wipe the whiteboard",
+          "body": "`/clear` **wipes the conversation history** so you start with an empty context, while staying in the same session and project. Your `CLAUDE.md` still loads, so Claude keeps its project briefing.\n\nMake it a habit: **finished a task? `/clear` before the next one.** Unrelated history only gets in the way.",
+          "code": "> (bug fixed and committed)\n> /clear\n> Now add a CSV export to @src/reports/"
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u4-l2-e1",
+          "type": "terminal",
+          "promptSymbol": ">",
+          "prompt": "You just finished a bug fix. Wipe the conversation before starting an unrelated feature.",
+          "accepted": [
+            "/clear"
+          ],
+          "hint": "Like clearing a whiteboard.",
+          "explanation": "/clear empties the conversation history so the next task starts clean."
+        },
+        {
+          "id": "u4-l2-e2",
+          "type": "multiple-choice",
+          "prompt": "After /clear, what does Claude still know about your project?",
+          "options": [
+            "Nothing at all, ever again",
+            "Everything from the cleared conversation",
+            "What's in CLAUDE.md, plus whatever it reads anew",
+            "Only the last message"
+          ],
+          "answer": 2,
+          "explanation": "The conversation is gone, but memory files still give Claude its project briefing."
+        },
+        {
+          "id": "u4-l2-e3",
+          "type": "multiple-choice",
+          "prompt": "When is /clear the WRONG move?",
+          "options": [
+            "Between two unrelated tasks",
+            "Mid-task, when Claude still needs details from this conversation",
+            "After committing a finished feature",
+            "When Claude is confused by old context"
+          ],
+          "answer": 1,
+          "explanation": "Clearing mid-task throws away context you still need; consider /compact instead."
+        },
+        {
+          "id": "u4-l2-e4",
+          "type": "order-steps",
+          "prompt": "Order a clean task-by-task workflow.",
+          "steps": [
+            "Describe task A and let Claude implement it",
+            "Verify and commit task A",
+            "Run /clear",
+            "Describe task B with full context in the prompt"
+          ],
+          "explanation": "Finishing, committing, then clearing keeps each task in a focused conversation."
+        },
+        {
+          "id": "u4-l2-e5",
+          "type": "spot-bad-prompt",
+          "prompt": "You ran /clear and now want to continue a refactor you planned earlier. Which prompt works?",
+          "options": [
+            "Continue the refactor we discussed.",
+            "Refactor @src/api/client.ts to use the fetch wrapper in @src/lib/http.ts; keep the exported function names unchanged."
+          ],
+          "better": 1,
+          "explanation": "After /clear Claude has no memory of the earlier chat, so the prompt must stand on its own."
+        },
+        {
+          "id": "u4-l2-e6",
+          "type": "match-pairs",
+          "prompt": "Match the situation to the move.",
+          "pairs": [
+            {
+              "left": "Starting an unrelated task",
+              "right": "/clear"
+            },
+            {
+              "left": "Same task, context getting full",
+              "right": "/compact"
+            },
+            {
+              "left": "Back tomorrow on yesterday's work",
+              "right": "claude --continue"
+            }
+          ],
+          "explanation": "Clear for new tasks, compact to keep going, continue to come back later."
+        },
+        {
+          "id": "u4-l2-e7",
+          "type": "fill-blank",
+          "prompt": "Complete the habit.",
+          "code": "Finished a task? Commit it, then run /___ before the next one.",
+          "blanks": [
+            "clear"
+          ],
+          "wordBank": [
+            "clear",
+            "exit",
+            "init",
+            "reset",
+            "memory"
+          ],
+          "language": "markdown",
+          "explanation": "/clear between tasks keeps each conversation focused."
+        }
+      ]
+    },
+    {
+      "id": "u4-l3",
+      "title": "Squeeze with /compact",
+      "description": "Summarize history and keep going.",
+      "theory": [
+        {
+          "title": "Keep the gist, drop the bulk",
+          "body": "`/compact` **summarizes the conversation** so far and replaces the history with that summary, freeing up context while keeping the important bits.\n\nGive it focus instructions to steer what's kept: `/compact keep the API design decisions and the failing test list`.\n\nClaude Code also **auto-compacts** when you get close to the context limit, but compacting yourself at a natural breakpoint gives you control over what survives.",
+          "code": "> /compact focus on the database schema decisions"
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u4-l3-e1",
+          "type": "terminal",
+          "promptSymbol": ">",
+          "prompt": "Summarize the conversation to free up context while staying on the same task.",
+          "accepted": [
+            "/compact"
+          ],
+          "hint": "Make it smaller.",
+          "explanation": "/compact replaces the history with a summary so you can keep working with more room."
+        },
+        {
+          "id": "u4-l3-e2",
+          "type": "terminal",
+          "promptSymbol": ">",
+          "prompt": "Compact the conversation with the focus instruction: focus on the auth flow decisions",
+          "accepted": [
+            "/compact focus on the auth flow decisions",
+            "/compact keep the auth flow decisions",
+            "/compact auth flow decisions"
+          ],
+          "hint": "Add your instructions after the command.",
+          "explanation": "Text after /compact tells Claude what to prioritize in the summary."
+        },
+        {
+          "id": "u4-l3-e3",
+          "type": "multiple-choice",
+          "prompt": "What's the key difference between /clear and /compact?",
+          "options": [
+            "/clear keeps a summary, /compact deletes everything",
+            "/compact keeps a summary of the history, /clear removes it",
+            "They're identical",
+            "/compact exits the session"
+          ],
+          "answer": 1,
+          "explanation": "/compact preserves the gist for continued work, while /clear starts from an empty conversation."
+        },
+        {
+          "id": "u4-l3-e4",
+          "type": "multiple-choice",
+          "prompt": "What happens if you never compact and the context approaches its limit?",
+          "options": [
+            "The session crashes and is lost",
+            "Claude Code auto-compacts the conversation",
+            "Claude stops responding forever",
+            "Old messages are emailed to you"
+          ],
+          "answer": 1,
+          "explanation": "Auto-compact kicks in near the limit, but manual compaction lets you choose what's kept."
+        },
+        {
+          "id": "u4-l3-e5",
+          "type": "fill-blank",
+          "prompt": "Steer the summary.",
+          "code": "> /___ keep the list of ___ tests and the chosen fix",
+          "blanks": [
+            "compact",
+            "failing"
+          ],
+          "wordBank": [
+            "compact",
+            "failing",
+            "clear",
+            "passing",
+            "init"
+          ],
+          "language": "bash",
+          "explanation": "Focus instructions after /compact protect the details you still need."
+        },
+        {
+          "id": "u4-l3-e6",
+          "type": "order-steps",
+          "prompt": "Order a smart mid-task compaction.",
+          "steps": [
+            "Notice the session is long but the task isn't done",
+            "Reach a natural checkpoint, like tests passing",
+            "Run /compact with focus instructions",
+            "Continue the task with freed-up context"
+          ],
+          "explanation": "Compacting at a checkpoint with focus keeps what matters and drops the noise."
+        },
+        {
+          "id": "u4-l3-e7",
+          "type": "spot-bad-prompt",
+          "prompt": "You're mid-migration and context is getting heavy. Which command keeps the most useful information?",
+          "options": [
+            "/compact",
+            "/compact keep the migration plan, completed steps, and remaining TODOs"
+          ],
+          "better": 1,
+          "explanation": "Specific focus instructions make sure the summary keeps the plan and progress."
+        }
+      ]
+    },
+    {
+      "id": "u4-l4",
+      "title": "Know Your Usage",
+      "description": "/context, /cost, and /usage.",
+      "theory": [
+        {
+          "title": "Look at the gauges",
+          "body": "`/context` shows a **visual breakdown** of what's filling your context window: system prompt, tools, memory files, messages.\n\n`/cost` shows **token usage and cost** for the current session (most relevant for API users).\n\n`/usage` shows your **plan's usage limits** if you're on a subscription.\n\nCheck the gauges before a big task, not after you've hit the wall."
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u4-l4-e1",
+          "type": "terminal",
+          "promptSymbol": ">",
+          "prompt": "You're paying per token through the API. Check this session's token usage and cost.",
+          "accepted": [
+            "/cost"
+          ],
+          "hint": "What does it cost?",
+          "explanation": "/cost reports token usage and cost for the current session."
+        },
+        {
+          "id": "u4-l4-e2",
+          "type": "terminal",
+          "promptSymbol": ">",
+          "prompt": "You're on a subscription plan. Check your plan's usage limits.",
+          "accepted": [
+            "/usage"
+          ],
+          "hint": "How much have you used?",
+          "explanation": "/usage shows plan usage limits for subscribers."
+        },
+        {
+          "id": "u4-l4-e3",
+          "type": "match-pairs",
+          "prompt": "Match the command to what it shows.",
+          "pairs": [
+            {
+              "left": "/context",
+              "right": "What's filling the context window"
+            },
+            {
+              "left": "/cost",
+              "right": "Session tokens and cost"
+            },
+            {
+              "left": "/usage",
+              "right": "Plan usage limits"
+            },
+            {
+              "left": "/compact",
+              "right": "Summarizes history to free space"
+            }
+          ],
+          "explanation": "Three gauges and one action: look, then act."
+        },
+        {
+          "id": "u4-l4-e4",
+          "type": "multiple-choice",
+          "prompt": "/context shows your memory files take a surprising share of the window. What's a good fix?",
+          "options": [
+            "Delete Claude Code",
+            "Trim CLAUDE.md to high-signal lines and use imports wisely",
+            "Run /cost repeatedly",
+            "Paste the files into chat instead"
+          ],
+          "answer": 1,
+          "explanation": "Memory loads every session, so a lean CLAUDE.md saves context everywhere."
+        },
+        {
+          "id": "u4-l4-e5",
+          "type": "multiple-choice",
+          "prompt": "Which habit reduces token usage the most over a day?",
+          "options": [
+            "One giant session for every task",
+            "/clear between unrelated tasks and precise prompts",
+            "Asking Claude to repeat its answers",
+            "Running verbose logs for every command"
+          ],
+          "answer": 1,
+          "explanation": "Smaller, focused conversations mean every turn sends less history."
+        },
+        {
+          "id": "u4-l4-e6",
+          "type": "order-steps",
+          "prompt": "Order a context check before a big refactor.",
+          "steps": [
+            "Run /context to see how full the window is",
+            "Decide whether earlier history still matters",
+            "Run /clear or /compact accordingly",
+            "Start the refactor with a focused prompt"
+          ],
+          "explanation": "Checking first lets you start big work with plenty of room."
+        },
+        {
+          "id": "u4-l4-e7",
+          "type": "prompt-workshop",
+          "scenario": "You just ran /clear after finishing a bug fix. Next task: add rate limiting to the login endpoint. Write a self-contained prompt, since Claude no longer has the earlier conversation.",
+          "files": [
+            "src/routes/auth.ts",
+            "src/middleware/rateLimit.ts"
+          ],
+          "sample": "Add rate limiting to POST /login in @src/routes/auth.ts using the existing middleware in @src/middleware/rateLimit.ts: max 5 attempts per IP per 15 minutes, returning 429 with a Retry-After header. Don't change other routes. Add tests; done when npm test passes.",
+          "keywords": [
+            "rate",
+            "limit",
+            "login",
+            "429",
+            "middleware",
+            "tests"
+          ],
+          "explanation": "A fresh context needs a self-contained prompt with files, limits, and a definition of done."
+        },
+        {
+          "id": "u4-l4-e8",
+          "type": "fill-blank",
+          "prompt": "Pick the right gauge for each question.",
+          "code": "> /___    # What's in my context window?\n> /___    # What has this session cost?",
+          "blanks": [
+            "context",
+            "cost"
+          ],
+          "wordBank": [
+            "context",
+            "cost",
+            "clear",
+            "memory",
+            "init"
+          ],
+          "language": "bash",
+          "explanation": "/context shows window usage while /cost shows session spend."
+        }
+      ]
+    }
+  ],
+  "mission": {
+    "id": "u4-mission",
+    "type": "mission",
+    "title": "Context Keeper",
+    "intro": "Run a real session with deliberate context hygiene and watch the gauges move.",
+    "checklist": [
+      "Start a session, do a small task, then run /context and note how full it is",
+      "Run /compact with a focus instruction and check /context again",
+      "Commit your work, run /clear, and start an unrelated task with a self-contained prompt",
+      "Check /cost (API) or /usage (subscription) at the end of the session"
+    ],
+    "bonusXp": 30,
+    "badge": "context-keeper",
+    "explanation": "Clearing between tasks and compacting with focus keeps Claude sharp and your usage low."
+  },
+  "cheatsheet": [
+    {
+      "term": "Context window",
+      "description": "Everything Claude sees this session; finite, so keep it relevant.",
+      "kind": "concept"
+    },
+    {
+      "term": "/clear",
+      "description": "Wipe conversation history; start the next task fresh.",
+      "kind": "slash"
+    },
+    {
+      "term": "/compact",
+      "description": "Summarize history to free context and keep working.",
+      "kind": "slash"
+    },
+    {
+      "term": "/compact <focus>",
+      "description": "Tell the summary what to keep.",
+      "kind": "slash"
+    },
+    {
+      "term": "Auto-compact",
+      "description": "Happens automatically near the context limit.",
+      "kind": "concept"
+    },
+    {
+      "term": "/context",
+      "description": "Visualize what's using your context window.",
+      "kind": "slash"
+    },
+    {
+      "term": "/cost",
+      "description": "Show token usage and cost for this session.",
+      "kind": "slash"
+    },
+    {
+      "term": "/usage",
+      "description": "Show plan usage limits for subscribers.",
+      "kind": "slash"
+    },
+    {
+      "term": "One task, one conversation",
+      "description": "Clear between unrelated tasks to avoid drift.",
+      "kind": "concept"
+    }
+  ]
+}

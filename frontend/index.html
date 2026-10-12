@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clipper</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%E2%9C%82%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+<header class="top">
+  <a href="#/" class="brand">✂︎ Clipper</a>
+  <div class="top-right">
+    <label class="campaign-pick">Campaign
+      <select id="campaignSelect"><option value="">— none —</option></select>
+    </label>
+    <span id="keyBadge" class="badge"></span>
+  </div>
+</header>
+
+<main id="app"></main>
+
+<!-- Home -->
+<template id="tpl-home">
+  <section class="hero">
+    <h1>Long video in. Paid-ready clips out.</h1>
+    <form id="urlForm" class="url-row">
+      <input id="urlInput" type="url" placeholder="Paste a YouTube / video URL…" required>
+      <button class="primary" type="submit">Find clips</button>
+      <label class="upload ghost">Upload file<input id="fileInput" type="file" accept="video/*" hidden></label>
+    </form>
+    <p class="muted small" id="homeMsg"></p>
+  </section>
+  <section class="grid2">
+    <div class="panel">
+      <h2>Campaign requirements</h2>
+      <p class="muted small">Paste a Whop campaign's requirements. They're parsed into rules every clip is checked against.</p>
+      <input id="campName" placeholder="Campaign name (optional)">
+      <textarea id="campBrief" rows="7" placeholder="e.g. Clips 30-60s. Must mention Acme. Use #acme #ad and tag @acmeapp. English only. No profanity or politics. Captions required."></textarea>
+      <button id="campParse" class="primary">Parse rules</button>
+      <div id="campResult"></div>
+      <div id="campList" class="camp-list"></div>
+    </div>
+    <div class="panel">
+      <h2>Your videos</h2>
+      <div id="videoList" class="video-list"></div>
+    </div>
+  </section>
+</template>
+
+<!-- Video -->
+<template id="tpl-video">
+  <section class="video-head">
+    <div>
+      <a href="#/" class="muted small">← all videos</a>
+      <h1 id="vTitle"></h1>
+      <div class="muted small" id="vMeta"></div>
+    </div>
+    <div class="head-actions">
+      <span id="vCost" class="badge"></span>
+      <button id="reclip" class="ghost">Re-run AI clipping</button>
+    </div>
+  </section>
+  <div id="vProgress" class="progress hidden"><div class="bar"><span></span></div><div class="msg"></div></div>
+  <nav class="tabs">
+    <button data-tab="clips" class="active">Clips</button>
+    <button data-tab="moments">Find moments</button>
+    <button data-tab="transcript">Transcript</button>
+  </nav>
+  <section id="tab-clips">
+    <div class="toolbar">
+      <div class="muted small" id="clipCount"></div>
+      <div class="toolbar-right">
+        <select id="sortBy"><option value="score">Sort: viral score</option><option value="time">Sort: timeline</option><option value="compliance">Sort: compliance</option></select>
+        <button id="checkCamp" class="ghost">Check campaign rules</button>
+      </div>
+    </div>
+    <div id="clips" class="clip-grid"></div>
+  </section>
+  <section id="tab-moments" class="hidden">
+    <form id="momentForm" class="url-row">
+      <input id="momentQuery" placeholder='Search inside the video: "funny moments", "when he talks about debt"…' required>
+      <button class="primary">Search</button>
+    </form>
+    <div id="moments" class="moment-list"></div>
+  </section>
+  <section id="tab-transcript" class="hidden">
+    <p class="muted small">Click a sentence to start a selection, shift-click to end it, then make a clip from it (works without the API key).</p>
+    <div class="toolbar"><span id="selInfo" class="muted small"></span><button id="makeClip" class="primary" disabled>Make clip from selection</button></div>
+    <div id="transcript" class="transcript"></div>
+  </section>
+  <div id="bulkBar" class="bulk hidden">
+    <span id="bulkCount"></span>
+    <label>Variants <select id="bulkVariants"><option>1</option><option>2</option><option selected>3</option></select></label>
+    <button id="bulkExport" class="primary">Export selected</button>
+  </div>
+</template>
+
+<!-- Editor drawer -->
+<div id="drawer" class="drawer hidden">
+  <div class="drawer-inner">
+    <button class="close" id="drawerClose" aria-label="Close">✕</button>
+    <div class="editor">
+      <div class="phone-col">
+        <div class="phone"><video id="pv" controls playsinline></video></div>
+        <div class="pv-actions">
+          <button id="playSource" class="ghost small-btn">Play source</button>
+          <button id="renderPreview" class="primary small-btn">Render 9:16 preview</button>
+        </div>
+        <div id="pvMsg" class="muted small center"></div>
+      </div>
+      <div class="edit-col">
+        <input id="eTitle" class="title-input">
+        <div class="muted small" id="eMeta"></div>
+        <div id="eScore"></div>
+        <h3>Hook text <span class="muted small">(first seconds, on screen)</span></h3>
+        <input id="eHook" maxlength="80">
+        <h3>Caption style</h3>
+        <div id="eStyles" class="chips"></div>
+        <h3>Layout</h3>
+        <div id="eLayouts" class="chips"></div>
+        <h3>Transcript <span class="muted small">click words to cut them · <span id="eDur"></span></span></h3>
+        <div class="nudge">
+          <span>Start</span><button data-nudge="start,-1">− sentence</button><button data-nudge="start,1">+ sentence</button>
+          <span>End</span><button data-nudge="end,-1">− sentence</button><button data-nudge="end,1">+ sentence</button>
+        </div>
+        <div id="eWords" class="words"></div>
+        <div class="row-gap">
+          <button id="eSave" class="primary">Save edits</button>
+          <button id="eRestore" class="ghost">Restore all words</button>
+          <button id="eDelete" class="ghost danger">Delete clip</button>
+        </div>
+        <h3>Campaign check</h3>
+        <div id="eChecks" class="muted small">Pick a campaign at the top and press “Check campaign rules”.</div>
+        <h3>Originality variants</h3>
+        <button id="eVariants" class="ghost">Generate 3 variants + platform captions</button>
+        <div id="eVariantList" class="variants"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

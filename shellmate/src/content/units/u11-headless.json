@@ -12,57 +12,49 @@
       "theory": [
         {
           "title": "Print mode",
-          "body": "`claude -p \"query\"` (long form `--print`) runs Claude **non-interactively**: it does the task, prints the result, and exits.\n\nIt reads **stdin**, so you can pipe data in and redirect the answer out like any Unix tool.\n\nIt exits with code `0` on success and non-zero on failure, so scripts can branch on it. Kip calls this \"going headless\" (the shell stays on).",
-          "code": "claude -p \"What does the auth module do?\"\n\ncat build-error.txt | claude -p \"concisely explain the root cause\" > output.txt\n\n# keep going in the most recent conversation\nclaude -c -p \"Now check for type errors\""
+          "body": "`claude -p \"query\"` (long form `--print`) runs Claude **non-interactively**: it does the task, prints the result, and exits. No chat window, no follow-up questions. Kip calls this \"going headless\" (the shell stays on).\n\nPut the prompt in quotes right after `-p` so the shell passes it as one piece of text.\n\nAdd `-c` (long form `--continue`) to send a follow-up to your **most recent conversation** instead of starting a new one.\n\nWhen it finishes, `claude -p` gives an **exit code**: `0` means success, anything else means it failed. Scripts check this number to decide what to do next.",
+          "code": "# one question, one answer\nclaude -p \"What does the auth module do?\"\n\n# follow up in the most recent conversation\nclaude -c -p \"Now check for type errors\""
         },
         {
-          "title": "Output formats",
-          "body": "`--output-format` controls the shape of the output:\n\n`text` (default): plain text.\n\n`json`: one JSON object with the answer in `result` plus metadata like `session_id` and `total_cost_usd`.\n\n`stream-json`: newline-delimited JSON events as they happen (pair it with `--verbose`).",
-          "code": "claude -p \"Summarize this project\" --output-format json | jq -r '.result'"
+          "title": "Pipes and redirects",
+          "body": "Command-line programs read input (**stdin**) and write output (**stdout**). Three symbols wire them together:\n\n`|` (pipe): send the output of the command on the left into the command on the right. `cat logs.txt` prints a file, so `cat logs.txt | claude -p \"...\"` hands that file to Claude.\n\n`< file`: feed a file in as input. Same effect as `cat file |`.\n\n`> file`: save the output to a file instead of printing it.",
+          "code": "# pipe a file in\ncat build-error.txt | claude -p \"explain the root cause\"\n\n# same thing with <\nclaude -p \"explain the root cause\" < build-error.txt\n\n# save the answer to output.txt\ncat build-error.txt | claude -p \"explain the root cause\" > output.txt"
+        },
+        {
+          "title": "Output formats and jq",
+          "body": "`--output-format` picks the shape of the output:\n\n`text` (default): plain text for humans.\n\n`json`: one JSON object. The answer is in the `result` field; there's also `session_id` and `total_cost_usd` (estimated spend).\n\n`stream-json`: one JSON event per line, live as the run happens (pair it with `--verbose`).\n\n`--json-schema` goes further: Claude's output is validated against a JSON schema you provide.\n\n`jq` is a small tool that pulls fields out of JSON: `jq -r '.result'` prints just the `result` field (`.result`), as raw text without quotes (`-r`).",
+          "code": "# the json output looks roughly like\n{ \"result\": \"This project is...\", \"session_id\": \"...\", \"total_cost_usd\": 0.01 }\n\n# keep only the answer text\nclaude -p \"Summarize this project\" --output-format json | jq -r '.result'"
         }
       ],
       "exercises": [
-        {
-          "id": "u11-l1-e1",
-          "type": "terminal",
-          "prompt": "Run Claude non-interactively with the prompt \"summarize this project\".",
-          "accepted": [
-            "claude -p \"summarize this project\"",
-            "claude --print \"summarize this project\""
-          ],
-          "hint": "claude plus the print flag, then the prompt in quotes.",
-          "explanation": "`-p` / `--print` runs a single prompt headlessly and prints the result."
-        },
-        {
-          "id": "u11-l1-e2",
-          "type": "terminal",
-          "prompt": "Pipe the contents of logs.txt into Claude with the prompt \"explain these errors\".",
-          "accepted": [
-            "cat logs.txt | claude -p \"explain these errors\"",
-            "cat logs.txt | claude --print \"explain these errors\"",
-            "claude -p \"explain these errors\" < logs.txt",
-            "claude --print \"explain these errors\" < logs.txt"
-          ],
-          "hint": "cat <file> | claude -p \"...\"",
-          "explanation": "Print mode reads stdin, so piped content becomes part of what Claude sees."
-        },
         {
           "id": "u11-l1-e3",
           "type": "multiple-choice",
           "prompt": "Which output format streams newline-delimited JSON events in real time?",
           "options": ["text", "json", "stream-json", "ndjson"],
           "answer": 2,
-          "explanation": "`--output-format stream-json` emits one JSON event per line as the run progresses."
+          "explanation": "`stream-json` sends each event as it happens, so a script can show progress instead of waiting for the final answer."
         },
         {
-          "id": "u11-l1-e4",
-          "type": "fill-blank",
-          "prompt": "Get JSON output and extract just the answer text with jq.",
-          "code": "claude -p \"Summarize this project\" --output-format ___ | jq -r '.___'",
-          "blanks": ["json", "result"],
-          "wordBank": ["json", "result", "text", "output", "yaml", "answer"],
-          "language": "bash",
-          "explanation": "With `--output-format json`, the response text lives in the `result` field."
+          "id": "u11-l1-e7",
+          "type": "multiple-choice",
+          "prompt": "In `--output-format json`, which field reports the estimated spend for the run?",
+          "options": ["price", "total_cost_usd", "tokens_spent", "bill"],
+          "answer": 1,
+          "explanation": "JSON output carries metadata like `total_cost_usd` next to the answer, so scripts can track spend without parsing text."
+        },
+        {
+          "id": "u11-l1-e8",
+          "type": "multiple-choice",
+          "prompt": "How can a shell script tell whether a `claude -p` run failed?",
+          "options": [
+            "Parse the word 'error' from the output",
+            "Check the exit code: 0 on success, non-zero on failure",
+            "It can't; claude -p always succeeds",
+            "Read ~/.claude/last-run.txt"
+          ],
+          "answer": 1,
+          "explanation": "Exit codes are how every command-line program reports success, so checking for 0 is more reliable than reading the text."
         },
         {
           "id": "u11-l1-e5",
@@ -74,7 +66,53 @@
             { "left": "--output-format stream-json", "right": "Newline-delimited JSON events" },
             { "left": "--json-schema", "right": "Output validated against a schema" }
           ],
-          "explanation": "Pick text for humans, json for scripts, stream-json for live progress, and --json-schema for a fixed shape."
+          "explanation": "Pick by who reads the output: text for humans, json for scripts, stream-json for live progress, --json-schema for a guaranteed shape."
+        },
+        {
+          "id": "u11-l1-e9",
+          "type": "spot-bad-prompt",
+          "prompt": "A script pipes a failed build log into Claude and saves the answer for the team.",
+          "options": [
+            "cat build.log | claude -p \"help\"",
+            "cat build.log | claude -p \"concisely explain the root cause of this build error and name the file to fix\""
+          ],
+          "better": 1,
+          "explanation": "Nobody can answer follow-up questions in a script, so the prompt itself must say exactly what output you want."
+        },
+        {
+          "id": "u11-l1-e4",
+          "type": "fill-blank",
+          "prompt": "Get JSON output and extract just the answer text with jq.",
+          "code": "claude -p \"Summarize this project\" --output-format ___ | jq -r '.___'",
+          "blanks": ["json", "result"],
+          "wordBank": ["json", "result", "text", "output", "yaml", "answer"],
+          "language": "bash",
+          "hint": "--output-format json, then jq -r '.<field>' where the answer field is named result.",
+          "explanation": "jq can only read JSON, so you ask for json output and then pick the `result` field, which is where the answer lives."
+        },
+        {
+          "id": "u11-l1-e1",
+          "type": "terminal",
+          "prompt": "Run Claude non-interactively with the prompt \"summarize this project\" (include the quotes).",
+          "accepted": [
+            "claude -p \"summarize this project\"",
+            "claude --print \"summarize this project\""
+          ],
+          "hint": "claude -p \"<prompt>\"",
+          "explanation": "`-p` makes Claude answer once and exit, which is what lets it run inside scripts with nobody watching."
+        },
+        {
+          "id": "u11-l1-e2",
+          "type": "terminal",
+          "prompt": "Use a pipe to send the contents of logs.txt into Claude with the prompt \"explain these errors\".",
+          "accepted": [
+            "cat logs.txt | claude -p \"explain these errors\"",
+            "cat logs.txt | claude --print \"explain these errors\"",
+            "claude -p \"explain these errors\" < logs.txt",
+            "claude --print \"explain these errors\" < logs.txt"
+          ],
+          "hint": "cat <file> | claude -p \"<prompt>\"",
+          "explanation": "Print mode reads stdin, so whatever you pipe in becomes part of what Claude sees alongside your prompt."
         },
         {
           "id": "u11-l1-e6",
@@ -88,40 +126,8 @@
             "claude -p \"Now focus on the database queries\" --continue",
             "claude -p \"Now focus on the database queries\" -c"
           ],
-          "hint": "Combine the continue flag with the print flag.",
-          "explanation": "`-c` / `--continue` works with `-p`, so a script can send follow-ups to the same conversation."
-        },
-        {
-          "id": "u11-l1-e7",
-          "type": "multiple-choice",
-          "prompt": "In `--output-format json`, which field reports the estimated spend for the run?",
-          "options": ["price", "total_cost_usd", "tokens_spent", "bill"],
-          "answer": 1,
-          "explanation": "The JSON payload includes `total_cost_usd`, a client-side estimate scripts can track."
-        },
-        {
-          "id": "u11-l1-e8",
-          "type": "multiple-choice",
-          "prompt": "How can a shell script tell whether a `claude -p` run failed?",
-          "options": [
-            "Parse the word 'error' from the output",
-            "Check the exit code: 0 on success, non-zero on failure",
-            "It can't; claude -p always succeeds",
-            "Read ~/.claude/last-run.txt"
-          ],
-          "answer": 1,
-          "explanation": "Claude Code exits 0 on success and non-zero when the run fails, so `if`/`&&` work as usual."
-        },
-        {
-          "id": "u11-l1-e9",
-          "type": "spot-bad-prompt",
-          "prompt": "A script pipes a failed build log into Claude and saves the answer for the team.",
-          "options": [
-            "cat build.log | claude -p \"help\"",
-            "cat build.log | claude -p \"concisely explain the root cause of this build error and name the file to fix\""
-          ],
-          "better": 1,
-          "explanation": "Nobody can answer follow-up questions in a script, so the prompt must say exactly what output you want."
+          "hint": "claude -c -p \"<prompt>\"",
+          "explanation": "`-c` keeps the earlier conversation as context, so a script can build on a previous answer instead of starting over."
         }
       ]
     },
@@ -132,50 +138,21 @@
       "theory": [
         {
           "title": "Guardrails for unattended runs",
-          "body": "Nobody is around to click \"allow\" in a script, so decide permissions up front.\n\n`--allowedTools` pre-approves tools, using permission rule syntax like `Bash(git diff *)`. `--disallowedTools` denies or removes them.\n\n`--max-turns N` caps agentic turns (print mode only). `--append-system-prompt` adds instructions while keeping Claude Code's defaults. `--bare` skips auto-discovered hooks, plugins, MCP servers and CLAUDE.md for reproducible CI runs.\n\nUse `--dangerously-skip-permissions` only inside an isolated container.",
-          "code": "claude -p \"Run the test suite and fix any failures\" \\\n  --allowedTools \"Bash,Read,Edit\" --max-turns 10"
+          "body": "Nobody is around to click \"allow\" in a script, so decide permissions up front:\n\n`--allowedTools \"Bash,Read,Edit\"`: these tools run without asking. You can narrow one with a rule like `Bash(git diff *)`. `--disallowedTools` denies or removes tools.\n\n`--max-turns 3`: stop after 3 agentic turns (print mode only), so a run can't go on forever.\n\n`--append-system-prompt \"...\"`: **adds** your instructions and keeps Claude Code's default system prompt. `--system-prompt` **replaces** the default entirely.\n\n`--bare`: skip auto-discovered hooks, plugins, MCP servers and CLAUDE.md for reproducible CI runs.\n\nUse `--dangerously-skip-permissions` only inside an isolated container.",
+          "code": "claude -p \"Run the test suite and fix any failures\" --allowedTools \"Bash,Read,Edit\"\n\nclaude -p \"fix the lint errors\" --max-turns 3"
+        },
+        {
+          "title": "Reading a script",
+          "body": "A few shell pieces show up in scripts:\n\n`\\` at the end of a line: the command continues on the next line. It's just for readability.\n\n`\"$1\"`: the first argument given to the script. Run `./review.sh 42` and `$1` is `42`.\n\n`gh pr diff 42`: print the diff of pull request 42 (GitHub CLI).\n\n`2>&1`: also send error messages into the pipe. Test runners often print failures as errors, which a plain `|` would skip.",
+          "code": "# review.sh: run as ./review.sh 42\ngh pr diff \"$1\" | claude -p \\\n  --append-system-prompt \"You are a test engineer. List missing tests.\" \\\n  --output-format json\n\n# include error output in the pipe\nnpm test 2>&1 | claude -p \"summarize the failures\""
         },
         {
           "title": "Claude in GitHub Actions",
-          "body": "The `anthropics/claude-code-action` runs Claude in your workflows. Mention `@claude` in an issue or PR comment and it gets to work.\n\nFastest setup: run `/install-github-app` inside a session. It installs the Claude GitHub App, saves your key as a repo secret (like `ANTHROPIC_API_KEY`), and prepares the workflow PR.\n\nPass CLI flags through the `claude_args` input.",
-          "code": "- uses: anthropics/claude-code-action@v1\n  with:\n    anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}\n    claude_args: \"--max-turns 5\""
+          "body": "The `anthropics/claude-code-action` runs Claude in GitHub's automation (workflows). Mention `@claude` in an issue or PR comment and it gets to work.\n\nFastest setup: run `/install-github-app` inside a session. It installs the Claude GitHub App, saves your key as a repo secret (like `ANTHROPIC_API_KEY`), and prepares the workflow PR.\n\nWorkflows are written in **YAML**: `key: value` pairs, where indentation shows what belongs inside what, and `- ` starts a list item. `uses:` names the action as `owner/name@version`. `with:` gives it inputs. `${{ secrets.NAME }}` inserts a secret without writing it in the file. CLI flags go in `claude_args`.",
+          "code": "- uses: anthropics/claude-code-action@v1   # which action, version 1\n  with:                                     # its inputs:\n    anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}\n    claude_args: \"--max-turns 5\"            # normal CLI flags"
         }
       ],
       "exercises": [
-        {
-          "id": "u11-l2-e1",
-          "type": "terminal",
-          "prompt": "Headlessly run the prompt \"Run the test suite and fix any failures\", pre-approving the tools \"Bash,Read,Edit\".",
-          "accepted": [
-            "claude -p \"Run the test suite and fix any failures\" --allowedTools \"Bash,Read,Edit\"",
-            "claude --print \"Run the test suite and fix any failures\" --allowedTools \"Bash,Read,Edit\"",
-            "claude -p \"Run the test suite and fix any failures\" --allowed-tools \"Bash,Read,Edit\"",
-            "claude --print \"Run the test suite and fix any failures\" --allowed-tools \"Bash,Read,Edit\""
-          ],
-          "hint": "claude -p \"...\" --allowedTools \"...\"",
-          "explanation": "`--allowedTools` lets listed tools run without a permission prompt, which a script can't answer."
-        },
-        {
-          "id": "u11-l2-e2",
-          "type": "terminal",
-          "prompt": "Headlessly run the prompt \"fix the lint errors\", limited to 3 agentic turns.",
-          "accepted": [
-            "claude -p \"fix the lint errors\" --max-turns 3",
-            "claude --print \"fix the lint errors\" --max-turns 3"
-          ],
-          "hint": "--max-turns N",
-          "explanation": "`--max-turns` caps how many agentic turns a print-mode run can take before it stops with an error."
-        },
-        {
-          "id": "u11-l2-e3",
-          "type": "fill-blank",
-          "prompt": "Complete review.sh: security-review a PR diff and return JSON.",
-          "code": "gh pr diff \"$1\" | claude ___ \\\n  --___ \"You are a security engineer. Review for vulnerabilities.\" \\\n  --output-format ___",
-          "blanks": ["-p", "append-system-prompt", "json"],
-          "wordBank": ["-p", "append-system-prompt", "json", "-w", "max-turns", "markdown"],
-          "language": "bash",
-          "explanation": "Print mode reads the piped diff, `--append-system-prompt` adds the reviewer role, and json makes it scriptable."
-        },
         {
           "id": "u11-l2-e4",
           "type": "multiple-choice",
@@ -187,29 +164,7 @@
             "--system-prompt adds text to the end of every user message"
           ],
           "answer": 1,
-          "explanation": "Appending preserves the default tool and safety guidance; replacing drops all of it."
-        },
-        {
-          "id": "u11-l2-e5",
-          "type": "match-pairs",
-          "prompt": "Match each flag to its job in a script.",
-          "pairs": [
-            { "left": "--allowedTools", "right": "Pre-approve specific tools" },
-            { "left": "--disallowedTools", "right": "Deny or remove tools" },
-            { "left": "--max-turns", "right": "Cap agentic turns" },
-            { "left": "--bare", "right": "Skip local config, start faster" },
-            { "left": "--append-system-prompt", "right": "Add extra system instructions" }
-          ],
-          "explanation": "These flags make unattended runs predictable: what Claude may do, how long, and with which instructions."
-        },
-        {
-          "id": "u11-l2-e6",
-          "type": "terminal",
-          "prompt": "Inside a session, start the quick setup for Claude in GitHub Actions.",
-          "promptSymbol": ">",
-          "accepted": ["/install-github-app"],
-          "hint": "It installs the GitHub App.",
-          "explanation": "`/install-github-app` installs the app, saves the secret, and prepares the workflow PR."
+          "explanation": "Appending keeps the default tool and safety guidance Claude relies on, while replacing drops all of it."
         },
         {
           "id": "u11-l2-e7",
@@ -222,7 +177,42 @@
             "Whenever the repo has tests"
           ],
           "answer": 2,
-          "explanation": "It skips every permission check, so only use it where mistakes can't touch real systems or secrets."
+          "explanation": "It skips every permission check, so it's only safe where a mistake can't reach real files, systems or secrets."
+        },
+        {
+          "id": "u11-l2-e5",
+          "type": "match-pairs",
+          "prompt": "Match each flag to its job in a script.",
+          "pairs": [
+            { "left": "--allowedTools", "right": "Pre-approve specific tools" },
+            { "left": "--disallowedTools", "right": "Deny or remove tools" },
+            { "left": "--max-turns", "right": "Cap agentic turns" },
+            { "left": "--bare", "right": "Skip local config, start faster" },
+            { "left": "--append-system-prompt", "right": "Add extra system instructions" }
+          ],
+          "explanation": "With no human watching, these flags decide in advance what Claude may do, for how long, and under which instructions."
+        },
+        {
+          "id": "u11-l2-e3",
+          "type": "fill-blank",
+          "prompt": "Complete review.sh: security-review a PR diff and return JSON.",
+          "code": "gh pr diff \"$1\" | claude ___ \\\n  --___ \"You are a security engineer. Review for vulnerabilities.\" \\\n  --output-format ___",
+          "blanks": ["-p", "append-system-prompt", "json"],
+          "wordBank": ["-p", "append-system-prompt", "json", "-w", "max-turns", "markdown"],
+          "language": "bash",
+          "hint": "Same shape as review.sh in the theory: claude -p, --append-system-prompt \"role\", --output-format json.",
+          "explanation": "`-p` is what lets Claude read the piped diff, the appended prompt sets the reviewer role, and json makes the result easy for scripts to use."
+        },
+        {
+          "id": "u11-l2-e9",
+          "type": "fill-blank",
+          "prompt": "Complete the workflow step.",
+          "code": "- uses: anthropics/___@v1\n  with:\n    anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}\n    claude_args: \"--___ 5\"",
+          "blanks": ["claude-code-action", "max-turns"],
+          "wordBank": ["claude-code-action", "max-turns", "claude-cli", "setup-claude", "max-tokens"],
+          "language": "yaml",
+          "hint": "uses: owner/name@version. claude_args holds normal CLI flags, like the one that caps turns.",
+          "explanation": "`uses` must name the real action, anthropics/claude-code-action, and claude_args takes the same flags as the CLI, so --max-turns caps the run."
         },
         {
           "id": "u11-l2-e8",
@@ -235,26 +225,49 @@
             "Create and merge the workflow pull request it prepares",
             "Mention @claude in an issue or PR comment"
           ],
-          "explanation": "Setup needs gh first; once the workflow PR is merged, @claude mentions trigger runs."
+          "explanation": "The setup talks to GitHub through gh, and the workflow only runs once its PR is merged, so @claude comes last."
         },
         {
-          "id": "u11-l2-e9",
-          "type": "fill-blank",
-          "prompt": "Complete the workflow step.",
-          "code": "- uses: anthropics/___@v1\n  with:\n    anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}\n    claude_args: \"--___ 5\"",
-          "blanks": ["claude-code-action", "max-turns"],
-          "wordBank": ["claude-code-action", "max-turns", "claude-cli", "setup-claude", "max-tokens"],
-          "language": "yaml",
-          "explanation": "The action is anthropics/claude-code-action, and CLI flags like --max-turns go in claude_args."
+          "id": "u11-l2-e1",
+          "type": "terminal",
+          "prompt": "Headlessly run the prompt \"Run the test suite and fix any failures\", pre-approving the tools \"Bash,Read,Edit\" (keep both quoted).",
+          "accepted": [
+            "claude -p \"Run the test suite and fix any failures\" --allowedTools \"Bash,Read,Edit\"",
+            "claude --print \"Run the test suite and fix any failures\" --allowedTools \"Bash,Read,Edit\"",
+            "claude -p \"Run the test suite and fix any failures\" --allowed-tools \"Bash,Read,Edit\"",
+            "claude --print \"Run the test suite and fix any failures\" --allowed-tools \"Bash,Read,Edit\""
+          ],
+          "hint": "claude -p \"<prompt>\" --allowedTools \"<Tool,Tool,Tool>\"",
+          "explanation": "A script can't answer permission prompts, so `--allowedTools` approves the needed tools before the run starts."
+        },
+        {
+          "id": "u11-l2-e2",
+          "type": "terminal",
+          "prompt": "Headlessly run the prompt \"fix the lint errors\", limited to 3 agentic turns.",
+          "accepted": [
+            "claude -p \"fix the lint errors\" --max-turns 3",
+            "claude --print \"fix the lint errors\" --max-turns 3"
+          ],
+          "hint": "claude -p \"<prompt>\" --max-turns <N>",
+          "explanation": "Capping turns stops an unattended run that's going in circles before it burns time and money."
+        },
+        {
+          "id": "u11-l2-e6",
+          "type": "terminal",
+          "prompt": "Inside a session, type the slash command that starts the quick setup for Claude in GitHub Actions.",
+          "promptSymbol": ">",
+          "accepted": ["/install-github-app"],
+          "hint": "/install-<platform>-app",
+          "explanation": "`/install-github-app` does the app install, secret and workflow PR for you, so you don't have to write the YAML by hand."
         },
         {
           "id": "u11-l2-e10",
           "type": "prompt-workshop",
           "scenario": "A nightly CI job pipes `npm test` output into `claude -p`. Write the prompt so the report is useful with nobody around to ask follow-ups.",
           "files": ["package.json"],
-          "sample": "npm test 2>&1 | claude -p \"These are CI test results. For each failing test, give the test name, the likely root cause in one sentence, and the file to look at. Output Markdown bullets only. If every test passed, print exactly: ALL GREEN\"",
+          "sample": "npm test 2>&1 | claude -p \"Context: these are tonight's CI test results; the test script is defined in @package.json. Goal: for each failing test, give the test name, the likely root cause in one sentence, and the file to look at. Constraints: don't edit any files; output Markdown bullets only, no intro text. Done: one bullet per failing test, or if every test passed, print exactly: ALL GREEN\"",
           "keywords": ["failing", "root cause", "file", "output", "test"],
-          "explanation": "Headless prompts must define the exact output format, including what to print when there's nothing to report."
+          "explanation": "Nobody can ask follow-ups in CI, so a headless prompt must define the exact output, including what to print when there's nothing to report."
         }
       ]
     }

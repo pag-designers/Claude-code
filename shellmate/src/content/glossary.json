@@ -1,0 +1,778 @@
+[
+  {
+    "term": "!",
+    "full": "exclamation mark (bash mode)",
+    "meaning": "Start a line with ! inside Claude to run a shell command yourself; its output lands in the conversation."
+  },
+  {
+    "term": "#",
+    "full": "hash",
+    "meaning": "In Markdown, # plus a space starts a heading. In shell scripts and terminal examples, text after # is a note for humans that is ignored."
+  },
+  {
+    "term": "#!",
+    "full": "shebang",
+    "meaning": "The first line of a script, like #!/bin/bash, telling the computer which program runs the script."
+  },
+  {
+    "term": "$",
+    "full": "dollar sign",
+    "meaning": "Shown before a command as the terminal prompt (don't type it). Inside commands, $ reads a variable's value, like $CMD."
+  },
+  {
+    "term": "$(",
+    "meaning": "$( ... ) runs the command inside the brackets and uses its output as a value, e.g. CMD=$(jq ...)."
+  },
+  {
+    "term": "$1",
+    "meaning": "In a shell script, the first argument given to it. Run ./review.sh 42 and $1 is 42."
+  },
+  {
+    "term": "$ARGUMENTS",
+    "meaning": "In a custom command or skill file, a placeholder replaced by whatever you type after the command name."
+  },
+  {
+    "term": "$CLAUDE_PROJECT_DIR",
+    "meaning": "The $ reads the value of CLAUDE_PROJECT_DIR: the path to your project folder. Used in hook commands to point at scripts inside the project."
+  },
+  {
+    "term": "$CMD",
+    "full": "command",
+    "meaning": "Reads the value stored in the CMD variable: here, the shell command Claude is about to run."
+  },
+  {
+    "term": "${{",
+    "meaning": "In GitHub workflow files, ${{ ... }} inserts a value, like ${{ secrets.NAME }} which inserts a stored secret without writing it in the file."
+  },
+  {
+    "term": "&&",
+    "full": "and",
+    "meaning": "Joins two commands: run the second only if the first succeeded."
+  },
+  {
+    "term": "*",
+    "full": "asterisk (wildcard)",
+    "meaning": "Matches anything. Bash(npm run *) matches any command that starts with npm run."
+  },
+  {
+    "term": "**",
+    "full": "double asterisk",
+    "meaning": "In file patterns: any files in any subfolder, at any depth. Read(./docs/**) covers everything inside docs."
+  },
+  {
+    "term": "+x",
+    "full": "add execute permission",
+    "meaning": "With chmod: lets the file be run as a program."
+  },
+  {
+    "term": "--",
+    "meaning": "On its own, it means 'end of options': everything after it belongs to the command that follows, not to claude. E.g. claude mcp add name -- npx ..."
+  },
+  {
+    "term": "---",
+    "meaning": "Three dashes on their own line mark the start and end of the YAML frontmatter block at the top of a Markdown file."
+  },
+  {
+    "term": "-20",
+    "meaning": "With git log: show only the last 20 commits."
+  },
+  {
+    "term": "-b",
+    "full": "new branch",
+    "meaning": "With git worktree add: create a new branch with the name that follows, e.g. -b feature-a."
+  },
+  {
+    "term": "-c",
+    "full": "--continue",
+    "meaning": "With claude: reopen your most recent conversation in this folder."
+  },
+  {
+    "term": "-e",
+    "full": "--env",
+    "meaning": "With claude mcp add: pass a setting (environment variable) to the server, written KEY=value."
+  },
+  {
+    "term": "-f",
+    "full": "--flag",
+    "meaning": "A placeholder showing the short form of a flag: one dash and one letter, versus two dashes and a word for the long form."
+  },
+  {
+    "term": "-fsSL",
+    "meaning": "Four curl options together: fail on server errors, stay silent, but still show errors, and follow redirects. Common in install commands."
+  },
+  {
+    "term": "-g",
+    "full": "--global",
+    "meaning": "With npm install: install the program for your whole computer, so the command works in every folder."
+  },
+  {
+    "term": "-p",
+    "full": "--print",
+    "meaning": "With claude: answer one prompt, print the result and exit (headless mode). With mkdir: also create any missing parent folders."
+  },
+  {
+    "term": "-q",
+    "full": "--quiet",
+    "meaning": "With grep: print nothing, just report whether a match was found."
+  },
+  {
+    "term": "-r",
+    "full": "--resume",
+    "meaning": "With claude: open a picker of past sessions, or a specific one by ID. With jq: print raw text without quotes. With pnpm: run in every package of the project (recursive)."
+  },
+  {
+    "term": "-rf",
+    "meaning": "With rm: -r (recursive) deletes folders and everything inside, -f (force) never asks. rm -rf deletes permanently with no confirmation."
+  },
+  {
+    "term": "-t",
+    "full": "--transport",
+    "meaning": "With claude mcp add: choose how Claude connects to the server (http, stdio or sse)."
+  },
+  {
+    "term": "-w",
+    "full": "--worktree",
+    "meaning": "With claude: start in a new isolated worktree (a separate working copy of the repo)."
+  },
+  {
+    "term": "..",
+    "full": "dot dot",
+    "meaning": "The folder one level up (the parent folder). cd .. moves up one level."
+  },
+  {
+    "term": "../",
+    "full": "dot dot slash",
+    "meaning": "Start of a path in the parent folder, e.g. ../project-feature-a is a sibling folder."
+  },
+  {
+    "term": "./",
+    "full": "dot slash",
+    "meaning": "The current folder, at the start of a path. In permission rules it means the project folder; ./review.sh runs a script from here."
+  },
+  {
+    "term": ".claude",
+    "meaning": "A hidden folder (the dot hides it) holding Claude Code settings, commands, skills, agents and hooks."
+  },
+  {
+    "term": ".css",
+    "full": "Cascading Style Sheets",
+    "meaning": "A file that controls how a web page looks: colors, sizes, layout."
+  },
+  {
+    "term": ".env",
+    "full": "environment",
+    "meaning": "A file that holds secret settings like passwords and API keys. It should never be shared or read by tools that don't need it."
+  },
+  {
+    "term": ".js",
+    "full": "JavaScript",
+    "meaning": "A JavaScript code file."
+  },
+  {
+    "term": ".json",
+    "full": "JavaScript Object Notation",
+    "meaning": "A JSON file: structured data in { } and [ ]. Claude Code settings live in .json files."
+  },
+  {
+    "term": ".log",
+    "meaning": "A log file: a record of what a program printed while it ran."
+  },
+  {
+    "term": ".mcp.json",
+    "meaning": "The project file that lists MCP servers shared with the team (project scope)."
+  },
+  {
+    "term": ".md",
+    "full": "Markdown",
+    "meaning": "A Markdown file: plain text with simple formatting like # for headings. CLAUDE.md and SKILL.md are Markdown."
+  },
+  {
+    "term": ".py",
+    "full": "Python",
+    "meaning": "A Python code file."
+  },
+  {
+    "term": ".sh",
+    "full": "shell",
+    "meaning": "A shell script: a text file of terminal commands run in order."
+  },
+  {
+    "term": ".ts",
+    "full": "TypeScript",
+    "meaning": "A TypeScript code file. TypeScript is JavaScript with labels for what kind of data each value holds."
+  },
+  {
+    "term": ".tsx",
+    "full": "TypeScript XML",
+    "meaning": "A TypeScript file that also describes screen parts (components) using HTML-like tags, common in React apps."
+  },
+  {
+    "term": ".txt",
+    "full": "text",
+    "meaning": "A plain text file."
+  },
+  {
+    "term": ".yml",
+    "full": "YAML",
+    "meaning": "A YAML settings file, like docker-compose.yml or a GitHub workflow."
+  },
+  {
+    "term": "2>&1",
+    "meaning": "Sends error messages (stderr) into the same stream as normal output, so a pipe captures both."
+  },
+  {
+    "term": "755",
+    "meaning": "With chmod: a number code meaning you can read, write and run the file, and everyone else can read and run it."
+  },
+  {
+    "term": ":*",
+    "meaning": "An older way to write a wildcard at the end of a command rule: Bash(ls:*) means the same as Bash(ls *)."
+  },
+  {
+    "term": "<",
+    "full": "less-than (redirect)",
+    "meaning": "< file feeds a file into a command as its input. In patterns like <name>, the angle brackets mark a placeholder you replace."
+  },
+  {
+    "term": ">",
+    "full": "greater-than (redirect)",
+    "meaning": "After a command, > file saves the output into that file. At the start of a line, > is just the prompt where you type inside a Claude session."
+  },
+  {
+    "term": ">&2",
+    "meaning": "Sends what echo prints to stderr (the error channel) instead of normal output. In a hook, that text is shown to Claude as the reason."
+  },
+  {
+    "term": "@",
+    "full": "at sign",
+    "meaning": "In a Claude prompt, @ points at a file or folder so Claude reads it, e.g. @src/app.ts. In package names it marks an owner or version."
+  },
+  {
+    "term": "@latest",
+    "meaning": "Asks for the newest version of a package, e.g. npx @playwright/mcp@latest."
+  },
+  {
+    "term": "@v1",
+    "meaning": "In a GitHub workflow, picks version 1 of an action, e.g. anthropics/claude-code-action@v1."
+  },
+  {
+    "term": "AI",
+    "full": "Artificial Intelligence",
+    "meaning": "Software that can understand and produce language, images or decisions in a human-like way. Claude is an AI."
+  },
+  {
+    "term": "ANTHROPIC_API_KEY",
+    "meaning": "The name of the setting (environment variable) that holds your secret Anthropic API key, the password that lets a program use Claude on your account."
+  },
+  {
+    "term": "API",
+    "full": "Application Programming Interface",
+    "meaning": "A fixed set of requests one program can send to another to get data or make it do something. A web app's API is how other code talks to it."
+  },
+  {
+    "term": "APIs",
+    "full": "Application Programming Interfaces",
+    "meaning": "Plural of API: fixed sets of requests programs use to talk to each other."
+  },
+  {
+    "term": "args",
+    "full": "arguments",
+    "meaning": "The extra words given to a command that tell it what to work on. In MCP settings, \"args\" lists them for the server's launch command."
+  },
+  {
+    "term": "ARGUMENTS",
+    "meaning": "Part of $ARGUMENTS, the placeholder for what you type after a custom command's name."
+  },
+  {
+    "term": "auth",
+    "full": "authentication",
+    "meaning": "Checking who a user is, such as logging in. gh auth login signs you in to GitHub."
+  },
+  {
+    "term": "aws",
+    "full": "Amazon Web Services",
+    "meaning": "Amazon's cloud platform, and its command-line tool."
+  },
+  {
+    "term": "Bash",
+    "meaning": "Claude's built-in tool for running terminal commands. Permission rules like Bash(npm test) control which commands it may run."
+  },
+  {
+    "term": "bash",
+    "full": "Bourne Again SHell",
+    "meaning": "A common shell: the program that reads and runs what you type in a terminal. 'Bash mode' (!) runs a command yourself inside Claude."
+  },
+  {
+    "term": "brew",
+    "full": "Homebrew",
+    "meaning": "Homebrew, a popular tool for installing programs on a Mac from the terminal."
+  },
+  {
+    "term": "camelCase",
+    "meaning": "Writing joined words with each new word capitalized except the first, like acceptEdits. Claude Code values must match this exactly."
+  },
+  {
+    "term": "cat",
+    "full": "concatenate",
+    "meaning": "A command that prints a file's contents, e.g. cat logs.txt."
+  },
+  {
+    "term": "cd",
+    "full": "change directory",
+    "meaning": "A command that moves you into another folder. cd .. goes up one level."
+  },
+  {
+    "term": "chmod",
+    "full": "change mode",
+    "meaning": "A command that changes a file's permissions, e.g. chmod +x lets a script run."
+  },
+  {
+    "term": "CI",
+    "full": "Continuous Integration",
+    "meaning": "An automatic system that runs your tests and checks every time code is pushed, without a person starting it. GitHub Actions is one example."
+  },
+  {
+    "term": "CLAUDE_PROJECT_DIR",
+    "meaning": "A setting (environment variable) Claude Code fills in with the path of your project folder, so hook scripts can find files no matter where they run."
+  },
+  {
+    "term": "CLI",
+    "full": "Command-Line Interface",
+    "meaning": "A program you control by typing commands in a terminal instead of clicking buttons. Claude Code and gh are CLIs."
+  },
+  {
+    "term": "CMD",
+    "full": "command",
+    "meaning": "A variable name chosen in the example hook script to hold the command Claude wants to run. $CMD reads its value."
+  },
+  {
+    "term": "codegen",
+    "full": "code generation",
+    "meaning": "A script that writes code automatically from another source; generated files shouldn't be edited by hand."
+  },
+  {
+    "term": "config",
+    "full": "configuration",
+    "meaning": "Settings that control how a program behaves."
+  },
+  {
+    "term": "cp",
+    "full": "copy",
+    "meaning": "A command that copies a file."
+  },
+  {
+    "term": "CSV",
+    "full": "Comma-Separated Values",
+    "meaning": "A simple spreadsheet file format: plain text where each line is a row and commas separate the columns."
+  },
+  {
+    "term": "Ctrl",
+    "full": "Control",
+    "meaning": "The Control key. Ctrl+C means hold Control and press C."
+  },
+  {
+    "term": "curl",
+    "full": "client URL",
+    "meaning": "A command that downloads or sends data to a web address from the terminal."
+  },
+  {
+    "term": "DB",
+    "full": "database",
+    "meaning": "Short for database: an organized store of data an app reads from and writes to."
+  },
+  {
+    "term": "db",
+    "full": "database",
+    "meaning": "Short for database. In the content it is also used as a name, like the db MCP server or the db service in docker compose."
+  },
+  {
+    "term": "dev",
+    "full": "development",
+    "meaning": "The version of an app you run on your own machine while building it, e.g. npm run dev starts the dev server."
+  },
+  {
+    "term": "diff",
+    "full": "difference",
+    "meaning": "A view of exactly what changed in files: removed lines and added lines. git diff shows your uncommitted changes."
+  },
+  {
+    "term": "dir",
+    "full": "directory",
+    "meaning": "Another word for folder."
+  },
+  {
+    "term": "e.g.",
+    "full": "exempli gratia (Latin)",
+    "meaning": "Means 'for example'."
+  },
+  {
+    "term": "echo",
+    "meaning": "A command that prints the text you give it."
+  },
+  {
+    "term": "Esc",
+    "full": "Escape",
+    "meaning": "The Escape key, top-left on most keyboards. In Claude Code it stops Claude mid-turn; pressing it twice opens the rewind menu."
+  },
+  {
+    "term": "fi",
+    "meaning": "Closes an if block in a shell script ('if' spelled backwards)."
+  },
+  {
+    "term": "frontmatter",
+    "meaning": "A settings block at the top of a Markdown file, between two --- lines, written as key: value pairs."
+  },
+  {
+    "term": "ftp",
+    "full": "File Transfer Protocol",
+    "meaning": "An old way to move files between computers. Not an MCP transport."
+  },
+  {
+    "term": "GET",
+    "meaning": "The type of web request that asks a server to send data back, like loading a page. GET /users means 'fetch the list of users'."
+  },
+  {
+    "term": "gh",
+    "full": "GitHub",
+    "meaning": "GitHub's official command-line tool, used for things like opening pull requests (gh pr create)."
+  },
+  {
+    "term": "git",
+    "meaning": "The version-control tool that tracks every change to your project's files, so you can review, save (commit) and undo work."
+  },
+  {
+    "term": "Glob",
+    "meaning": "Claude's built-in tool for finding files by name pattern, like every .ts file (a 'glob' is a pattern with wildcards such as *)."
+  },
+  {
+    "term": "GraphQL",
+    "full": "Graph Query Language",
+    "meaning": "A way for apps to ask a server for exactly the data they need in one request, an alternative to REST."
+  },
+  {
+    "term": "Grep",
+    "meaning": "Claude's built-in tool for searching inside files for text, named after the grep command."
+  },
+  {
+    "term": "grep",
+    "full": "global regular expression print",
+    "meaning": "A command that searches text for a pattern. Also the name of Claude's built-in search tool, Grep."
+  },
+  {
+    "term": "HTTP",
+    "full": "HyperText Transfer Protocol",
+    "meaning": "The basic set of rules browsers and servers use to send data over the web. For MCP, HTTP is the recommended way to connect to remote servers."
+  },
+  {
+    "term": "http",
+    "full": "HyperText Transfer Protocol",
+    "meaning": "Lowercase spelling used as a value, like --transport http: connect to a remote MCP server over the web. Also the start of web addresses."
+  },
+  {
+    "term": "https",
+    "full": "HyperText Transfer Protocol Secure",
+    "meaning": "The secure, encrypted version of http, seen at the start of web addresses like https://claude.ai."
+  },
+  {
+    "term": "ID",
+    "full": "identifier",
+    "meaning": "A unique code that names one specific thing, like the ID of a past session you can pass to --resume."
+  },
+  {
+    "term": "IP",
+    "full": "Internet Protocol (address)",
+    "meaning": "Short for IP address: the number that identifies a device on the internet. 'Per IP' means counted separately for each visitor's device."
+  },
+  {
+    "term": "jq",
+    "meaning": "A small command-line tool for reading JSON and pulling out fields, e.g. jq -r '.result'."
+  },
+  {
+    "term": "JS",
+    "full": "JavaScript",
+    "meaning": "A programming language that runs websites and many tools. Files end in .js."
+  },
+  {
+    "term": "JSON",
+    "full": "JavaScript Object Notation",
+    "meaning": "A plain-text format for structured data: { } holds key/value pairs and [ ] holds lists. Claude Code's settings files are JSON."
+  },
+  {
+    "term": "json",
+    "full": "JavaScript Object Notation",
+    "meaning": "Lowercase spelling used as a value, like --output-format json: give the answer as structured JSON data instead of plain text."
+  },
+  {
+    "term": "KB",
+    "full": "kilobyte",
+    "meaning": "A unit of file size, about a thousand characters of text."
+  },
+  {
+    "term": "KEY=value",
+    "meaning": "The pattern for setting an environment variable: a name, an equals sign, and its value."
+  },
+  {
+    "term": "lint",
+    "full": "linter check",
+    "meaning": "Automatically checking code for style problems and likely mistakes. A linter is the tool that does it."
+  },
+  {
+    "term": "lockfile",
+    "meaning": "A file (like package-lock.json) that records the exact version of every installed package. It is generated, not edited by hand."
+  },
+  {
+    "term": "ls",
+    "full": "list",
+    "meaning": "A command that lists the files and folders in the current folder."
+  },
+  {
+    "term": "MCP",
+    "full": "Model Context Protocol",
+    "meaning": "An open standard that lets Claude plug into outside tools and data, like GitHub, a browser or a database."
+  },
+  {
+    "term": "mcp",
+    "full": "Model Context Protocol",
+    "meaning": "Lowercase spelling used in commands like claude mcp add, which manages MCP connections."
+  },
+  {
+    "term": "mcp__",
+    "meaning": "The start of every MCP tool's name, in the pattern mcp__<server>__<tool>, e.g. mcp__github__create_issue. The double underscores separate the parts."
+  },
+  {
+    "term": "mkdir",
+    "full": "make directory",
+    "meaning": "A command that creates a new folder. mkdir -p also creates any missing parent folders."
+  },
+  {
+    "term": "monorepo",
+    "full": "monolithic repository",
+    "meaning": "One repository holding several related projects or packages."
+  },
+  {
+    "term": "ms",
+    "full": "milliseconds",
+    "meaning": "Thousandths of a second. 200ms is one fifth of a second."
+  },
+  {
+    "term": "mv",
+    "full": "move",
+    "meaning": "A command that moves or renames a file."
+  },
+  {
+    "term": "ndjson",
+    "full": "newline-delimited JSON",
+    "meaning": "JSON with one item per line. Not a valid --output-format value; the real one is stream-json."
+  },
+  {
+    "term": "npm",
+    "full": "Node Package Manager",
+    "meaning": "The tool that installs JavaScript packages and runs project scripts like npm test. npm i is short for npm install."
+  },
+  {
+    "term": "npx",
+    "full": "Node Package eXecute",
+    "meaning": "Runs a JavaScript package without installing it for good, e.g. npx prettier."
+  },
+  {
+    "term": "OAuth",
+    "full": "Open Authorization",
+    "meaning": "A standard way to log in to a service through your browser and grant an app access, without giving it your password."
+  },
+  {
+    "term": "PascalCase",
+    "meaning": "Writing joined words with every word capitalized, like ProductList."
+  },
+  {
+    "term": "PATH",
+    "meaning": "A system setting listing the folders where your computer looks for programs. A command works anywhere only if its program is in a PATH folder."
+  },
+  {
+    "term": "pip",
+    "full": "Pip Installs Packages",
+    "meaning": "The installer for Python packages. It is not how you install Claude Code."
+  },
+  {
+    "term": "pnpm",
+    "full": "performant npm",
+    "meaning": "A faster alternative to npm that does the same job: installs packages and runs scripts."
+  },
+  {
+    "term": "POST",
+    "meaning": "The type of web request that sends data to a server, like submitting a login form. POST /login means 'send login details'."
+  },
+  {
+    "term": "PR",
+    "full": "Pull Request",
+    "meaning": "A request on GitHub to merge your branch's changes into the main code, where teammates can review them first."
+  },
+  {
+    "term": "pr",
+    "full": "Pull Request",
+    "meaning": "Lowercase spelling of PR, used in commands like gh pr create (open a pull request) and flags like --from-pr."
+  },
+  {
+    "term": "PRs",
+    "full": "Pull Requests",
+    "meaning": "Plural of PR: requests on GitHub to merge changes after review."
+  },
+  {
+    "term": "PWD",
+    "full": "print working directory",
+    "meaning": "Uppercase version of pwd. Commands are case-sensitive, so typing PWD fails; the command is pwd."
+  },
+  {
+    "term": "pwd",
+    "full": "print working directory",
+    "meaning": "A command that shows which folder you are in right now."
+  },
+  {
+    "term": "README",
+    "full": "read me",
+    "meaning": "The standard name for a project's introduction file (often README.md) that explains what the project is and how to use it."
+  },
+  {
+    "term": "repo",
+    "full": "repository",
+    "meaning": "A project folder tracked by git, with its full history of changes."
+  },
+  {
+    "term": "repos",
+    "full": "repositories",
+    "meaning": "Plural of repo: git-tracked project folders."
+  },
+  {
+    "term": "REST",
+    "full": "Representational State Transfer",
+    "meaning": "A common style of web API where each address (like /users) is a thing you GET, POST, etc. to."
+  },
+  {
+    "term": "rm",
+    "full": "remove",
+    "meaning": "A command that deletes files permanently (no trash can). Be careful with it."
+  },
+  {
+    "term": "s3",
+    "full": "Simple Storage Service",
+    "meaning": "Amazon's cloud file storage. aws s3 ls lists stored files."
+  },
+  {
+    "term": "src",
+    "full": "source",
+    "meaning": "The folder that usually holds a project's source code."
+  },
+  {
+    "term": "SSE",
+    "full": "Server-Sent Events",
+    "meaning": "An older way for a server to stream updates. As an MCP transport it is deprecated; use HTTP instead."
+  },
+  {
+    "term": "sse",
+    "full": "Server-Sent Events",
+    "meaning": "Lowercase value for --transport: the older remote MCP connection type, now deprecated. Use http instead."
+  },
+  {
+    "term": "ssh",
+    "full": "Secure Shell",
+    "meaning": "A secure way to log in to another computer over the network. Not an MCP transport."
+  },
+  {
+    "term": "stderr",
+    "full": "standard error",
+    "meaning": "A separate output channel for error messages. Hook scripts write their reason for blocking here."
+  },
+  {
+    "term": "stdin",
+    "full": "standard input",
+    "meaning": "The channel a command reads its input from, such as text piped in with |."
+  },
+  {
+    "term": "stdio",
+    "full": "standard input/output",
+    "meaning": "An MCP transport where the server runs as a program on your own machine and Claude talks to it through its input and output."
+  },
+  {
+    "term": "stdout",
+    "full": "standard output",
+    "meaning": "The channel where a command writes its normal output."
+  },
+  {
+    "term": "TDD",
+    "full": "Test-Driven Development",
+    "meaning": "A way of working where you write the tests first, watch them fail, then write code until they pass."
+  },
+  {
+    "term": "TLD",
+    "full": "Top-Level Domain",
+    "meaning": "The last part of a web or email address, like .com or .org. 'a@b' has no TLD, so it is not a valid email."
+  },
+  {
+    "term": "TODOs",
+    "full": "to-dos",
+    "meaning": "Notes marking work still left to do."
+  },
+  {
+    "term": "u+x",
+    "full": "user + execute",
+    "meaning": "With chmod: lets you (the file's owner, 'user') run the file as a program."
+  },
+  {
+    "term": "UI",
+    "full": "User Interface",
+    "meaning": "The part of an app you see and interact with: screens, buttons, menus."
+  },
+  {
+    "term": "URL",
+    "full": "Uniform Resource Locator",
+    "meaning": "A web address, like https://claude.ai."
+  },
+  {
+    "term": "url",
+    "full": "Uniform Resource Locator",
+    "meaning": "Lowercase spelling of URL, a web address; used as a key in settings like \"url\": \"https://...\"."
+  },
+  {
+    "term": "VM",
+    "full": "Virtual Machine",
+    "meaning": "A pretend computer running inside a real one, kept separate so mistakes inside it can't harm your real files."
+  },
+  {
+    "term": "VMs",
+    "full": "Virtual Machines",
+    "meaning": "Plural of VM: isolated pretend computers running inside real ones."
+  },
+  {
+    "term": "vs",
+    "full": "versus",
+    "meaning": "Means 'compared with'."
+  },
+  {
+    "term": "xargs",
+    "full": "extended arguments",
+    "meaning": "Takes text arriving from a pipe and passes it to another command as arguments."
+  },
+  {
+    "term": "YAML",
+    "full": "YAML Ain't Markup Language",
+    "meaning": "A plain-text settings format of key: value lines where indentation shows what belongs inside what. Used in frontmatter and GitHub workflows."
+  },
+  {
+    "term": "ZIP",
+    "meaning": "A compressed file that bundles several files into one smaller download."
+  },
+  {
+    "term": "|",
+    "full": "pipe",
+    "meaning": "Sends the output of the command on the left into the command on the right."
+  },
+  {
+    "term": "~",
+    "full": "tilde",
+    "meaning": "Short for your home folder, e.g. ~/.claude is the .claude folder in your home folder."
+  },
+  {
+    "term": "~/",
+    "full": "tilde slash",
+    "meaning": "The start of a path inside your home folder, e.g. ~/projects."
+  }
+]

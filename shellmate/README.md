@@ -5,7 +5,19 @@ practice exercises, hearts, XP and streaks. Your guide is **Kip**, a hermit crab
 
 No backend: all progress lives in `localStorage` (key `shellmate-v1`).
 
-## Run it
+## Open it in a browser (no install)
+
+`app/index.html` is the whole app in **one file**. Download it and double-click it: it opens in
+Chrome, Safari, Firefox or Edge, even offline (fonts fall back to system fonts without internet).
+Progress is saved in that browser.
+
+Rebuild it after changing anything with `npm run build:app`.
+
+Because this repo is published with GitHub Pages from `main`, once this folder is on `main` the app is
+also online at **https://pag-designers.github.io/ob-barberia/shellmate/app/**, next to the
+existing site (which is untouched).
+
+## Run it (for development)
 
 ```bash
 cd shellmate
@@ -109,6 +121,12 @@ picked up automatically. Every exercise shape is documented in `src/types.ts`:
 Every exercise also needs a one-sentence `explanation`.
 
 ## Design decisions
+
+- **Every abbreviation is explained.** `src/content/glossary.json` lists each abbreviation, short flag
+  and symbol used in the lessons. Matching words get a dotted underline everywhere (theory, questions,
+  explanations, code chips); tapping one shows what it stands for. Code examples list the abbreviations
+  they use underneath, and the cheat sheet has an **Abbreviations** tab. Add an entry to the JSON to
+  explain a new term; no code changes needed.
 
 - **Teach before testing.** Every lesson's theory cards show the exact command or config shape an
   exercise will ask for, exercises run from recognition (multiple choice, matching) to production

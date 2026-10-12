@@ -31,7 +31,8 @@ const proseRegex: RegExp | null = (() => {
     .filter(hasWordChar)
     .sort((a, b) => b.length - a.length)
     .map((t) => {
-      const before = /^[A-Za-z0-9-]/.test(t) ? '(?<![A-Za-z0-9_\\-/.])' : '';
+      // Only match whole terms: `.md` alone, but not the end of `CLAUDE.md`.
+      const before = '(?<![A-Za-z0-9_\\-/.])';
       const after = /[A-Za-z0-9]$/.test(t) ? '(?![A-Za-z0-9_\\-])' : '';
       return `${before}${escape(t)}${after}`;
     });

@@ -1,122 +1,104 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { AnimatePresence, motion } from 'framer-motion';
+import { useEffect } from 'react';
+import BottomNav from './components/BottomNav';
+import ToastHost from './components/Toast';
+import TopBar from './components/TopBar';
+import { installAudioUnlock } from './lib/sound';
+import CheatSheet from './screens/CheatSheet';
+import Home from './screens/Home';
+import League from './screens/League';
+import LessonComplete from './screens/LessonComplete';
+import LessonPlayer from './screens/LessonPlayer';
+import Onboarding from './screens/Onboarding';
+import Profile from './screens/Profile';
+import Review from './screens/Review';
+import { useGame } from './store/useGame';
+import { routeKey, useNav, type Route } from './store/useNav';
 
-function App() {
-  const [count, setCount] = useState(0)
+function useAppEffects() {
+  const theme = useGame((s) => s.settings.theme);
+  const tickHearts = useGame((s) => s.tickHearts);
+  const ensureLeague = useGame((s) => s.ensureLeague);
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('light', theme === 'light');
+    root.classList.toggle('dark', theme === 'dark');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f7f5f2' : '#0f1115');
+  }, [theme]);
 
-      <div className="ticks"></div>
+  useEffect(() => {
+    const tick = () => {
+      tickHearts();
+      ensureLeague();
+    };
+    tick();
+    const id = window.setInterval(tick, 60_000);
+    const onVisible = () => document.visibilityState === 'visible' && tick();
+    window.addEventListener('focus', tick);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener('focus', tick);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [tickHearts, ensureLeague]);
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+  useEffect(() => installAudioUnlock(), []);
 }
 
-export default App
+function Screen({ route }: { route: Route }) {
+  switch (route.name) {
+    case 'home':
+      return <Home />;
+    case 'review':
+      return <Review />;
+    case 'cheatsheet':
+      return <CheatSheet />;
+    case 'league':
+      return <League />;
+    case 'profile':
+      return <Profile />;
+    case 'play':
+      return <LessonPlayer session={route.session} />;
+    case 'complete':
+      return <LessonComplete result={route.result} />;
+  }
+}
+
+export default function App() {
+  useAppEffects();
+  const onboarded = useGame((s) => s.onboarded);
+  const route = useNav((s) => s.route);
+  const isTab = route.name !== 'play' && route.name !== 'complete';
+
+  useEffect(() => {
+    if (route.name !== 'home') window.scrollTo({ top: 0 });
+  }, [route]);
+
+  return (
+    <div className="mx-auto min-h-full max-w-[480px]">
+      {!onboarded ? (
+        <Onboarding />
+      ) : (
+        <>
+          {isTab && <TopBar />}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.main
+              key={routeKey(route)}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.18 }}
+              className={isTab ? 'pb-28' : ''}
+            >
+              <Screen route={route} />
+            </motion.main>
+          </AnimatePresence>
+          {isTab && <BottomNav />}
+        </>
+      )}
+      <ToastHost />
+    </div>
+  );
+}

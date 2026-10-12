@@ -1,0 +1,278 @@
+{
+  "id": "u12",
+  "order": 12,
+  "title": "Pro Habits",
+  "description": "Explore, plan, code, commit; verify everything; course-correct early and rewind without fear.",
+  "color": "#ffc83d",
+  "lessons": [
+    {
+      "id": "u12-l1",
+      "title": "Explore → Plan → Code → Commit",
+      "description": "The loop the pros run",
+      "theory": [
+        {
+          "title": "Four phases, in order",
+          "body": "Letting Claude jump straight to code can solve the wrong problem. Split the work:\n\n**Explore**: Claude reads the relevant files and answers questions, no edits yet. Plan mode (`Shift+Tab` until it shows plan mode on, or `claude --permission-mode plan`) keeps it read-only.\n\n**Plan**: ask for a detailed implementation plan and fix it before any code exists.\n\n**Code**: switch out of plan mode and implement, verifying against the plan.\n\n**Commit**: commit with a descriptive message and open a PR.\n\nSkip the plan for tiny changes: if you could describe the diff in one sentence, just ask.",
+          "code": "> read src/auth and explain how sessions and login work. don't change anything yet\n> I want to add Google OAuth. what files change? create a plan\n> implement the plan, write tests for the callback, run them and fix failures\n> commit with a descriptive message and open a PR"
+        },
+        {
+          "title": "Give Claude a way to check itself",
+          "body": "Claude stops when the work *looks* done. Give it something that returns pass or fail and it can iterate on its own: **tests**, a **build** exit code, a **linter**, a **type check**, a **screenshot** to compare against a mock, or expected output.\n\nWork in **small, verifiable steps**: each one gets checked (and ideally committed) before the next. Kip never climbs to a new shell without testing the fit."
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u12-l1-e1",
+          "type": "order-steps",
+          "prompt": "Put the pro workflow in order.",
+          "steps": [
+            "Explore: have Claude read the relevant files, no code yet",
+            "Plan: ask for a detailed implementation plan",
+            "Code: implement the plan in small steps",
+            "Verify: run the tests, linter and type check",
+            "Commit: commit with a descriptive message"
+          ],
+          "explanation": "Understanding and planning before coding avoids solving the wrong problem; verifying before committing keeps history clean."
+        },
+        {
+          "id": "u12-l1-e2",
+          "type": "multiple-choice",
+          "prompt": "During the Explore phase, what should you tell Claude?",
+          "options": [
+            "Implement the feature as fast as possible",
+            "Read the relevant files and explain them, but don't write any code yet",
+            "Commit everything first",
+            "Delete unused files"
+          ],
+          "answer": 1,
+          "explanation": "Exploration builds understanding without edits, which is exactly what plan mode enforces."
+        },
+        {
+          "id": "u12-l1-e3",
+          "type": "fill-blank",
+          "prompt": "Two ways into read-only plan mode.",
+          "code": "$ claude --permission-mode ___\n# or, mid-session, press ___ until the status bar shows plan mode on",
+          "blanks": ["plan", "Shift+Tab"],
+          "wordBank": ["plan", "Shift+Tab", "auto", "Esc", "Ctrl+C", "review"],
+          "language": "bash",
+          "explanation": "Start with `--permission-mode plan` or cycle modes with Shift+Tab until plan mode is on."
+        },
+        {
+          "id": "u12-l1-e4",
+          "type": "multiple-choice",
+          "prompt": "When is it fine to skip the planning step?",
+          "options": [
+            "Never; always plan",
+            "When the change touches many files",
+            "When the change is small and clear, like fixing a typo or renaming a variable",
+            "When you're unfamiliar with the code"
+          ],
+          "answer": 2,
+          "explanation": "Planning adds overhead; if you can describe the diff in one sentence, just ask Claude to do it."
+        },
+        {
+          "id": "u12-l1-e5",
+          "type": "match-pairs",
+          "prompt": "Match each check to what it verifies.",
+          "pairs": [
+            { "left": "Unit tests", "right": "Behavior matches the spec" },
+            { "left": "Screenshot vs mock", "right": "UI matches the design" },
+            { "left": "Linter", "right": "Style and suspicious patterns" },
+            { "left": "Type checker", "right": "Type mismatches" },
+            { "left": "Build exit code", "right": "Project still compiles" }
+          ],
+          "explanation": "Each check gives Claude a pass/fail signal it can read and iterate against."
+        },
+        {
+          "id": "u12-l1-e6",
+          "type": "spot-bad-prompt",
+          "prompt": "You want Claude to implement a dashboard design from a mock.",
+          "options": [
+            "Make the dashboard look better.",
+            "[Image #1] is the design. Implement it in src/Dashboard.tsx, take a screenshot of the result, compare it to the mock, list the differences, and fix them."
+          ],
+          "better": 1,
+          "explanation": "The screenshot comparison gives Claude a concrete way to check its own work instead of guessing."
+        },
+        {
+          "id": "u12-l1-e7",
+          "type": "multiple-choice",
+          "prompt": "Which gives Claude the strongest way to verify a new validateEmail function?",
+          "options": [
+            "Asking it to be extra careful",
+            "Example cases plus 'run the tests after implementing'",
+            "A longer CLAUDE.md",
+            "Using a bigger model"
+          ],
+          "answer": 1,
+          "explanation": "Concrete test cases Claude can run turn 'looks done' into a real pass/fail signal."
+        },
+        {
+          "id": "u12-l1-e8",
+          "type": "prompt-workshop",
+          "scenario": "You need rate limiting on the login endpoint, and you're new to this codebase. Write a first prompt that explores and plans instead of jumping straight to code.",
+          "files": ["src/routes/auth.ts", "src/middleware/"],
+          "sample": "Read @src/routes/auth.ts and @src/middleware/ and explain how requests flow into the login handler and whether we already have rate-limiting utilities. Don't write code yet. Then propose a plan to rate limit login to 5 attempts per minute per IP, listing the files to change and the tests you'll add to verify it.",
+          "keywords": ["rate limit", "plan", "login", "tests", "don't write code"],
+          "explanation": "A strong first prompt explores, forbids edits for now, and asks for a plan that includes how the result will be verified."
+        }
+      ]
+    },
+    {
+      "id": "u12-l2",
+      "title": "Course-Correct & Rewind",
+      "description": "Steer early, undo without fear",
+      "theory": [
+        {
+          "title": "Steer early, steer often",
+          "body": "Tight feedback loops beat perfect first prompts. Kip's controls:\n\n`Esc`: stop Claude mid-action. Context is kept, so you can redirect.\n\n`Esc` `Esc` (with an empty input) or `/rewind`: open the rewind menu.\n\n**\"Undo that\"**: ask Claude to revert its changes.\n\n`/clear`: reset context between unrelated tasks.\n\nCorrected Claude more than twice on the same thing? The context is full of failed attempts. `/clear` and start fresh with a sharper prompt that uses what you learned."
+        },
+        {
+          "title": "Checkpoints and /rewind",
+          "body": "Every prompt that starts a turn creates a **checkpoint**. In the rewind menu, pick a prompt and choose **Restore code and conversation**, **Restore conversation**, **Restore code**, or a **Summarize** option.\n\nCheckpoints track edits made by Claude's **file editing tools** only. Files changed by Bash commands like `rm` or `mv` aren't captured, so checkpoints don't replace **git**."
+        }
+      ],
+      "exercises": [
+        {
+          "id": "u12-l2-e1",
+          "type": "multiple-choice",
+          "prompt": "Claude is heading the wrong way mid-turn. Which key stops it while keeping the context?",
+          "options": ["Esc", "Ctrl+D", "Tab", "Shift+Tab"],
+          "answer": 0,
+          "explanation": "Esc interrupts Claude immediately and keeps the conversation so you can redirect."
+        },
+        {
+          "id": "u12-l2-e2",
+          "type": "terminal",
+          "prompt": "Open the rewind menu with a slash command.",
+          "promptSymbol": ">",
+          "accepted": ["/rewind"],
+          "hint": "Same as pressing Esc twice on an empty input.",
+          "explanation": "`/rewind` opens the menu to restore code, conversation, or both to an earlier checkpoint."
+        },
+        {
+          "id": "u12-l2-e3",
+          "type": "match-pairs",
+          "prompt": "Match each rewind option to what it does.",
+          "pairs": [
+            { "left": "Restore code and conversation", "right": "Revert both to that point" },
+            { "left": "Restore conversation", "right": "Rewind chat, keep current code" },
+            { "left": "Restore code", "right": "Revert files, keep the chat" },
+            { "left": "Summarize from here", "right": "Compress later messages into summary" }
+          ],
+          "explanation": "You choose whether to roll back files, the conversation, both, or just compress context."
+        },
+        {
+          "id": "u12-l2-e4",
+          "type": "multiple-choice",
+          "prompt": "Claude ran `rm old-config.json` through Bash. Can /rewind bring the file back?",
+          "options": [
+            "Yes, rewind restores everything",
+            "No: checkpoints only track Claude's file-editing tools, so use git",
+            "Only if you press Esc three times",
+            "Only with /compact"
+          ],
+          "answer": 1,
+          "explanation": "Bash side effects like rm and mv aren't checkpointed, which is why git is still your safety net."
+        },
+        {
+          "id": "u12-l2-e5",
+          "type": "order-steps",
+          "prompt": "Recover from a turn that went sideways.",
+          "steps": [
+            "Press Esc to stop Claude mid-turn",
+            "Press Esc twice on an empty input to open the rewind menu",
+            "Select the prompt where things went wrong",
+            "Choose Restore code and conversation",
+            "Edit the restored prompt with clearer instructions and resend"
+          ],
+          "explanation": "Rewinding puts the original prompt back in the input so you can sharpen it and retry from a clean state."
+        },
+        {
+          "id": "u12-l2-e6",
+          "type": "terminal",
+          "prompt": "You finished one task and are starting an unrelated one. Reset the context.",
+          "promptSymbol": ">",
+          "accepted": ["/clear"],
+          "hint": "Wipes the conversation's context.",
+          "explanation": "`/clear` between unrelated tasks keeps old context from distracting Claude."
+        },
+        {
+          "id": "u12-l2-e7",
+          "type": "spot-bad-prompt",
+          "prompt": "Claude started editing the database schema when you only wanted an API fix.",
+          "options": [
+            "No, wrong, try again.",
+            "Stop: don't touch the database schema. Keep the change inside src/api/orders.ts and make the existing tests in tests/orders.test.ts pass."
+          ],
+          "better": 1,
+          "explanation": "A good correction says what to avoid, where to work, and how success will be checked."
+        },
+        {
+          "id": "u12-l2-e8",
+          "type": "multiple-choice",
+          "prompt": "You've corrected Claude twice on the same bug and it's still wrong. Best next move?",
+          "options": [
+            "Keep correcting in the same session",
+            "Switch to a different terminal",
+            "/clear, then start fresh with a more specific prompt that uses what you learned",
+            "Add 'please' to the prompt"
+          ],
+          "answer": 2,
+          "explanation": "A clean session with a better prompt usually beats a long one cluttered with failed attempts."
+        },
+        {
+          "id": "u12-l2-e9",
+          "type": "fill-blank",
+          "prompt": "Complete Kip's course-correction cheat card.",
+          "code": "Esc       -> ___ Claude mid-turn\nEsc Esc   -> open the ___ menu\n/___      -> reset context between tasks",
+          "blanks": ["interrupt", "rewind", "clear"],
+          "wordBank": ["interrupt", "rewind", "clear", "compact", "exit", "commit"],
+          "language": "text",
+          "explanation": "Esc interrupts, a double Esc opens rewind, and /clear wipes context between unrelated tasks."
+        },
+        {
+          "id": "u12-l2-e10",
+          "type": "multiple-choice",
+          "prompt": "Why work in small, verifiable steps?",
+          "options": [
+            "It uses fewer keystrokes",
+            "Mistakes surface early, and each step can be checked and committed before the next",
+            "Claude can't edit more than one file per prompt",
+            "It disables checkpoints"
+          ],
+          "answer": 1,
+          "explanation": "Small steps keep each change easy to verify and easy to roll back if it goes wrong."
+        }
+      ]
+    }
+  ],
+  "mission": {
+    "id": "u12-mission",
+    "type": "mission",
+    "title": "Run the Full Loop",
+    "intro": "Final boss: take one small, real task from question to commit like a pro.",
+    "checklist": [
+      "Explore: in plan mode (Shift+Tab), ask Claude to read the relevant files and explain them",
+      "Plan: ask for a step-by-step plan that says how the change will be verified, then approve it",
+      "Code: have Claude implement it and run the tests (or linter/type check) until they pass",
+      "Practice a rewind: press Esc twice (or run /rewind) and restore an earlier checkpoint on one step",
+      "Commit: ask Claude to review the diff and commit with a descriptive message"
+    ],
+    "bonusXp": 30,
+    "badge": "pro-habits",
+    "explanation": "Explore, plan, verify, rewind and commit together are the habits that make Claude reliable on real work."
+  },
+  "cheatsheet": [
+    { "term": "Explore → Plan → Code → Commit", "description": "Understand and plan before editing; verify, then commit.", "kind": "concept" },
+    { "term": "Shift+Tab", "description": "Cycle permission modes, including read-only plan mode.", "kind": "shortcut" },
+    { "term": "claude --permission-mode plan", "description": "Start a session in plan mode.", "kind": "flag" },
+    { "term": "Esc", "description": "Stop Claude mid-action; context is kept.", "kind": "shortcut" },
+    { "term": "Esc Esc", "description": "On an empty input, open the rewind menu.", "kind": "shortcut" },
+    { "term": "/rewind", "description": "Restore code and/or conversation to a checkpoint.", "kind": "slash" },
+    { "term": "/clear", "description": "Reset context between unrelated tasks.", "kind": "slash" },
+    { "term": "Checkpoints", "description": "Track Claude's file edits per prompt; not Bash changes. Not a git replacement.", "kind": "concept" },
+    { "term": "Verification", "description": "Tests, builds, linters, screenshots: a pass/fail Claude can check.", "kind": "concept" },
+    { "term": "Two-correction rule", "description": "Corrected twice and still wrong? /clear and write a sharper prompt.", "kind": "concept" }
+  ]
+}

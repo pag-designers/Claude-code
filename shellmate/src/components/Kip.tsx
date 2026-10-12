@@ -29,7 +29,7 @@ const PUPIL: Record<KipMood, [number, number]> = {
 
 function Claw({ x, y, angle, wave = false }: { x: number; y: number; angle: number; wave?: boolean }) {
   return (
-    <g transform={`translate(${x} ${y}) rotate(${angle})`} style={{ transition: 'transform .3s' }}>
+    <g transform={`translate(${x} ${y}) rotate(${angle})`}>
       <g>
         {wave && (
           <animateTransform attributeName="transform" type="rotate" values="0;-18;0" dur="0.9s" repeatCount="indefinite" />

@@ -86,10 +86,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={client}>
       <MotionConfig reducedMotion="user">
-        <TooltipProvider>
-          {children}
-          <Toaster />
-        </TooltipProvider>
+        <TooltipProvider>{children}</TooltipProvider>
       </MotionConfig>
     </QueryClientProvider>
   );
@@ -101,6 +98,7 @@ export function LiveBindings() {
     <>
       <EventBridge />
       <PrefsSync />
+      <Toaster />
     </>
   );
 }

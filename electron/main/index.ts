@@ -109,13 +109,13 @@ function createWindow(initialDark: boolean): BrowserWindow {
     minHeight: 700,
     show: false,
     title: APP_NAME,
-    backgroundColor: initialDark ? '#0b0c10' : '#f7f8fa',
+    backgroundColor: initialDark ? '#09090e' : '#f6f6fa',
     titleBarStyle: 'hidden',
     ...(isMac
       ? { trafficLightPosition: { x: 16, y: 12 } }
       : {
           titleBarOverlay: {
-            color: initialDark ? '#0b0c10' : '#f7f8fa',
+            color: initialDark ? '#09090e' : '#f6f6fa',
             symbolColor: initialDark ? '#e7e9ee' : '#1a1c22',
             height: 36,
           },

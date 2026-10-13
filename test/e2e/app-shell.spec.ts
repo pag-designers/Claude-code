@@ -89,10 +89,10 @@ test('IPC rejects unknown channels and invalid payloads with typed errors', asyn
       ).clipfern.invoke('fs:readFile');
       return 'no-error';
     } catch (e) {
-      return (e as Error).name + ':' + (e as { code?: string }).code;
+      return (e as Error).message;
     }
   });
-  expect(unknown).toBe('IpcCallError:UNKNOWN_CHANNEL');
+  expect(unknown).toMatch(/^\[\[UNKNOWN_CHANNEL\]\]/);
   const invalid = await page.evaluate(async () => {
     try {
       await (
@@ -100,10 +100,10 @@ test('IPC rejects unknown channels and invalid payloads with typed errors', asyn
       ).clipfern.invoke('settings:set', { concurrency: 1000 });
       return 'no-error';
     } catch (e) {
-      return (e as { code?: string }).code;
+      return (e as Error).message;
     }
   });
-  expect(invalid).toBe('VALIDATION');
+  expect(invalid).toMatch(/^\[\[VALIDATION\]\]/);
 });
 
 test('settings persist to SQLite and secrets are masked + encrypted on disk', async () => {
@@ -198,5 +198,37 @@ test('every sidebar destination renders without console errors', async () => {
         path: path.join(shots, `app-${name.replace(/\s/g, '-').toLowerCase()}.png`),
       });
   }
+  expect(errors).toEqual([]);
+});
+
+test('full-page loads and reloads never log hydration errors (React #418 regression, real app:// path)', async () => {
+  const errors: string[] = [];
+  const onErr = (e: Error) => errors.push(`pageerror: ${e.message}`);
+  const onConsole = (m: { type(): string; text(): string }) => {
+    if (m.type() === 'error') errors.push(`console: ${m.text()}`);
+  };
+  page.on('pageerror', onErr);
+  page.on('console', onConsole);
+  const routes = [
+    '/',
+    '/settings/compute/',
+    '/library/',
+    '/',
+    '/settings/api-keys/',
+    '/tools/',
+    '/',
+  ];
+  for (let round = 0; round < 3; round++) {
+    for (const r of routes) {
+      await page.goto(`app://clipfern${r}`);
+      await page.getByRole('navigation', { name: 'Main' }).waitFor();
+      await page.waitForTimeout(250);
+    }
+    await page.reload();
+    await page.getByRole('navigation', { name: 'Main' }).waitFor();
+    await page.waitForTimeout(250);
+  }
+  page.off('pageerror', onErr);
+  page.off('console', onConsole);
   expect(errors).toEqual([]);
 });

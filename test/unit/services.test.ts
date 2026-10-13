@@ -45,6 +45,21 @@ describe('migrations + settings', () => {
     }
   });
 
+  it('a one-key patch never resets other settings (regression: zod .partial() re-applied defaults)', async () => {
+    const { settingsPatchSchema } = await import('@shared/settings');
+    expect(Object.keys(settingsPatchSchema.parse({ theme: 'light' }))).toEqual(['theme']);
+    expect(() => settingsPatchSchema.parse({ notASetting: 1 })).toThrow();
+    const { svc, cleanup } = await makeServices();
+    try {
+      await svc.settings.set({ theme: 'light', cacheCapGb: 40 });
+      await svc.settings.set({ sidebarCollapsed: true });
+      const s = await svc.settings.get();
+      expect(s).toMatchObject({ theme: 'light', cacheCapGb: 40, sidebarCollapsed: true });
+    } finally {
+      await cleanup();
+    }
+  });
+
   it('defaults are valid, patches merge and persist, bad persisted values fall back per-field', async () => {
     const { svc, cleanup } = await makeServices();
     try {

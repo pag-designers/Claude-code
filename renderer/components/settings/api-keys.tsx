@@ -68,7 +68,7 @@ export function ApiKeysSettings() {
   return (
     <>
       <SettingsHeading
-        title="API keys"
+        title="API Keys"
         description="Keys are encrypted by your operating system's keychain. The interface can only see the last four characters."
       />
       {backend === 'insecure-fallback' ? (

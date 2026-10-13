@@ -121,6 +121,28 @@ export interface ClipfernApi {
   readonly platform: string;
 }
 
+/**
+ * `contextBridge` clones thrown errors down to `{name, message}`, so a custom class or `.code`
+ * would be lost on the way to the renderer. The preload therefore encodes the code in the message
+ * (`[[CODE]] text`) and the renderer decodes it back into an `IpcCallError`.
+ */
+const ERROR_CODES = ipcErrorSchema.shape.code.options;
+export function encodeIpcError(code: IpcError['code'], message: string): string {
+  return `[[${code}]] ${message}`;
+}
+export function decodeIpcError(e: unknown): IpcCallError {
+  if (e instanceof IpcCallError) return e;
+  const raw = e instanceof Error ? e.message : typeof e === 'string' ? e : 'Unknown error';
+  const m = /\[\[([A-Z_]+)\]\]\s*([\s\S]*)$/.exec(raw);
+  const code = m?.[1] as IpcError['code'] | undefined;
+  if (code && (ERROR_CODES as readonly string[]).includes(code))
+    return new IpcCallError(code, m?.[2] || 'Request failed');
+  const message = raw
+    .replace(/^Error invoking remote method '[^']+':\s*/, '')
+    .replace(/^(Error|IpcCallError):\s*/, '');
+  return new IpcCallError('FAILED', message || 'Request failed');
+}
+
 export class IpcCallError extends Error {
   constructor(
     public readonly code: IpcError['code'],

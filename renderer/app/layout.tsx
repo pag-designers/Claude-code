@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { ClientRoot } from '@/components/shell/client-root';
-import { PRE_PAINT_SCRIPT } from '@/lib/prefs';
+import { ClientRootLazy } from '@/components/shell/client-root-lazy';
+import { PRE_PAINT_SCRIPT } from '@/lib/pre-paint';
 
 export const metadata: Metadata = {
   title: 'Clipfern',
@@ -29,7 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: PRE_PAINT_SCRIPT }} />
       </head>
       <body>
-        <ClientRoot>{children}</ClientRoot>
+        <ClientRootLazy>{children}</ClientRootLazy>
       </body>
     </html>
   );

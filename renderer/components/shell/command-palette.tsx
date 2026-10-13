@@ -29,6 +29,19 @@ import { useSidebar, useTheme } from '@/lib/shell';
 import { Kbd } from '@/components/ui/kbd';
 import { cn } from '@/lib/utils';
 
+/** Predictable ranking: label prefix > label substring > all words in label > words in label or keywords. */
+function rank(value: string, search: string, keywords?: string[]): number {
+  const q = search.toLowerCase().trim();
+  if (!q) return 1;
+  const v = value.toLowerCase();
+  if (v.startsWith(q)) return 1;
+  if (v.includes(q)) return 0.8;
+  const words = q.split(/\s+/);
+  if (words.every((w) => v.includes(w))) return 0.7;
+  const k = (keywords ?? []).join(' ').toLowerCase();
+  return words.every((w) => v.includes(w) || k.includes(w)) ? 0.5 : 0;
+}
+
 function Item({
   icon: Icon,
   label,
@@ -48,7 +61,8 @@ function Item({
 }) {
   return (
     <Command.Item
-      value={`${label} ${keywords?.join(' ') ?? ''}`}
+      value={label}
+      keywords={keywords}
       onSelect={onSelect}
       disabled={disabled}
       className={cn(
@@ -95,7 +109,7 @@ export function CommandPalette() {
           <DialogPrimitive.Description className="sr-only">
             Type to search pages, tools and settings, or run an action.
           </DialogPrimitive.Description>
-          <Command label="Command palette" loop>
+          <Command label="Command palette" loop filter={rank}>
             <div className="flex items-center gap-3 border-b px-4">
               <Search className="size-4 shrink-0 text-subtle" aria-hidden />
               <Command.Input
@@ -118,7 +132,7 @@ export function CommandPalette() {
                     hint={n.description}
                     shortcut={['mod', String(i + 1)]}
                     onSelect={go(n.href)}
-                    keywords={['page', 'open', n.description]}
+                    keywords={['page', 'open']}
                   />
                 ))}
                 <Item
@@ -218,7 +232,7 @@ export function CommandPalette() {
                     label={t.name}
                     hint={toolHint(t)}
                     disabled
-                    keywords={['tool', t.description]}
+                    keywords={['tool']}
                   />
                 ))}
               </Command.Group>

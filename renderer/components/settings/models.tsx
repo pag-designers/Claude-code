@@ -40,6 +40,12 @@ const LEVEL: Record<
   'hard-cap': { label: 'Hard cap reached', variant: 'danger' },
 };
 
+function monthLabel(m: string): string {
+  const [y, mo] = m.split('-').map(Number);
+  if (!y || !mo) return m;
+  return new Date(y, mo - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
 function CostTracker() {
   const { data: c, isPending, isError, refetch, isFetching } = useCost();
   const scale = c ? Math.max(c.hardCapUsd, c.spentUsd, c.projectedUsd) : 1;
@@ -56,7 +62,7 @@ function CostTracker() {
       title="Cost tracker"
       description={
         c
-          ? `Claude spend for ${c.month}. Everything else in Clipfern is free.`
+          ? `Claude spend for ${monthLabel(c.month)}. Everything else in Clipfern is free.`
           : 'Claude spend this month.'
       }
       action={
@@ -161,7 +167,7 @@ export function ModelsSettings() {
   return (
     <>
       <SettingsHeading
-        title="Models & budget"
+        title="Models & Budget"
         description="Claude is the only paid service. Clipfern tracks every call against your monthly target."
       />
       <CostTracker />

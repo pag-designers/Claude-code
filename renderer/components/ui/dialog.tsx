@@ -39,8 +39,13 @@ export function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
+        // Focus the dialog itself (not the first tabbable, which may be a tooltip trigger) so opening never pops a tooltip.
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          (e.currentTarget as HTMLElement | null)?.focus();
+        }}
         className={cn(
-          'app-no-drag fixed left-1/2 top-1/2 z-50 flex max-h-[min(86vh,760px)] w-[calc(100vw-48px)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border-strong bg-popover text-foreground shadow-lg',
+          'app-no-drag fixed left-1/2 top-1/2 z-50 flex outline-none max-h-[min(86vh,760px)] w-[calc(100vw-48px)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border-strong bg-popover text-foreground shadow-lg',
           'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-bottom-2',
           'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
           className,

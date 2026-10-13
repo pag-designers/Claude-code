@@ -300,7 +300,7 @@ export function SchedulerView() {
 
         <aside className="flex flex-col gap-6" aria-label="Queue and accounts">
           <Card>
-            <CardHeader className="pb-0">
+            <CardHeader className="pb-1">
               <CardTitle className="font-display text-lg">Queue</CardTitle>
               <CardDescription>Posts waiting to go out, soonest first.</CardDescription>
             </CardHeader>
@@ -317,22 +317,24 @@ export function SchedulerView() {
               <CardTitle className="font-display text-lg">Accounts</CardTitle>
               <CardDescription>Connect the channels you post to.</CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col gap-2.5 pt-0">
+            <CardContent className="flex flex-col gap-2.5 pt-4">
               {ACCOUNTS.map((a) => (
                 <div
                   key={a.id}
-                  className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3"
+                  className="flex flex-col gap-2.5 rounded-lg border bg-muted/30 p-3.5"
                 >
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                    <a.icon className="size-5" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-2 text-sm font-semibold">
-                      {a.name} <Badge variant="neutral">Not connected</Badge>
-                    </p>
-                    <p className="text-xs leading-4 text-muted-foreground">{a.note}</p>
+                  <div className="flex items-center gap-3">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                      <a.icon className="size-[18px]" />
+                    </span>
+                    <p className="min-w-0 flex-1 truncate text-sm font-semibold">{a.name}</p>
+                    <Badge variant="neutral">Not connected</Badge>
                   </div>
-                  <DisabledTip reason="Account connection arrives in checkpoint 5">
+                  <p className="text-xs leading-4 text-muted-foreground">{a.note}</p>
+                  <DisabledTip
+                    reason="Account connection arrives in checkpoint 5"
+                    className="self-start"
+                  >
                     <Button size="sm" variant="secondary" disabled>
                       <Link2 /> Connect
                     </Button>

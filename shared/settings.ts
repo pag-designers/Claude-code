@@ -53,5 +53,16 @@ export type SettingKey = keyof Settings;
 
 export const DEFAULT_SETTINGS: Settings = settingsSchema.parse({});
 
-export const settingsPatchSchema = settingsSchema.partial();
+/**
+ * Patch = every field optional WITHOUT its default. (`settingsSchema.partial()` would re-apply the
+ * zod defaults to omitted keys, so a one-key patch would silently reset all other settings.)
+ */
+const patchShape = Object.fromEntries(
+  Object.entries(settingsSchema.shape).map(([key, field]) => [
+    key,
+    (field as z.ZodDefault<z.ZodType>).removeDefault().optional(),
+  ]),
+) as { [K in keyof Settings]: z.ZodOptional<z.ZodType<Settings[K]>> };
+
+export const settingsPatchSchema = z.object(patchShape).strict();
 export type SettingsPatch = z.infer<typeof settingsPatchSchema>;

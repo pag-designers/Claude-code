@@ -32,7 +32,14 @@ export function useUpdateSettings() {
     { patch: SettingsPatch; options?: UpdateOptions },
     { previous: Settings | undefined }
   >({
-    mutationFn: ({ patch }) => invoke('settings:set', patch),
+    // Send the FULL settings object (current cache, which already contains this patch optimistically).
+    // `settingsPatchSchema = settingsSchema.partial()` re-applies zod defaults for omitted keys, so a bare
+    // partial patch would reset every other setting to its default (see report). A full object is immune.
+    mutationFn: ({ patch }) =>
+      invoke('settings:set', {
+        ...(qc.getQueryData<Settings>(SETTINGS_KEY) ?? DEFAULT_SETTINGS),
+        ...stripUndefined(patch),
+      }),
     onMutate: async ({ patch }) => {
       await qc.cancelQueries({ queryKey: SETTINGS_KEY });
       const previous = qc.getQueryData<Settings>(SETTINGS_KEY);

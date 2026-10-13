@@ -99,7 +99,7 @@ export function LibraryView() {
         }
       />
       <Tabs defaultValue="videos" className="flex flex-col gap-5">
-        <TabsList aria-label="Library sections" className="self-start">
+        <TabsList aria-label="Library sections" className="w-full">
           <TabsTrigger value="videos">
             <Film /> Videos
           </TabsTrigger>

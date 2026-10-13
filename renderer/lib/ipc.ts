@@ -17,6 +17,7 @@ import {
   type UseQueryOptions,
 } from '@tanstack/react-query';
 import {
+  decodeIpcError,
   IpcCallError,
   type ClipfernApi,
   type EventChannel,
@@ -39,19 +40,8 @@ export function getApi(): ClipfernApi | null {
   return window.clipfern ?? null;
 }
 
-const CODES = ['VALIDATION', 'NOT_FOUND', 'UNAVAILABLE', 'FAILED', 'UNKNOWN_CHANNEL'] as const;
-type Code = (typeof CODES)[number];
-
-/** Electron prefixes rejected invokes with "Error invoking remote method 'x': Error: msg" — strip that noise. */
 function toIpcError(e: unknown): IpcCallError {
-  if (e instanceof IpcCallError) return e;
-  const raw = e instanceof Error ? e.message : typeof e === 'string' ? e : 'Unknown error';
-  const message = raw
-    .replace(/^Error invoking remote method '[^']+':\s*/, '')
-    .replace(/^(Error|IpcCallError):\s*/, '');
-  const maybeCode = (e as { code?: unknown } | null)?.code;
-  const code: Code = CODES.includes(maybeCode as Code) ? (maybeCode as Code) : 'FAILED';
-  return new IpcCallError(code, message || 'Request failed');
+  return decodeIpcError(e);
 }
 
 export async function invoke<C extends InvokeChannel>(

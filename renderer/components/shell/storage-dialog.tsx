@@ -17,8 +17,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ProgressRing } from '@/components/ui/progress-ring';
-import { Banner } from '@/components/ui/banner';
 import { Badge } from '@/components/ui/badge';
+import { Banner } from '@/components/ui/banner';
 import { invoke, ipcKey } from '@/lib/ipc';
 import { STORAGE_PAYLOAD, useStorageUsage } from '@/lib/queries';
 import { useSettings } from '@/lib/settings';
@@ -107,21 +107,27 @@ function NotConfigured({ freeTierGb, onClose }: { freeTierGb: number; onClose: (
       </div>
       <ul className="flex flex-col gap-3 text-sm text-muted-foreground">
         <li className="flex gap-3">
-          <Badge variant="primary">1</Badge>
+          <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary-soft text-2xs font-bold text-primary-text">
+            1
+          </span>
           <span>
             Create a free bucket in Cloudflare R2 (or Backblaze B2):{' '}
             <strong className="text-foreground">{freeTierGb} GB free</strong>, no egress fees.
           </span>
         </li>
         <li className="flex gap-3">
-          <Badge variant="primary">2</Badge>
+          <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary-soft text-2xs font-bold text-primary-text">
+            2
+          </span>
           <span>
             Create an API token with read &amp; write access to that bucket and paste it in Settings
             → Storage.
           </span>
         </li>
         <li className="flex gap-3">
-          <Badge variant="primary">3</Badge>
+          <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary-soft text-2xs font-bold text-primary-text">
+            3
+          </span>
           <span>
             Press Test connection. Usage, free-tier headroom and projected cost appear here.
           </span>

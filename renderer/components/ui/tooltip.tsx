@@ -78,7 +78,10 @@ export function DisabledTip({
   return (
     <TooltipPrimitive.Root>
       <TooltipPrimitive.Trigger asChild>
-        <span tabIndex={0} className={cn('inline-flex rounded-md', className)}>
+        <span
+          tabIndex={0}
+          className={cn('inline-flex rounded-md focus-visible:outline-offset-1', className)}
+        >
           {children}
         </span>
       </TooltipPrimitive.Trigger>

@@ -253,7 +253,10 @@ export function SecretInput({
 
       <div
         id={`${id}-help`}
-        className="flex min-h-5 flex-wrap items-center gap-x-3 gap-y-1 text-xs"
+        className={cn(
+          'flex flex-wrap items-center gap-x-3 gap-y-1 text-xs',
+          (error || description || test.kind !== 'idle') && 'min-h-5',
+        )}
       >
         {error ? (
           <p role="alert" className="text-danger">

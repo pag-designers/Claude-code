@@ -132,6 +132,7 @@ export function StorageSettings() {
           render={({ field }) => (
             <Segmented
               label="Storage provider"
+              className="self-start"
               value={field.value}
               onValueChange={field.onChange}
               options={[

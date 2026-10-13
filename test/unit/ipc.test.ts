@@ -110,3 +110,18 @@ describe('IPC contract', () => {
     }
   });
 });
+
+describe('error transport across contextBridge', () => {
+  it('round-trips the error code through the message encoding', async () => {
+    const { encodeIpcError, decodeIpcError } = await import('@shared/ipc');
+    const err = decodeIpcError(
+      new Error(
+        `Error invoking remote method 'x': Error: ${encodeIpcError('VALIDATION', 'bad payload')}`,
+      ),
+    );
+    expect(err.code).toBe('VALIDATION');
+    expect(err.message).toBe('bad payload');
+    expect(decodeIpcError(new Error('plain failure')).code).toBe('FAILED');
+    expect(decodeIpcError('[[NOPE]] x').code).toBe('FAILED');
+  });
+});

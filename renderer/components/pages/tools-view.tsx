@@ -30,7 +30,7 @@ function ToolCard({ tool }: { tool: Tool }) {
   const later = tool.checkpoint === null;
   return (
     <li>
-      <DisabledTip reason={toolHint(tool)} className="block w-full">
+      <DisabledTip reason={toolHint(tool)} className="flex h-full w-full">
         <div
           aria-disabled="true"
           className={cn(

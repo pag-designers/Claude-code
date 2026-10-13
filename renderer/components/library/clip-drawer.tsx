@@ -349,6 +349,32 @@ export function ClipDrawer({
                   </div>
                 </div>
 
+                <Tabs
+                  value={view}
+                  onValueChange={(v) => isDrawerView(v) && setView(v)}
+                  className="flex flex-col gap-5"
+                >
+                  <TabsList
+                    aria-label="Clip sections"
+                    className="scrollbar-thin -mb-1 w-full overflow-x-auto"
+                  >
+                    {DRAWER_VIEWS.map((v) => (
+                      <TabsTrigger key={v} value={v} data-testid={`drawer-tab-${v}`}>
+                        {TAB_LABELS[v]}
+                        {(v === 'hook' && clip.hasHooks) ||
+                        (v === 'meta' && clip.hasMeta) ||
+                        (v === 'thumbnail' && clip.hasThumbOptions) ? (
+                          <span
+                            aria-label="has content"
+                            className="size-1.5 rounded-full bg-primary"
+                            data-testid={`drawer-tab-${v}-dot`}
+                          />
+                        ) : null}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+
+                  <TabsContent value="overview" className="flex flex-col gap-5">
                 {clip.hook ? (
                   <section>
                     <h3 className="mb-1.5 text-2xs font-semibold uppercase tracking-wider text-subtle">
@@ -400,6 +426,20 @@ export function ClipDrawer({
                     </span>
                   </div>
                 ) : null}
+                  </TabsContent>
+                  <TabsContent value="hook">
+                    <HookTab key={clip.id} clipId={clip.id} clip={clip} />
+                  </TabsContent>
+                  <TabsContent value="meta">
+                    <MetaTab key={clip.id} clipId={clip.id} clip={clip} />
+                  </TabsContent>
+                  <TabsContent value="thumbnail">
+                    <ThumbnailTab key={clip.id} clipId={clip.id} clip={clip} />
+                  </TabsContent>
+                  <TabsContent value="reframe">
+                    <ReframeTab key={clip.id} clipId={clip.id} clip={clip} />
+                  </TabsContent>
+                </Tabs>
 
                 <div className="sticky bottom-0 z-10 -mx-6 mt-auto flex flex-wrap items-center gap-2 border-t bg-popover px-6 py-3.5">
                   <Button
@@ -427,6 +467,7 @@ export function ClipDrawer({
                   <Button variant="danger-ghost" onClick={() => setConfirmDelete(true)}>
                     <Trash2 /> Delete
                   </Button>
+                  <ChatLauncher videoId={clip.videoId} clipId={clip.id} />
                   <span className="ml-auto flex items-center gap-1 text-xs text-subtle">
                     <Button
                       variant="ghost"

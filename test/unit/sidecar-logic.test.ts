@@ -4,6 +4,7 @@ import {
   LOG_TAIL_SIZE,
   StatusStore,
   UV_VERSION,
+  UvInstallProgress,
   backoffMs,
   findFreePort,
   parseProgressLine,
@@ -237,5 +238,31 @@ describe('StatusStore', () => {
     expect(snapshot?.logTail).toEqual(['line 0']); // earlier snapshot is not mutated later
     tail.push('mutation');
     expect(store.get().logTail).toHaveLength(LOG_TAIL_SIZE);
+  });
+});
+
+describe('UvInstallProgress', () => {
+  it('is indeterminate until resolved, then tracks downloads and finishes at 1', () => {
+    const p = new UvInstallProgress();
+    expect(p.fraction()).toBeNull();
+    p.push('warning: something');
+    expect(p.fraction()).toBeNull();
+    p.push('Resolved 51 packages in 630ms');
+    expect(p.fraction()).toBeCloseTo(0.05);
+    p.push('Downloading numpy (16.1MiB)');
+    p.push('Downloading mediapipe (38.8MiB)');
+    p.push(' Downloaded numpy');
+    expect(p.fraction()).toBeCloseTo(0.05 + 0.9 * 0.5);
+    p.push(' Downloaded mediapipe');
+    expect(p.fraction()).toBeCloseTo(0.95);
+    p.push('Prepared 51 packages in 30.41s');
+    p.push('Installed 51 packages in 120ms');
+    expect(p.fraction()).toBe(1);
+  });
+
+  it('treats an already-satisfied environment as finished', () => {
+    const p = new UvInstallProgress();
+    p.push('Audited 51 packages in 4ms');
+    expect(p.fraction()).toBe(1);
   });
 });

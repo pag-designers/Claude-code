@@ -197,6 +197,32 @@ export function redact(line: string, secrets: readonly string[]): string {
   return out;
 }
 
+/**
+ * Derives a 0..1 progress estimate from `uv pip install` output (it has no machine-readable
+ * progress). Feed every line; `fraction()` is null until uv has resolved the dependency set.
+ */
+export class UvInstallProgress {
+  private resolved = false;
+  private total = 0;
+  private done = 0;
+  private finished = false;
+
+  push(line: string): void {
+    const l = line.trim();
+    if (/^Resolved \d+ packages?/.test(l)) this.resolved = true;
+    else if (/^Downloading \S+/.test(l)) this.total += 1;
+    else if (/^Downloaded \S+/.test(l)) this.done += 1;
+    else if (/^(Installed|Audited) \d+ packages?/.test(l)) this.finished = true;
+  }
+
+  fraction(): number | null {
+    if (this.finished) return 1;
+    if (!this.resolved) return null;
+    // Downloads dominate the wall time; reserve the tail for unpacking/installing.
+    return 0.05 + 0.9 * (this.total > 0 ? Math.min(1, this.done / this.total) : 0);
+  }
+}
+
 export function initialStatus(model: string): SidecarStatus {
   return {
     phase: 'idle',
@@ -703,6 +729,17 @@ export class SidecarManager {
   private async runSetup(): Promise<void> {
     this.setupAbort = new AbortController();
     try {
+      for (const rel of [
+        'requirements.txt',
+        'clipfern_sidecar',
+        path.join('bootstrap', 'selfcheck.py'),
+      ]) {
+        if (!existsSync(path.join(this.opts.sidecarSrcDir, rel))) {
+          throw new Error(
+            `Sidecar sources are incomplete: ${rel} not found in ${this.opts.sidecarSrcDir}`,
+          );
+        }
+      }
       await mkdir(this.opts.userDataDir, { recursive: true });
 
       // 1. uv
@@ -926,10 +963,17 @@ export class SidecarManager {
             ? 'Installing Python packages (with NVIDIA CUDA libraries)'
             : 'Installing Python packages',
         });
+        const uvProgress = new UvInstallProgress();
         const res = await this.runProcess(uv, args, {
           tag: 'uv',
           env: this.uvEnv(),
-          onPlainLine: (l) => this.store.set({ message: l.trim().slice(0, 200) || 'Installing…' }),
+          onPlainLine: (l) => {
+            uvProgress.push(l);
+            const text = l.trim();
+            if (/^(Resolved|Downloading|Downloaded|Prepared|Installed)\b/.test(text)) {
+              this.store.set({ progress: uvProgress.fraction(), message: text.slice(0, 200) });
+            }
+          },
         });
         if (res.code !== 0) throw new Error(`uv pip install failed (exit ${res.code})`);
         await this.writeInstallState({

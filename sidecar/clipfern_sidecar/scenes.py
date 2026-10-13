@@ -29,9 +29,7 @@ def detect_scenes(req: ScenesRequest) -> ScenesResponse:
     manager.add_detector(detector)
     manager.detect_scenes(video, show_progress=False)
     scene_list = manager.get_scene_list(start_in_scene=True)
-    scenes = [
-        SceneSpan(start=round(a.seconds, 3), end=round(b.seconds, 3)) for a, b in scene_list
-    ]
+    scenes = [SceneSpan(start=round(a.seconds, 3), end=round(b.seconds, 3)) for a, b in scene_list]
     cuts = [s.start for s in scenes[1:]]
     duration = scenes[-1].end if scenes else round(float(video.duration.seconds), 3)
     return ScenesResponse(

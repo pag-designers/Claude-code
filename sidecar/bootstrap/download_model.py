@@ -59,13 +59,20 @@ def main() -> int:
         emit("error", message=f"No downloadable model files found in {repo}")
         return 3
 
-    state = {"done": 0}
+    bars: dict[str, int] = {}
     lock = threading.Lock()
     throttle = Throttle()
 
+    def bytes_done() -> int:
+        # hf-xet drives two byte bars ("Downloading bytes" and "Reconstructing ...") that count
+        # the same bytes, while the classic HTTP path has one bar per file. Count each once.
+        xet = [v for k, v in bars.items() if k.startswith(("Downloading bytes", "Reconstructing"))]
+        files = sum(v for k, v in bars.items() if not k.startswith(("Downloading bytes", "Reconstructing")))
+        return min(total, max(max(xet, default=0), files))
+
     def report(force: bool = False) -> None:
         if throttle.ready(force):
-            done = min(state["done"], total)
+            done = bytes_done()
             progress(
                 PHASE,
                 done / total,
@@ -73,21 +80,22 @@ def main() -> int:
             )
 
     class ByteProgress(tqdm):  # type: ignore[misc]
-        """huggingface_hub drives one of these per file (unit='B') plus one 'files' bar."""
+        """huggingface_hub drives these for byte counts (unit='B') plus one 'files' bar."""
 
         def __init__(self, *a, **kw):  # noqa: ANN002, ANN003
             kw["disable"] = False
             kw.setdefault("file", open(os.devnull, "w"))  # noqa: SIM115 - keep tqdm silent
             super().__init__(*a, **kw)
             self._is_bytes = kw.get("unit") == "B"
-            if self._is_bytes and self.n:
+            self._key = str(self.desc or id(self))
+            if self._is_bytes:
                 with lock:
-                    state["done"] += int(self.n)  # resumed bytes already on disk
+                    bars[self._key] = bars.get(self._key, 0) + int(self.n or 0)
 
         def update(self, n=1):  # noqa: ANN001, ANN201
             if self._is_bytes and n:
                 with lock:
-                    state["done"] += int(n)
+                    bars[self._key] = bars.get(self._key, 0) + int(n)
                 report()
             return super().update(n)
 

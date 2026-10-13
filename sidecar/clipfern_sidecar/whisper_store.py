@@ -34,8 +34,7 @@ class WhisperStore:
             if model is None:
                 if not paths.whisper_model_ready(name):
                     raise ModelNotDownloaded(
-                        f"Whisper model '{name}' is not downloaded. "
-                        "Run bootstrap/download_model.py first."
+                        f"Whisper model '{name}' is not downloaded. Run bootstrap/download_model.py first."
                     )
                 from faster_whisper import WhisperModel
 

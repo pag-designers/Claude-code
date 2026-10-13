@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Download the MediaPipe BlazeFace short-range detector (.tflite, ~230 KB) with progress.
 
-    python download_face_model.py --models-dir <dir>
+python download_face_model.py --models-dir <dir>
 """
 
 from __future__ import annotations
@@ -9,9 +9,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import os
+import ssl
 import sys
 import traceback
-import ssl
 import urllib.request
 
 from _emit import Throttle, emit, fmt_bytes, progress

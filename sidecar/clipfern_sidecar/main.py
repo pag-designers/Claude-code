@@ -41,6 +41,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.exit_on_stdin_eof:
         _exit_when_stdin_closes()
 
+    # Keep MediaPipe/LiteRT/absl native logging down to warnings so the log view stays readable.
+    os.environ.setdefault("GLOG_minloglevel", "2")
+    os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
+
     import uvicorn
 
     from .app import create_app

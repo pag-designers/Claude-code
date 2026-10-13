@@ -39,16 +39,16 @@ Headless Linux: `xvfb-run -a pnpm start`. Set `CLIPFERN_USER_DATA=/some/dir` to 
 
 ## Checkpoints (status)
 
-| #   | Name                        | Status          |
-| --- | --------------------------- | --------------- |
-| 0   | Foundation (runnable shell) | **IN PROGRESS** |
-| 1   | YouTube → clips (core)      | not started     |
-| 2   | Clip intelligence depth     | not started     |
-| 3   | Full editor                 | not started     |
-| 4   | Brand Kit                   | not started     |
-| 5   | Posting + Scheduler         | not started     |
-| 6   | Whop                        | not started     |
-| 7   | Live Clipping               | not started     |
-| 8   | Polish & hardening          | not started     |
+| #   | Name                        | Status                                    |
+| --- | --------------------------- | ----------------------------------------- |
+| 0   | Foundation (runnable shell) | **DONE (Linux-verified) — awaiting "go"** |
+| 1   | YouTube → clips (core)      | not started                               |
+| 2   | Clip intelligence depth     | not started                               |
+| 3   | Full editor                 | not started                               |
+| 4   | Brand Kit                   | not started                               |
+| 5   | Posting + Scheduler         | not started                               |
+| 6   | Whop                        | not started                               |
+| 7   | Live Clipping               | not started                               |
+| 8   | Polish & hardening          | not started                               |
 
 Rule: never start checkpoint N+1 until the user says “go”.

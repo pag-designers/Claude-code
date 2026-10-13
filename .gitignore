@@ -19,3 +19,4 @@ sidecar/__pycache__/
 *.db-journal
 .tmp/
 .claude/
+*.tsbuildinfo

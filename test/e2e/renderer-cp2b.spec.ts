@@ -1130,7 +1130,7 @@ test.describe('Layout', () => {
         await noOverflow(s.page, '[data-testid="clip-drawer"]');
         // the scrolling column must not scroll sideways
         const cols = await s.page.evaluate(() =>
-          [...document.querySelectorAll('[data-testid="clip-drawer"] .overflow-y-auto')].map(
+          Array.from(document.querySelectorAll('[data-testid="clip-drawer"] .overflow-y-auto')).map(
             (e) => e.scrollWidth - e.clientWidth,
           ),
         );

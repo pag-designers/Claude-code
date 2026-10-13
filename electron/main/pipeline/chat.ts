@@ -228,13 +228,13 @@ export class ChatService {
           const id = str(input.clipId) ?? threadClipId;
           if (!id) return { ok: false, summary: 'Open a clip first, or tell me which clip.' };
           await this.d.cp2.metaGenerate(id);
-          return { ok: true, summary: 'Wrote titles, descriptions, hashtags and posting times for TikTok, Reels and Shorts.', href: `/library/video/?id=${videoId}&clip=${id}&tab=meta` };
+          return { ok: true, summary: 'Wrote titles, descriptions, hashtags and posting times for TikTok, Reels and Shorts.', href: `/library/video/?id=${videoId}&tab=clips&clip=${id}&view=meta` };
         }
         case 'rewrite_hook': {
           const id = str(input.clipId) ?? threadClipId;
           if (!id) return { ok: false, summary: 'Open a clip first, or tell me which clip.' };
           await this.d.cp2.hooksGenerate(id);
-          return { ok: true, summary: 'Wrote 5 new hook variants per platform — pick one in the Hook tab.', href: `/library/video/?id=${videoId}&clip=${id}&tab=hook` };
+          return { ok: true, summary: 'Wrote 5 new hook variants per platform — pick one in the Hook tab.', href: `/library/video/?id=${videoId}&tab=clips&clip=${id}&view=hook` };
         }
         case 'find_moments': {
           const prompt = str(input.prompt);
@@ -289,7 +289,7 @@ export class ChatService {
     return {
       ok: true,
       summary: `Created clip “${title}” (${fmt(snapped.startSec)}–${fmt(snapped.endSec)}) — rendering now.`,
-      href: `/library/video/?id=${videoId}&clip=${row.id}`,
+      href: `/library/video/?id=${videoId}&tab=clips&clip=${row.id}`,
     };
   }
 }

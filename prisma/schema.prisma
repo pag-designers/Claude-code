@@ -101,6 +101,11 @@ model Video {
   storageKeys String   @default("{}") // JSON {source, proxy, audio, transcript, ...} -> object keys
   metadata    String   @default("{}") // JSON (yt-dlp info, chapters...)
   favorite    Boolean  @default(false)
+  stage       String? // current pipeline stage
+  progress    Float? // 0..1 within the stage
+  error       String?
+  options     String   @default("{}") // JSON PipelineOptions
+  stages      String   @default("[]") // JSON StageState[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   clips       Clip[]
@@ -110,23 +115,27 @@ model Video {
 }
 
 model Clip {
-  id          String   @id @default(cuid())
-  ownerId     String   @default("local")
-  videoId     String
-  video       Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
-  title       String
-  hook        String?
-  startSec    Float
-  endSec      Float
-  score       Int? // virality 0-100
-  scoreDetail String? // JSON breakdown
-  status      String   @default("candidate") // candidate | rendering | rendered | exported
-  favorite    Boolean  @default(false)
-  tags        String   @default("[]") // JSON string[]
-  storageKeys String   @default("{}") // JSON
-  metadata    String   @default("{}") // JSON
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(cuid())
+  ownerId        String   @default("local")
+  videoId        String
+  video          Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  title          String
+  hook           String?
+  startSec       Float
+  endSec         Float
+  score          Int? // virality 0-100
+  scoreDetail    String? // JSON breakdown
+  status         String   @default("candidate") // candidate | queued | rendering | rendered | failed
+  rank           Int?
+  error          String?
+  renderProgress Float?
+  aspect         String   @default("9:16")
+  favorite       Boolean  @default(false)
+  tags           String   @default("[]") // JSON string[]
+  storageKeys    String   @default("{}") // JSON
+  metadata       String   @default("{}") // JSON
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@index([videoId])
   @@index([score])

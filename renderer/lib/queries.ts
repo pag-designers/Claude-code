@@ -21,6 +21,7 @@ export function useSidecarStatus() {
 export function useBinaries() {
   return useIpcQuery('binaries:status', undefined, { staleTime: 30_000 });
 }
+/** No push event exists for cost; EventBridge invalidates it when pipeline stages that call Claude run. */
 export function useCost() {
-  return useIpcQuery('cost:summary', undefined, { staleTime: 15_000, refetchInterval: 60_000 });
+  return useIpcQuery('cost:summary', undefined, { staleTime: 30_000 });
 }

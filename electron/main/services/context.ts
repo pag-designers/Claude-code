@@ -1,5 +1,6 @@
 import path from 'node:path';
 import type { AppNotification, JobView, StorageUsage } from '@shared/domain';
+import type { ClipView, PipelineEvent, VideoView } from '@shared/pipeline';
 import type { Settings } from '@shared/settings';
 import { openDatabase, type DbHandle } from '../db/client';
 import { logger } from '../logger';
@@ -10,6 +11,7 @@ import { JobQueue } from './queue';
 import { SecretStore, type Cipher } from './secrets';
 import { SettingsService } from './settings';
 import { resolveStorageProvider } from './storage/factory';
+import type { StorageProvider } from './storage/provider';
 import { StorageUsageService } from './storage/usage';
 import { Validators } from './validators';
 
@@ -19,6 +21,9 @@ export interface Emitters {
   storage(u: StorageUsage): void;
   settings(s: Settings): void;
   osNotify(n: AppNotification): void;
+  pipeline(e: PipelineEvent): void;
+  video(v: VideoView): void;
+  clip(c: ClipView): void;
 }
 
 export interface Services {
@@ -32,6 +37,11 @@ export interface Services {
   binaries: BinaryService;
   validators: Validators;
   userDataDir: string;
+  /** Synchronously readable active storage provider (null = not configured). Call refresh() after settings/secret changes. */
+  storage: { get(): StorageProvider | null; refresh(): Promise<void> };
+  /** Settings snapshots for modules that need a synchronous read. */
+  currentWhisperModel(): string;
+  currentCookies(): string | undefined;
 }
 
 export const JOB_KINDS = {
@@ -68,7 +78,8 @@ export async function createServices(opts: {
   });
 
   const queue = new JobQueue(db, {
-    concurrency: () => currentConcurrency,
+    // One pipeline job + two renders must be able to run together regardless of a low saved value.
+    concurrency: () => Math.max(currentConcurrency, 3),
     onUpdate: opts.emit.job,
     log: (m) => logger.scoped('queue').warn(m),
   });
@@ -81,6 +92,11 @@ export async function createServices(opts: {
   const cost = new CostTracker(db, async () => {
     const s = await settings.get();
     return { targetUsd: s.budgetTargetUsd, hardCapUsd: s.budgetHardCapUsd };
+  });
+
+  let snapshot = await settings.get();
+  settings.onChange((s) => {
+    snapshot = s;
   });
 
   const storageUsage = new StorageUsageService({
@@ -105,6 +121,17 @@ export async function createServices(opts: {
 
   const binaries = new BinaryService(opts.userDataDir, (m) => logger.scoped('binaries').info(m));
   const validators = new Validators({ secrets, getSettings: () => settings.get() });
+
+  let activeStorage: StorageProvider | null = null;
+  const storage = {
+    get: () => activeStorage,
+    refresh: async () => {
+      const r = resolveStorageProvider(await settings.get(), secrets);
+      activeStorage = r.ok ? r.provider : null;
+    },
+  };
+  await storage.refresh();
+  settings.onChange(() => void storage.refresh());
 
   queue.register(JOB_KINDS.refreshStorage, async (ctx) => {
     await ctx.progress(0.1, 'Reading bucket');
@@ -145,5 +172,8 @@ export async function createServices(opts: {
     binaries,
     validators,
     userDataDir: opts.userDataDir,
+    storage,
+    currentWhisperModel: () => snapshot.whisperModel,
+    currentCookies: () => (snapshot.cookiesFromBrowser === 'none' ? undefined : snapshot.cookiesFromBrowser),
   };
 }

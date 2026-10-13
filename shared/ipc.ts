@@ -10,6 +10,17 @@ import {
   validationResultSchema,
   validationServiceSchema,
 } from './domain';
+import {
+  clipViewSchema,
+  pipelineEventSchema,
+  pipelineOptionsSchema,
+  pipelineStageSchema,
+  stageStateSchema,
+  transcriptSchema,
+  urlInfoSchema,
+  videoAnalysisSchema,
+  videoViewSchema,
+} from './pipeline';
 import { secretKeySchema, secretsBackendSchema, secretStatusSchema } from './secrets';
 import { settingsPatchSchema, settingsSchema } from './settings';
 
@@ -80,6 +91,56 @@ export const invokeContract = {
   'system:hardware': ch(none, hardwareSchema),
   'cost:summary': ch(none, costSummarySchema),
 
+  /* ---- CP1: pipeline, videos, clips ---- */
+  'pipeline:probe': ch(z.object({ url: z.string().min(1) }), urlInfoSchema),
+  'pipeline:start': ch(
+    z.object({ url: z.string().min(1), options: pipelineOptionsSchema.partial().optional() }),
+    z.object({ videoId: z.string() }),
+  ),
+  'pipeline:cancel': ch(z.object({ videoId: z.string() }), ok),
+  'pipeline:retryStage': ch(z.object({ videoId: z.string(), stage: pipelineStageSchema }), ok),
+
+  'videos:list': ch(
+    z.object({ favorite: z.boolean().optional(), limit: z.number().int().min(1).max(500).default(200) }),
+    z.object({ items: z.array(videoViewSchema) }),
+  ),
+  'videos:get': ch(
+    z.object({ id: z.string() }),
+    z.object({
+      video: videoViewSchema,
+      analysis: videoAnalysisSchema.nullable(),
+      stages: z.array(stageStateSchema),
+    }),
+  ),
+  'videos:transcript': ch(z.object({ id: z.string() }), transcriptSchema.nullable()),
+  'videos:favorite': ch(z.object({ id: z.string(), value: z.boolean() }), ok),
+  'videos:delete': ch(z.object({ id: z.string(), deleteFromStorage: z.boolean().default(true) }), ok),
+  /** Presigned playback URL for the 480p proxy (null when none exists yet). */
+  'videos:proxyUrl': ch(z.object({ id: z.string() }), z.object({ url: z.string().nullable() })),
+
+  'clips:list': ch(
+    z.object({
+      videoId: z.string().optional(),
+      favorite: z.boolean().optional(),
+      minScore: z.number().min(0).max(100).optional(),
+      limit: z.number().int().min(1).max(1000).default(500),
+    }),
+    z.object({ items: z.array(clipViewSchema) }),
+  ),
+  'clips:favorite': ch(z.object({ ids: z.array(z.string()).min(1), value: z.boolean() }), ok),
+  'clips:delete': ch(z.object({ ids: z.array(z.string()).min(1) }), ok),
+  'clips:rerender': ch(z.object({ id: z.string() }), ok),
+  /** Presigned URL (R2/B2) for in-app playback / thumbnail. */
+  'clips:mediaUrl': ch(
+    z.object({ id: z.string(), kind: z.enum(['render', 'thumb']) }),
+    z.object({ url: z.string().nullable() }),
+  ),
+  /** Opens a folder picker, downloads the rendered MP4s (+ SRT) there. */
+  'clips:download': ch(
+    z.object({ ids: z.array(z.string()).min(1), withCaptions: z.boolean().default(false) }),
+    z.object({ saved: z.number(), dir: z.string().nullable(), canceled: z.boolean() }),
+  ),
+
   'shell:openExternal': ch(z.object({ url: z.string().url() }), ok),
   'diagnostics:exportLogs': ch(none, z.object({ saved: z.boolean(), path: z.string().nullable() })),
 } as const;
@@ -95,6 +156,9 @@ export const eventContract = {
   'sidecar:progress': sidecarStatusSchema,
   'storage:updated': storageUsageSchema,
   'settings:changed': settingsSchema,
+  'pipeline:event': pipelineEventSchema,
+  'videos:updated': videoViewSchema,
+  'clips:updated': clipViewSchema,
   /** Main asks the renderer to navigate (tray menu, OS notification click). */
   'nav:go': z.object({ href: z.string() }),
 } as const;

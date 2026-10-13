@@ -9,8 +9,8 @@ export const settingsSchema = z.object({
   sidebarCollapsed: z.boolean().default(false),
 
   // Models
-  modelSmart: z.string().min(1).default('claude-sonnet-4-5'),
-  modelFast: z.string().min(1).default('claude-haiku-4-5'),
+  modelSmart: z.string().min(1).default('claude-sonnet-5-5'),
+  modelFast: z.string().min(1).default('claude-haiku-5-5'),
 
   // Budget guardrail (USD / month)
   budgetTargetUsd: z.number().positive().default(30),

@@ -46,3 +46,41 @@ export function formatDuration(ms: number): string {
   if (m < 60) return `${m}:${String(s % 60).padStart(2, '0')}`;
   return `${Math.floor(m / 60)}h ${m % 60}m`;
 }
+
+/** 75 -> "1:15", 3725 -> "1:02:05". Seconds in, tabular-friendly clock out. */
+export function formatClock(sec: number): string {
+  const s = Math.max(0, Math.floor(Number.isFinite(sec) ? sec : 0));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const r = s % 60;
+  const ss = String(r).padStart(2, '0');
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
+}
+
+/** "42 s" under a minute, "1 min 05 s" under an hour, "1 h 02 min" above. For clip lengths and elapsed time. */
+export function formatSpan(sec: number): string {
+  const s = Math.max(0, Math.round(Number.isFinite(sec) ? sec : 0));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${String(s % 60).padStart(2, '0')}s`;
+  return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
+}
+
+/**
+ * yt-dlp reports `upload_date` as "YYYYMMDD"; ISO strings are accepted too.
+ * Returns e.g. "Apr 12, 2025", or null when unparseable.
+ */
+export function formatUploadDate(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const compact = /^(\d{4})(\d{2})(\d{2})$/.exec(raw.trim());
+  const d = compact
+    ? new Date(Date.UTC(Number(compact[1]), Number(compact[2]) - 1, Number(compact[3])))
+    : new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+}

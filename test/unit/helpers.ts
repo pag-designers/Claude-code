@@ -14,6 +14,9 @@ export const noopEmit: Emitters = {
   storage: () => {},
   settings: () => {},
   osNotify: () => {},
+  pipeline: () => {},
+  video: () => {},
+  clip: () => {},
 };
 
 export async function makeServices(

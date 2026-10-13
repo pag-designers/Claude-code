@@ -113,3 +113,18 @@ Scheduled posts are rows `{ id, platform, accountId, mediaKey (R2), payload JSON
 ## ADR-016 — Whop API validation endpoint
 
 Whop REST base `https://api.whop.com/api/v1`, `Authorization: Bearer <key>`; `GET /accounts/me` validates an Account API key (docs.whop.com, checked 2026-10-13). Content Rewards endpoints are researched in CP6.
+
+---
+
+## ADR-017 — CP1 pipeline architecture (streaming, windowed)
+- **One durable queue job per video** (`pipeline.process`, concurrency 1) runs the stages `ingest → prepare → transcribe+moments → understand → select`; **one job per clip** (`pipeline.render-clip`, concurrency 2) renders in parallel. Stage state lives in `Video.stages` (JSON) so a restart resumes (finished stages are skipped, artifacts re-derived lazily); `reconcileOnStart` marks videos whose jobs vanished as failed with a Retry hint instead of leaving them spinning.
+- **Streaming first clips (BRIEF §4.5):** the audio is transcribed in **10-minute windows** (4 s padding each side so boundary words are not cut; words are kept by midpoint). While window *k+1* transcribes, window *k* is ranked by the LLM; moments scoring ≥ 72 start rendering immediately, the rest wait for the final selection (top N, or all ≥ minScore). Ranking context overlaps the previous window by `maxClipSec + 15 s`; moments that start before the current window are left to the previous one; overlapping duplicates (IoU > 0.35) keep the higher score.
+- **LLM returns sentence ids, not seconds** (removes timestamp hallucination); code converts to times and re-snaps to word boundaries (never mid-word, 120–250 ms padding).
+- **Understand (overview/chapters/notes)** runs once the full transcript exists, concurrently with the last renders. Moment ranking does not wait for it (analysis context is optional).
+- **Local disk is a temp cache** (`userData/cache/<videoId>`): the full-res source is deleted at finalize; only the 480p proxy is uploaded (`keepSourceAs`, default `proxy480`); a later re-render re-downloads the source (`ensureSource`). Rendered clips are uploaded then deleted locally; playback uses presigned URLs.
+- **Cross-run cache:** `cache/yt-<sourceId>/<whisperModel>/{transcript,signals}.json` in object storage — re-running the same video (new clip length, steering prompt) skips ASR entirely.
+- **Storage keys** are defined once in `shared/pipeline.ts` (`keys`).
+- **Models:** defaults moved to `claude-sonnet-5-5` (moments/understand) and `claude-haiku-5-5` (cheap tasks) per the brief's "newest Sonnet/Haiku"; pricing table updated ($2/$10 and $0.10/$0.50 per MTok). Estimated cost for a 15-min video is a few cents (see PROGRESS.md for the measured token counts).
+- **YouTube bot checks** (datacenter IPs): ingest tries default clients, then `android_vr` (360p progressive only, with an explicit quality-limited message), then fails with an actionable "use cookies from browser" error. Verified in this sandbox that metadata works but downloads are intermittently blocked.
+- **Dev/test-only switches (never needed in production):** `CLIPFERN_S3_ENDPOINT_OVERRIDE` (S3 emulator), `CLIPFERN_ALLOW_ANY_URL=1` (direct media URL via yt-dlp's generic extractor), `ANTHROPIC_BASE_URL` (stub Claude server).
+- **Queue:** global concurrency is `max(settings.concurrency, 3)` so one pipeline job and two renders can always run together.

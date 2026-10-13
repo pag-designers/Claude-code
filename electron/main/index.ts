@@ -22,6 +22,7 @@ import { logger } from './logger';
 import { createServices, JOB_KINDS, type Services } from './services/context';
 import { pickCipher } from './services/secrets';
 import { SidecarManager } from './services/sidecar';
+import { createPipeline } from './pipeline/wiring';
 
 const APP_NAME = 'Clipfern';
 const APP_HOST = 'clipfern';
@@ -74,14 +75,16 @@ function registerAppProtocol(): void {
 }
 
 function installSecurity(): void {
+  const s3Override = process.env.CLIPFERN_S3_ENDPOINT_OVERRIDE; // dev/test emulator only
+  const extraMedia = s3Override ? ` ${new URL(s3Override).origin}` : '';
   const connect = DEV_URL ? "'self' https: http://localhost:* ws://localhost:*" : "'self' https:";
   const script = DEV_URL ? "'self' 'unsafe-inline' 'unsafe-eval'" : "'self' 'unsafe-inline'";
   const csp = [
     "default-src 'self'",
     `script-src ${script}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https:",
-    "media-src 'self' blob: https:",
+    `img-src 'self' data: blob: https:${extraMedia}`,
+    `media-src 'self' blob: https:${extraMedia}`,
     "font-src 'self' data:",
     `connect-src ${connect}`,
     "object-src 'none'",
@@ -183,6 +186,9 @@ async function bootstrap(): Promise<void> {
       storage: (u) => send('storage:updated', u),
       settings: (s) => send('settings:changed', s),
       osNotify,
+      pipeline: (e) => send('pipeline:event', e),
+      video: (v) => send('videos:updated', v),
+      clip: (c) => send('clips:updated', c),
     },
   });
   const svc = services;
@@ -208,8 +214,35 @@ async function bootstrap(): Promise<void> {
     log: (line) => logger.scoped('sidecar').info(line),
     onStatus: (s: SidecarStatus) => send('sidecar:progress', s),
   });
+  const pipeline = createPipeline(svc, sidecar, {
+    emit: {
+      pipeline: (e) => send('pipeline:event', e),
+      video: (v) => send('videos:updated', v),
+      clip: (c) => send('clips:updated', c),
+    },
+    chooseDirectory: async () => {
+      const res = await dialog.showOpenDialog({
+        title: 'Choose a folder for the clips',
+        properties: ['openDirectory', 'createDirectory'],
+        defaultPath: app.getPath('downloads'),
+      });
+      return res.canceled ? null : (res.filePaths[0] ?? null);
+    },
+    fontsDir: () => {
+      const candidates = [
+        path.join(process.resourcesPath ?? '', 'fonts'),
+        path.join(app.getAppPath(), 'electron', 'main', 'assets', 'fonts'),
+      ];
+      return candidates.find((c) => fs.existsSync(c)) ?? null;
+    },
+  });
+  pipeline.orchestrator.registerJobs();
+
   registerHandlers(
     buildHandlers(svc, {
+      pipeline: pipeline.orchestrator,
+      library: pipeline.library,
+      probeUrl: pipeline.probeUrl,
       appInfo: () => ({
         name: APP_NAME,
         version: app.getVersion(),
@@ -243,6 +276,7 @@ async function bootstrap(): Promise<void> {
   );
 
   const { recovered } = await svc.queue.start();
+  await pipeline.orchestrator.reconcileOnStart();
   if (recovered) log.info(`re-queued ${recovered} job(s) interrupted by the last shutdown`);
   // Real background work through the durable queue: make sure yt-dlp exists; read bucket usage.
   await svc.queue.enqueue({ kind: JOB_KINDS.ensureYtdlp, priority: 5 });

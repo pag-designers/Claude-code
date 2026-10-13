@@ -520,3 +520,62 @@ html[data-platform='linux'] .shell-topbar {
   text-transform: uppercase;
   color: var(--subtle);
 }
+
+/* ───────────────────────────── Range slider (native input, tokenised) ───────────────────────────── */
+input[type='range'].range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 20px;
+  width: 100%;
+  background: transparent;
+  cursor: pointer;
+  --range-fill: 0%;
+}
+input[type='range'].range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--primary) var(--range-fill),
+    var(--border-strong) var(--range-fill)
+  );
+}
+input[type='range'].range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border-radius: 999px;
+  background: var(--primary-foreground);
+  border: 2px solid var(--primary);
+  box-shadow: var(--elev-1);
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+input[type='range'].range:hover::-webkit-slider-thumb {
+  transform: scale(1.12);
+}
+input[type='range'].range:focus-visible {
+  outline: none;
+}
+input[type='range'].range:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+input[type='range'].range:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Transcript match highlight and live-clip arrival ring */
+@keyframes arrive-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 70%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 14px transparent;
+  }
+}
+.animate-arrive {
+  animation: arrive-ring 1.4s var(--ease-out) 1;
+}

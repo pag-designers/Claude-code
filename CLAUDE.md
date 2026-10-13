@@ -44,7 +44,9 @@ backend/app/
   campaign.py           Campaign Requirements Checker (parse, check, auto-fix, checklist.md)
   variants.py           originality engine (3 variants) + per-platform titles/captions/hashtags
   export.py             output/<campaign>/<clip>/ bundle
-frontend/               index.html + app.js + style.css (no build step)
+frontend/               index.html + app.js + style.css (no build step; app shell = top bar + left icon sidebar, routes
+                        #/ (workspace home) #/library #/campaigns #/learn (marketing + FAQ) #/v/<id> ("All Moments" results page))
+docs/ui-redesign-prompt.md  the paste-able design prompt the UI was built from (tokens, structure, measurements)
 tests/                  pytest: boundaries, AI plumbing (fake LLM), campaign checks
 data/                   cache per video: source.mp4, audio.wav, transcript.json, cues.json, clips.json, renders/ (git-ignored)
 output/                 exports: output/<campaign>/<clip>/ (git-ignored)
@@ -116,4 +118,8 @@ On headless Linux, MediaPipe needs `sudo apt install libegl1 libgles2` (otherwis
   paths/cmd-line length, H.264-preferred YouTube downloads (AV1 broke face tracking), yt-dlp auto-updated each start,
   credit-less API keys caught in Settings, re-run keeps user clips, previews/exports via .part files, UI overhaul
   (thumbnails, steps+ETA, chime/notifications, shortcuts, copy buttons, open-folder, mobile, a11y). 21 tests.
+- **UI redesign (v3) DONE**: whole front end rebuilt to the design in `docs/ui-redesign-prompt.md` (dark green-black, one green
+  accent, Poppins from `/fonts`, left icon sidebar, workspace Home, "All Moments" results page with bulk bar + tabs + 3-column
+  cards + six round action buttons, Library, Campaigns, Guide). Same element ids and API calls as before. New endpoints:
+  `GET /api/videos/{id}/thumb.jpg`, `/fonts` static mount. Design was read from public pages + user screenshots, original code/copy/logo.
 - Next: run with a real API key on a real video → tune prompts/scoring.md from results; fill teardown §6 if the user logs in.

@@ -3,25 +3,85 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#060A08">
 <title>Clipper</title>
+<link rel="preload" href="/fonts/Poppins-Regular.ttf" as="font" type="font/ttf" crossorigin>
 <link rel="stylesheet" href="/static/style.css">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%E2%9C%82%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%231ED760'/%3E%3Crect x='11' y='6' width='10' height='20' rx='3' fill='%23052E16'/%3E%3Cpath d='m14.5 13 4 3-4 3z' fill='%231ED760'/%3E%3C/svg%3E">
+<script>document.documentElement.classList.add("js")</script>
 </head>
 <body>
-<header class="top">
-  <a href="#/" class="brand">✂︎ Clipper</a>
+
+<!-- Icon sprite: every icon in the app is <svg class="i"><use href="#i-name"/></svg> -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="gradIcon" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22D3EE"/><stop offset="1" stop-color="#C6F432"/></linearGradient>
+    <linearGradient id="gradBrand" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1ED760"/><stop offset="1" stop-color="#7DF76B"/></linearGradient>
+  </defs>
+  <symbol id="i-logo" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="url(#gradBrand)"/><rect x="11" y="6" width="10" height="20" rx="3" fill="#052E16"/><path d="m14.5 13 4 3-4 3z" fill="#1ED760"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></symbol>
+  <symbol id="i-library" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9.5 5 2.5-5 2.5z"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4"/><path d="M5 4h12l-2.5 4L17 12H5"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle cx="16" cy="7" r="2.5"/><circle cx="8" cy="17" r="2.5"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.5-4.5L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.5 4.5L20 16"/><path d="M20 20v-4h-4"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></symbol>
+  <symbol id="i-scissors" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8 7.5 20 18M8 16.5 20 6"/></symbol>
+  <symbol id="i-crop" viewBox="0 0 24 24"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M2 6h14a2 2 0 0 1 2 2v14"/></symbol>
+  <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M11 3l1.8 5.2L18 10l-5.2 1.8L11 17l-1.8-5.2L4 10l5.2-1.8z"/><path d="M19 15v5M16.5 17.5h5"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5"/><path d="M4 20h16"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5z"/><path d="m3 13 9 5 9-5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-text" viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h14"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-bars" viewBox="0 0 24 24"><path d="M5 20V11M12 20V4M19 20v-6"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></symbol>
+</svg>
+
+<a class="skip" href="#app">Skip to content</a>
+
+<!-- Top bar -->
+<header class="topbar" id="topbar">
+  <a href="#/" class="brand" aria-label="Clipper home"><svg class="logo"><use href="#i-logo"/></svg><span>Clipper</span></a>
+  <div class="crumb hidden" id="crumb">
+    <a href="#/library" class="icon-btn" aria-label="Back to all videos"><svg class="i"><use href="#i-back"/></svg></a>
+    <span id="vTitle" class="crumb-title"></span>
+  </div>
   <div class="top-right">
-    <label class="campaign-pick">Campaign
-      <select id="campaignSelect"><option value="">No campaign</option></select>
+    <label class="campaign-pick"><span>Campaign</span>
+      <select id="campaignSelect" aria-label="Campaign"><option value="">No campaign</option></select>
     </label>
-    <button id="keyBadge" class="badge" title="Settings"></button>
+    <button id="keyBadge" class="badge" title="Settings" type="button"></button>
+    <a href="#/" id="newBtn" class="btn primary sm">New video</a>
   </div>
 </header>
+
+<!-- Left icon sidebar (bottom bar on phones) -->
+<nav class="sidebar" id="sidebar" aria-label="Main">
+  <a href="#/" data-nav="home"><svg class="i"><use href="#i-home"/></svg><span>Home</span></a>
+  <a href="#/library" data-nav="library"><svg class="i"><use href="#i-library"/></svg><span>Library</span></a>
+  <a href="#/campaigns" data-nav="campaigns"><svg class="i"><use href="#i-flag"/></svg><span>Campaigns</span></a>
+  <a href="#/learn" data-nav="learn"><svg class="i"><use href="#i-book"/></svg><span>Guide</span></a>
+  <button type="button" id="navSettings" data-nav="settings"><svg class="i"><use href="#i-sliders"/></svg><span>Settings</span></button>
+</nav>
 
 <!-- Settings -->
 <div id="settings" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
   <div class="modal-box">
-    <button class="close" id="settingsClose" aria-label="Close settings">✕</button>
+    <button class="icon-btn close" id="settingsClose" aria-label="Close settings" type="button"><svg class="i"><use href="#i-x"/></svg></button>
     <h2 id="settingsTitle">Settings</h2>
     <h3>Anthropic API key</h3>
     <p class="muted small">Get one at <b>console.anthropic.com → API Keys</b> (add a few dollars of credit under Billing).
@@ -37,55 +97,182 @@
     <h3>Alerts</h3>
     <label class="toggle"><input type="checkbox" id="sChime"> Play a chime when clips are ready</label>
     <label class="toggle"><input type="checkbox" id="sNotify"> Desktop notification when I'm in another tab</label>
-    <div class="row-gap"><button id="sSave" class="primary">Save</button><span id="sMsg" class="muted small"></span></div>
+    <div class="row-gap"><button id="sSave" class="btn primary" type="button">Save</button><span id="sMsg" class="muted small"></span></div>
   </div>
 </div>
 
-<main id="app"></main>
+<main id="app" tabindex="-1"></main>
 
-<!-- Home -->
+<!-- ============ Home ============ -->
 <template id="tpl-home">
   <section class="hero">
-    <h1>Long video in. Paid-ready clips out.</h1>
-    <form id="urlForm" class="url-row">
-      <input id="urlInput" type="url" placeholder="Paste a YouTube / video URL…" required aria-label="Video URL">
-      <button class="primary" type="submit">Find clips</button>
-      <button type="button" class="ghost" id="uploadBtn">Upload file</button>
-      <input id="fileInput" type="file" accept="video/*" hidden>
+    <h1 class="hero-title">What do you want to clip today?</h1>
+    <form id="urlForm" class="pill-input">
+      <svg class="i lead-ico"><use href="#i-link"/></svg>
+      <input id="urlInput" type="url" placeholder="Drop a YouTube or video link" required aria-label="Video URL">
+      <button class="go primary" type="submit"><span>Get clips in 1 click</span><svg class="i"><use href="#i-arrow"/></svg></button>
     </form>
-    <p class="muted small" id="homeMsg">Tip: pick your campaign at the top first, so every clip is checked against its rules. You can also drop a video file here.</p>
-  </section>
-  <section class="grid2">
-    <div class="panel">
-      <h2>Campaign requirements</h2>
-      <p class="muted small">Paste a Whop campaign's requirements. They're turned into rules every clip is checked against.</p>
-      <input id="campName" placeholder="Campaign name (optional)" aria-label="Campaign name">
-      <textarea id="campBrief" rows="7" aria-label="Campaign requirements" placeholder="e.g. Clips 30-60s. Must mention Acme. Use #acme #ad and tag @acmeapp. English only. No profanity or politics. Captions required."></textarea>
-      <button id="campParse" class="primary">Save campaign</button>
-      <div id="campResult"></div>
-      <div id="campList" class="camp-list"></div>
+    <div class="or-row">
+      <button type="button" class="btn soft" id="uploadBtn"><svg class="i"><use href="#i-upload"/></svg>Upload</button>
+      <input id="fileInput" type="file" accept="video/*" hidden>
+      <a class="btn soft" href="#/campaigns"><svg class="i"><use href="#i-flag"/></svg>Add campaign rules</a>
     </div>
-    <div class="panel">
-      <h2>Your videos</h2>
-      <div id="videoList" class="video-list"></div>
+    <p class="muted small" id="homeMsg">Pick your campaign at the top first so every clip is checked against its rules. You can also drop a video file anywhere in this box.</p>
+    <div class="toolpills" aria-label="What Clipper does">
+      <a class="tpill" href="#/learn"><svg class="i"><use href="#i-scissors"/></svg>Long to shorts</a>
+      <a class="tpill" href="#/learn"><svg class="i"><use href="#i-pencil"/></svg>Edit by text</a>
+      <a class="tpill" href="#/learn"><svg class="i"><use href="#i-text"/></svg>Captions</a>
+      <a class="tpill" href="#/learn"><svg class="i"><use href="#i-crop"/></svg>Auto reframe</a>
+      <a class="tpill" href="#/learn"><svg class="i"><use href="#i-search"/></svg>Find moments</a>
+      <a class="tpill" href="#/learn"><svg class="i"><use href="#i-copy"/></svg>3 variants</a>
+      <a class="tpill" href="#/campaigns"><svg class="i"><use href="#i-flag"/></svg>Rules check</a>
+      <a class="tpill" href="#/learn"><svg class="i"><use href="#i-sparkles"/></svg>Platform captions</a>
+    </div>
+  </section>
+
+  <section class="strip" id="stripWrap">
+    <div class="strip-head"><h2>Recent projects</h2><a class="link" href="#/library">View all <svg class="i"><use href="#i-arrow"/></svg></a></div>
+    <div id="videoList" class="video-grid"></div>
+  </section>
+
+  <section class="strip news">
+    <div class="strip-head"><h2>What's inside</h2></div>
+    <div class="news-grid">
+      <a class="ncard n1" href="#/learn"><span class="nbadge">Score</span><b>Viral score on every clip</b><span>Six scores, each with a reason and a one-line fix.</span></a>
+      <a class="ncard n2" href="#/campaigns"><span class="nbadge">Rules</span><b>Campaign checker</b><span>Paste the brief once. Every clip is checked and fixed.</span></a>
+      <a class="ncard n3" href="#/learn"><span class="nbadge">Edit</span><b>Cut words, not timelines</b><span>Click words in the transcript and the video follows.</span></a>
+      <a class="ncard n4" href="#/learn"><span class="nbadge">Originality</span><b>Three different versions</b><span>Different zoom, speed, captions and hooks so posts look unique.</span></a>
     </div>
   </section>
 </template>
 
-<!-- Video -->
-<template id="tpl-video">
-  <section class="video-head">
-    <div>
-      <a href="#/" class="muted small">← All videos</a>
-      <h1 id="vTitle"></h1>
-      <div class="muted small" id="vMeta"></div>
-    </div>
-    <div class="head-actions">
-      <span id="vCost" class="badge"></span>
-      <button id="reclip" class="ghost">Find clips again</button>
+<!-- ============ Library ============ -->
+<template id="tpl-library">
+  <header class="page-head"><div><h1 class="page-title">Library</h1><p class="muted small">Every video you've added. Open one to see its clips.</p></div>
+    <a class="btn primary" href="#/"><svg class="i"><use href="#i-plus"/></svg>New video</a></header>
+  <div id="videoList" class="video-grid big"></div>
+</template>
+
+<!-- ============ Campaigns ============ -->
+<template id="tpl-campaigns">
+  <header class="page-head"><div><h1 class="page-title">Campaigns</h1><p class="muted small">Paste a Whop campaign's requirements. They become rules every clip is checked against.</p></div></header>
+  <div class="two-col">
+    <section class="panel">
+      <h2>New campaign</h2>
+      <input id="campName" placeholder="Campaign name (optional)" aria-label="Campaign name">
+      <textarea id="campBrief" rows="9" aria-label="Campaign requirements" placeholder="e.g. Clips 30-60s. Must mention Acme. Use #acme #ad and tag @acmeapp. English only. No profanity or politics. Captions required."></textarea>
+      <button id="campParse" class="btn primary" type="button">Save campaign</button>
+      <div id="campResult"></div>
+    </section>
+    <section class="panel">
+      <h2>Saved campaigns</h2>
+      <div id="campList" class="camp-list"></div>
+    </section>
+  </div>
+</template>
+
+<!-- ============ Guide ============ -->
+<template id="tpl-learn">
+  <header class="page-head" id="learnHead"><div><h1 class="page-title">How Clipper works</h1><p class="muted small">From a long video to posts that follow the campaign rules.</p></div></header>
+  <section class="demo reveal" aria-hidden="true" id="demo">
+    <div class="demo-card">
+      <div class="demo-top">
+        <div class="demo-pill"><svg class="i"><use href="#i-link"/></svg><span class="typing">youtube.com/watch?v=podcast-ep-214</span></div>
+        <span class="demo-btn"><svg class="i"><use href="#i-arrow"/></svg></span>
+      </div>
+      <div class="demo-row">
+        <div class="mock mk-wide m1"><span class="mk-play"><svg class="i"><use href="#i-play"/></svg></span><b>99<small>/100</small></b><i>0:52</i></div>
+        <div class="mock mk-tall m2"><b>97<small>/100</small></b><i>0:38</i></div>
+        <div class="mock mk-wide m3"><span class="mk-play"><svg class="i"><use href="#i-play"/></svg></span><b>95<small>/100</small></b><i>1:04</i></div>
+        <div class="mock mk-tall m4"><b>91<small>/100</small></b><i>0:44</i></div>
+        <div class="mock mk-wide m5"><span class="mk-play"><svg class="i"><use href="#i-play"/></svg></span><b>89<small>/100</small></b><i>0:31</i></div>
+      </div>
+      <button type="button" class="round-btn demo-toggle" id="demoToggle" aria-label="Pause the demo animation"><svg class="i"><use href="#i-pause"/></svg></button>
     </div>
   </section>
-  <div id="vProgress" class="progress hidden" role="status" aria-live="polite">
+
+  <section class="marquee reveal" aria-label="Built for">
+    <div class="marquee-track">
+      <span class="pill">TikTok</span><span class="pill">YouTube Shorts</span><span class="pill">Instagram Reels</span><span class="pill">X</span><span class="pill">Whop campaigns</span><span class="pill">Podcasts</span><span class="pill">Interviews</span><span class="pill">Streams</span>
+      <span class="pill" aria-hidden="true">TikTok</span><span class="pill" aria-hidden="true">YouTube Shorts</span><span class="pill" aria-hidden="true">Instagram Reels</span><span class="pill" aria-hidden="true">X</span><span class="pill" aria-hidden="true">Whop campaigns</span><span class="pill" aria-hidden="true">Podcasts</span><span class="pill" aria-hidden="true">Interviews</span><span class="pill" aria-hidden="true">Streams</span>
+    </div>
+  </section>
+
+  <section class="rows">
+    <div class="frow reveal">
+      <div class="ftext"><h2>Find the best moments, then edit by deleting words</h2>
+        <p>The AI reads the whole transcript and picks complete thoughts with a real hook. Open any clip and click words to cut them: the video follows the text.</p>
+        <a class="btn ghost" href="#/learn">How it works <svg class="i"><use href="#i-arrow"/></svg></a></div>
+      <div class="fmedia"><div class="mock-words" aria-hidden="true">So <u>um</u> the real <b>secret</b> is <s>you know</s> to ship before you feel ready, <s>basically</s> and fix it in public.</div></div>
+    </div>
+    <div class="frow flip reveal">
+      <div class="ftext"><h2>A viral score that tells you what to fix</h2>
+        <p>Every clip is scored on hook, story, value, engagement, reach and pacing. Each number comes with a reason and a one-line fix, so you know which clips are worth posting.</p>
+        <a class="btn ghost" href="#/library">Open a video <svg class="i"><use href="#i-arrow"/></svg></a></div>
+      <div class="fmedia"><div class="mock-bars" aria-hidden="true">
+        <div><span>Hook</span><i style="--w:92%"></i><b>92</b></div><div><span>Story</span><i style="--w:78%"></i><b>78</b></div>
+        <div><span>Value</span><i style="--w:85%"></i><b>85</b></div><div><span>Engagement</span><i style="--w:70%"></i><b>70</b></div>
+        <div><span>Reach</span><i style="--w:64%"></i><b>64</b></div><div><span>Pacing</span><i style="--w:88%"></i><b>88</b></div></div></div>
+    </div>
+    <div class="frow reveal">
+      <div class="ftext"><h2>Campaign rules, checked and fixed for you</h2>
+        <p>Paste a Whop campaign's requirements once. Clipper checks length, brand mention, hashtags, language and banned words on every clip, and fixes what code can fix at export.</p>
+        <a class="btn ghost" href="#/campaigns">Set up a campaign <svg class="i"><use href="#i-arrow"/></svg></a></div>
+      <div class="fmedia"><div class="mock-checks" aria-hidden="true">
+        <p><svg class="i"><use href="#i-check"/></svg>30–60 seconds</p><p><svg class="i"><use href="#i-check"/></svg>Mentions the brand</p>
+        <p><svg class="i"><use href="#i-check"/></svg>#ad #acme added</p><p><svg class="i"><use href="#i-check"/></svg>English only</p><p class="warn"><svg class="i"><use href="#i-clock"/></svg>Trimmed 4s to fit</p></div></div>
+    </div>
+  </section>
+
+  <ol class="steps-big">
+    <li class="panel"><span class="num">1</span><h3>Add a video</h3><p>Paste a link or upload a file. Clipper downloads it and writes a word-by-word transcript on your computer.</p></li>
+    <li class="panel"><span class="num">2</span><h3>Review the moments</h3><p>The AI proposes clips and scores them. Tick the good ones, open any clip to cut words or change the layout.</p></li>
+    <li class="panel"><span class="num">3</span><h3>Export</h3><p>Pick a campaign, check the rules, then export. You get a folder per clip with up to three different versions.</p></li>
+  </ol>
+  <section class="grid-feat reveal">
+    <h2 class="sec-title">Everything a clip needs, nothing you have to build</h2>
+    <div class="fgrid">
+      <article class="fcard"><span class="ico grad"><svg class="i"><use href="#i-crop"/></svg></span><h3>Vertical reframing</h3><p>Tracks the speaker's face, splits two people, or fits the frame, shot by shot.</p></article>
+      <article class="fcard"><span class="ico grad"><svg class="i"><use href="#i-text"/></svg></span><h3>Burned-in captions</h3><p>Four caption styles with word-by-word highlight and a hook line on screen.</p></article>
+      <article class="fcard"><span class="ico grad"><svg class="i"><use href="#i-copy"/></svg></span><h3>Three variants</h3><p>Different zoom, speed, cut and wording so no two posts look the same.</p></article>
+      <article class="fcard"><span class="ico grad"><svg class="i"><use href="#i-sparkles"/></svg></span><h3>Platform captions</h3><p>Titles, captions and hashtags written for TikTok, Shorts, Reels and X.</p></article>
+      <article class="fcard"><span class="ico grad"><svg class="i"><use href="#i-search"/></svg></span><h3>Find Moments</h3><p>Ask for "funny moments" or "when he talks about debt" and jump straight there.</p></article>
+      <article class="fcard"><span class="ico grad"><svg class="i"><use href="#i-folder"/></svg></span><h3>Ready-to-post folders</h3><p>Each export is a folder with the video, captions and a rules checklist.</p></article>
+    </div>
+  </section>
+
+  <div class="faq-head"><h2 class="sec-title">Questions</h2><button type="button" class="btn ghost sm" id="faqAll">Expand all</button></div>
+  <div class="faq">
+    <details><summary>How much does it cost?<svg class="i"><use href="#i-chevron"/></svg></summary><p>Clipper is free. The AI uses your own Anthropic key: about $1–3 for a one-hour video on Haiku. Each video shows its running cost.</p></details>
+    <details><summary>Why are my three variants different?<svg class="i"><use href="#i-chevron"/></svg></summary><p>Code changes zoom, speed, caption style, layout and the cut. The AI changes the hook and the platform captions. Platforms push down posts that look duplicated.</p></details>
+    <details><summary>YouTube says "Sign in to confirm you're not a bot"<svg class="i"><use href="#i-chevron"/></svg></summary><p>Run Clipper on your home computer instead of a cloud server, or download the video yourself and use Upload.</p></details>
+    <details><summary>What does the campaign check do?<svg class="i"><use href="#i-chevron"/></svg></summary><p>Clipper reads the brief, then checks length, mentions, hashtags, language and banned words. It fixes what it can at export, like adding required hashtags or trimming to the maximum length.</p></details>
+    <details><summary>Are speaker labels exact?<svg class="i"><use href="#i-chevron"/></svg></summary><p>No. They come from voice fingerprints and are approximate. Mouth movement on screen decides who the camera follows.</p></details>
+  </div>
+
+  <section class="closing reveal">
+    <h2>Be first on the budget</h2>
+    <p>Campaign money is first come, first served. Paste your first link.</p>
+    <button class="btn primary lg" type="button" id="closingCta">Create clips <span class="arrow-dot"><svg class="i"><use href="#i-arrow"/></svg></span></button>
+  </section>
+
+  <button class="float-cta btn primary lg hidden" type="button" id="floatCta" aria-label="Create clips">Create clips <span class="arrow-dot"><svg class="i"><use href="#i-arrow"/></svg></span></button>
+</template>
+
+<!-- ============ Video (the "All Moments" results page) ============ -->
+<template id="tpl-video">
+  <header class="page-head">
+    <div><h1 class="page-title">All Moments</h1><p class="vtitle-m" id="vTitleM"></p><div class="muted small" id="vMeta"></div></div>
+    <div class="head-actions">
+      <span id="vCost" class="badge"></span>
+      <button id="reclip" class="icon-btn sq" type="button" aria-label="Find clips again" title="Find clips again"><svg class="i"><use href="#i-refresh"/></svg></button>
+      <label class="select-pill"><select id="sortBy" aria-label="Sort clips">
+        <option value="score">Sort by Highest Viral Score</option><option value="time">Sort by Timeline</option><option value="compliance">Sort by Meets Rules</option></select>
+        <svg class="i"><use href="#i-chevron"/></svg></label>
+    </div>
+  </header>
+
+  <div id="vProgress" class="progress panel hidden" role="status" aria-live="polite">
     <ol class="steps">
       <li data-steps="queued download audio">Download</li>
       <li data-steps="transcribe">Transcribe</li>
@@ -94,52 +281,56 @@
     </ol>
     <div class="bar"><span></span></div>
     <div class="msg"></div>
-    <div class="row-gap hidden" id="errActions"><button class="primary" id="retry">Try again</button><a class="btnlike" href="#/">Upload the file instead</a></div>
+    <div class="row-gap hidden" id="errActions"><button class="btn primary" id="retry" type="button">Try again</button><a class="btn ghost" href="#/">Upload the file instead</a></div>
   </div>
   <div id="keyCta" class="callout hidden">
     <div><b>Transcript ready.</b> Add your Anthropic API key so the AI can find and score clips. You can already make clips by hand in the Transcript tab.</div>
-    <button class="primary" id="keyCtaBtn">Add API key</button>
+    <button class="btn primary" id="keyCtaBtn" type="button">Add API key</button>
   </div>
-  <nav class="tabs" role="tablist">
-    <button data-tab="clips" class="active" role="tab">Clips</button>
-    <button data-tab="moments" role="tab">Find moments</button>
-    <button data-tab="transcript" role="tab">Transcript</button>
+
+  <div id="bulkBar" class="bulk">
+    <span class="bulk-msg"><svg class="i"><use href="#i-layers"/></svg><span id="bulkCount">Select clips to enable bulk actions</span></span>
+    <div class="bulk-actions">
+      <label class="select-pill small">Versions <select id="bulkVariants" aria-label="Variants per clip" disabled><option>1</option><option>2</option><option selected>3</option></select><svg class="i"><use href="#i-chevron"/></svg></label>
+      <button id="bulkExport" class="btn soft" type="button" disabled><svg class="i"><use href="#i-download"/></svg><span>Bulk Export</span></button>
+      <span class="vr" aria-hidden="true"></span>
+      <button id="checkCamp" class="btn soft" type="button"><svg class="i"><use href="#i-flag"/></svg><span>Check campaign rules</span></button>
+    </div>
+  </div>
+
+  <nav class="tabs" role="tablist" aria-label="Video sections">
+    <button data-tab="clips" class="active" role="tab" type="button" aria-selected="true">Viral Moments <span class="count" id="tabCount">0</span></button>
+    <button data-tab="moments" role="tab" type="button" aria-selected="false"><svg class="i"><use href="#i-plus"/></svg>Find Moments</button>
+    <button data-tab="transcript" role="tab" type="button" aria-selected="false">Transcript</button>
   </nav>
-  <section id="tab-clips">
-    <div class="toolbar">
-      <div class="muted small" id="clipCount"></div>
-      <div class="toolbar-right">
-        <select id="sortBy" aria-label="Sort clips"><option value="score">Sort: viral score</option><option value="time">Sort: timeline</option><option value="compliance">Sort: meets rules</option></select>
-        <button id="selectAll" class="ghost">Select all</button>
-        <button id="checkCamp" class="ghost">Check campaign rules</button>
-      </div>
+
+  <section class="tab-panel panel" id="tab-clips">
+    <div class="select-row">
+      <label class="check-lbl"><input type="checkbox" id="selectAll" aria-label="Select all clips"><span id="selectAllLbl">Select all clips</span></label>
+      <span class="muted small" id="clipCount"></span>
     </div>
     <div id="clips" class="clip-grid"></div>
   </section>
-  <section id="tab-moments" class="hidden">
-    <form id="momentForm" class="url-row">
+  <section class="tab-panel panel hidden" id="tab-moments">
+    <form id="momentForm" class="pill-input compact">
+      <svg class="i lead-ico"><use href="#i-search"/></svg>
       <input id="momentQuery" aria-label="Search inside the video" placeholder='Search inside the video: "funny moments", "when he talks about debt"…' required>
-      <button class="primary">Search</button>
+      <button class="go primary" type="submit" aria-label="Search"><svg class="i"><use href="#i-arrow"/></svg></button>
     </form>
     <div class="chips ideas" id="momentIdeas"><button class="chip" type="button">funniest moments</button><button class="chip" type="button">hot takes</button><button class="chip" type="button">when they mention the brand</button><button class="chip" type="button">emotional story</button></div>
     <div id="moments" class="moment-list"></div>
   </section>
-  <section id="tab-transcript" class="hidden">
+  <section class="tab-panel panel hidden" id="tab-transcript">
     <p class="muted small">Click a sentence to start a selection, shift-click to end it, then make a clip from it (works without the API key).</p>
-    <div class="toolbar"><span id="selInfo" class="muted small"></span><button id="makeClip" class="primary" disabled>Make clip from selection</button></div>
+    <div class="toolbar"><span id="selInfo" class="muted small"></span><button id="makeClip" class="btn primary" type="button" disabled>Make clip from selection</button></div>
     <div id="transcript" class="transcript"></div>
   </section>
-  <div id="bulkBar" class="bulk hidden">
-    <span id="bulkCount"></span>
-    <label>Variants <select id="bulkVariants" aria-label="Variants per clip"><option>1</option><option>2</option><option selected>3</option></select></label>
-    <button id="bulkExport" class="primary">Export selected</button>
-  </div>
 </template>
 
 <!-- Editor drawer -->
 <div id="drawer" class="drawer hidden" role="dialog" aria-modal="true" aria-label="Clip editor">
   <div class="drawer-inner">
-    <button class="close" id="drawerClose" aria-label="Close editor">✕</button>
+    <button class="icon-btn close" id="drawerClose" aria-label="Close editor" type="button"><svg class="i"><use href="#i-x"/></svg></button>
     <div class="editor">
       <div class="phone-col">
         <div class="phone">
@@ -147,8 +338,8 @@
           <div id="pvBusy" class="pv-busy hidden"><div class="spin"></div><span>Rendering preview…</span></div>
         </div>
         <div class="pv-actions">
-          <button id="playSource" class="ghost small-btn">Play original</button>
-          <button id="renderPreview" class="primary small-btn">Render 9:16 preview</button>
+          <button id="playSource" class="btn ghost sm" type="button">Play original</button>
+          <button id="renderPreview" class="btn primary sm" type="button">Render 9:16 preview</button>
         </div>
         <div id="pvMsg" class="muted small center"></div>
       </div>
@@ -164,20 +355,20 @@
         <div id="eLayouts" class="chips"></div>
         <h3>Transcript <span class="muted small">click words to cut them · <span id="eDur"></span></span></h3>
         <div class="nudge">
-          <button data-nudge="start,-1">⟵ Start earlier</button><button data-nudge="start,1">Start later ⟶</button>
-          <button data-nudge="end,-1">⟵ End earlier</button><button data-nudge="end,1">End later ⟶</button>
+          <button data-nudge="start,-1" type="button">⟵ Start earlier</button><button data-nudge="start,1" type="button">Start later ⟶</button>
+          <button data-nudge="end,-1" type="button">⟵ End earlier</button><button data-nudge="end,1" type="button">End later ⟶</button>
         </div>
         <div id="eWords" class="words"></div>
         <div class="muted small kbd-hint"><kbd>Space</kbd> play/pause · <kbd>⌫</kbd> cut the word being spoken · <kbd>←</kbd><kbd>→</kbd> previous/next clip · <kbd>Ctrl</kbd>+<kbd>S</kbd> save · <kbd>Esc</kbd> close</div>
         <div class="row-gap">
-          <button id="eSave" class="primary">Save edits</button>
-          <button id="eRestore" class="ghost">Undo all cuts</button>
-          <button id="eDelete" class="ghost danger">Delete clip</button>
+          <button id="eSave" class="btn primary" type="button">Save edits</button>
+          <button id="eRestore" class="btn ghost" type="button">Undo all cuts</button>
+          <button id="eDelete" class="btn ghost danger" type="button">Delete clip</button>
         </div>
         <h3>Campaign check</h3>
         <div id="eChecks" class="muted small">Pick a campaign at the top and press “Check campaign rules”.</div>
         <h3>Originality variants</h3>
-        <button id="eVariants" class="ghost">Generate 3 variants + platform captions</button>
+        <button id="eVariants" class="btn ghost" type="button">Generate 3 variants + platform captions</button>
         <div id="eVariantList" class="variants"></div>
       </div>
     </div>

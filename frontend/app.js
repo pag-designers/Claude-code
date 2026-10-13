@@ -3,6 +3,9 @@ const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const mmss = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+const mmssp = (t) => `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+const icon = (n, cls = "") => `<svg class="i ${cls}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 const DIMS = ["hook", "story", "value", "engagement", "reach", "pacing"];
 const STAGE = { queued: "Queued", download: "Downloading", audio: "Preparing", transcribe: "Transcribing", cues: "Analyzing",
   clipping: "Finding clips", scoring: "Scoring", ready: "Ready", needs_key: "Needs API key", error: "Failed" };
@@ -10,7 +13,7 @@ const LANG = { en: "English", es: "Spanish", pt: "Portuguese", fr: "French", de:
 const PLATFORM = { tiktok: "TikTok", youtube_shorts: "Shorts", instagram_reels: "Reels", x: "X" };
 
 const state = { config: null, campaigns: [], video: null, transcript: null, sort: "score", selected: new Set(),
-  editing: null, dirty: false, sel: [null, null], poll: null, eta: null };
+  editing: null, dirty: false, sel: [null, null], poll: null, eta: null, exporting: false, io: null, io2: null };
 
 async function api(path, opts = {}) {
   const res = await fetch(path, { headers: opts.body && !(opts.body instanceof FormData) ? { "Content-Type": "application/json" } : {}, ...opts,
@@ -88,7 +91,7 @@ document.addEventListener("visibilitychange", () => {
 function applyConfig(c) {
   state.config = c;
   const kb = $("#keyBadge");
-  kb.textContent = c.has_api_key ? `⚙ AI: ${c.model.replace("claude-", "")}` : "⚙ AI off: add API key";
+  kb.textContent = c.has_api_key ? `AI: ${c.model.replace("claude-", "")}` : "AI off: add API key";
   kb.className = "badge " + (c.has_api_key ? "ok" : "bad");
 }
 
@@ -128,6 +131,10 @@ async function saveSettings() {
 async function boot() {
   applyConfig(await api("/api/config"));
   $("#keyBadge").onclick = openSettings;
+  $("#navSettings").onclick = openSettings;
+  const onScroll = () => $("#topbar").classList.toggle("scrolled", scrollY > 8);
+  addEventListener("scroll", onScroll, { passive: true }); onScroll();
+  $("#newBtn").addEventListener("click", () => { if (!location.hash || location.hash === "#/") { scrollTo({ top: 0 }); $("#urlInput")?.focus(); } });
   $("#settingsClose").onclick = () => $("#settings").classList.add("hidden");
   $("#settings").addEventListener("click", (e) => { if (e.target.id === "settings") $("#settings").classList.add("hidden"); });
   $("#sSave").onclick = saveSettings;
@@ -151,23 +158,56 @@ async function loadCampaigns() {
 }
 
 function route() {
-  clearInterval(state.poll);
-  const m = location.hash.match(/^#\/v\/(.+)$/);
-  m ? showVideo(decodeURIComponent(m[1])) : showHome();
+  clearInterval(state.poll); state.io?.disconnect(); state.io2?.disconnect(); state.io = state.io2 = null;
+  const h = location.hash, m = h.match(/^#\/v\/(.+)$/);
+  const page = m ? "video" : h === "#/library" ? "library" : h === "#/campaigns" ? "campaigns" : h === "#/learn" ? "learn" : "home";
+  $$("#sidebar [data-nav]").forEach((el) => { const on = el.dataset.nav === (page === "video" ? "library" : page); el.classList.toggle("active", on); on ? el.setAttribute("aria-current", "page") : el.removeAttribute("aria-current"); });
+  $("#crumb").classList.toggle("hidden", page !== "video");
+  $("#newBtn").classList.toggle("hidden", page === "home");
+  scrollTo({ top: 0, behavior: "instant" });
+  if (page === "video") showVideo(decodeURIComponent(m[1]));
+  else ({ library: showLibrary, campaigns: showCampaigns, learn: showLearn, home: showHome })[page]();
 }
 
 function mount(tplId) {
   const app = $("#app"); app.innerHTML = ""; app.append($(tplId).content.cloneNode(true));
+  state.io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); state.io.unobserve(e.target); } }), { threshold: 0.12 });
+  $$(".reveal", app).forEach((el) => state.io.observe(el));
 }
 
-// ---------------- home ----------------
+// ---------------- pages ----------------
+function videoCards(vids) {
+  return vids.map((v) => {
+    const st = v.status?.stage;
+    return `<a class="vitem" href="#/v/${esc(v.id)}">
+      <div class="vthumb"><img src="/api/videos/${encodeURIComponent(v.id)}/thumb.jpg" alt="" loading="lazy" onerror="this.remove()">
+        ${isBusy(st) ? `<span class="vprog"><span class="spin sm"></span>${Math.round((v.status.progress || 0) * 100)}%</span>` : `<span class="badge vstat ${st === "ready" ? "ok" : st === "error" ? "err" : ""}">${STAGE[st] || ""}</span>`}</div>
+      <div class="vbody"><div class="vt">${esc(v.title)}</div>
+        <div class="muted small">${v.duration ? mmss(v.duration) : "…"}${isBusy(st) && v.status?.message ? " · " + esc(v.status.message) : ""}</div></div></a>`;
+  }).join("");
+}
+
+async function loadVideoList(limit) {
+  const box = $("#videoList"); if (!box) return;
+  let vids;
+  try { vids = await api("/api/videos"); }
+  catch (e) { box.innerHTML = `<p class="small" style="color:var(--bad)">Couldn't load your videos: ${esc(e.message)}</p>`; return; }
+  if (!$("#videoList")) return;   // navigated away while loading
+  if (!vids.length) {
+    if (limit) { $("#stripWrap").classList.add("empty"); }
+    else box.innerHTML = `<div class="panel" style="grid-column:1/-1;align-items:flex-start"><h2>No videos yet</h2><p class="muted">Paste a link on the Home page to get started.</p><a class="btn primary" href="#/">Add a video</a></div>`;
+    return;
+  }
+  box.innerHTML = videoCards(limit ? vids.slice(0, limit) : vids);
+}
+
 async function showHome() {
   state.video = null; document.title = "Clipper"; mount("#tpl-home");
   $("#urlForm").onsubmit = async (e) => {
     e.preventDefault(); askNotify();
-    const b = $("#urlForm .primary"); b.disabled = true; b.textContent = "Starting…";
+    const b = $("#urlForm .go"); b.disabled = true;
     try { const job = await api("/api/videos", { method: "POST", body: { url: $("#urlInput").value.trim() } }); location.hash = `#/v/${job.video_id}`; }
-    catch (err) { toast(err.message, true); b.disabled = false; b.textContent = "Find clips"; }
+    catch (err) { toast(err.message, true); b.disabled = false; }
   };
   $("#uploadBtn").onclick = () => $("#fileInput").click();
   $("#fileInput").onchange = (e) => e.target.files[0] && uploadFile(e.target.files[0]);
@@ -175,6 +215,13 @@ async function showHome() {
   hero.ondragover = (e) => { e.preventDefault(); hero.classList.add("drop"); };
   hero.ondragleave = () => hero.classList.remove("drop");
   hero.ondrop = (e) => { e.preventDefault(); hero.classList.remove("drop"); const f = e.dataTransfer.files[0]; if (f) uploadFile(f); };
+  await loadVideoList(4);
+}
+
+function showLibrary() { state.video = null; document.title = "Library · Clipper"; mount("#tpl-library"); loadVideoList(0); }
+
+function showCampaigns() {
+  state.video = null; document.title = "Campaigns · Clipper"; mount("#tpl-campaigns");
   $("#campParse").onclick = async () => {
     const btn = $("#campParse"); btn.disabled = true; btn.textContent = "Reading the rules…";
     try {
@@ -186,15 +233,24 @@ async function showHome() {
     btn.disabled = false; btn.textContent = "Save campaign";
   };
   renderCampList();
-  let vids;
-  try { vids = await api("/api/videos"); }
-  catch (e) { $("#videoList").innerHTML = `<p class="small" style="color:var(--bad)">Couldn't load your videos: ${esc(e.message)}</p>`; return; }
-  $("#videoList").innerHTML = vids.length ? vids.map((v) => {
-    const st = v.status?.stage;
-    return `<a class="vitem" href="#/v/${esc(v.id)}"><div><div>${esc(v.title)}</div>
-      <div class="muted small">${v.duration ? mmss(v.duration) : "…"}${isBusy(st) && v.status?.message ? " · " + esc(v.status.message) : ""}</div></div>
-      <span class="badge ${st === "ready" ? "ok" : st === "error" ? "err" : ""}">${STAGE[st] || ""}</span></a>`;
-  }).join("") : `<p class="muted small">No videos yet. Paste a URL above.</p>`;
+}
+
+function showLearn() {
+  state.video = null; document.title = "Guide · Clipper"; mount("#tpl-learn");
+  const go = () => { location.hash = "#/"; setTimeout(() => $("#urlInput")?.focus(), 100); };
+  $("#floatCta").onclick = go; $("#closingCta").onclick = go;
+  $("#demoToggle").onclick = () => {
+    const p = $("#demo").classList.toggle("paused");
+    $("#demoToggle").setAttribute("aria-label", p ? "Play the demo animation" : "Pause the demo animation");
+    $("#demoToggle use").setAttribute("href", p ? "#i-play" : "#i-pause");
+  };
+  // the floating button appears once the page header has scrolled out of view
+  state.io2 = new IntersectionObserver(([e]) => $("#floatCta")?.classList.toggle("hidden", e.isIntersecting), { threshold: 0 });
+  state.io2.observe($(".page-head"));
+  $("#faqAll").onclick = () => {
+    const all = $$(".faq details"), open = all.every((d) => d.open);
+    all.forEach((d) => (d.open = !open)); $("#faqAll").textContent = open ? "Expand all" : "Collapse all";
+  };
 }
 
 function uploadFile(f) {
@@ -230,21 +286,22 @@ function rulesHtml(c) {
 
 function renderCampList() {
   const el = $("#campList"); if (!el) return;
-  el.innerHTML = state.campaigns.map((c) => `<div class="vitem" style="flex-direction:column"><b>${esc(c.campaign_name)}</b>${rulesHtml(c)}</div>`).join("");
+  if (!state.campaigns.length) { el.innerHTML = `<p class="muted small">No campaigns yet. Paste one on the left.</p>`; return; }
+  el.innerHTML = state.campaigns.map((c) => `<div class="vitem"><b>${esc(c.campaign_name)}</b>${rulesHtml(c)}</div>`).join("");
 }
 
 // ---------------- video page ----------------
 async function showVideo(id) {
-  mount("#tpl-video");
+  mount("#tpl-video"); $("#crumb").classList.remove("hidden"); $("#vTitle").textContent = state.video?.id === id ? state.video.title : "Loading…";
   state.selected.clear(); state.sel = [null, null]; state.eta = null; state.transcript = null; renderClips._sig = null;
   $$(".tabs button").forEach((b) => (b.onclick = () => switchTab(b.dataset.tab)));
   $("#sortBy").onchange = (e) => { state.sort = e.target.value; renderClips(true); };
   $("#reclip").onclick = () => startReclip(id, true);
   $("#checkCamp").onclick = () => checkCampaign(id);
   $("#bulkExport").onclick = () => bulkExport(id);
-  $("#selectAll").onclick = () => {
-    const ids = (state.video?.clips || []).map((c) => c.id), all = ids.length && ids.every((i) => state.selected.has(i));
-    ids.forEach((i) => (all ? state.selected.delete(i) : state.selected.add(i))); renderClips(true);
+  $("#selectAll").onchange = (e) => {
+    const ids = (state.video?.clips || []).map((c) => c.id);
+    ids.forEach((i) => (e.target.checked ? state.selected.add(i) : state.selected.delete(i))); renderClips(true);
   };
   $("#momentForm").onsubmit = (e) => { e.preventDefault(); findMoments(id); };
   $$("#momentIdeas .chip").forEach((b) => (b.onclick = () => { $("#momentQuery").value = b.textContent; findMoments(id); }));
@@ -267,7 +324,7 @@ async function startReclip(id, ask) {
 }
 
 function switchTab(tab) {
-  $$(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+  $$(".tabs button").forEach((b) => { b.classList.toggle("active", b.dataset.tab === tab); b.setAttribute("aria-selected", b.dataset.tab === tab); });
   ["clips", "moments", "transcript"].forEach((t) => $(`#tab-${t}`).classList.toggle("hidden", t !== tab));
   if (tab === "transcript") renderTranscript();
 }
@@ -311,6 +368,7 @@ async function refreshVideo(id) {
   } else if (!/^[✓!]/.test(document.title)) document.title = `${v.title || "Clipper"} · Clipper`;
 
   $("#vTitle").textContent = v.title || id;
+  $("#vTitle").title = v.title || id; $("#vTitleM").textContent = v.title || id;
   const vertical = v.width && v.height > v.width;
   $("#vMeta").textContent = [v.duration && mmss(v.duration), v.language && (LANG[v.language] || v.language), vertical && "already vertical", v.channel].filter(Boolean).join(" · ");
   const usd = v.cost?.usd || 0;
@@ -347,12 +405,44 @@ function compLabel(comp) {
   return comp.after_fixes === "warn" ? "Check rules" : "Breaks rules";
 }
 
+const ACTIONS = [
+  ["edit", "pencil", "Edit clip", null], ["trim", "scissors", "Cut words", "#eWords"], ["reframe", "crop", "Layout and reframe", "#eLayouts"],
+  ["variants", "sparkles", "Variants and captions", "#eVariants"], ["export", "download", "Export this clip", null], ["delete", "trash", "Delete clip", null]];
+
+function clipCard(c, v) {
+  const comp = compliance(c), dur = c.edited_duration ?? c.duration;
+  const edited = (c.removed_words || []).length > 0 || (c.edited_duration != null && Math.abs(c.edited_duration - c.duration) > 0.2);
+  const n = (v.clips || []).indexOf(c) + 1;
+  const dimTip = c.dims ? DIMS.map((d) => `${d} ${c.dims[d].score}: ${c.dims[d].reason}`).join("\n") : "Not scored yet";
+  const desc = c.verdict || c.why || c.hook_text || "";
+  return `<article class="card" data-id="${c.id}">
+    <div class="card-head">
+      <label class="pick" title="Select this clip"><input type="checkbox" data-pick="${c.id}" ${state.selected.has(c.id) ? "checked" : ""} aria-label="Select ${esc(c.title)}"></label>
+      <div class="ct" title="${esc(c.title)}">#${n} ${esc(c.title)}</div>
+    </div>
+    <div class="thumb" data-thumb="${c.id}" role="button" tabindex="0" aria-label="Edit ${esc(c.title)}">
+      <img src="/api/videos/${encodeURIComponent(v.id)}/clips/${encodeURIComponent(c.id)}/thumb.jpg?t=${c.start}" alt="" loading="lazy" onerror="this.remove()">
+      <span class="play">${icon("play")}</span>
+      <span class="chips-top">${edited ? `<span class="tchip edited">Edited</span>` : ""}<span class="tchip" title="${Math.round(dur)} seconds">${mmssp(c.start)} - ${mmssp(c.end)}</span></span>
+    </div>
+    <div class="cbody">
+      <div class="scorerow" title="${esc(dimTip)}">
+        <span class="sc" style="color:${c.score != null ? scoreColor(c.score) : "var(--t3)"}">${c.score ?? "–"}</span><span class="of">/100</span>
+        ${comp ? `<span class="comp ${comp.after_fixes}" title="As-is: ${comp.status}. After auto-fixes at export: ${comp.after_fixes}">${compLabel(comp)}</span>` : ""}
+      </div>
+      <div class="actions">${ACTIONS.map(([k, ic, label]) => `<button type="button" class="icon-btn ${k === "delete" ? "warn" : ""}" data-act="${k}" ${k === "edit" ? `data-edit="${c.id}"` : ""} aria-label="${label}" title="${label}">${icon(ic)}</button>`).join("")}</div>
+      <p class="desc">${esc(desc)}</p>
+      <div class="tags"><span class="tag cat-${esc(c.category)}">${esc(c.category)}</span><span class="muted small">${Math.round(dur)}s</span></div>
+    </div></article>`;
+}
+
 function renderClips(force = false) {
   const v = state.video; if (!v || !$("#clips")) return;
   let clips = [...(v.clips || [])];
   if (state.sort === "time") clips.sort((a, b) => a.start - b.start);
   else if (state.sort === "compliance") { const o = { pass: 0, warn: 1, fail: 2 }; clips.sort((a, b) => (o[compliance(a)?.after_fixes] ?? 3) - (o[compliance(b)?.after_fixes] ?? 3) || (b.score ?? 0) - (a.score ?? 0)); }
   else clips.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+  $("#tabCount").textContent = clips.length;
   // Polling refreshes every 2 s: only redraw when something visible changed.
   const sig = JSON.stringify([clips, state.sort, campaignSlug(), [...state.selected], v.status?.stage]);
   if (!force && sig === renderClips._sig && $("#clips").childElementCount) return;
@@ -362,29 +452,14 @@ function renderClips(force = false) {
     $("#clips").innerHTML = Array(6).fill(`<div class="card skel" aria-hidden="true"><div class="sk sk-thumb"></div><div class="sk sk-line"></div><div class="sk sk-line short"></div></div>`).join("");
     updateBulk(); return;
   }
-  $("#clipCount").textContent = clips.length ? `${clips.length} clip${clips.length > 1 ? "s" : ""}` : (v.status?.stage === "needs_key" ? "No AI clips yet. You can make clips by hand in the Transcript tab." : "No clips yet.");
-  $("#clips").innerHTML = clips.map((c) => {
-    const comp = compliance(c), dur = c.edited_duration ?? c.duration;
-    return `<article class="card" data-id="${c.id}">
-      <div class="thumb" data-thumb="${c.id}" role="button" tabindex="0" aria-label="Edit ${esc(c.title)}">
-        <img src="/api/videos/${encodeURIComponent(v.id)}/clips/${encodeURIComponent(c.id)}/thumb.jpg?t=${c.start}" alt="" loading="lazy" onerror="this.remove()">
-        <span class="dur">${Math.round(dur)}s</span>
-      </div>
-      <div class="card-top">
-        ${c.score != null ? `<div class="ring" style="--p:${c.score};--c:${scoreColor(c.score)}" title="Viral score"><b>${c.score}</b></div>` : `<div class="ring" title="Not scored"><b>–</b></div>`}
-        <div><h4>${esc(c.title)}</h4>
-        <span class="tag cat-${esc(c.category)}">${esc(c.category)}</span><span class="muted small">${mmss(c.start)}–${mmss(c.end)}</span></div>
-      </div>
-      ${c.hook_text ? `<div class="hookline"><span class="hook-lbl">HOOK</span>${esc(c.hook_text)}</div>` : ""}
-      ${c.dims ? `<div class="dims">${DIMS.map((d) => `<div class="dim" title="${esc(c.dims[d].reason)}\nFix: ${esc(c.dims[d].fix)}">${d} ${c.dims[d].score}<div class="b"><span style="width:${c.dims[d].score}%;background:${scoreColor(c.dims[d].score)}"></span></div></div>`).join("")}</div>` : ""}
-      ${c.verdict ? `<div class="verdict">${esc(c.verdict)}</div>` : `<div class="muted small">${esc(c.why || "")}</div>`}
-      <div class="card-actions">
-        <label class="pick"><input type="checkbox" data-pick="${c.id}" ${state.selected.has(c.id) ? "checked" : ""}> Select</label>
-        ${comp ? `<span class="comp ${comp.after_fixes}" title="As-is: ${comp.status}. After auto-fixes at export: ${comp.after_fixes}">${compLabel(comp)}</span>` : ""}
-        <button class="ghost small-btn" data-edit="${c.id}">Edit</button>
-      </div></article>`;
-  }).join("");
+  $("#clipCount").textContent = clips.length ? "" : (v.status?.stage === "needs_key" ? "No AI clips yet. You can make clips by hand in the Transcript tab." : "No clips yet.");
+  $("#clips").innerHTML = clips.map((c) => clipCard(c, { ...v, clips })).join("");
   $$("[data-edit]").forEach((b) => (b.onclick = () => openEditor(b.dataset.edit)));
+  $$("[data-act]").forEach((b) => {
+    const id = b.closest(".card").dataset.id, k = b.dataset.act, focus = ACTIONS.find((a) => a[0] === k)[3];
+    if (k === "edit") return;
+    b.onclick = () => (k === "export" ? runExport(v.id, [id]) : k === "delete" ? deleteClip(v.id, id) : openEditor(id, focus));
+  });
   $$(".thumb").forEach((el) => {
     el.onclick = () => openEditor(el.dataset.thumb);
     el.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEditor(el.dataset.thumb); } };
@@ -394,36 +469,53 @@ function renderClips(force = false) {
   updateBulk();
 }
 
+async function deleteClip(vid, id) {
+  if (!confirm("Delete this clip?")) return;
+  try { await api(`/api/videos/${vid}/clips/${id}`, { method: "DELETE" }); state.selected.delete(id); await refreshVideo(vid); toast("Clip deleted."); }
+  catch (e) { toast(e.message, true); }
+}
+
 function updateBulk() {
-  const n = state.selected.size;
-  $("#bulkBar")?.classList.toggle("hidden", n === 0);
-  if ($("#bulkCount")) $("#bulkCount").textContent = `${n} selected${campaignSlug() ? " · campaign: " + $("#campaignSelect").selectedOptions[0].text : ""}`;
-  if ($("#selectAll")) { const ids = (state.video?.clips || []).map((c) => c.id); $("#selectAll").textContent = ids.length && ids.every((i) => state.selected.has(i)) ? "Select none" : "Select all"; }
+  const n = state.selected.size, ids = (state.video?.clips || []).map((c) => c.id);
+  $("#bulkBar")?.classList.toggle("active", n > 0);
+  if ($("#bulkCount")) $("#bulkCount").textContent = n ? `${n} selected${campaignSlug() ? " · campaign: " + $("#campaignSelect").selectedOptions[0].text : ""}` : "Select clips to enable bulk actions";
+  if ($("#bulkExport")) $("#bulkExport").disabled = !n || state.exporting;
+  if ($("#bulkVariants")) { $("#bulkVariants").disabled = !n; $("#bulkVariants").closest(".select-pill").title = n ? "" : "Select clips first"; }
+  const all = $("#selectAll");
+  if (all) {
+    const k = ids.filter((i) => state.selected.has(i)).length;
+    all.checked = ids.length > 0 && k === ids.length; all.indeterminate = k > 0 && k < ids.length; all.disabled = !ids.length;
+    $("#selectAllLbl").textContent = ids.length ? `Select all ${ids.length} clip${ids.length > 1 ? "s" : ""}` : "Select all clips";
+  }
 }
 
 async function checkCampaign(id) {
   const slug = campaignSlug();
   if (!slug) return toast("Pick (or create) a campaign at the top first.", true);
-  const btn = $("#checkCamp"); btn.disabled = true; btn.textContent = "Checking…";
+  const btn = $("#checkCamp"), lbl = $("span", btn); btn.disabled = true; lbl.textContent = "Checking…";
   try { await waitJob(await api(`/api/videos/${id}/check/${slug}`, { method: "POST" })); await refreshVideo(id); state.sort = "compliance"; $("#sortBy").value = "compliance"; renderClips(true); toast("Campaign check done."); }
   catch (e) { toast(e.message, true); }
-  btn.disabled = false; btn.textContent = "Check campaign rules";
+  btn.disabled = false; lbl.textContent = "Check campaign rules";
 }
 
-async function bulkExport(id) {
-  const ids = [...state.selected], btn = $("#bulkExport");
-  btn.disabled = true;
+async function bulkExport(id) { return runExport(id, [...state.selected]); }
+
+async function runExport(id, ids) {
+  if (state.exporting || !ids.length) return;
+  state.exporting = true; updateBulk();
+  const btn = $("#bulkExport"), lbl = btn ? $("span", btn) : document.createElement("span"), single = ids.length === 1 && state.selected.size !== 1;
   try {
+    if (single) toast("Exporting this clip…", false, 0);
     const job = await api(`/api/videos/${id}/export`, { method: "POST", body: { clip_ids: ids, campaign: campaignSlug() || null, variants: +$("#bulkVariants").value } });
-    const res = await waitJob(job, (j) => (btn.textContent = `Exporting… ${Math.round(j.progress * 100)}%`));
+    const res = await waitJob(job, (j) => { const t = `Exporting… ${Math.round(j.progress * 100)}%`; lbl.textContent = t; if (single) toast(t, false, 0); });
     const items = res.exports.map((e) => `<div class="exp"><b>${esc(e.folder.split("/").pop())}</b><div>${e.files.map((f) => `<a href="/${e.folder.split("/").map(encodeURIComponent).join("/")}/${encodeURIComponent(f)}" target="_blank" rel="noopener">${esc(f)}</a>`).join(" · ")}</div></div>`).join("");
     const where = res.exports[0]?.folder.split("/").slice(0, -1).join("/") || "output";
-    toast(`<b>Exported ${res.exports.length} clip${res.exports.length > 1 ? "s" : ""} ✓</b><div class="muted small">Saved in your Clipper folder → ${esc(where.replace(/\//g, " → "))}</div>${items}<button class="primary small-btn open-folder" id="openFolder">Open folder</button>`, false, 0, true);
+    toast(`<b>Exported ${res.exports.length} clip${res.exports.length > 1 ? "s" : ""} ✓</b><div class="muted small">Saved in your Clipper folder → ${esc(where.replace(/\//g, " → "))}</div>${items}<button class="btn primary sm open-folder" id="openFolder" type="button">Open folder</button>`, false, 0, true);
     $("#openFolder").onclick = () => api("/api/open-folder", { method: "POST", body: { folder: res.exports.length > 1 ? where : res.exports[0].folder } }).catch((e) => toast(e.message, true));
     signalDone(`Exported ${res.exports.length} clip${res.exports.length > 1 ? "s" : ""}`, "");
-    state.selected.clear(); renderClips(true);
+    ids.forEach((i) => state.selected.delete(i));
   } catch (e) { toast(e.message, true); }
-  btn.disabled = false; btn.textContent = "Export selected";
+  state.exporting = false; lbl.textContent = "Bulk Export"; renderClips(true); updateBulk();
 }
 
 // ---------------- find moments ----------------
@@ -435,14 +527,14 @@ async function findMoments(id) {
     box.innerHTML = res.length ? res.map((m, i) => `<div class="moment">
       <div class="score" style="color:${scoreColor(m.match_score)}">${m.match_score}</div>
       <div><b>${esc(m.title)}</b> <span class="muted small">${mmss(m.start)}–${mmss(m.end)} · ${m.duration.toFixed(1)}s</span><br><q>${esc(m.quote)}</q><div class="small">${esc(m.why)}</div></div>
-      <div class="acts"><button class="ghost small-btn" data-play="${i}">▶ Play</button><button class="primary small-btn" data-add="${i}">Add as clip</button></div></div>`).join("") : `<p class="muted">Nothing matched. Try a broader search.</p>`;
+      <div class="acts"><button class="btn ghost sm" type="button" data-play="${i}">▶ Play</button><button class="btn primary sm" type="button" data-add="${i}">Add as clip</button></div></div>`).join("") : `<p class="muted">Nothing matched. Try a broader search.</p>`;
     $$("[data-add]", box).forEach((b) => (b.onclick = async () => {
       const m = res[+b.dataset.add];
       try { await api(`/api/videos/${id}/clips`, { method: "POST", body: { start_sentence: m.start_sentence, end_sentence: m.end_sentence, title: m.title, why: `Find Moments: ${m.why}` } }); b.textContent = "Added ✓"; b.disabled = true; refreshVideo(id); } catch (e) { toast(e.message, true); }
     }));
     $$("[data-play]", box).forEach((b) => (b.onclick = () => { const m = res[+b.dataset.play]; openSourcePlayer(id, m.start, m.end); }));
   } catch (e) {
-    box.innerHTML = /API key/i.test(e.message) ? `<div class="callout"><div>Find Moments needs the AI. Add your API key first.</div><button class="primary" id="mKey">Add API key</button></div>` : `<p class="small" style="color:var(--bad)">${esc(e.message)}</p>`;
+    box.innerHTML = /API key/i.test(e.message) ? `<div class="callout"><div>Find Moments needs the AI. Add your API key first.</div><button class="btn primary" type="button" id="mKey">Add API key</button></div>` : `<p class="small" style="color:var(--bad)">${esc(e.message)}</p>`;
     $("#mKey")?.addEventListener("click", openSettings);
   }
 }
@@ -492,7 +584,7 @@ async function makeClipFromSelection(id) {
 }
 
 // ---------------- editor ----------------
-async function openEditor(clipId) {
+async function openEditor(clipId, focus = null) {
   const v = state.video, c = v.clips.find((x) => x.id === clipId); if (!c) return;
   const t = await loadTranscript();
   state.editing = { clip: c, removed: new Set(c.removed_words || []), style: c.style || "bold-pop", layout: c.layout || "auto" };
@@ -502,8 +594,8 @@ async function openEditor(clipId) {
   $("#eTitle").oninput = $("#eHook").oninput = () => (state.dirty = true);
   $("#eMeta").textContent = `${c.category} · ${mmss(c.start)}–${mmss(c.end)}${c.why ? " · " + c.why : ""}`;
   $("#eScore").innerHTML = c.dims ? `<details class="why"><summary><span class="ring sm" style="--p:${c.score};--c:${scoreColor(c.score)}"><b>${c.score}</b></span><span>${esc(c.verdict || "Viral score")}</span><span class="muted small">Why this score?</span></summary><div class="checks">${DIMS.map((d) => `<div class="check"><span style="color:${scoreColor(c.dims[d].score)}">${c.dims[d].score}</span><div><b>${d}</b>: ${esc(c.dims[d].reason)}<div class="d">Fix: ${esc(c.dims[d].fix)}</div></div></div>`).join("")}</div></details>` : "";
-  $("#eStyles").innerHTML = Object.entries(state.config.caption_styles).map(([k, l]) => `<button class="chip ${k === state.editing.style ? "on" : ""}" data-style="${k}">${esc(l)}</button>`).join("");
-  $("#eLayouts").innerHTML = state.config.layouts.map((k) => `<button class="chip ${k === state.editing.layout ? "on" : ""}" data-layout="${k}">${k}</button>`).join("");
+  $("#eStyles").innerHTML = Object.entries(state.config.caption_styles).map(([k, l]) => `<button class="chip ${k === state.editing.style ? "on" : ""}" type="button" data-style="${k}">${esc(l)}</button>`).join("");
+  $("#eLayouts").innerHTML = state.config.layouts.map((k) => `<button class="chip ${k === state.editing.layout ? "on" : ""}" type="button" data-layout="${k}">${k}</button>`).join("");
   $$("[data-style]").forEach((b) => (b.onclick = () => { state.editing.style = b.dataset.style; state.dirty = true; $$("[data-style]").forEach((x) => x.classList.toggle("on", x === b)); }));
   $$("[data-layout]").forEach((b) => (b.onclick = () => { state.editing.layout = b.dataset.layout; state.dirty = true; $$("[data-layout]").forEach((x) => x.classList.toggle("on", x === b)); }));
   renderWords(t);
@@ -519,6 +611,7 @@ async function openEditor(clipId) {
   $("#eVariants").onclick = () => makeVariants();
   $("#eVariants").textContent = c.variants ? "Regenerate variants" : "Generate 3 variants + platform captions";
   $$("[data-nudge]").forEach((b) => (b.onclick = () => nudge(...b.dataset.nudge.split(","))));
+  if (focus) setTimeout(() => $(focus)?.scrollIntoView({ block: "center", behavior: reduceMotion() ? "auto" : "smooth" }), 120);
 }
 
 function renderWords(t) {
@@ -621,10 +714,10 @@ function renderVariants(c) {
     <b>Variant ${v.n}</b><span class="muted small">${esc(v.angle)} · ${esc(v.plan.style)} · zoom ${v.plan.zoom} · ${v.plan.speed}x · ${esc(v.plan.layout)}${v.clip_patch?.start ? " · new cut" : ""}</span>
     <div class="hookline"><span class="hook-lbl">HOOK</span>${esc(v.hook_text)}</div>
     ${Object.entries(v.posts).map(([p, post]) => { const txt = `${post.caption} ${post.hashtags.join(" ")}`.trim(); return `<div class="post">
-      <div class="post-h"><b>${PLATFORM[p] || p}</b><button class="ghost copy" data-copy="${esc(txt)}" aria-label="Copy ${PLATFORM[p] || p} caption">Copy</button></div>
-      ${post.title ? `<div class="post-title">${esc(post.title)} <button class="ghost copy" data-copy="${esc(post.title)}" aria-label="Copy title">Copy title</button></div>` : ""}
+      <div class="post-h"><b>${PLATFORM[p] || p}</b><button class="copy" type="button" data-copy="${esc(txt)}" aria-label="Copy ${PLATFORM[p] || p} caption">Copy</button></div>
+      ${post.title ? `<div class="post-title">${esc(post.title)} <button class="copy" type="button" data-copy="${esc(post.title)}" aria-label="Copy title">Copy title</button></div>` : ""}
       <div class="muted">${esc(txt)}</div></div>`; }).join("")}
-    <button class="primary small-btn" data-vprev="${v.n}">Preview variant</button></div>`).join("");
+    <button class="btn primary sm" type="button" data-vprev="${v.n}">Preview variant</button></div>`).join("");
   $$("[data-vprev]", box).forEach((b) => (b.onclick = () => renderPreview(+b.dataset.vprev)));
   $$("[data-copy]", box).forEach((b) => (b.onclick = async () => {
     try { await navigator.clipboard.writeText(b.dataset.copy); const o = b.textContent; b.textContent = "Copied ✓"; setTimeout(() => (b.textContent = o), 1200); }

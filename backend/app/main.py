@@ -48,6 +48,7 @@ def index():
 
 
 app.mount("/static", StaticFiles(directory=FRONTEND), name="static")
+app.mount("/fonts", StaticFiles(directory=ROOT / "assets" / "fonts"), name="fonts")
 
 
 @app.get("/media/{video_id}/{path:path}")
@@ -354,6 +355,25 @@ def thumb(video_id: str, clip_id: str):
         p = subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-y", "-ss", f"{t:.2f}", "-i",
                             str(DATA / video_id / "source.mp4"), "-frames:v", "1", "-vf", "scale=480:-2", "-q:v", "4",
                             str(tmp)], capture_output=True)
+        if p.returncode != 0 or not tmp.exists():
+            raise HTTPException(404, "No thumbnail")
+        store.replace_retry(tmp, out)
+    return FileResponse(out, headers={"Cache-Control": "max-age=86400"})
+
+
+@app.get("/api/videos/{video_id}/thumb.jpg")
+def video_thumb(video_id: str):
+    """A still from ~10% into the video (cached), for the video cards."""
+    src = DATA / video_id / "source.mp4"
+    if not src.is_file():
+        raise HTTPException(404, "No video")
+    out = DATA / video_id / "thumbs" / "video.jpg"
+    if not out.exists():
+        dur = (store.load(video_id, "meta", {}) or {}).get("duration") or 0
+        out.parent.mkdir(parents=True, exist_ok=True)
+        tmp = out.with_suffix(".part.jpg")
+        p = subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-y", "-ss", f"{dur * 0.1:.2f}", "-i", str(src),
+                            "-frames:v", "1", "-vf", "scale=480:-2", "-q:v", "4", str(tmp)], capture_output=True)
         if p.returncode != 0 or not tmp.exists():
             raise HTTPException(404, "No thumbnail")
         store.replace_retry(tmp, out)

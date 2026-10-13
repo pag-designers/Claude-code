@@ -10,6 +10,7 @@ const DIMS = ["hook", "story", "value", "engagement", "reach", "pacing"];
 const STAGE = { queued: "Queued", download: "Downloading", audio: "Preparing", transcribe: "Transcribing", cues: "Analyzing",
   clipping: "Finding clips", scoring: "Scoring", ready: "Ready", needs_key: "Needs API key", error: "Failed" };
 const LANG = { en: "English", es: "Spanish", pt: "Portuguese", fr: "French", de: "German", it: "Italian" };
+const LAYOUT = { auto: "Auto", track: "Follow face", split: "Split screen", speaker: "Active speaker", fit: "Fit whole frame" };
 const PLATFORM = { tiktok: "TikTok", youtube_shorts: "Shorts", instagram_reels: "Reels", x: "X" };
 
 const state = { config: null, campaigns: [], video: null, transcript: null, sort: "score", selected: new Set(),
@@ -95,7 +96,26 @@ function applyConfig(c) {
   kb.className = "badge " + (c.has_api_key ? "ok" : "bad");
 }
 
+const focusBack = {};
+function remember(k) { const el = document.activeElement; focusBack[k] = { el, card: el?.closest?.(".card")?.dataset.id }; }
+function restore(k) {   // cards are redrawn after an edit, so fall back to the same card's Edit button
+  const f = focusBack[k]; focusBack[k] = null; if (!f) return;
+  const el = f.el && document.contains(f.el) ? f.el : f.card && $(`.card[data-id="${f.card}"] [data-edit]`);
+  el?.focus({ preventScroll: true });
+}
+function closeSettings() { $("#settings").classList.add("hidden"); restore("settings"); }
+function trapTab(box, e) {
+  if (e.key !== "Tab") return;
+  const f = $$('a[href],button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea,summary,[tabindex="0"]', box).filter((x) => x.offsetParent);
+  if (!f.length) return;
+  const a = f[0], z = f[f.length - 1];
+  if (e.shiftKey && (document.activeElement === a || !box.contains(document.activeElement))) { e.preventDefault(); z.focus(); }
+  else if (!e.shiftKey && (document.activeElement === z || !box.contains(document.activeElement))) { e.preventDefault(); a.focus(); }
+}
+document.addEventListener("keydown", (e) => { for (const id of ["#settings", "#drawer"]) if (!$(id).classList.contains("hidden")) return trapTab($(id), e); });
+
 function openSettings() {
+  remember("settings");
   const c = state.config;
   $("#sModel").innerHTML = Object.entries(c.models).map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join("");
   $("#sModel").value = c.model;
@@ -119,7 +139,7 @@ async function saveSettings() {
   btn.disabled = true; msg.textContent = "Saving & checking the key…";
   try {
     applyConfig(await api("/api/settings", { method: "POST", body: { api_key: $("#sKey").value, model: $("#sModel").value, effort: $("#sEffort").value } }));
-    msg.textContent = "Saved ✓"; setTimeout(() => $("#settings").classList.add("hidden"), 600);
+    msg.textContent = "Saved ✓"; setTimeout(closeSettings, 600);
     if (state.video) {
       await refreshVideo(state.video.id);
       if (state.video.status?.stage === "needs_key" && state.config.has_api_key && confirm("Key saved. Let the AI find clips in this video now?")) startReclip(state.video.id, false);
@@ -135,10 +155,11 @@ async function boot() {
   const onScroll = () => $("#topbar").classList.toggle("scrolled", scrollY > 8);
   addEventListener("scroll", onScroll, { passive: true }); onScroll();
   $("#newBtn").addEventListener("click", () => { if (!location.hash || location.hash === "#/") { scrollTo({ top: 0 }); $("#urlInput")?.focus(); } });
-  $("#settingsClose").onclick = () => $("#settings").classList.add("hidden");
-  $("#settings").addEventListener("click", (e) => { if (e.target.id === "settings") $("#settings").classList.add("hidden"); });
+  $("#settingsClose").onclick = closeSettings;
+  $("#settings").addEventListener("click", (e) => { if (e.target.id === "settings") closeSettings(); });
   $("#sSave").onclick = saveSettings;
-  if (!state.config.has_api_key) setTimeout(openSettings, 400);   // no key yet: the AI can't work, so ask right away
+  let asked = false; try { asked = !!sessionStorage.getItem("keyAsked"); sessionStorage.setItem("keyAsked", "1"); } catch {}
+  if (!state.config.has_api_key && !asked) setTimeout(openSettings, 400);   // no key yet: ask once per session; the badge and callout remind after that
   await loadCampaigns();
   $("#campaignSelect").addEventListener("change", () => { try { localStorage.setItem("campaign", campaignSlug()); } catch {} if (state.video) renderClips(true); });
   window.addEventListener("hashchange", route);
@@ -164,7 +185,7 @@ function route() {
   const page = m ? "video" : h === "#/library" ? "library" : h === "#/campaigns" ? "campaigns" : h === "#/learn" ? "learn" : "home";
   $$("#sidebar [data-nav]").forEach((el) => { const on = el.dataset.nav === (page === "video" ? "library" : page); el.classList.toggle("active", on); on ? el.setAttribute("aria-current", "page") : el.removeAttribute("aria-current"); });
   $("#crumb").classList.toggle("hidden", page !== "video");
-  $("#newBtn").classList.toggle("hidden", page === "home");
+  $("#newBtn").classList.toggle("hidden", page === "home" || page === "library");
   scrollTo({ top: 0, behavior: "instant" });
   if (page === "video") showVideo(decodeURIComponent(m[1]));
   else ({ library: showLibrary, campaigns: showCampaigns, learn: showLearn, home: showHome })[page]();
@@ -436,7 +457,7 @@ function clipCard(c, v) {
     </div>
     <div class="cbody">
       <div class="scorerow" title="${esc(dimTip)}">
-        <span class="sc" style="color:${c.score != null ? scoreColor(c.score) : "var(--t3)"}">${c.score ?? "–"}</span><span class="of">/100</span>
+        ${c.score != null ? `<span class="sc" style="color:${scoreColor(c.score)}">${c.score}</span><span class="of">/100</span>` : `<span class="of">Not scored</span>`}
         ${comp ? `<span class="comp ${comp.after_fixes}" title="As-is: ${comp.status}. After auto-fixes at export: ${comp.after_fixes}">${compLabel(comp)}</span>` : ""}
       </div>
       <div class="actions">${ACTIONS.map(([k, ic, label]) => `<button type="button" class="icon-btn ${k === "delete" ? "warn" : ""}" data-act="${k}" ${k === "edit" ? `data-edit="${c.id}"` : ""} aria-label="${label}" title="${label}">${icon(ic)}</button>`).join("")}</div>
@@ -551,6 +572,7 @@ async function findMoments(id) {
 
 function openSourcePlayer(id, start, end) {
   state.editing = null;
+  if ($("#drawer").classList.contains("hidden")) remember("drawer");
   $("#drawer").classList.remove("hidden");
   $(".edit-col").classList.add("hidden");
   playRange($("#pv"), `/media/${id}/source.mp4`, start, end);
@@ -599,13 +621,14 @@ async function openEditor(clipId, focus = null) {
   const t = await loadTranscript();
   state.editing = { clip: c, removed: new Set(c.removed_words || []), style: c.style || "bold-pop", layout: c.layout || "auto" };
   state.dirty = false;
+  if ($("#drawer").classList.contains("hidden")) remember("drawer");
   $("#drawer").classList.remove("hidden"); $(".edit-col").classList.remove("hidden");
   $("#eTitle").value = c.title; $("#eHook").value = c.hook_text || "";
   $("#eTitle").oninput = $("#eHook").oninput = () => (state.dirty = true);
   $("#eMeta").textContent = `${c.category} · ${mmss(c.start)}–${mmss(c.end)}${c.why ? " · " + c.why : ""}`;
   $("#eScore").innerHTML = c.dims ? `<details class="why"><summary><span class="ring sm" style="--p:${c.score};--c:${scoreColor(c.score)}"><b>${c.score}</b></span><span>${esc(c.verdict || "Viral score")}</span><span class="muted small">Why this score?</span></summary><div class="checks">${DIMS.map((d) => `<div class="check"><span style="color:${scoreColor(c.dims[d].score)}">${c.dims[d].score}</span><div><b>${d}</b>: ${esc(c.dims[d].reason)}<div class="d">Fix: ${esc(c.dims[d].fix)}</div></div></div>`).join("")}</div></details>` : "";
   $("#eStyles").innerHTML = Object.entries(state.config.caption_styles).map(([k, l]) => `<button class="chip ${k === state.editing.style ? "on" : ""}" type="button" data-style="${k}">${esc(l)}</button>`).join("");
-  $("#eLayouts").innerHTML = state.config.layouts.map((k) => `<button class="chip ${k === state.editing.layout ? "on" : ""}" type="button" data-layout="${k}">${k}</button>`).join("");
+  $("#eLayouts").innerHTML = state.config.layouts.map((k) => `<button class="chip ${k === state.editing.layout ? "on" : ""}" type="button" data-layout="${k}">${LAYOUT[k] || k}</button>`).join("");
   $$("[data-style]").forEach((b) => (b.onclick = () => { state.editing.style = b.dataset.style; state.dirty = true; $$("[data-style]").forEach((x) => x.classList.toggle("on", x === b)); }));
   $$("[data-layout]").forEach((b) => (b.onclick = () => { state.editing.layout = b.dataset.layout; state.dirty = true; $$("[data-layout]").forEach((x) => x.classList.toggle("on", x === b)); }));
   renderWords(t);
@@ -621,13 +644,14 @@ async function openEditor(clipId, focus = null) {
   $("#eVariants").onclick = () => makeVariants();
   $("#eVariants").textContent = c.variants ? "Regenerate variants" : "Generate 3 variants + platform captions";
   $$("[data-nudge]").forEach((b) => (b.onclick = () => nudge(...b.dataset.nudge.split(","))));
+  $("#drawerClose").focus({ preventScroll: true });
   if (focus) setTimeout(() => $(focus)?.scrollIntoView({ block: "center", behavior: reduceMotion() ? "auto" : "smooth" }), 120);
 }
 
 function renderWords(t) {
   const c = state.editing.clip, box = $("#eWords");
   const words = t.words.slice(c.w0, c.w1 + 1);
-  box.innerHTML = words.map((w) => `<span class="w ${state.editing.removed.has(w.i) ? "cut" : ""}" data-w="${w.i}">${esc(w.w)}</span>`).join(" ");
+  box.innerHTML = words.map((w) => `<span class="w ${state.editing.removed.has(w.i) ? "cut" : ""}" data-w="${w.i}" role="button" tabindex="0">${esc(w.w)}</span>`).join(" ");
   $$(".w", box).forEach((el) => (el.onclick = () => {
     const i = +el.dataset.w;
     state.editing.removed.has(i) ? state.editing.removed.delete(i) : state.editing.removed.add(i);
@@ -653,11 +677,12 @@ function markCurrentWord() {
 }
 
 function editorKeys(e) {
-  if (e.key === "Escape" && !$("#settings").classList.contains("hidden")) return $("#settings").classList.add("hidden");
+  if (e.key === "Escape" && !$("#settings").classList.contains("hidden")) return closeSettings();
   if ($("#drawer").classList.contains("hidden")) return;
   if (e.key === "Escape") return closeDrawer();
   if (!state.editing) return;
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") { e.preventDefault(); return saveEdits(); }
+  if (e.target.classList?.contains("w") && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); return e.target.click(); }   // keyboard: cut/restore the focused word
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
   const pv = $("#pv");
   if (e.key === " ") { e.preventDefault(); pv.paused ? pv.play().catch(() => {}) : pv.pause(); }
@@ -720,7 +745,8 @@ function renderChecks(c) {
 function renderVariants(c) {
   const box = $("#eVariantList");
   if (!c.variants) { box.innerHTML = ""; return; }
-  box.innerHTML = c.variants.map((v) => `<div class="variant">
+  const note = state.config?.has_api_key ? "" : `<p class="muted small" style="grid-column:1/-1">Captions are the same until you add an API key. Zoom, speed and layout still differ.</p>`;
+  box.innerHTML = note + c.variants.map((v) => `<div class="variant">
     <b>Variant ${v.n}</b><span class="muted small">${esc(v.angle)} · ${esc(v.plan.style)} · zoom ${v.plan.zoom} · ${v.plan.speed}x · ${esc(v.plan.layout)}${v.clip_patch?.start ? " · new cut" : ""}</span>
     <div class="hookline"><span class="hook-lbl">HOOK</span>${esc(v.hook_text)}</div>
     ${Object.entries(v.posts).map(([p, post]) => { const txt = `${post.caption} ${post.hashtags.join(" ")}`.trim(); return `<div class="post">
@@ -746,7 +772,7 @@ async function makeVariants() {
 
 async function closeDrawer() {
   if (state.editing && state.dirty && !$(".edit-col").classList.contains("hidden")) { if (await saveEdits(true)) toast("Edits saved."); }
-  $("#drawer").classList.add("hidden"); const pv = $("#pv"); pv.pause();
+  $("#drawer").classList.add("hidden"); const pv = $("#pv"); pv.pause(); restore("drawer");
 }
 
 boot().catch((e) => toast(e.message, true));

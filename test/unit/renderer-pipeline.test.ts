@@ -63,6 +63,7 @@ const video = (p: Partial<VideoView> = {}): VideoView => ({
   updatedAt: now,
   hasProxy: false,
   options: pipelineOptionsSchema.parse({}),
+  subtitleRev: 0,
   ...p,
 });
 const clip = (p: Partial<ClipView> = {}): ClipView => ({
@@ -88,6 +89,17 @@ const clip = (p: Partial<ClipView> = {}): ClipView => ({
   hasThumb: true,
   rank: 1,
   createdAt: now,
+  kind: 'clip',
+  runId: null,
+  runPrompt: null,
+  captionStyleId: 'clean-pop',
+  reframeMode: 'auto',
+  layout: null,
+  hookApplied: null,
+  hasHooks: false,
+  hasMeta: false,
+  hasThumbOptions: false,
+  subtitleRev: 0,
   ...p,
 });
 const ev = (

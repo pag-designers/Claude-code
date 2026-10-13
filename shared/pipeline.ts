@@ -270,6 +270,15 @@ export const cropKeyframeSchema = z.object({
 });
 export type CropKeyframe = z.infer<typeof cropKeyframeSchema>;
 
+export const reframePanelSchema = z.object({
+  /** Where the panel sits in the OUTPUT frame (px). */
+  out: z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() }),
+  /** Source-pixel crop path feeding this panel (aspect = out.w/out.h). */
+  keyframes: z.array(cropKeyframeSchema),
+  role: z.enum(['face-a', 'face-b', 'screen', 'face']),
+});
+export type ReframePanel = z.infer<typeof reframePanelSchema>;
+
 export const reframePlanSchema = z.object({
   mode: z.enum(['single-face', 'center', 'multi-face', 'screen-face']),
   aspect: aspectSchema,
@@ -277,11 +286,16 @@ export const reframePlanSchema = z.object({
   srcH: z.number(),
   outW: z.number(),
   outH: z.number(),
+  /** Single-panel crop path (layout 'single'). For multi-panel layouts this is the primary face track. */
   keyframes: z.array(cropKeyframeSchema),
   /** Scene cuts (clip-relative seconds) where the crop is allowed to jump. */
   cuts: z.array(z.number()),
   /** Fraction of sampled frames with a detected face (diagnostics). */
   faceCoverage: z.number(),
+  /** 'single' = one crop filling the frame; 'split' = two stacked face panels; 'screen-face' = screen on top, face below. */
+  layout: z.enum(['single', 'split', 'screen-face']).optional(),
+  /** Present for 'split' and 'screen-face' layouts: panels top→bottom. */
+  panels: z.array(reframePanelSchema).optional(),
 });
 export type ReframePlan = z.infer<typeof reframePlanSchema>;
 
@@ -319,6 +333,8 @@ export const videoViewSchema = z.object({
   /** Whether a 480p proxy exists in storage (enables in-app playback of the source). */
   hasProxy: z.boolean(),
   options: pipelineOptionsSchema,
+  /** Bumped whenever subtitle edits are saved; clips older than this show "captions outdated". */
+  subtitleRev: z.number(),
 });
 export type VideoView = z.infer<typeof videoViewSchema>;
 
@@ -349,6 +365,22 @@ export const clipViewSchema = z.object({
   hasThumb: z.boolean(),
   rank: z.number().nullable(),
   createdAt: z.number(),
+  /** 'highlight' = One-Click Highlights reel (several segments stitched). */
+  kind: z.enum(['clip', 'highlight']),
+  /** Moment run that found it (steered re-runs); null for the initial automatic run. */
+  runId: z.string().nullable(),
+  runPrompt: z.string().nullable(),
+  captionStyleId: z.string(),
+  reframeMode: z.enum(['auto', 'single-face', 'multi-face', 'screen-face', 'center']),
+  /** Layout actually used by the last render. */
+  layout: z.enum(['single', 'split', 'screen-face']).nullable(),
+  /** The hook text currently burned in (null = no title card). */
+  hookApplied: z.string().nullable(),
+  hasHooks: z.boolean(),
+  hasMeta: z.boolean(),
+  hasThumbOptions: z.boolean(),
+  /** Subtitle revision the render was built from. */
+  subtitleRev: z.number(),
 });
 export type ClipView = z.infer<typeof clipViewSchema>;
 

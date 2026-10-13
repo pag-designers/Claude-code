@@ -106,6 +106,7 @@ model Video {
   error       String?
   options     String   @default("{}") // JSON PipelineOptions
   stages      String   @default("[]") // JSON StageState[]
+  subtitleRev Int      @default(0) // bumped when subtitle edits are saved
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   clips       Clip[]
@@ -130,6 +131,12 @@ model Clip {
   error          String?
   renderProgress Float?
   aspect         String   @default("9:16")
+  kind           String   @default("clip") // clip | highlight
+  runId          String? // MomentRun that found it (null = initial automatic run)
+  captionStyleId String   @default("clean-pop")
+  reframeMode    String   @default("auto")
+  layout         String? // layout used by the last render: single | split | screen-face
+  subtitleRev    Int      @default(0) // subtitle revision the last render was built from
   favorite       Boolean  @default(false)
   tags           String   @default("[]") // JSON string[]
   storageKeys    String   @default("{}") // JSON
@@ -139,4 +146,68 @@ model Clip {
 
   @@index([videoId])
   @@index([score])
+}
+
+// ---- CP2 ----
+
+model MomentRun {
+  id         String    @id @default(cuid())
+  ownerId    String    @default("local")
+  videoId    String
+  prompt     String
+  options    String    @default("{}") // JSON PipelineOptions used
+  status     String    @default("running") // running | done | failed | canceled
+  found      Int       @default(0)
+  error      String?
+  createdAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  @@index([videoId])
+}
+
+model CaptionStylePreset {
+  id         String   @id @default(cuid())
+  ownerId    String   @default("local")
+  brandKitId String? // CP4: belongs to a brand kit
+  name       String
+  spec       String // JSON CaptionStyle
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model ChatThread {
+  id        String        @id @default(cuid())
+  ownerId   String        @default("local")
+  videoId   String
+  clipId    String?
+  title     String        @default("New chat")
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  ChatMessage[]
+
+  @@index([videoId])
+}
+
+model ChatMessage {
+  id        String     @id @default(cuid())
+  threadId  String
+  thread    ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  role      String // user | assistant
+  text      String
+  citations String     @default("[]") // JSON Citation[]
+  actions   String     @default("[]") // JSON ChatAction[]
+  createdAt DateTime   @default(now())
+
+  @@index([threadId])
+}
+
+model Marker {
+  id        String   @id @default(cuid())
+  ownerId   String   @default("local")
+  videoId   String
+  atSec     Float
+  label     String
+  createdAt DateTime @default(now())
+
+  @@index([videoId])
 }

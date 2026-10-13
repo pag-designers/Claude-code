@@ -45,6 +45,17 @@ const clip = (id: string, p: Partial<ClipView> = {}): ClipView => ({
   hasThumb: true,
   rank: null,
   createdAt: now - H,
+  kind: 'clip',
+  runId: null,
+  runPrompt: null,
+  captionStyleId: 'clean-pop',
+  reframeMode: 'auto',
+  layout: null,
+  hookApplied: null,
+  hasHooks: false,
+  hasMeta: false,
+  hasThumbOptions: false,
+  subtitleRev: 0,
   ...p,
 });
 
@@ -137,6 +148,7 @@ describe('clip filters', () => {
       updatedAt: 1,
       hasProxy: false,
       options: pipelineOptionsSchema.parse({}),
+      subtitleRev: 0,
       ...p,
     });
     const vs = [

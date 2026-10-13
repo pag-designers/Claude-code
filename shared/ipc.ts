@@ -21,6 +21,22 @@ import {
   videoAnalysisSchema,
   videoViewSchema,
 } from './pipeline';
+import {
+  captionStyleSchema,
+  chatEventSchema,
+  chatMessageSchema,
+  chatThreadSchema,
+  clipHooksSchema,
+  clipMetaSchema,
+  clipThumbnailsSchema,
+  cueSchema,
+  markerSchema,
+  momentRunSchema,
+  platformMetaSchema,
+  platformSchema,
+  reframeModeSchema,
+  subtitleEditsSchema,
+} from './cp2';
 import { secretKeySchema, secretsBackendSchema, secretStatusSchema } from './secrets';
 import { settingsPatchSchema, settingsSchema } from './settings';
 
@@ -147,6 +163,148 @@ export const invokeContract = {
     z.object({ saved: z.number(), dir: z.string().nullable(), canceled: z.boolean() }),
   ),
 
+  /* ---- CP2: captions, subtitles, steering, highlights, hooks, metadata, thumbnails, chat ---- */
+  'captions:styles': ch(none, z.object({ styles: z.array(captionStyleSchema) })),
+  'captions:fonts': ch(
+    none,
+    z.object({ fonts: z.array(z.object({ family: z.string(), weights: z.array(z.number()) })) }),
+  ),
+  /** Creates a custom preset (unknown id or a built-in id => new id) or updates one. Returns the saved style. */
+  'captions:saveStyle': ch(z.object({ style: captionStyleSchema }), captionStyleSchema),
+  'captions:deleteStyle': ch(z.object({ id: z.string() }), ok),
+  /** REAL libass render of the style on a sample frame (debounced by the caller). */
+  'captions:preview': ch(
+    z.object({
+      style: captionStyleSchema,
+      /** Sample caption text (default: a pangram-like line). */
+      text: z.string().max(120).optional(),
+      /** Use a frame from this clip as background (falls back to a neutral gradient). */
+      clipId: z.string().optional(),
+      aspect: z.enum(['9:16', '1:1', '4:5', '16:9']).default('9:16'),
+      /** Which word of `text` is the active (spoken) one. */
+      activeWord: z.number().int().min(0).max(30).default(1),
+    }),
+    z.object({ dataUrl: z.string(), width: z.number(), height: z.number() }),
+  ),
+  /** Re-render clips with another style and/or reframe mode. */
+  'clips:restyle': ch(
+    z.object({
+      ids: z.array(z.string()).min(1),
+      styleId: z.string().optional(),
+      reframeMode: reframeModeSchema.optional(),
+    }),
+    ok,
+  ),
+  'videos:setCaptionStyle': ch(z.object({ id: z.string(), styleId: z.string() }), ok),
+
+  'subtitles:get': ch(
+    z.object({ videoId: z.string() }),
+    z.object({
+      cues: z.array(cueSchema),
+      edits: subtitleEditsSchema,
+      language: z.string(),
+      /** Number of rendered clips built from an older subtitle revision. */
+      outdatedClips: z.number(),
+    }),
+  ),
+  'subtitles:save': ch(
+    z.object({ videoId: z.string(), edits: subtitleEditsSchema }),
+    z.object({ cues: z.array(cueSchema), edits: subtitleEditsSchema, outdatedClips: z.number() }),
+  ),
+  /** Save dialog → writes SRT/VTT for the whole video or one clip. */
+  'subtitles:export': ch(
+    z.object({
+      videoId: z.string(),
+      clipId: z.string().optional(),
+      format: z.enum(['srt', 'vtt']),
+    }),
+    z.object({ saved: z.boolean(), path: z.string().nullable() }),
+  ),
+
+  /** User-steered re-run of moment finding on an already-transcribed video (BRIEF §4.5). */
+  'moments:find': ch(
+    z.object({
+      videoId: z.string(),
+      prompt: z.string().min(2).max(500),
+      options: pipelineOptionsPatchSchema.optional(),
+    }),
+    z.object({ runId: z.string() }),
+  ),
+  'moments:runs': ch(
+    z.object({ videoId: z.string() }),
+    z.object({ items: z.array(momentRunSchema) }),
+  ),
+  'moments:cancel': ch(z.object({ runId: z.string() }), ok),
+
+  /** One-Click Highlights (BRIEF §4.6): LLM-ordered reel of the best micro-moments. */
+  'highlights:create': ch(
+    z.object({ videoId: z.string(), prompt: z.string().max(300).optional() }),
+    z.object({ clipId: z.string() }),
+  ),
+
+  'hooks:get': ch(z.object({ clipId: z.string() }), clipHooksSchema.nullable()),
+  'hooks:generate': ch(z.object({ clipId: z.string() }), clipHooksSchema),
+  /** Burn a variant in as the title card (platform+index) or remove the card (null). Re-renders. */
+  'hooks:apply': ch(
+    z.object({
+      clipId: z.string(),
+      choice: z
+        .object({ platform: platformSchema, index: z.number().int().min(0).max(9) })
+        .nullable(),
+    }),
+    ok,
+  ),
+
+  'meta:get': ch(z.object({ clipId: z.string() }), clipMetaSchema.nullable()),
+  'meta:generate': ch(z.object({ clipId: z.string() }), clipMetaSchema),
+  'meta:save': ch(
+    z.object({ clipId: z.string(), platform: platformSchema, meta: platformMetaSchema }),
+    ok,
+  ),
+
+  'thumbs:get': ch(z.object({ clipId: z.string() }), clipThumbnailsSchema.nullable()),
+  /** Samples frames, scores them (sharpness/face/composition), asks the vision model to rank the best. */
+  'thumbs:generate': ch(z.object({ clipId: z.string() }), clipThumbnailsSchema),
+  /** Pick a candidate (t) and optional overlay text → rebuilds thumb.jpg. */
+  'thumbs:choose': ch(
+    z.object({ clipId: z.string(), t: z.number(), overlayText: z.string().max(60).nullable() }),
+    ok,
+  ),
+  'thumbs:url': ch(
+    z.object({ clipId: z.string(), index: z.number().int().min(0) }),
+    z.object({ url: z.string().nullable() }),
+  ),
+
+  'clips:reframe': ch(z.object({ ids: z.array(z.string()).min(1), mode: reframeModeSchema }), ok),
+
+  'chat:threads': ch(
+    z.object({ videoId: z.string(), clipId: z.string().optional() }),
+    z.object({ items: z.array(chatThreadSchema) }),
+  ),
+  'chat:messages': ch(
+    z.object({ threadId: z.string() }),
+    z.object({ items: z.array(chatMessageSchema) }),
+  ),
+  /** Streams the answer through the `chat:event` event; resolves as soon as the user message is stored. */
+  'chat:send': ch(
+    z.object({
+      videoId: z.string(),
+      clipId: z.string().optional(),
+      threadId: z.string().optional(),
+      text: z.string().min(1).max(4000),
+    }),
+    z.object({ threadId: z.string(), messageId: z.string() }),
+  ),
+  'chat:cancel': ch(z.object({ threadId: z.string() }), ok),
+  'chat:delete': ch(z.object({ threadId: z.string() }), ok),
+
+  'markers:list': ch(z.object({ videoId: z.string() }), z.object({ items: z.array(markerSchema) })),
+  'markers:add': ch(
+    z.object({ videoId: z.string(), atSec: z.number().min(0), label: z.string().min(1).max(120) }),
+    markerSchema,
+  ),
+  'markers:delete': ch(z.object({ id: z.string() }), ok),
+
   'shell:openExternal': ch(z.object({ url: z.string().url() }), ok),
   'diagnostics:exportLogs': ch(none, z.object({ saved: z.boolean(), path: z.string().nullable() })),
 } as const;
@@ -165,6 +323,9 @@ export const eventContract = {
   'pipeline:event': pipelineEventSchema,
   'videos:updated': videoViewSchema,
   'clips:updated': clipViewSchema,
+  'chat:event': chatEventSchema,
+  'moments:run': momentRunSchema,
+  'markers:changed': z.object({ videoId: z.string() }),
   /** Main asks the renderer to navigate (tray menu, OS notification click). */
   'nav:go': z.object({ href: z.string() }),
 } as const;

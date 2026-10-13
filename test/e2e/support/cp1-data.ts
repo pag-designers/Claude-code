@@ -536,8 +536,25 @@ export function clipFromTemplate(
     hasThumb: rendered || status === 'rendering',
     rank: opts.rank,
     createdAt: opts.createdAt,
+    ...CP2_CLIP_DEFAULTS,
+    layout: rendered ? 'single' : null,
   };
 }
+
+/** CP2 fields every clip carries (kind, steering run, caption style, reframe, hook/meta/thumbnail state). */
+export const CP2_CLIP_DEFAULTS = {
+  kind: 'clip' as const,
+  runId: null,
+  runPrompt: null,
+  captionStyleId: 'clean-pop',
+  reframeMode: 'auto' as const,
+  layout: null,
+  hookApplied: null,
+  hasHooks: false,
+  hasMeta: false,
+  hasThumbOptions: false,
+  subtitleRev: 0,
+};
 
 /* ------------------------------------------------------- stages -------------------------------------------------- */
 
@@ -593,6 +610,7 @@ export function videoView(
     updatedAt: Date.now(),
     hasProxy: false,
     options: BASE_OPTIONS,
+    subtitleRev: 0,
     ...p,
   };
 }

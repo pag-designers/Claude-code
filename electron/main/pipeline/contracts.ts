@@ -6,6 +6,7 @@
  * Conventions: all times are SECONDS (float); all paths are absolute local paths; every long-running
  * function takes an AbortSignal and reports progress through `onProgress(0..1, message?)`.
  */
+import type { CaptionStyle, ReframeMode, Transition } from '@shared/cp2';
 import type {
   AudioSignals,
   MomentCandidate,
@@ -58,7 +59,11 @@ export interface IngestService {
 export interface MediaService {
   probe(file: string): Promise<MediaInfo>;
   /** 16 kHz mono PCM WAV. Optional [startSec, startSec+durSec) window. */
-  extractAudio16k(src: string, out: string, opts?: { startSec?: number; durSec?: number } & CommonOpts): Promise<void>;
+  extractAudio16k(
+    src: string,
+    out: string,
+    opts?: { startSec?: number; durSec?: number } & CommonOpts,
+  ): Promise<void>;
   /** 480p H.264 proxy, AAC audio, faststart. */
   makeProxy(src: string, out: string, opts?: { height?: number } & CommonOpts): Promise<void>;
   /** One JPEG frame at time t (seconds), scaled to maxWidth. */
@@ -69,17 +74,22 @@ export interface MediaService {
 
 export interface AnalysisService {
   /** Groups words into sentences (punctuation + pauses), assigns heuristic speaker labels. */
-  segmentSentences(words: Word[], signals?: Pick<AudioSignals, 'silences' | 'speakerChanges'>): Sentence[];
+  segmentSentences(
+    words: Word[],
+    signals?: Pick<AudioSignals, 'silences' | 'speakerChanges'>,
+  ): Sentence[];
   /**
    * Silence map, loudness envelope (ffmpeg ebur128), speech-rate map, laughter/applause heuristic
    * (loud non-speech bursts), speaker-change heuristic. Scene cuts are filled by the orchestrator.
    */
-  computeSignals(args: {
-    wavPath: string;
-    words: Word[];
-    durationSec: number;
-    ffmpegPath: string;
-  } & CommonOpts): Promise<AudioSignals>;
+  computeSignals(
+    args: {
+      wavPath: string;
+      words: Word[];
+      durationSec: number;
+      ffmpegPath: string;
+    } & CommonOpts,
+  ): Promise<AudioSignals>;
 }
 
 /* --------------------------------------------- LLM layer -------------------------------------------------- */
@@ -161,24 +171,73 @@ export interface ReframeService {
     aspect: PipelineOptions['aspect'];
     faces: FaceSample[];
     sceneCuts: number[];
+    /** 'auto' (default) picks single-face / split / screen-face / centre from the footage. */
+    mode?: ReframeMode;
+    /** Result of `analyzeLayout` (screen-share detection), when available. */
+    layoutHint?: LayoutHint | null;
   }): ReframePlan;
+  /**
+   * Looks at a few real frames of [startSec,endSec) (via ffmpeg) to decide whether the shot is a screen
+   * share with a small webcam face (edge-dense content + small stationary face in a corner).
+   */
+  analyzeLayout(
+    args: {
+      ffmpegPath: string;
+      sourcePath: string;
+      startSec: number;
+      endSec: number;
+      srcW: number;
+      srcH: number;
+      faces: FaceSample[];
+    } & CommonOpts,
+  ): Promise<LayoutHint>;
+}
+
+export interface LayoutHint {
+  kind: 'screen-face' | 'multi-face' | 'single-face' | 'none';
+  /** Normalised 0..1 source rect of the webcam face when kind = 'screen-face'. */
+  faceRegion: { x: number; y: number; w: number; h: number } | null;
+  /** Normalised rect of the shared screen content. */
+  screenRegion: { x: number; y: number; w: number; h: number } | null;
+  confidence: number;
 }
 
 export interface CaptionService {
-  /** Clean Pop ASS (word-level, active word emphasised, 1–3 words per line, emoji-safe). */
+  /** The 14 built-in presets (BRIEF §7). `clean-pop` is the default. */
+  builtinStyles(): CaptionStyle[];
+  /** Word-level ASS (libass): chunking, active-word emphasis and animation come from `style`. */
   buildAss(args: {
     words: Word[];
     startSec: number;
     endSec: number;
     width: number;
     height: number;
-    styleId: string;
+    style: CaptionStyle;
     /** LLM-chosen emphasis words. */
     keywords?: string[];
     maskProfanity?: boolean;
   }): string;
   buildSrt(words: Word[], startSec: number, endSec: number): string;
   buildVtt(words: Word[], startSec: number, endSec: number): string;
+  /**
+   * REAL libass render of `style` on one background frame (PNG bytes) — what the live preview editor
+   * shows. `text` is split into words; `activeWord` is the one highlighted as "being spoken".
+   */
+  preview(
+    args: {
+      ffmpegPath: string;
+      fontsDir: string | null;
+      style: CaptionStyle;
+      text: string;
+      activeWord: number;
+      width: number;
+      height: number;
+      /** Background JPEG/PNG (e.g. a clip thumbnail); null = neutral gradient. */
+      backgroundPath: string | null;
+    } & CommonOpts,
+  ): Promise<Buffer>;
+  /** Font families (and weights) available to libass: shipped fonts + the system's. */
+  fonts(fontsDir: string | null): { family: string; weights: number[] }[];
 }
 
 export interface RenderRequest {
@@ -200,8 +259,38 @@ export interface RenderRequest {
   fps: number | null;
 }
 
+export interface HighlightSegmentInput {
+  startSec: number;
+  endSec: number;
+  plan: ReframePlan;
+  /** Per-segment ASS (times relative to the segment start) or null. */
+  assPath: string | null;
+}
+
+export interface HighlightRenderRequest {
+  ffmpegPath: string;
+  sourcePath: string;
+  outPath: string;
+  segments: HighlightSegmentInput[];
+  transition: Transition;
+  /** Seconds, default 0.35 (ignored for 'cut'). */
+  transitionSec: number;
+  fontsDir: string | null;
+  hook: { text: string; durationSec: number } | null;
+  loudnessTarget: number;
+  encoder: 'auto' | 'libx264' | 'h264_nvenc' | 'h264_videotoolbox';
+  fps: number | null;
+}
+
 export interface RenderService {
   render(req: RenderRequest & CommonOpts): Promise<{ encoder: string; durationSec: number }>;
+  /**
+   * Renders each segment (reframed + captioned) and stitches them with transitions into ONE video:
+   * video xfade + audio acrossfade, loudness normalised once on the final audio, hook card on top.
+   */
+  renderHighlight(
+    req: HighlightRenderRequest & CommonOpts,
+  ): Promise<{ encoder: string; durationSec: number }>;
   /** Picks the best available H.264 encoder (verifies by encoding 1 frame, not by listing). */
   detectEncoder(ffmpegPath: string): Promise<'libx264' | 'h264_nvenc' | 'h264_videotoolbox'>;
 }
@@ -209,7 +298,14 @@ export interface RenderService {
 export class IngestError extends Error {
   constructor(
     message: string,
-    public readonly kind: 'private' | 'age-restricted' | 'bot-check' | 'unavailable' | 'live' | 'network' | 'other' = 'other',
+    public readonly kind:
+      | 'private'
+      | 'age-restricted'
+      | 'bot-check'
+      | 'unavailable'
+      | 'live'
+      | 'network'
+      | 'other' = 'other',
   ) {
     super(message);
     this.name = 'IngestError';

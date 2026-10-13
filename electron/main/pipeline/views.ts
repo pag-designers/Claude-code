@@ -31,6 +31,7 @@ export interface VideoRow {
   favorite: boolean;
   options: string;
   stages: string;
+  subtitleRev: number;
   storageKeys: string;
   metadata: string;
   createdAt: Date;
@@ -51,6 +52,12 @@ export interface ClipRow {
   error: string | null;
   renderProgress: number | null;
   aspect: string;
+  kind: string;
+  runId: string | null;
+  captionStyleId: string;
+  reframeMode: string;
+  layout: string | null;
+  subtitleRev: number;
   favorite: boolean;
   tags: string;
   storageKeys: string;
@@ -118,12 +125,24 @@ export function toVideoView(row: VideoRow, counts: VideoCounts): VideoView {
     updatedAt: row.updatedAt.getTime(),
     hasProxy: Boolean(keys.proxy),
     options: readOptions(row.options),
+    subtitleRev: row.subtitleRev,
   };
 }
 
-export function toClipView(row: ClipRow, videoTitle: string | null): ClipView {
+export function toClipView(
+  row: ClipRow,
+  videoTitle: string | null,
+  runPrompt: string | null = null,
+): ClipView {
   const keys = parseJson<Record<string, string>>(row.storageKeys, {});
-  const meta = parseJson<{ whyItWorks?: string; confidence?: number }>(row.metadata, {});
+  const meta = parseJson<{
+    whyItWorks?: string;
+    confidence?: number;
+    hooks?: { applied: { platform: string; index: number } | null; [k: string]: unknown } | null;
+    appliedHookText?: string | null;
+    meta?: unknown;
+    thumbs?: unknown;
+  }>(row.metadata, {});
   const bd = scoreBreakdownSchema.safeParse(parseJson<unknown>(row.scoreDetail, null));
   const breakdown: ScoreBreakdown | null = bd.success ? bd.data : null;
   return {
@@ -149,6 +168,20 @@ export function toClipView(row: ClipRow, videoTitle: string | null): ClipView {
     hasThumb: Boolean(keys.thumb),
     rank: row.rank,
     createdAt: row.createdAt.getTime(),
+    kind: row.kind === 'highlight' ? 'highlight' : 'clip',
+    runId: row.runId,
+    runPrompt,
+    captionStyleId: row.captionStyleId,
+    reframeMode:
+      (['auto', 'single-face', 'multi-face', 'screen-face', 'center'] as const).find(
+        (m) => m === row.reframeMode,
+      ) ?? 'auto',
+    layout: (['single', 'split', 'screen-face'] as const).find((l) => l === row.layout) ?? null,
+    hookApplied: meta.appliedHookText ?? row.hook ?? null,
+    hasHooks: Boolean(meta.hooks),
+    hasMeta: Boolean(meta.meta),
+    hasThumbOptions: Boolean(meta.thumbs),
+    subtitleRev: row.subtitleRev,
   };
 }
 

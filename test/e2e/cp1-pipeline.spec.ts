@@ -198,7 +198,7 @@ test('pipeline: real media in → ready clips out (streaming), artifacts in stor
     url: mediaUrl,
     options: {
       clipPreset: '30-60',
-      clipCount: 5,
+      clipCount: Number(process.env.CLIPFERN_E2E_CLIP_COUNT ?? 5),
       minScore: 45,
       captions: true,
       hookCard: true,

@@ -830,13 +830,20 @@ export class PipelineOrchestrator {
     const video = await this.mustVideo(a.videoId);
     const info = parseJson<VideoMeta>(video.metadata, {}).info;
     const ctxStart = Math.max(0, a.wStart - a.overlapSec);
-    const candidates = this.d.moments.generateCandidates({
-      transcript: a.transcript,
-      signals: a.signals,
-      options: a.options,
-      window: { startSec: ctxStart, endSec: a.wEnd },
-      maxCandidates: 30,
-    });
+    // The overlap context (before wStart) is only there so a story that began just before the window
+    // can be read in full; moments that START in it belong to the previous window. Only hint at
+    // candidates in the new region, and ask for a couple of spares since some picks may still be
+    // discarded as belonging to the previous window.
+    const candidates = this.d.moments
+      .generateCandidates({
+        transcript: a.transcript,
+        signals: a.signals,
+        options: a.options,
+        window: { startSec: ctxStart, endSec: a.wEnd },
+        maxCandidates: 40,
+      })
+      .filter((c) => c.s >= a.wStart - 1)
+      .slice(0, 30);
     let sentences = a.transcript.sentences.filter((s) => s.e > ctxStart && s.s < a.wEnd);
     if (!a.isLast && sentences.length > 1) {
       const last = sentences[sentences.length - 1];
@@ -853,7 +860,7 @@ export class PipelineOrchestrator {
         window: { startSec: ctxStart, endSec: sentences[sentences.length - 1]?.e ?? a.wEnd },
         sentences,
         candidates,
-        maxClips: a.maxPerWindow,
+        maxClips: a.maxPerWindow + (a.k > 0 ? 2 : 0),
         signal: a.signal,
       });
     } catch (e) {
@@ -868,7 +875,7 @@ export class PipelineOrchestrator {
       `window ${a.k + 1}/${a.total}: ${candidates.length} candidates → ${ranked.length} ranked`,
     );
     for (const r of ranked)
-      await this.addMoment(a.videoId, a.options, a.transcript, a.signals, r, a.wStart - 1);
+      await this.addMoment(a.videoId, a.options, a.transcript, a.signals, r, a.wStart - 1, a.log);
   }
 
   private async addMoment(
@@ -878,6 +885,7 @@ export class PipelineOrchestrator {
     signals: AudioSignals,
     r: RankedMoment,
     minStart: number,
+    log: (m: string) => void,
   ): Promise<void> {
     const snapped = this.d.moments.snap({
       startSec: r.startSec,
@@ -888,16 +896,31 @@ export class PipelineOrchestrator {
     });
     const { minSec, maxSec } = durationRange(options);
     const dur = snapped.endSec - snapped.startSec;
-    if (dur < minSec * 0.8 || dur > maxSec * 1.15) return;
-    if (snapped.startSec < Math.max(0, minStart)) return; // belongs to the previous window's ranking
+    const tag = `"${r.title.slice(0, 40)}" ${fmt(snapped.startSec)}–${fmt(snapped.endSec)}`;
+    if (dur < minSec * 0.8 || dur > maxSec * 1.15) {
+      log(`skip ${tag}: ${Math.round(dur)} s is outside ${minSec}–${maxSec} s`);
+      return;
+    }
+    if (snapped.startSec < Math.max(0, minStart)) {
+      log(`skip ${tag}: starts before this window (belongs to the previous one)`);
+      return;
+    }
     const score = totalScore(r.breakdown);
-    if (score < options.minScore) return;
+    if (score < options.minScore) {
+      log(`skip ${tag}: score ${score} < minimum ${options.minScore}`);
+      return;
+    }
     const existing = await this.d.db.clip.findMany({ where: { videoId } });
     for (const e of existing) {
       const inter = Math.min(e.endSec, snapped.endSec) - Math.max(e.startSec, snapped.startSec);
       const union = Math.max(e.endSec, snapped.endSec) - Math.min(e.startSec, snapped.startSec);
       if (union > 0 && inter / union > 0.35) {
-        if ((e.score ?? 0) >= score || e.status !== 'candidate') return;
+        if ((e.score ?? 0) >= score || e.status !== 'candidate') {
+          log(
+            `skip ${tag}: overlaps a better clip (${fmt(e.startSec)}–${fmt(e.endSec)}, score ${e.score})`,
+          );
+          return;
+        }
         await this.d.db.clip.delete({ where: { id: e.id } }); // replace a weaker un-rendered duplicate
       }
     }

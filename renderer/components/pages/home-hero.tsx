@@ -87,9 +87,9 @@ function NumberField({
         max={max}
         value={Number.isFinite(value) ? value : ''}
         onChange={(e) => onChange(e.target.value === '' ? NaN : Number(e.target.value))}
-        className="h-9 w-20 tabular-nums"
+        className="h-9 w-full pr-7 tabular-nums"
         trailing={<span className="pr-1.5 text-xs">{suffix}</span>}
-        wrapperClassName="w-24"
+        wrapperClassName="w-28"
       />
     </div>
   );

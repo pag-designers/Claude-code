@@ -201,6 +201,12 @@ export function classifyFailure(message: string | null | undefined): Recovery {
       hint: 'Check your Anthropic API key and credit balance, then retry this stage.',
       action: { label: 'Open API keys', href: '/settings/api-keys/' },
     };
+  if (/timed out|timeout|enotfound|econnreset|network|dns|connection/.test(m))
+    return {
+      kind: 'network',
+      title: 'Network problem',
+      hint: 'Check your connection and retry. Partial downloads resume where they stopped.',
+    };
   if (/bucket|\b(r2|b2|s3)\b|storage|accessdenied|nosuchbucket|signature/.test(m))
     return {
       kind: 'storage',
@@ -214,12 +220,6 @@ export function classifyFailure(message: string | null | undefined): Recovery {
       title: 'The transcription engine stopped',
       hint: 'Restart the engine from Compute settings (or pick a smaller model), then retry this stage.',
       action: { label: 'Open Compute settings', href: '/settings/compute/' },
-    };
-  if (/timed out|timeout|enotfound|econnreset|network|dns|connection/.test(m))
-    return {
-      kind: 'network',
-      title: 'Network problem',
-      hint: 'Check your connection and retry. Partial downloads resume where they stopped.',
     };
   return {
     kind: 'other',

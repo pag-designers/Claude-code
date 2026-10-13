@@ -122,21 +122,22 @@ export function DeleteVideoDialog({
         )
       }
     >
-      <label className="flex cursor-pointer items-start gap-3 rounded-lg border bg-muted/40 p-3">
+      <div className="flex items-start gap-3 rounded-lg border bg-muted/40 p-3">
         <Checkbox
           checked={fromStorage}
           onCheckedChange={setFromStorage}
           aria-label="Also delete from cloud storage"
           className="mt-0.5"
         />
-        <span className="text-sm">
+        {/* a plain span (not a <label>): a button inside a label receives the click twice and never toggles */}
+        <span className="cursor-pointer text-sm" onClick={() => setFromStorage((v) => !v)}>
           <span className="font-medium">Also delete from cloud storage</span>
           <span className="mt-0.5 block text-xs text-muted-foreground">
             Removes the 480p proxy, clip renders and captions from your bucket to free space.
             Uncheck to keep the files there.
           </span>
         </span>
-      </label>
+      </div>
     </ConfirmDialog>
   );
 }

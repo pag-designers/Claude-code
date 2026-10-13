@@ -204,14 +204,17 @@ export function ClipsBrowser({
 
   return (
     <div className="flex flex-col gap-4">
-      <ClipFilterBar
-        filters={filters}
-        onChange={patchFilters}
-        onReset={resetFilters}
-        videos={videos.data?.items ?? []}
-        hideVideo={scope.kind === 'video'}
-        hideFavorites={scope.kind === 'favorites'}
-      />
+      {/* while a run is still producing its first few clips, filters would only be noise */}
+      {processing && clips.length < 8 ? null : (
+        <ClipFilterBar
+          filters={filters}
+          onChange={patchFilters}
+          onReset={resetFilters}
+          videos={videos.data?.items ?? []}
+          hideVideo={scope.kind === 'video'}
+          hideFavorites={scope.kind === 'favorites'}
+        />
+      )}
       <div className="flex items-center gap-3 text-sm text-muted-foreground">
         <Checkbox
           checked={allSelected}

@@ -2,13 +2,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { findMatches } from '../../renderer/lib/transcript';
 import { formatClock } from '../../renderer/lib/format';
 import { videoView } from './support/cp1-data';
-import {
-  canRun,
-  createHarness,
-  type Harness,
-  type OpenOptions,
-  type Session,
-} from './support/harness';
+import { canRun, createHarness, type Harness, type OpenOptions } from './support/harness';
 import { makeState } from './support/clipfern-stub';
 
 /**
@@ -438,7 +432,13 @@ test.describe('Live pipeline', () => {
     );
     await row.getByRole('button', { name: 'Cancel clipping' }).click();
     await expect.poll(() => s.state.log.cancels).toEqual(['vid-processing']);
-    await expect(row.getByText('Canceled')).toBeVisible();
+    // a canceled run leaves "Running jobs" and shows up in "Continue where you left off" as Canceled
+    await expect(
+      s.page.locator('[data-testid="running-video"][data-video-id="vid-processing"]'),
+    ).toHaveCount(0);
+    await expect(
+      s.page.getByTestId('continue-item').filter({ hasText: 'Why nobody finishes online courses' }),
+    ).toContainText('Canceled');
     expect(s.problems).toEqual([]);
     await s.close();
   });
@@ -449,6 +449,7 @@ test.describe('Live pipeline', () => {
     await expect(s.page.getByTestId('url-preview')).toBeVisible();
     await start(s.page).click();
     await expect(s.page).toHaveURL(/id=vid-new-1/);
+    await expect(s.page.getByTestId('pipeline-progress')).toBeVisible(); // the page is open while the run happens
     const sim = s.sim('vid-new-1');
     await sim.run();
     await expect(s.page.getByTestId('pipeline-progress')).toHaveAttribute('data-status', 'failed');
@@ -854,7 +855,7 @@ test.describe('Video detail', () => {
     await expect(s.page.getByText('Warm, reflective')).toBeVisible();
     await expect(s.page.getByText('Pediatric therapist').first()).toBeVisible();
     await expect(s.page.getByTestId('takeaways').locator('li')).toHaveCount(5);
-    await expect(s.page.getByText('Collage art')).toBeVisible();
+    await expect(s.page.getByText('Collage art', { exact: true }).first()).toBeVisible();
     await expect(s.page.getByText('sensory friendly')).toBeVisible();
     // finished runs fold the pipeline into a summary that expands
     await expect(s.page.getByText('Clipping finished')).toBeVisible();

@@ -163,7 +163,7 @@ function mergeShort(ew: EditedWord[], drafts: Draft[], sets: BreakSets): Draft[]
       const dur = last.e - first.s;
       const nextFirst = ew[next.from];
       const nextLast = ew[next.to];
-      if (dur >= MIN_CUE_SEC || !nextFirst || !nextLast) break;
+      if (dur >= MIN_CUE_SEC - 1e-6 || !nextFirst || !nextLast) break;
       const ok =
         !sets.forced.has(next.from) &&
         nextFirst.s - last.e < CUE_PAUSE_SEC &&
@@ -211,7 +211,7 @@ export function buildCues(words: Word[], edits: SubtitleEdits): Cue[] {
       const room = next ? Math.max(c.e, next.s) : c.s + MIN_CUE_SEC;
       c.e = Math.min(c.s + MIN_CUE_SEC, room);
     }
-    if (next && next.s - c.e < 0.12 && next.s >= c.e) c.e = next.s; // no flicker between cues
+    if (next && next.s - c.e < 0.12 && next.s >= c.e && next.s - c.s <= MAX_CUE_SEC) c.e = next.s; // no flicker between cues
   }
   let t = 0;
   for (const c of cues) {

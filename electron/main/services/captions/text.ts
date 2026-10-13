@@ -84,7 +84,7 @@ export function applyCase(text: string, mode: 'none' | 'upper' | 'lower' | 'titl
     case 'title':
       // capitalise each word; lower SHOUTED words; leave mixed-case words ("iPhone") alone
       return text.replace(
-        /(^|[\s\-"'(\[“‘])(\p{L})(\p{L}*)/gu,
+        /(^|[\s\-"'([“‘])(\p{L})(\p{L}*)/gu,
         (_m, pre: string, first: string, rest: string) => {
           const mixed = /\p{Lu}/u.test(rest) && rest !== rest.toUpperCase();
           if (mixed) return `${pre}${first}${rest}`;

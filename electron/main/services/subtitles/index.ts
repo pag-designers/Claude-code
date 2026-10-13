@@ -5,7 +5,7 @@
 import type { Cue, SubtitleEdits } from '@shared/cp2';
 import type { Word } from '@shared/pipeline';
 import type { SubtitleService } from '../../pipeline/contracts2';
-import { applyEdits, buildCues, toSrt, toVtt, tokenize, type EditedWord } from './cues';
+import { applyEdits, buildCues, toSrt, toVtt, tokenize } from './cues';
 
 export { applyEdits, buildCues, toSrt, toVtt, wrapTokens, tokenize } from './cues';
 export type { EditedWord } from './cues';
@@ -91,6 +91,14 @@ function editCueText(
   let ai = 0;
   let bi = 0;
   let lastOrig = origOf(0);
+  // hidden words between two visible ones are the natural home of inserted tokens that equal them
+  const hiddenBetween = (from: number, to: number): number[] => {
+    const out: number[] = [];
+    for (let i = from + 1; i < to; i++) {
+      if (edits.words[String(i)]?.hidden && !assigned.has(i)) out.push(i);
+    }
+    return out;
+  };
   const region = (aEnd: number, bEnd: number): void => {
     const a = aEnd - ai;
     const b = bEnd - bi;
@@ -99,7 +107,26 @@ function editCueText(
       lastOrig = origOf(ai + k);
       put(lastOrig, newTokens[bi + k] as string);
     }
-    for (let k = paired; k < b; k++) put(lastOrig, newTokens[bi + k] as string); // insertions
+    if (b > paired) {
+      const nextOrig = aEnd < oldTokens.length ? origOf(aEnd) : cue.wordEnd + 1;
+      const hidden = hiddenBetween(lastOrig, nextOrig);
+      let h = 0;
+      for (let k = paired; k < b; k++) {
+        const tok = newTokens[bi + k] as string;
+        let revived = false;
+        for (let j = h; j < hidden.length; j++) {
+          const idx = hidden[j] as number;
+          const asr = tokenize(words[idx]?.w ?? '');
+          if (asr.length === 1 && asr[0] === tok) {
+            assigned.set(idx, [tok]);
+            h = j + 1;
+            revived = true;
+            break;
+          }
+        }
+        if (!revived) put(lastOrig, tok); // insertion: shares the previous word's span
+      }
+    }
     ai = aEnd;
     bi = bEnd;
   };
@@ -145,7 +172,8 @@ function splitCue(
   const { cue } = found;
   // the break goes before the first visible word at or after `atWordIndex`, inside the cue
   const ew = applyEdits(words, edits);
-  const at = ew.find((w) => w.origIndex >= atWordIndex && w.origIndex > cue.wordStart);
+  if (atWordIndex <= cue.wordStart || atWordIndex > cue.wordEnd) return edits;
+  const at = ew.find((w) => w.origIndex >= atWordIndex);
   if (!at || at.origIndex > cue.wordEnd) return edits;
   // a word expanded into several tokens can only be split at its first token
   if (edits.breaks.includes(at.origIndex) && !edits.merges.includes(at.origIndex)) return edits;
@@ -181,15 +209,24 @@ function shiftCue(
   const found = findCue(words, edits, cueId);
   if (!found || !Number.isFinite(deltaSec) || deltaSec === 0) return edits;
   const { cues, cue } = found;
-  // keep the cue between its neighbours and the start of the video
+  const ew = applyEdits(words, edits);
+  // keep the cue between its neighbours' real word times (cue ends are padded) and the video start
   const prev = cues[cue.id - 1];
   const nxt = cues[cue.id + 1];
+  const own = ew.filter((w) => w.origIndex >= cue.wordStart && w.origIndex <= cue.wordEnd);
+  const ownStart = own[0]?.s ?? cue.s;
+  const ownEnd = own.reduce((m, w) => Math.max(m, w.e), ownStart);
+  const prevEnd = prev
+    ? ew.filter((w) => w.origIndex <= prev.wordEnd).reduce((m, w) => Math.max(m, w.e), 0)
+    : 0;
+  const nextStart = nxt ? (ew.find((w) => w.origIndex >= nxt.wordStart)?.s ?? Infinity) : Infinity;
   let d = deltaSec;
-  d = Math.max(d, (prev ? prev.e : 0) - cue.s);
-  if (nxt) d = Math.min(d, nxt.s - cue.e);
-  if (d === 0) return edits;
+  d = Math.max(d, prevEnd - ownStart, -ownStart);
+  d = Math.min(d, nextStart - ownEnd);
+  d = round3(d);
+  if ((deltaSec < 0 && d > 0) || (deltaSec > 0 && d < 0)) return edits; // already past the limit
+  if (d === 0 || !Number.isFinite(d)) return edits;
   const next = clone(edits);
-  const ew = applyEdits(words, edits);
   const idxs = new Set(
     ew
       .filter((w) => w.origIndex >= cue.wordStart && w.origIndex <= cue.wordEnd)
@@ -219,6 +256,3 @@ export function createSubtitleService(): SubtitleService {
     toVtt,
   };
 }
-
-export type { EditedWord as SubtitleWord };
-export const _internal = { align };

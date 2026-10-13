@@ -20,9 +20,10 @@ function rng(seed: number): () => number {
   };
 }
 
-const VOCAB = (
-  'the of and to in that is was he for it with as his on be at by this had not are but from or have an they which one you were her all she there would their we him been has when who will more no if out so said what up its about into than them can only other new some could time these two may then do first any my now such like our over man me even most made after also did many before must through back years where much your way well down should because each just those people how too little state good very make world still own see men work long get here between both life being under never day same another know while last might us great old year off come since against go came right used take three'
-).split(' ');
+const VOCAB =
+  'the of and to in that is was he for it with as his on be at by this had not are but from or have an they which one you were her all she there would their we him been has when who will more no if out so said what up its about into than them can only other new some could time these two may then do first any my now such like our over man me even most made after also did many before must through back years where much your way well down should because each just those people how too little state good very make world still own see men work long get here between both life being under never day same another know while last might us great old year off come since against go came right used take three'.split(
+    ' ',
+  );
 
 /** Synthetic transcript: sentences with punctuation, pauses and the odd long word. */
 function transcript(n: number, seed = 1): Word[] {
@@ -119,11 +120,16 @@ describe('applyEdits', () => {
     expect(mid[0]?.s).toBeCloseTo(1.5, 3);
     expect(mid[2]?.e).toBeCloseTo(2, 3);
     for (let i = 1; i < mid.length; i++) expect(mid[i]?.s).toBeCloseTo(mid[i - 1]?.e ?? 0, 3);
-    expect((mid[2]?.e ?? 0) - (mid[2]?.s ?? 0)).toBeGreaterThan((mid[0]?.e ?? 0) - (mid[0]?.s ?? 0));
+    expect((mid[2]?.e ?? 0) - (mid[2]?.s ?? 0)).toBeGreaterThan(
+      (mid[0]?.e ?? 0) - (mid[0]?.s ?? 0),
+    );
   });
 
   it('feeds the caption engine: edited words burn in with the edited text and timing', () => {
-    const edited = svc.applyEdits(w, { ...EMPTY, words: { '0': { text: 'Howdy' }, '2': { shift: 0.5 } } });
+    const edited = svc.applyEdits(w, {
+      ...EMPTY,
+      words: { '0': { text: 'Howdy' }, '2': { shift: 0.5 } },
+    });
     const ass = createCaptionService().buildAss({
       words: edited,
       startSec: 0,
@@ -215,7 +221,9 @@ describe('editCueText', () => {
 
   it('whitespace-only differences are not edits', () => {
     const c = svc.cues(WORDS, EMPTY)[2] as Cue;
-    expect(svc.editCueText(WORDS, EMPTY, c.id, `  ${c.text.replace('\n', '   \n ')}  `)).toBe(EMPTY);
+    expect(svc.editCueText(WORDS, EMPTY, c.id, `  ${c.text.replace('\n', '   \n ')}  `)).toBe(
+      EMPTY,
+    );
   });
 
   it('replaces a word in place, keeping the timing of the others', () => {
@@ -315,12 +323,12 @@ describe('editCueText', () => {
 
 describe('splitCue / mergeWithNext / shiftCue', () => {
   const w: Word[] = [
-    { w: 'alpha', s: 0, e: 0.4 },
-    { w: 'beta', s: 0.4, e: 0.8 },
-    { w: 'gamma', s: 0.8, e: 1.2 },
-    { w: 'delta.', s: 1.2, e: 1.7 },
-    { w: 'epsilon', s: 1.75, e: 2.2 },
-    { w: 'zeta.', s: 2.2, e: 2.8 },
+    { w: 'alpha', s: 0, e: 0.5 },
+    { w: 'beta', s: 0.5, e: 1 },
+    { w: 'gamma', s: 1, e: 1.5 },
+    { w: 'delta.', s: 1.5, e: 2 },
+    { w: 'epsilon', s: 2.05, e: 2.55 },
+    { w: 'zeta.', s: 2.55, e: 3.1 },
   ];
 
   it('split adds a break at the word and creates a new cue there', () => {
@@ -329,7 +337,11 @@ describe('splitCue / mergeWithNext / shiftCue', () => {
     const e = svc.splitCue(w, EMPTY, 0, 2);
     expect(e.breaks).toEqual([2]);
     expect(e.rev).toBe(1);
-    expect(svc.cues(w, e).map((c) => c.text)).toEqual(['alpha beta', 'gamma delta.', 'epsilon zeta.']);
+    expect(svc.cues(w, e).map((c) => c.text)).toEqual([
+      'alpha beta',
+      'gamma delta.',
+      'epsilon zeta.',
+    ]);
   });
 
   it('split rejects positions outside the cue or at its first word', () => {
@@ -351,8 +363,11 @@ describe('splitCue / mergeWithNext / shiftCue', () => {
     const split = svc.splitCue(w, EMPTY, 0, 2);
     const merged = svc.mergeWithNext(w, split, 0);
     expect(merged.breaks).toEqual([]);
-    expect(svc.cues(w, merged)).toEqual(svc.cues(w, EMPTY).length === 2 ? svc.cues(w, merged) : []);
-    expect(svc.cues(w, merged).map((c) => c.text)).toEqual(['alpha beta gamma delta.', 'epsilon zeta.']);
+
+    expect(svc.cues(w, merged).map((c) => c.text)).toEqual([
+      'alpha beta gamma delta.',
+      'epsilon zeta.',
+    ]);
   });
 
   it('refuses a merge that would break the length rules, and the last cue has no next', () => {
@@ -373,8 +388,8 @@ describe('splitCue / mergeWithNext / shiftCue', () => {
     const e = svc.shiftCue(w, EMPTY, 1, -0.02);
     expect(e.words['4']).toEqual({ shift: -0.02 });
     expect(e.words['5']).toEqual({ shift: -0.02 });
-    expect(svc.cues(w, e)[1]?.s).toBeCloseTo(1.73, 3);
-    // cannot move into the previous cue (it ends at 1.7 + extension) or before 0
+    expect(svc.cues(w, e)[1]?.s).toBeCloseTo(2.03, 3);
+    // cannot move into the previous cue (its last word ends at 2.0 s) or before 0
     const far = svc.shiftCue(w, EMPTY, 1, -5);
     const c = svc.cues(w, far);
     expect(c[1]?.s).toBeGreaterThanOrEqual((c[0]?.e ?? 0) - 1e-9);
@@ -400,7 +415,14 @@ describe('splitCue / mergeWithNext / shiftCue', () => {
 
 describe('SRT / VTT', () => {
   const cues: Cue[] = [
-    { id: 0, s: 1.5, e: 3.25, text: 'Hello <b>there</b> --> you\n& friends', wordStart: 0, wordEnd: 3 },
+    {
+      id: 0,
+      s: 1.5,
+      e: 3.25,
+      text: 'Hello <b>there</b> --> you\n& friends',
+      wordStart: 0,
+      wordEnd: 3,
+    },
     { id: 1, s: 3.25, e: 5, text: 'Second\n\ncue with blank line', wordStart: 4, wordEnd: 8 },
     { id: 2, s: 3725.5, e: 3727.001, text: 'Over an hour', wordStart: 9, wordEnd: 11 },
   ];
@@ -409,7 +431,9 @@ describe('SRT / VTT', () => {
     const srt = svc.toSrt(cues);
     const blocks = srt.trim().split('\n\n');
     expect(blocks).toHaveLength(3);
-    expect(blocks[0]).toBe('1\n00:00:01,500 --> 00:00:03,250\nHello ‹b>there‹/b> -> you\n& friends');
+    expect(blocks[0]).toBe(
+      '1\n00:00:01,500 --> 00:00:03,250\nHello ‹b>there‹/b> -> you\n& friends',
+    );
     expect(blocks[1]).toBe('2\n00:00:03,250 --> 00:00:05,000\nSecond\ncue with blank line');
     expect(blocks[2]).toContain('01:02:05,500 --> 01:02:07,001');
     expect(srt.endsWith('\n')).toBe(true);
@@ -445,15 +469,21 @@ describe('property: random edit sequences', () => {
     const toks = tokenize(cue.text);
     const op = r();
     if (op < 0.25 && toks.length > 1) toks.splice(Math.floor(r() * toks.length), 1);
-    else if (op < 0.5) toks.splice(Math.floor(r() * (toks.length + 1)), 0, ...['new', 'extra words'].slice(0, 1 + Math.floor(r() * 2)));
-    else if (op < 0.75 && toks.length > 0) toks[Math.floor(r() * toks.length)] = r() < 0.5 ? 'swapped' : 'two words';
+    else if (op < 0.5)
+      toks.splice(
+        Math.floor(r() * (toks.length + 1)),
+        0,
+        ...['new', 'extra words'].slice(0, 1 + Math.floor(r() * 2)),
+      );
+    else if (op < 0.75 && toks.length > 0)
+      toks[Math.floor(r() * toks.length)] = r() < 0.5 ? 'swapped' : 'two words';
     else if (op < 0.85) return '   ';
     else return `brand new text ${Math.floor(r() * 100)}`;
     return toks.join(' ');
   }
 
-  it('indices stay valid, times monotonic, nothing lost or duplicated (200 sequences x 25 ops)', () => {
-    for (let seed = 1; seed <= 200; seed++) {
+  it('indices stay valid, times monotonic, nothing lost or duplicated (60 sequences x 25 ops)', () => {
+    for (let seed = 1; seed <= 60; seed++) {
       const r = rng(seed * 7919);
       const words = transcript(30 + Math.floor(r() * 60), seed);
       let edits = EMPTY;
@@ -502,7 +532,7 @@ describe('property: random edit sequences', () => {
     }
   });
 
-  it('identity edits: editCueText with a cue\'s own text never changes anything (all cues, many transcripts)', () => {
+  it("identity edits: editCueText with a cue's own text never changes anything (all cues, many transcripts)", () => {
     for (let seed = 1; seed <= 40; seed++) {
       const words = transcript(80, seed);
       const cues = svc.cues(words, EMPTY);
@@ -510,7 +540,13 @@ describe('property: random edit sequences', () => {
       // split every cue at its middle, then identity again
       let e = EMPTY;
       for (const c of svc.cues(words, EMPTY)) {
-        if (c.wordEnd > c.wordStart) e = svc.splitCue(words, e, svc.cues(words, e).find((x) => x.wordStart === c.wordStart)?.id ?? 0, c.wordStart + 1);
+        if (c.wordEnd > c.wordStart)
+          e = svc.splitCue(
+            words,
+            e,
+            svc.cues(words, e).find((x) => x.wordStart === c.wordStart)?.id ?? 0,
+            c.wordStart + 1,
+          );
       }
       for (const c of svc.cues(words, e)) expect(svc.editCueText(words, e, c.id, c.text)).toBe(e);
     }

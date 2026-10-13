@@ -195,9 +195,10 @@ test.describe('Subtitles tab', () => {
     // redo re-applies the first split
     await s.page.keyboard.press('Control+Shift+z');
     await expect(row(s.page, /Joining me\s*$/)).toBeVisible();
-    // undo/redo are saved too
-    await expect.poll(() => saves(s).length).toBeGreaterThanOrEqual(5);
+    // undo/redo are saved too (the three undos and the redo happened inside one debounce window: one save)
+    await expect.poll(() => saves(s).length).toBe(4);
     await expect(saveState(s.page)).toHaveAttribute('data-status', 'saved');
+    expect(saves(s)[3]!.edits.breaks).toHaveLength(1); // the state after the redo: only the first split
     expect(s.problems).toEqual([]);
     await s.close();
   });
@@ -329,9 +330,10 @@ test.describe('Subtitles tab', () => {
     await expect(row(s.page, 'Welcome back everyone,')).toBeVisible(); // the edit is still on screen
     await toast.getByRole('button', { name: 'Retry' }).click();
     await expect(saveState(s.page)).toHaveAttribute('data-status', 'saved');
-    expect(saves(s)).toHaveLength(2);
+    // the failed attempt was rejected before it was recorded, the retry carried the same edit
+    expect(saves(s)).toHaveLength(1);
     // "to Community Conversations," became "everyone,": the first word takes the text, the rest are hidden
-    expect(saves(s)[1]!.edits.words).toEqual({
+    expect(saves(s)[0]!.edits.words).toEqual({
       '2': { text: 'everyone,' },
       '3': { hidden: true },
       '4': { hidden: true },
@@ -344,13 +346,14 @@ test.describe('Subtitles tab', () => {
   test('edits made in the tab are flushed when the tab is left and visible again on return', async () => {
     const s = await open(SUBS, { scenario: 'library' });
     const ta = await edit(s.page, row(s.page, 'Welcome back'));
-    await ta.fill('Hello and welcome back to Community Conversations,');
+    await ta.fill('Welcome back to Community Chats,');
     await ta.press('Enter');
     await s.page.getByRole('tab', { name: 'Overview' }).click(); // leave before the debounce fires
     await expect.poll(() => saves(s).length).toBe(1);
     await s.page.getByRole('tab', { name: 'Subtitles' }).click();
-    await expect(rows(s.page).first().getByTestId('cue-text')).toHaveText(
-      'Hello and welcome back to Community Conversations,',
+    // (the server re-chunks after a save, so the first cue may now hold a few more words)
+    await expect(rows(s.page).first().getByTestId('cue-text')).toContainText(
+      'Welcome back to Community Chats,',
     );
     // the cache was updated: reopening did not show the first fetch
     expect(s.state.calls.filter((c) => c.channel === 'subtitles:get')).toHaveLength(1);
@@ -432,6 +435,438 @@ test.describe('Subtitles tab', () => {
     await expect(rows(s.page).first()).toBeVisible();
     // first failure was retried by TanStack (retry: 1), the manual retry succeeded
     expect(s.problems.filter((p) => !/subtitle store is locked|Failed to load resource|500/.test(p))).toEqual([]);
+    await s.close();
+  });
+});
+
+/* ================================================================================================================== */
+
+const studio = (p: Page) => p.getByTestId('style-studio');
+const tile = (p: Page, id: string) => studio(p).locator(`[data-testid="style-tile"][data-style-id="${id}"]`);
+const previews = (s: { state: Parameters<typeof cp2a>[0] }) => cp2a(s.state).log.previews;
+const sizeBox = (p: Page) => studio(p).getByLabel('Size', { exact: true }).first();
+const nameBox = (p: Page) => studio(p).getByRole('textbox', { name: 'Style name' });
+const settled = (p: Page, ms = 450) => p.waitForTimeout(ms); // > the 250 ms preview debounce
+/** The newest request for the style being edited (tile requests of other presets arrive lazily and are ignored). */
+const lastPreview = (s: { state: Parameters<typeof cp2a>[0] }, id = 'clean-pop') =>
+  previews(s)
+    .filter((r) => r.style.id === id)
+    .at(-1)!;
+
+async function openStudio(s: Awaited<ReturnType<typeof open>>) {
+  await s.page.getByTestId('caption-style-button').first().click();
+  await expect(studio(s.page)).toBeVisible();
+  await expect(tile(s.page, 'clean-pop')).toBeVisible();
+}
+
+test.describe('Caption Style Studio', () => {
+  test('gallery shows the 14 built-ins; thumbnails are real libass renders, fetched lazily, two at a time', async () => {
+    const s = await open(VIDEO, { scenario: 'library' });
+    const release = controls(s.state).holdPreviews();
+    await openStudio(s);
+    await expect(studio(s.page).getByTestId('style-tile')).toHaveCount(14);
+    await expect(studio(s.page).getByText('Built-in · 14')).toBeVisible();
+    await expect(studio(s.page).getByText('My styles · 0')).toBeVisible();
+    // skeletons while the renders are held
+    await expect(tile(s.page, 'clean-pop').getByTestId('style-thumb')).toHaveAttribute('data-state', 'loading');
+    // only what is on screen was requested (not all 14 + the editor preview)
+    const requestedBefore = new Set(previews(s).map((r) => r.style.id));
+    expect(requestedBefore.size).toBeLessThan(14);
+    expect(cp2a(s.state).maxPreviewsInFlight).toBeLessThanOrEqual(3); // 2 tiles + the live preview
+    release();
+    await expect(tile(s.page, 'clean-pop').getByTestId('style-thumb')).toHaveAttribute('data-state', 'ready');
+    const src = await tile(s.page, 'clean-pop').locator('img').getAttribute('src');
+    expect(src).toMatch(/^data:image\/png;base64,/);
+    // scrolling reveals and fetches the rest
+    await s.page.getByTestId('studio-gallery').evaluate((el) => (el.scrollTop = el.scrollHeight));
+    await expect(tile(s.page, 'subtle-serif').getByTestId('style-thumb')).toHaveAttribute('data-state', 'ready');
+    const all = new Set(previews(s).map((r) => r.style.id));
+    expect(all.size).toBe(14);
+    expect(cp2a(s.state).maxPreviewsInFlight).toBeLessThanOrEqual(3);
+    // the clip frame is the background when the studio opens from a video that has clips
+    expect(previews(s)[0]!.clipId).toBe('vid-interview-c1');
+    // the current style is marked
+    await expect(tile(s.page, 'clean-pop').getByText('Currently used')).toBeVisible();
+    expect(s.problems).toEqual([]);
+    await s.close();
+  });
+
+  test('selecting a preset loads it into the editor and requests a preview of exactly that style', async () => {
+    const s = await open(VIDEO, { scenario: 'library' });
+    await openStudio(s);
+    await tile(s.page, 'hormozi-bold').click();
+    await expect(tile(s.page, 'hormozi-bold')).toHaveAttribute('aria-pressed', 'true');
+    await expect(nameBox(s.page)).toHaveValue('Hormozi Bold');
+    await expect(studio(s.page).getByTestId('font-family')).toHaveText('Anton');
+    await expect(studio(s.page).getByTestId('studio-selected')).toContainText('Built-in');
+    await expect.poll(() => previews(s).some((r) => r.style.id === 'hormozi-bold')).toBe(true);
+    expect(lastPreview(s, 'hormozi-bold').style.font.family).toBe('Anton');
+    await expect(studio(s.page).getByTestId('style-preview-img')).toBeVisible();
+    // the editor shows every field group
+    for (const g of ['Typography', 'Colours', 'Active word', 'Shadow', 'Background box', 'Position', 'Line breaking'])
+      await expect(studio(s.page).getByRole('region', { name: g })).toBeVisible();
+    expect(s.problems).toEqual([]);
+    await s.close();
+  });
+
+  test('editing fields updates the live preview request (debounced) with the edited style', async () => {
+    const s = await open(VIDEO, { scenario: 'library' });
+    await openStudio(s);
+    await settled(s.page, 900);
+    const before = previews(s).length;
+    // three quick edits inside one debounce window -> ONE new request
+    await sizeBox(s.page).fill('9');
+    await sizeBox(s.page).fill('9.5');
+    await sizeBox(s.page).fill('10');
+    await settled(s.page);
+    await expect.poll(() => previews(s).length).toBe(before + 1);
+    expect(lastPreview(s).style.font.sizePct).toBe(10);
+    await expect(studio(s.page).getByTestId('studio-selected')).toContainText('Unsaved changes');
+
+    // colour: hex field, swatch, native picker value
+    const fill = studio(s.page).getByLabel('Text fill', { exact: true });
+    await fill.fill('#ff0000');
+    await settled(s.page);
+    expect(lastPreview(s).style.fill).toBe('#FF0000');
+    await studio(s.page).getByRole('button', { name: 'Text fill: green' }).click();
+    await settled(s.page);
+    expect(lastPreview(s).style.fill).toBe('#4ADE80');
+    await expect(studio(s.page).getByRole('button', { name: 'Text fill: green' })).toHaveAttribute('aria-pressed', 'true');
+
+    // case, animation, highlight mode, box toggle (reveals its colour/opacity/padding fields)
+    await studio(s.page).getByRole('radio', { name: 'lower' }).click();
+    await settled(s.page);
+    expect(lastPreview(s).style.textCase).toBe('lower');
+    await studio(s.page).getByLabel('Animation').click();
+    await s.page.getByRole('option', { name: 'Bounce' }).click();
+    await settled(s.page);
+    expect(lastPreview(s).style.animation).toBe('bounce');
+    await studio(s.page).getByLabel('Emphasis').click();
+    await s.page.getByRole('option', { name: 'Box behind word' }).click();
+    await expect(studio(s.page).getByText('Highlight box')).toBeVisible();
+    await expect(studio(s.page).getByText('Highlight colour')).toHaveCount(0);
+    await expect(studio(s.page).getByLabel('Box colour', { exact: true })).toHaveCount(0);
+    await studio(s.page).getByRole('switch', { name: 'Box behind the text' }).click();
+    await expect(studio(s.page).getByLabel('Box colour', { exact: true })).toBeVisible();
+    await settled(s.page);
+    expect(lastPreview(s).style.box.enabled).toBe(true);
+    expect(lastPreview(s).style.highlight.mode).toBe('box');
+
+    // position slider (native range: keyboard), chunking
+    const y = studio(s.page).getByRole('slider', { name: 'Vertical position slider' });
+    await y.focus();
+    await y.press('ArrowRight');
+    await y.press('ArrowRight');
+    await settled(s.page);
+    expect(lastPreview(s).style.layout.yPct).toBe(71);
+    await studio(s.page).getByLabel('Words per caption', { exact: true }).fill('2');
+    await settled(s.page);
+    expect(lastPreview(s).style.chunking.maxWords).toBe(2);
+
+    // font family + weight come from captions:fonts
+    await studio(s.page).getByTestId('font-family').click();
+    await s.page.getByRole('option', { name: 'Poppins' }).click();
+    await studio(s.page).getByLabel('Weight', { exact: true }).click();
+    await s.page.getByRole('option', { name: /Bold · 700/ }).click();
+    await settled(s.page);
+    expect(lastPreview(s).style.font).toMatchObject({ family: 'Poppins', weight: 700 });
+    expect(s.state.calls.filter((c) => c.channel === 'captions:fonts')).toHaveLength(1);
+
+    // every request carried a complete, valid style (the stub parsed it with the real schema)
+    expect(previews(s).every((r) => r.style.name === 'Clean Pop')).toBe(true);
+    expect(s.problems).toEqual([]);
+    await s.close();
+  });
+
+  test('preview: previous image stays (dimmed, "Updating") while the next renders; errors offer Retry; sample controls', async () => {
+    const s = await open(VIDEO, { scenario: 'library' });
+    await openStudio(s);
+    const pv = studio(s.page).getByTestId('style-preview');
+    await expect(pv.locator('[data-state="ready"]')).toBeVisible();
+    const img = studio(s.page).getByTestId('style-preview-img');
+    const first = await img.getAttribute('src');
+
+    const release = controls(s.state).holdPreviews();
+    await sizeBox(s.page).fill('11');
+    await expect(pv.locator('[data-state="loading"]')).toBeVisible();
+    await expect(pv.getByText('Updating')).toBeVisible();
+    await expect(img).toBeVisible(); // the previous image is still there
+    expect(await img.getAttribute('src')).toBe(first);
+    await expect(img).toHaveClass(/opacity-55/);
+    release();
+    await expect(pv.locator('[data-state="ready"]')).toBeVisible();
+    expect(await img.getAttribute('src')).not.toBe(first);
+    await expect(img).not.toHaveClass(/opacity-55/);
+
+    // error state with retry
+    controls(s.state).failNext('captions:preview', 'ffmpeg exited with code 1 (libass: font not found).');
+    await sizeBox(s.page).fill('8');
+    await expect(pv.getByRole('alert')).toContainText('Could not render the preview');
+    await expect(pv.getByRole('alert')).toContainText('libass: font not found');
+    const n = previews(s).length;
+    await pv.getByRole('button', { name: 'Retry' }).click();
+    await expect(pv.locator('[data-state="ready"]')).toBeVisible();
+    expect(previews(s).length).toBe(n + 1);
+    expect(lastPreview(s).style.font.sizePct).toBe(8);
+
+    // active word index + sample text + safe-area guide
+    await pv.getByRole('radio', { name: '3', exact: true }).click();
+    await settled(s.page);
+    expect(lastPreview(s).activeWord).toBe(2);
+    await pv.getByRole('radio', { name: 'Long' }).click();
+    await settled(s.page);
+    expect(lastPreview(s).text).toMatch(/^Nobody told me/);
+    await expect(pv.getByTestId('safe-guide')).toHaveCount(0);
+    await pv.getByRole('switch', { name: 'Safe area guide' }).click();
+    await expect(pv.getByTestId('safe-guide')).toBeVisible();
+    expect(s.problems.filter((p) => !/captions:preview|libass|ffmpeg/.test(p))).toEqual([]);
+    await s.close();
+  });
+
+  test('validation: out-of-range numbers and bad hex show inline errors, stop the preview and block saving', async () => {
+    const s = await open(VIDEO, { scenario: 'library' });
+    await openStudio(s);
+    await settled(s.page, 900);
+    const n = previews(s).length;
+    await sizeBox(s.page).fill('99');
+    const err = studio(s.page).getByRole('alert').filter({ hasText: 'Must be between 2 and 14.' });
+    await expect(err).toBeVisible();
+    await expect(sizeBox(s.page)).toHaveAttribute('aria-invalid', 'true');
+    await expect(studio(s.page).getByText('Fix the highlighted fields to refresh the preview.')).toBeVisible();
+    await expect(studio(s.page).getByTestId('studio-apply')).toBeDisabled();
+    await expect(studio(s.page).getByRole('button', { name: 'Save as custom copy' })).toBeDisabled();
+    await settled(s.page);
+    expect(previews(s).length).toBe(n); // nothing was requested for the invalid draft
+    await sizeBox(s.page).fill('');
+    await expect(studio(s.page).getByRole('alert').filter({ hasText: 'Enter a number.' })).toBeVisible();
+
+    await sizeBox(s.page).fill('7.8');
+    await expect(err).toHaveCount(0);
+    await studio(s.page).getByLabel('Text fill', { exact: true }).fill('#12');
+    await expect(studio(s.page).getByText('Use a 6-digit hex colour such as #FFD60A.')).toBeVisible();
+    await expect(studio(s.page).getByTestId('studio-apply')).toBeDisabled();
+    await studio(s.page).getByLabel('Text fill', { exact: true }).fill('#FFFFFF');
+    await expect(studio(s.page).getByTestId('studio-apply')).toBeEnabled();
+
+    await nameBox(s.page).fill('');
+    await expect(studio(s.page).getByText('Name the style (1–40 characters).')).toBeVisible();
+    await expect(studio(s.page).getByTestId('studio-apply')).toBeDisabled();
+    await studio(s.page).getByRole('button', { name: 'Reset' }).click();
+    await expect(nameBox(s.page)).toHaveValue('Clean Pop');
+    await expect(studio(s.page).getByTestId('studio-apply')).toBeEnabled();
+    // non-integer where only whole numbers are valid
+    await studio(s.page).getByLabel('Words per caption', { exact: true }).fill('2.5');
+    await expect(studio(s.page).getByText('Whole numbers only.')).toBeVisible();
+    expect(s.problems).toEqual([]);
+    await s.close();
+  });
+
+  test('built-ins are read-only: save as custom copy, edit + Save, duplicate, delete with confirmation', async () => {
+    const s = await open(VIDEO, { scenario: 'library' });
+    await openStudio(s);
+    await expect(studio(s.page).getByRole('button', { name: 'Delete' })).toHaveCount(0); // built-ins cannot be deleted
+    await expect(studio(s.page).getByRole('button', { name: 'Duplicate' })).toBeVisible();
+    await sizeBox(s.page).fill('9');
+    await expect(studio(s.page).getByRole('button', { name: 'Save as custom copy' })).toBeVisible();
+    await expect(studio(s.page).getByRole('button', { name: 'Save', exact: true })).toHaveCount(0); // no overwrite of a built-in
+    await studio(s.page).getByRole('button', { name: 'Save as custom copy' }).click();
+    const custom = tile(s.page, 'custom-1');
+    await expect(custom).toBeVisible();
+    await expect(studio(s.page).getByText('My styles · 1')).toBeVisible();
+    await expect(custom).toHaveAttribute('aria-pressed', 'true');
+    await expect(nameBox(s.page)).toHaveValue('Clean Pop copy');
+    await expect(studio(s.page).getByTestId('studio-selected')).toContainText('Custom');
+    expect(cp2a(s.state).log.savedStyles).toHaveLength(1);
+    expect(cp2a(s.state).log.savedStyles[0]).toMatchObject({ builtin: false, font: { sizePct: 9 } });
+    // clean-pop itself is untouched
+    expect(cp2a(s.state).styles.find((x) => x.id === 'clean-pop')!.font.sizePct).toBe(7.8);
+
+    // edit the custom style: Save updates it in place (same id), no new tile
+    await nameBox(s.page).fill('My punchy style');
+    await sizeBox(s.page).fill('12');
+    await studio(s.page).getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(studio(s.page).getByText('My styles · 1')).toBeVisible();
+    await expect(tile(s.page, 'custom-1')).toContainText('My punchy style');
+    expect(cp2a(s.state).log.savedStyles.at(-1)).toMatchObject({ id: 'custom-1', name: 'My punchy style' });
+    expect(cp2a(s.state).styles.find((x) => x.id === 'custom-1')!.font.sizePct).toBe(12);
+    await expect(studio(s.page).getByTestId('studio-selected')).not.toContainText('Unsaved');
+
+    // Duplicate
+    await studio(s.page).getByRole('button', { name: 'Duplicate' }).click();
+    await expect(studio(s.page).getByText('My styles · 2')).toBeVisible();
+    await expect(nameBox(s.page)).toHaveValue('My punchy style copy');
+
+    // Delete asks first; Cancel keeps it
+    await studio(s.page).getByRole('button', { name: 'Delete' }).click();
+    const dlg = s.page.getByRole('dialog').filter({ hasText: 'Delete “My punchy style copy”?' });
+    await expect(dlg).toBeVisible();
+    await dlg.getByRole('button', { name: 'Cancel' }).click();
+    await expect(studio(s.page).getByText('My styles · 2')).toBeVisible();
+    await studio(s.page).getByRole('button', { name: 'Delete' }).click();
+    await s.page.getByRole('dialog').filter({ hasText: 'Delete “My punchy style copy”?' }).getByRole('button', { name: 'Delete style' }).click();
+    await expect(studio(s.page).getByText('My styles · 1')).toBeVisible();
+    expect(cp2a(s.state).log.deletedStyles).toEqual(['custom-2']);
+    await expect(tile(s.page, 'clean-pop')).toHaveAttribute('aria-pressed', 'true'); // selection fell back
+    await expect(s.page.locator('[data-sonner-toast]').filter({ hasText: 'Deleted “My punchy style copy”' })).toBeVisible();
+    expect(s.problems).toEqual([]);
+    await s.close();
+  });
+
+  test('switching styles with unsaved edits asks first (Discard / keep editing)', async () => {
+    const s = await open(VIDEO, { scenario: 'library' });
+    await openStudio(s);
+    await sizeBox(s.page).fill('10');
+    await tile(s.page, 'neon-glow').click();
+    const dlg = s.page.getByRole('dialog').filter({ hasText: 'Discard unsaved changes?' });
+    await expect(dlg).toBeVisible();
+    await dlg.getByRole('button', { name: 'Cancel' }).click();
+    await expect(tile(s.page, 'clean-pop')).toHaveAttribute('aria-pressed', 'true');
+    await expect(sizeBox(s.page)).toHaveValue('10');
+    await tile(s.page, 'neon-glow').click();
+    await s.page.getByRole('dialog').filter({ hasText: 'Discard unsaved changes?' }).getByRole('button', { name: 'Discard changes' }).click();
+    await expect(tile(s.page, 'neon-glow')).toHaveAttribute('aria-pressed', 'true');
+    await expect(nameBox(s.page)).toHaveValue('Neon Glow');
+    expect(s.problems).toEqual([]);
+    await s.close();
+  });
+
+  test('apply from a video: stores the style, then confirms re-rendering every clip (clips:restyle)', async () => {
+    const s = await open(VIDEO, { scenario: 'library' });
+    await expect(s.page.getByTestId('caption-style-button').first()).toContainText('Clean Pop');
+    await openStudio(s);
+    await tile(s.page, 'neon-glow').click();
+    await studio(s.page).getByTestId('studio-apply').click();
+    await expect.poll(() => cp2a(s.state).log.styleSelections).toEqual([{ id: 'vid-interview', styleId: 'neon-glow' }]);
+    const dlg = s.page.getByTestId('apply-all-dialog');
+    await expect(dlg).toBeVisible();
+    await expect(dlg).toContainText('Apply “Neon Glow” to existing clips?');
+    await expect(dlg).toContainText('Re-rendering 9 clips');
+    // the header button already shows the new style
+    await expect(s.page.getByTestId('caption-style-button').first()).toContainText('Neon Glow');
+    expect(cp2a(s.state).log.restyles).toHaveLength(0); // nothing re-rendered before the confirmation
+    await dlg.getByRole('button', { name: 'Re-render 9 clips' }).click();
+    await expect.poll(() => cp2a(s.state).log.restyles.length).toBe(1);
+    const call = cp2a(s.state).log.restyles[0]!;
+    expect(call.styleId).toBe('neon-glow');
+    expect([...call.ids].sort()).toEqual(
+      s.state.clips.filter((c) => c.videoId === 'vid-interview').map((c) => c.id).sort(),
+    );
+    await expect(dlg).toHaveCount(0);
+    // the clips show as queued immediately
+    await s.page.getByRole('tab', { name: /^Clips/ }).click();
+    await expect(s.page.getByText('Re-rendering 9 clips').first()).toBeVisible();
+    expect(s.problems).toEqual([]);
+    await s.close();
+  });
+
+  test('apply "only new clips" keeps existing renders; applying an edited draft saves a copy first', async () => {
+    const s = await open(VIDEO, { scenario: 'library' });
+    await openStudio(s);
+    await tile(s.page, 'boxed-highlight').click();
+    await sizeBox(s.page).fill('9');
+    await expect(studio(s.page).getByTestId('studio-apply')).toHaveText('Save copy & apply');
+    await studio(s.page).getByTestId('studio-apply').click();
+    await expect.poll(() => cp2a(s.state).log.savedStyles.length).toBe(1);
+    await expect.poll(() => cp2a(s.state).log.styleSelections).toEqual([{ id: 'vid-interview', styleId: 'custom-1' }]);
+    const dlg = s.page.getByTestId('apply-all-dialog');
+    await expect(dlg).toContainText('Apply “Boxed Highlight copy” to existing clips?');
+    await dlg.getByRole('button', { name: 'Only new clips' }).click();
+    await expect(dlg).toHaveCount(0);
+    expect(cp2a(s.state).log.restyles).toHaveLength(0);
+    await expect(s.page.getByTestId('caption-style-button').first()).toContainText('Boxed Highlight copy');
+    // a video without rendered clips just stores the choice
+    expect(s.problems).toEqual([]);
+    await s.close();
+  });
+
+  test('a video with no clips only stores the style (no re-render question)', async () => {
+    const s = await open('/library/video/?id=vid-failed', { scenario: 'library' });
+    await openStudio(s);
+    expect(previews(s)[0]!.clipId).toBeUndefined(); // no clip to take a background frame from
+    await tile(s.page, 'typewriter').click();
+    await studio(s.page).getByTestId('studio-apply').click();
+    await expect.poll(() => cp2a(s.state).log.styleSelections.length).toBe(1);
+    await expect(s.page.getByTestId('apply-all-dialog')).toHaveCount(0);
+    await expect(s.page.locator('[data-sonner-toast]').filter({ hasText: 'Caption style updated' })).toBeVisible();
+    expect(s.problems).toEqual([]);
+    await s.close();
+  });
+
+  test('gallery errors are recoverable; studio is keyboard-operable and closes with Escape', async () => {
+    const s = await open(VIDEO, {
+      scenario: 'library',
+      prepare: (st) => controls(st).failNext('captions:styles', 'The style store could not be read.', 50),
+    });
+    await s.page.getByTestId('caption-style-button').first().click();
+    await expect(studio(s.page).getByText('Could not load caption styles')).toBeVisible();
+    await expect(studio(s.page).getByText('The style store could not be read.')).toBeVisible();
+    cp2a(s.state).failures.delete('captions:styles'); // the store recovers
+    await studio(s.page).getByRole('button', { name: 'Try again' }).click();
+    await expect(tile(s.page, 'clean-pop')).toBeVisible();
+    // keyboard: tiles are buttons
+    await tile(s.page, 'karaoke-highlight').focus();
+    await s.page.keyboard.press('Enter');
+    await expect(tile(s.page, 'karaoke-highlight')).toHaveAttribute('aria-pressed', 'true');
+    await s.page.keyboard.press('Escape');
+    await expect(studio(s.page)).toHaveCount(0);
+    expect(s.problems.filter((p) => !/style store could not be read|Failed to load resource/.test(p))).toEqual([]);
+    await s.close();
+  });
+});
+
+/* ================================================================================================================== */
+
+test.describe('Home: caption style + reframe options', () => {
+  const urlBox = (p: Page) => p.getByRole('textbox', { name: 'YouTube URL' });
+  const start = (p: Page) => p.getByRole('button', { name: /Start clipping/ });
+
+  test('defaults (Clean Pop, Auto), the studio picks a style, both are sent in pipeline:start options', async () => {
+    const s = await open('/', { scenario: 'configured' });
+    const styleBtn = s.page.getByTestId('home-caption-style');
+    await expect(styleBtn).toContainText('Clean Pop');
+    await expect(s.page.getByTestId('home-reframe')).toContainText('Auto');
+    // mini thumbnail is a real render
+    await expect(styleBtn.getByTestId('style-thumb')).toHaveAttribute('data-state', 'ready');
+    await styleBtn.click();
+    await expect(studio(s.page).getByText('Caption style for new clips')).toBeVisible();
+    expect(previews(s)[0]!.clipId).toBeUndefined();
+    await tile(s.page, 'hormozi-bold').click();
+    await studio(s.page).getByTestId('studio-apply').click();
+    await expect(studio(s.page)).toHaveCount(0);
+    await expect(styleBtn).toContainText('Hormozi Bold');
+    // nothing is saved to any video yet
+    expect(cp2a(s.state).log.styleSelections).toHaveLength(0);
+
+    await s.page.getByTestId('home-reframe').click();
+    const names = await s.page.getByRole('option').allInnerTexts();
+    expect(names).toEqual([
+      'Auto',
+      'Follow one face',
+      'Split screen (two people)',
+      'Screen + face',
+      'Centre crop',
+    ]);
+    await s.page.getByRole('option', { name: 'Split screen (two people)' }).click();
+    await urlBox(s.page).fill('https://youtu.be/dQw4w9WgXcQ');
+    await expect(s.page.getByTestId('url-preview')).toBeVisible();
+    await start(s.page).click();
+    await expect(s.page).toHaveURL(/\/library\/video\/\?id=vid-new-1$/);
+    expect(s.state.log.started[0]!.options).toMatchObject({
+      mode: 'clips',
+      captionStyleId: 'hormozi-bold',
+      reframeMode: 'multi-face',
+    });
+    expect(s.problems).toEqual([]);
+    await s.close();
+  });
+
+  test('with captions switched off the style option is disabled and explains why', async () => {
+    const s = await open('/', { scenario: 'configured' });
+    await s.page.getByRole('switch', { name: 'Captions' }).click();
+    await expect(s.page.getByTestId('home-caption-style')).toBeDisabled();
+    const t = await tip(s.page, s.page.locator('span[tabindex="0"]').filter({ has: s.page.getByTestId('home-caption-style') }));
+    await expect(t).toContainText('Captions are switched off');
+    expect(s.problems).toEqual([]);
     await s.close();
   });
 });

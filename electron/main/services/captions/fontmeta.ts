@@ -118,12 +118,7 @@ function readNames(r: Reader, tables: Map<string, Table>): Map<number, string> {
     if (s <= (score.get(id) ?? 0)) continue;
     const raw = buf.subarray(strOff + off, strOff + off + len);
     if (raw.length !== len) continue;
-    names.set(
-      id,
-      decodeName(raw, platform)
-        .replace(/\u0000/g, '')
-        .trim(),
-    );
+    names.set(id, decodeName(raw, platform).split('\u0000').join('').trim());
     score.set(id, s);
   }
   return names;

@@ -73,7 +73,7 @@ export function createPipeline(svc: Services, sidecar: SidecarManager, host: Pip
     },
   });
 
-  const captions = createCaptionService();
+  const captions = createCaptionService({ fontsDir: host.fontsDir() });
   const subtitles = createSubtitleService();
   const thumbnails = createThumbnailService();
   const moments = createMomentService();

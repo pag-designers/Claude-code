@@ -243,7 +243,6 @@ describe('captions.preview — real libass render', () => {
     const t0 = performance.now();
     await svc.preview({ ...base, style: resolveStyle('neon-glow') });
     const ms = performance.now() - t0;
-    console.log(`preview warm: ${ms.toFixed(0)} ms`);
     expect(ms).toBeLessThan(700);
 
     const ac = new AbortController();

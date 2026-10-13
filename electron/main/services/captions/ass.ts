@@ -14,7 +14,7 @@
 import type { CaptionStyle } from '@shared/cp2';
 import type { Word } from '@shared/pipeline';
 import { chunkBlocks, PAUSE_BREAK_SEC } from './chunk';
-import { emPx, isWide, lineHeight, measureText } from './fontbook';
+import { emPx, isWide, measureText } from './fontbook';
 import { computeLayout, type Layout } from './geometry';
 import { assAlpha, assColor, assTagColor } from './styles';
 import {
@@ -385,7 +385,7 @@ function activeColor(style: CaptionStyle, keyword: boolean): string {
 const sc = (n: number): string => `\\fscx${n}\\fscy${n}`;
 
 /** Override tags of an ACTIVE word run for the style's animation. */
-function activeTags(style: CaptionStyle, skin: Skin, keyword: boolean, lay: Layout): string {
+function activeTags(style: CaptionStyle, skin: Skin, keyword: boolean): string {
   const plan = animPlan(style);
   const target = skin.col(activeColor(style, keyword));
   const colour = `\\1c${assTagColor(target)}`;
@@ -522,7 +522,7 @@ function wordText(bw: BlockWord): string {
 }
 
 /** Scripts whose letters join or reorder: never split them into single characters. */
-const RTL_OR_COMPLEX = /[֐-ࣿऀ-෿฀-໿יִ-﷿ﹰ-﻿]/;
+const RTL_OR_COMPLEX = /[\u0590-\u08ff\u0900-\u0dff\u0e00-\u0eff\ufb1d-\ufdff\ufe70-\ufeff]/;
 const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 const unitsOf = (text: string): string[] =>
   RTL_OR_COMPLEX.test(text) ? [text] : [...graphemes.segment(text)].map((g) => g.segment);
@@ -695,7 +695,7 @@ export function buildAssDocument(args: BuildAssArgs): string {
           .map((bw) => {
             const tg =
               bw.id === ev.wi
-                ? activeTags(style, skin, bw.keyword, lay)
+                ? activeTags(style, skin, bw.keyword)
                 : idleTags(style, skin, bw.keyword, lay);
             return `{${tg}}${wordText(bw)}`;
           })

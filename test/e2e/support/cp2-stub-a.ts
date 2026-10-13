@@ -55,6 +55,9 @@ export interface Cp2aState {
   previewDelayMs: number;
   /** While set, previews wait for it (tests of the dimmed "updating" state). */
   previewGate: Promise<void> | null;
+  /** Concurrent `captions:preview` calls right now, and the highest value seen (gallery limits itself to 2 + 1 live). */
+  previewsInFlight: number;
+  maxPreviewsInFlight: number;
   log: {
     previews: {
       style: CaptionStyle;
@@ -85,6 +88,8 @@ export function cp2a(state: Cp1State): Cp2aState {
       saveDelayMs: 0,
       previewDelayMs: 0,
       previewGate: null,
+      previewsInFlight: 0,
+      maxPreviewsInFlight: 0,
       log: {
         previews: [],
         savedStyles: [],
@@ -335,14 +340,21 @@ export async function handleCp2a(
         activeWord: (p.activeWord as number) ?? 1,
         aspect: (p.aspect as string) ?? '9:16',
       });
-      if (a.previewGate) await a.previewGate;
-      if (a.previewDelayMs) await sleep(a.previewDelayMs);
-      const png = await renderPreviewPng(state, {
-        style,
-        text: p.text as string | undefined,
-        clipId: p.clipId as string | undefined,
-        activeWord: (p.activeWord as number) ?? 1,
-      });
+      a.previewsInFlight += 1;
+      a.maxPreviewsInFlight = Math.max(a.maxPreviewsInFlight, a.previewsInFlight);
+      let png: Buffer;
+      try {
+        if (a.previewGate) await a.previewGate;
+        if (a.previewDelayMs) await sleep(a.previewDelayMs);
+        png = await renderPreviewPng(state, {
+          style,
+          text: p.text as string | undefined,
+          clipId: p.clipId as string | undefined,
+          activeWord: (p.activeWord as number) ?? 1,
+        });
+      } finally {
+        a.previewsInFlight -= 1;
+      }
       return {
         value: {
           dataUrl: `data:image/png;base64,${png.toString('base64')}`,

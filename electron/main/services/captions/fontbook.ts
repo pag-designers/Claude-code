@@ -121,7 +121,7 @@ export class FontBook {
   /** Registers the fonts of `dir` (rescans when the directory changed). */
   addDir(dir: string | null): FontFace[] {
     if (!dir) return [];
-    let mtime = 0;
+    let mtime: number;
     try {
       mtime = fs.statSync(dir).mtimeMs;
     } catch {

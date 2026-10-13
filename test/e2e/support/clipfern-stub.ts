@@ -13,11 +13,21 @@ import {
   type EventPayload,
   type InvokeChannel,
 } from '../../../shared/ipc';
+import {
+  costSummary,
+  emptyCp1State,
+  handleCp1,
+  installRunFixtures,
+  seedLibrary,
+  type Cp1State,
+  type Sim,
+} from './cp1-sim';
 import { DEFAULT_SETTINGS, type Settings } from '../../../shared/settings';
 import { SECRET_KEYS, maskSecret, type SecretKey } from '../../../shared/secrets';
 import type { AppNotification, JobView, SidecarStatus, StorageUsage } from '../../../shared/domain';
 
-export type Scenario = 'fresh' | 'configured';
+/** fresh = nothing set up; configured = every prerequisite met, empty library; library = configured + seeded videos/clips. */
+export type Scenario = 'fresh' | 'configured' | 'library';
 
 const GB = 1e9;
 const now = Date.now();
@@ -88,7 +98,7 @@ const notification = (
   ...n,
 });
 
-export interface StubState {
+export interface StubState extends Cp1State {
   settings: Settings;
   secrets: Partial<Record<SecretKey, { value: string; source: 'store' | 'env' }>>;
   notifications: AppNotification[];
@@ -99,9 +109,14 @@ export interface StubState {
   calls: { channel: string; payload: unknown }[];
 }
 
-export function makeState(scenario: Scenario, platform = 'linux'): StubState {
-  const configured = scenario === 'configured';
-  return {
+export function makeState(
+  scenario: Scenario,
+  platform = 'linux',
+  opts: { assetBase?: string } = {},
+): StubState {
+  const configured = scenario !== 'fresh';
+  const state: StubState = {
+    ...emptyCp1State(opts.assetBase ?? ''),
     platform,
     settings: { ...DEFAULT_SETTINGS },
     secrets: configured
@@ -192,6 +207,10 @@ export function makeState(scenario: Scenario, platform = 'linux'): StubState {
       : sidecar({ phase: 'idle' }),
     calls: [],
   };
+  installRunFixtures(state);
+  if (scenario === 'library') seedLibrary(state);
+  if (configured && scenario !== 'library') state.costSpent = 12.84;
+  return state;
 }
 
 export function secretsStatus(state: StubState) {
@@ -210,7 +229,13 @@ export function secretsStatus(state: StubState) {
 }
 
 /** Computes the response for a channel. Pure with respect to the contract: caller validates in/out. */
-function handle(state: StubState, channel: InvokeChannel, payload: unknown): unknown {
+async function handle(
+  state: StubState,
+  channel: InvokeChannel,
+  payload: unknown,
+): Promise<unknown> {
+  const cp1 = await handleCp1(state, channel, payload);
+  if (cp1) return cp1.value;
   switch (channel) {
     case 'app:info':
       return {
@@ -357,31 +382,12 @@ function handle(state: StubState, channel: InvokeChannel, payload: unknown): unk
         encoders: ['h264_nvenc', 'libx264'],
       };
     case 'cost:summary':
-      return state.secrets['anthropic.apiKey']
-        ? {
-            month: '2026-10',
-            spentUsd: 12.84,
-            projectedUsd: 27.4,
-            targetUsd: state.settings.budgetTargetUsd,
-            hardCapUsd: state.settings.budgetHardCapUsd,
-            calls: 318,
-            inputTokens: 4_820_000,
-            outputTokens: 212_000,
-            cachedTokens: 3_410_000,
-            level: 'ok',
-          }
-        : {
-            month: '2026-10',
-            spentUsd: 0,
-            projectedUsd: 0,
-            targetUsd: state.settings.budgetTargetUsd,
-            hardCapUsd: state.settings.budgetHardCapUsd,
-            calls: 0,
-            inputTokens: 0,
-            outputTokens: 0,
-            cachedTokens: 0,
-            level: 'ok',
-          };
+      return costSummary(
+        state,
+        state.settings.budgetTargetUsd,
+        state.settings.budgetHardCapUsd,
+        !!state.secrets['anthropic.apiKey'],
+      );
     case 'shell:openExternal':
       return { ok: true };
     case 'diagnostics:exportLogs':
@@ -391,13 +397,13 @@ function handle(state: StubState, channel: InvokeChannel, payload: unknown): unk
 
 /** Installs the validated bridge into a page. Returns helpers for tests to push events and inspect calls. */
 export async function installClipfernStub(page: Page, state: StubState) {
-  await page.exposeFunction('__clipfernInvoke', (channel: string, payload: unknown) => {
+  await page.exposeFunction('__clipfernInvoke', async (channel: string, payload: unknown) => {
     if (!(channel in invokeContract)) throw new Error(`Unknown channel: ${channel}`);
     const c = channel as InvokeChannel;
     const spec = invokeContract[c];
     const input = spec.input.parse(payload); // renderer -> main payload must satisfy the contract
     state.calls.push({ channel, payload: input });
-    const out = handle(state, c, input);
+    const out = await handle(state, c, input);
     return spec.output.parse(out); // main -> renderer response must satisfy the contract
   });
   await page.addInitScript((platform: string) => {
@@ -418,14 +424,37 @@ export async function installClipfernStub(page: Page, state: StubState) {
       listeners.get(event)?.forEach((cb) => cb(payload));
   }, state.platform);
 
+  const emit = async <E extends EventChannel>(event: E, payload: EventPayload<E>) => {
+    const parsed = eventContract[event].parse(payload); // main -> renderer events are contract-checked too
+    await page.evaluate(
+      ([e, p]) =>
+        (window as unknown as { __emit: (e: string, p: unknown) => void }).__emit(e as string, p),
+      [event, parsed] as const,
+    );
+  };
+  state.emit = async (event, payload) => {
+    try {
+      await emit(event, payload);
+    } catch (e) {
+      // the page may be closed while a timer-driven run is still going; contract violations must still surface
+      if (e instanceof Error && /Target (page|closed)|Execution context|closed/i.test(e.message))
+        return;
+      throw e;
+    }
+  };
+  state.notify = async (n) => {
+    state.notifications.unshift(n);
+    await state.emit?.('notifications:new', n);
+  };
+
   return {
-    async emit<E extends EventChannel>(event: E, payload: EventPayload<E>) {
-      const parsed = eventContract[event].parse(payload);
-      await page.evaluate(
-        ([e, p]) =>
-          (window as unknown as { __emit: (e: string, p: unknown) => void }).__emit(e as string, p),
-        [event, parsed] as const,
-      );
+    emit,
+    state,
+    /** Scripted pipeline run for a video started through `pipeline:start`. */
+    sim(videoId: string): Sim {
+      const s = state.sims[videoId];
+      if (!s) throw new Error(`No scripted run for ${videoId}; was pipeline:start called?`);
+      return s;
     },
   };
 }

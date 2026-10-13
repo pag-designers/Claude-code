@@ -82,7 +82,11 @@ export function activeFilterCount(f: ClipFilters): number {
   );
 }
 
-export function filterClips(clips: readonly ClipView[], f: ClipFilters, now = Date.now()): ClipView[] {
+export function filterClips(
+  clips: readonly ClipView[],
+  f: ClipFilters,
+  now = Date.now(),
+): ClipView[] {
   const q = f.query.trim().toLowerCase();
   const out = clips.filter((c) => {
     if (f.favoritesOnly && !c.favorite) return false;
@@ -106,7 +110,8 @@ export function sortClips(clips: ClipView[], sort: ClipSort): ClipView[] {
       (b.score ?? -1) - (a.score ?? -1) ||
       (a.rank ?? 1e9) - (b.rank ?? 1e9) ||
       b.createdAt - a.createdAt,
-    newest: (a: ClipView, b: ClipView) => b.createdAt - a.createdAt || (b.score ?? -1) - (a.score ?? -1),
+    newest: (a: ClipView, b: ClipView) =>
+      b.createdAt - a.createdAt || (b.score ?? -1) - (a.score ?? -1),
     oldest: (a: ClipView, b: ClipView) => a.createdAt - b.createdAt,
     duration: (a: ClipView, b: ClipView) => b.durationSec - a.durationSec,
   } satisfies Record<ClipSort, (a: ClipView, b: ClipView) => number>;

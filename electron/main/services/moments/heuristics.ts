@@ -179,8 +179,28 @@ const BOLD_TERMS = new Set([
   'scary',
   'warning',
 ]);
-const CONTRAST_TERMS = new Set(['but', 'however', 'instead', 'yet', 'versus', 'vs', 'than', 'rather']);
-const DIRECT_ADDRESS = new Set(['you', 'your', "you're", "you've", 'yours', 'i', "i'm", "i've", 'my', "i'll"]);
+const CONTRAST_TERMS = new Set([
+  'but',
+  'however',
+  'instead',
+  'yet',
+  'versus',
+  'vs',
+  'than',
+  'rather',
+]);
+const DIRECT_ADDRESS = new Set([
+  'you',
+  'your',
+  "you're",
+  "you've",
+  'yours',
+  'i',
+  "i'm",
+  "i've",
+  'my',
+  "i'll",
+]);
 const NUMBER_WORDS = new Set([
   'one',
   'two',
@@ -242,7 +262,11 @@ export interface HookFeatures {
  * Hook strength (0..1) of the first ~3 seconds. `openText` is the transcript text spoken in the first
  * 3 s; `firstSentence` the clip's first sentence (for the question test).
  */
-export function hookStrength(openText: string, firstSentence: string, openWordCount: number): HookFeatures {
+export function hookStrength(
+  openText: string,
+  firstSentence: string,
+  openWordCount: number,
+): HookFeatures {
   const tokens = tokensOf(openText);
   const lower = tokens.join(' ');
   const first = tokens[0] ?? '';
@@ -272,13 +296,16 @@ export function hookStrength(openText: string, firstSentence: string, openWordCo
   if (STORY_OPENERS.some((re) => re.test(head))) score += 0.16;
 
   // imperative / second-person command as a first word is a classic pattern interrupt
-  if (['stop', 'don\'t', 'dont', 'never', 'listen', 'watch', 'imagine', 'look'].includes(first)) score += 0.06;
+  if (['stop', "don't", 'dont', 'never', 'listen', 'watch', 'imagine', 'look'].includes(first))
+    score += 0.06;
 
   // penalties
   if (FILLER_OPENERS.has(first) || FILLER_BIGRAMS.has(bigram)) score -= 0.3;
   if (DANGLING_CONJ.has(first)) score -= 0.22;
   if (DANGLING_PRONOUN.has(first)) score -= 0.15;
-  const fillerCount = tokens.filter((t) => ['um', 'uh', 'uhm', 'umm', 'er', 'erm'].includes(t)).length;
+  const fillerCount = tokens.filter((t) =>
+    ['um', 'uh', 'uhm', 'umm', 'er', 'erm'].includes(t),
+  ).length;
   score -= Math.min(0.2, fillerCount * 0.08);
   if (openWordCount < 3) score -= 0.15; // dead air at the start
 
@@ -296,6 +323,8 @@ export interface SelfContainmentInput {
   speakerChanges: number;
   startsAtSentenceStart: boolean;
   endsAtSentenceEnd: boolean;
+  /** First word is lower-case (ASR capitalises sentence starts: a hint of a mid-sentence start). */
+  startsLowercase?: boolean;
 }
 
 /** 0..1: does the clip stand on its own? */
@@ -304,6 +333,7 @@ export function selfContainment(i: SelfContainmentInput): number {
   const first = i.firstTokens[0] ?? '';
   const second = i.firstTokens[1] ?? '';
   if (!i.startsAtSentenceStart) sc -= 0.25;
+  if (i.startsLowercase && first !== 'i') sc -= 0.1;
   if (DANGLING_CONJ.has(first) || (first === 'and' && second === 'then')) sc -= 0.35;
   else if (FILLER_OPENERS.has(first)) sc -= 0.12;
   if (DANGLING_PRONOUN.has(first)) sc -= 0.18;
@@ -316,7 +346,8 @@ export function selfContainment(i: SelfContainmentInput): number {
 
   const opensWithQuestion = /\?\s*$/.test(i.firstSentence.trim());
   if (opensWithQuestion) {
-    if (i.sentenceCount >= 2 && i.wordsAfterFirstSentence >= 8) sc += 0.2; // question gets an answer
+    if (i.sentenceCount >= 2 && i.wordsAfterFirstSentence >= 8)
+      sc += 0.2; // question gets an answer
     else sc -= 0.3;
   }
   if (/\?\s*$/.test(end) && i.sentenceCount >= 2 && !opensWithQuestion) sc -= 0.25; // ends on an open question

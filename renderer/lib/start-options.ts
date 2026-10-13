@@ -17,7 +17,9 @@ export interface StartForm {
   prompt: string;
 }
 
-export function formFromSettings(s: Pick<Settings, 'defaultClipPreset' | 'defaultClipCount' | 'defaultAspect'>): StartForm {
+export function formFromSettings(
+  s: Pick<Settings, 'defaultClipPreset' | 'defaultClipCount' | 'defaultAspect'>,
+): StartForm {
   return {
     clipPreset: s.defaultClipPreset,
     minSec: 20,
@@ -32,16 +34,22 @@ export function formFromSettings(s: Pick<Settings, 'defaultClipPreset' | 'defaul
   };
 }
 
-export function customRangeError(f: Pick<StartForm, 'clipPreset' | 'minSec' | 'maxSec'>): string | null {
+export function customRangeError(
+  f: Pick<StartForm, 'clipPreset' | 'minSec' | 'maxSec'>,
+): string | null {
   if (f.clipPreset !== 'custom') return null;
-  if (!Number.isFinite(f.minSec) || !Number.isFinite(f.maxSec)) return 'Enter both lengths in seconds.';
+  if (!Number.isFinite(f.minSec) || !Number.isFinite(f.maxSec))
+    return 'Enter both lengths in seconds.';
   if (f.minSec < 5) return 'Clips shorter than 5 seconds are not supported.';
   if (f.maxSec > 300) return 'The longest clip can be 300 seconds (5 minutes).';
   if (f.maxSec < f.minSec + 5) return 'Max length must be at least 5 seconds above min.';
   return null;
 }
 
-export function buildStartOptions(f: StartForm, maxResolution: Settings['maxResolution']): PipelineOptionsInput {
+export function buildStartOptions(
+  f: StartForm,
+  maxResolution: Settings['maxResolution'],
+): PipelineOptionsInput {
   const o: PipelineOptionsInput = {
     clipPreset: f.clipPreset,
     clipCount: f.countMode === 'score' ? null : f.clipCount,

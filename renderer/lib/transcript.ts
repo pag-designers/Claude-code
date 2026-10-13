@@ -3,7 +3,10 @@ import type { Sentence, Transcript, VideoAnalysis } from '@shared/pipeline';
 import { formatClock } from './format';
 
 /** Index of the sentence being spoken at time `t` (the last sentence starting at or before t); -1 before the first. */
-export function activeSentenceIndex(sentences: readonly Pick<Sentence, 's' | 'e'>[], t: number): number {
+export function activeSentenceIndex(
+  sentences: readonly Pick<Sentence, 's' | 'e'>[],
+  t: number,
+): number {
   let lo = 0;
   let hi = sentences.length - 1;
   let ans = -1;
@@ -18,7 +21,10 @@ export function activeSentenceIndex(sentences: readonly Pick<Sentence, 's' | 'e'
 }
 
 /** Same for chapters / any [start,end) ranges. */
-export function activeRangeIndex(ranges: readonly { start: number; end: number }[], t: number): number {
+export function activeRangeIndex(
+  ranges: readonly { start: number; end: number }[],
+  t: number,
+): number {
   let ans = -1;
   for (let i = 0; i < ranges.length; i++) {
     const r = ranges[i];
@@ -34,7 +40,10 @@ export interface TranscriptMatch {
 }
 
 /** Case-insensitive substring search; every occurrence is returned, grouped by sentence. */
-export function findMatches(sentences: readonly Pick<Sentence, 'text'>[], query: string): TranscriptMatch[] {
+export function findMatches(
+  sentences: readonly Pick<Sentence, 'text'>[],
+  query: string,
+): TranscriptMatch[] {
   const q = query.trim().toLowerCase();
   if (q.length < 2) return [];
   const out: TranscriptMatch[] = [];

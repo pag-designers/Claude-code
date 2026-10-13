@@ -5,6 +5,7 @@ import { ChevronRight, Search } from 'lucide-react';
 import { Kbd } from '@/components/ui/kbd';
 import { titleForPath } from '@/lib/nav';
 import { useUi } from '@/lib/store';
+import { CostChip } from './cost-chip';
 import { NotificationsPopover } from './notifications-popover';
 import { ThemeToggle } from './theme-toggle';
 
@@ -36,6 +37,7 @@ export function Topbar() {
           <span className="flex-1 truncate text-left">Search or run a command…</span>
           <Kbd keys={['mod', 'K']} />
         </button>
+        <CostChip />
         <NotificationsPopover />
         <ThemeToggle />
       </div>

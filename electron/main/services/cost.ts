@@ -35,8 +35,20 @@ export interface Usage {
   cacheWriteTokens?: number;
 }
 
+/** Claude Haiku 5.5 bills 5x above 100K prompt tokens ($0.50 / $2.50 per MTok). */
+const HAIKU_55_LONG_PROMPT_TOKENS = 100_000;
+
 export function computeCostUsd(model: string, u: Usage, table = DEFAULT_PRICING): number {
-  const p = priceFor(model, table);
+  let p = priceFor(model, table);
+  const promptTokens = u.inputTokens + (u.cacheReadTokens ?? 0) + (u.cacheWriteTokens ?? 0);
+  if (/haiku-5/i.test(model) && promptTokens > HAIKU_55_LONG_PROMPT_TOKENS) {
+    p = {
+      input: p.input * 5,
+      output: p.output * 5,
+      cacheRead: p.cacheRead * 5,
+      cacheWrite: p.cacheWrite * 5,
+    };
+  }
   return (
     (u.inputTokens * p.input +
       u.outputTokens * p.output +

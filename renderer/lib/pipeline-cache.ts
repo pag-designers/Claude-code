@@ -36,7 +36,10 @@ export function upsertById<T extends { id: string }>(list: readonly T[], item: T
   return next;
 }
 
-export function removeByIds<T extends { id: string }>(list: readonly T[], ids: readonly string[]): T[] {
+export function removeByIds<T extends { id: string }>(
+  list: readonly T[],
+  ids: readonly string[],
+): T[] {
   const set = new Set(ids);
   return list.filter((x) => !set.has(x.id));
 }
@@ -65,19 +68,27 @@ export function upsertVideoInCache(qc: QueryClient, v: VideoView): void {
     if (data && f?.favorite !== undefined && v.favorite !== f.favorite)
       qc.setQueryData<VideosList>(key, { items: removeByIds(data.items, [v.id]) });
   }
-  qc.setQueryData<VideoDetail>(ipcKey('videos:get', { id: v.id }), (old) => (old ? { ...old, video: v } : old));
+  qc.setQueryData<VideoDetail>(ipcKey('videos:get', { id: v.id }), (old) =>
+    old ? { ...old, video: v } : old,
+  );
 }
 
 export function upsertClipInCache(qc: QueryClient, c: ClipView): void {
   for (const [key, data] of qc.getQueriesData<ClipsList>({ queryKey: ['clips:list'] })) {
     if (!data) continue;
     const f = key[1] as ClipListFilter | undefined;
-    const next = clipMatchesListFilter(c, f) ? upsertById(data.items, c) : removeByIds(data.items, [c.id]);
+    const next = clipMatchesListFilter(c, f)
+      ? upsertById(data.items, c)
+      : removeByIds(data.items, [c.id]);
     if (next !== data.items) qc.setQueryData<ClipsList>(key, { items: next });
   }
 }
 
-export function patchClipsInCache(qc: QueryClient, ids: readonly string[], patch: Partial<ClipView>): void {
+export function patchClipsInCache(
+  qc: QueryClient,
+  ids: readonly string[],
+  patch: Partial<ClipView>,
+): void {
   const set = new Set(ids);
   for (const [key, data] of qc.getQueriesData<ClipsList>({ queryKey: ['clips:list'] })) {
     if (!data) continue;
@@ -99,7 +110,8 @@ export function removeVideoFromCache(qc: QueryClient, id: string): void {
     if (data) qc.setQueryData<VideosList>(key, { items: removeByIds(data.items, [id]) });
   }
   for (const [key, data] of qc.getQueriesData<ClipsList>({ queryKey: ['clips:list'] })) {
-    if (data) qc.setQueryData<ClipsList>(key, { items: data.items.filter((c) => c.videoId !== id) });
+    if (data)
+      qc.setQueryData<ClipsList>(key, { items: data.items.filter((c) => c.videoId !== id) });
   }
   qc.removeQueries({ queryKey: ipcKey('videos:get', { id }) });
   qc.removeQueries({ queryKey: ipcKey('videos:transcript', { id }) });
@@ -131,7 +143,8 @@ export function applyPipelineEvent(qc: QueryClient, e: PipelineEvent): void {
         progress: e.progress,
         error: null,
       };
-    if (e.status === 'failed') return { ...v, status: 'failed', stage: e.stage, error: e.message ?? v.error };
+    if (e.status === 'failed')
+      return { ...v, status: 'failed', stage: e.stage, error: e.message ?? v.error };
     if (e.status === 'canceled') return { ...v, status: 'canceled', stage: e.stage };
     return v;
   };
@@ -141,17 +154,21 @@ export function applyPipelineEvent(qc: QueryClient, e: PipelineEvent): void {
       items: data.items.map((v) => (v.id === e.videoId ? patchRow(v) : v)),
     });
   }
-  qc.setQueryData<VideoDetail>(detailKey, (old) => (old ? { ...old, video: patchRow(old.video) } : old));
+  qc.setQueryData<VideoDetail>(detailKey, (old) =>
+    old ? { ...old, video: patchRow(old.video) } : old,
+  );
 
   usePipelineLog.getState().record(e);
 
   if (e.status === 'done') {
-    if (e.stage === 'transcribe') void qc.invalidateQueries({ queryKey: ipcKey('videos:transcript', { id: e.videoId }) });
+    if (e.stage === 'transcribe')
+      void qc.invalidateQueries({ queryKey: ipcKey('videos:transcript', { id: e.videoId }) });
     if (e.stage === 'understand' || e.stage === 'prepare' || e.stage === 'finalize') {
       void qc.invalidateQueries({ queryKey: detailKey });
       if (e.stage === 'prepare' || e.stage === 'finalize')
         void qc.invalidateQueries({ queryKey: ipcKey('videos:proxyUrl', { id: e.videoId }) });
     }
   }
-  if (e.stage === 'understand' || e.stage === 'moments' || e.status === 'failed') refreshCostSoon(qc, e.status !== 'running');
+  if (e.stage === 'understand' || e.stage === 'moments' || e.status === 'failed')
+    refreshCostSoon(qc, e.status !== 'running');
 }

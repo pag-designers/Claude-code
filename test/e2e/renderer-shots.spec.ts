@@ -1,15 +1,14 @@
 import fs from 'node:fs';
-import http from 'node:http';
 import path from 'node:path';
-import type { AddressInfo } from 'node:net';
-import { chromium, expect, test, type Browser, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import { stubNotification } from './support/clipfern-stub';
 import {
-  installClipfernStub,
-  makeState,
-  stubNotification,
-  type Scenario,
-  type StubState,
-} from './support/clipfern-stub';
+  canRun,
+  createHarness,
+  type Harness,
+  type OpenOptions,
+  type Session,
+} from './support/harness';
 
 /**
  * Renderer visual + behaviour check. Serves renderer/out statically, injects the contract-validated
@@ -17,58 +16,7 @@ import {
  *   pnpm build:renderer && npx playwright test test/e2e/renderer-shots.spec.ts
  * Screenshots go to $CLIPFERN_SHOTS_DIR (default: .tmp/shots). Skips when renderer/out or Chromium is missing.
  */
-const OUT = path.resolve(__dirname, '../../renderer/out');
 const SHOTS = process.env.CLIPFERN_SHOTS_DIR ?? path.resolve(__dirname, '../../.tmp/shots');
-
-function findChrome(): string | undefined {
-  if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH))
-    return process.env.CHROME_PATH;
-  const root = '/opt/pw-browsers';
-  if (!fs.existsSync(root)) return undefined;
-  for (const d of fs
-    .readdirSync(root)
-    .filter((n) => /^chromium-\d+$/.test(n))
-    .sort()
-    .reverse()) {
-    const p = path.join(root, d, 'chrome-linux', 'chrome');
-    if (fs.existsSync(p)) return p;
-  }
-  return undefined;
-}
-const CHROME = findChrome();
-
-const MIME: Record<string, string> = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript',
-  '.css': 'text/css',
-  '.woff2': 'font/woff2',
-  '.svg': 'image/svg+xml',
-  '.json': 'application/json',
-  '.txt': 'text/plain',
-  '.png': 'image/png',
-  '.ico': 'image/x-icon',
-};
-
-function serve(): Promise<{ url: string; close: () => void }> {
-  const server = http.createServer((req, res) => {
-    const u = decodeURIComponent((req.url ?? '/').split('?')[0]!);
-    let file = path.join(OUT, u);
-    if (!file.startsWith(OUT)) return void res.writeHead(403).end();
-    if (fs.existsSync(file) && fs.statSync(file).isDirectory())
-      file = path.join(file, 'index.html');
-    if (!fs.existsSync(file)) return void res.writeHead(404).end('not found');
-    res.writeHead(200, { 'content-type': MIME[path.extname(file)] ?? 'application/octet-stream' });
-    fs.createReadStream(file).pipe(res);
-  });
-  return new Promise((resolve) =>
-    server.listen(0, '127.0.0.1', () =>
-      resolve({
-        url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
-        close: () => server.close(),
-      }),
-    ),
-  );
-}
 
 const ROUTES: [string, string][] = [
   ['home', '/'],
@@ -91,98 +39,24 @@ const ROUTES: [string, string][] = [
   ['settings-shortcuts', '/settings/shortcuts/'],
 ];
 
-let base: string;
-let closeServer: () => void;
-let browser: Browser;
+// our own browser/contexts: the runner's auto-trace artifacts would race with manual context.close()
+test.use({ trace: 'off', video: 'off', screenshot: 'off' });
 
-test.skip(
-  !CHROME || !fs.existsSync(path.join(OUT, 'index.html')),
-  'needs a Chromium binary and a built renderer/out',
-);
+let h: Harness;
+let base: string;
+
+test.skip(!canRun(), 'needs a Chromium binary and a built renderer/out');
 
 test.beforeAll(async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
-  if (process.env.CLIPFERN_E2E_BASE) {
-    base = process.env.CLIPFERN_E2E_BASE;
-    closeServer = () => {};
-  } else {
-    ({ url: base, close: closeServer } = await serve());
-  }
-  browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+  h = await createHarness();
+  base = h.base;
 });
 test.afterAll(async () => {
-  await browser?.close();
-  closeServer?.();
+  await h?.close();
 });
 
-interface Session {
-  page: Page;
-  state: StubState;
-  problems: string[];
-  emit: Awaited<ReturnType<typeof installClipfernStub>>['emit'];
-  close: () => Promise<void>;
-}
-
-async function open(
-  route: string,
-  opts: {
-    scenario?: Scenario;
-    theme?: 'dark' | 'light' | 'system';
-    platform?: string;
-    width?: number;
-    height?: number;
-    stub?: boolean;
-    collapsed?: boolean;
-  } = {},
-): Promise<Session> {
-  const {
-    scenario = 'fresh',
-    theme = 'dark',
-    platform = 'linux',
-    width = 1440,
-    height = 900,
-    stub = true,
-    collapsed = false,
-  } = opts;
-  const context = await browser.newContext({
-    viewport: { width, height },
-    colorScheme: theme === 'light' ? 'light' : 'dark',
-    deviceScaleFactor: 1,
-  });
-  const page = await context.newPage();
-  const problems: string[] = [];
-  page.on('console', (m) => {
-    if (m.type() === 'error' || m.type() === 'warning')
-      problems.push(`console.${m.type()}: ${m.text()}`);
-  });
-  page.on('pageerror', (e) => problems.push(`pageerror: ${e.message} @ ${page.url()}`));
-  page.on('request', (r) => {
-    if (!r.url().startsWith(base) && !r.url().startsWith('data:') && !r.url().startsWith('blob:'))
-      problems.push(`EXTERNAL REQUEST: ${r.url()}`);
-  });
-  page.on('response', (r) => {
-    if (r.status() >= 400) problems.push(`HTTP ${r.status()}: ${r.url()}`);
-  });
-  const state = makeState(scenario, platform);
-  let emit: Session['emit'] = async () => {};
-  if (stub) emit = (await installClipfernStub(page, state)).emit;
-  await context.addInitScript(
-    ([t, c]) => {
-      try {
-        localStorage.setItem('clipfern.theme', t as string);
-        if (c) localStorage.setItem('clipfern.sidebar', 'collapsed');
-      } catch {
-        /* ignore */
-      }
-    },
-    [theme, collapsed] as const,
-  );
-  await page.goto(base + route);
-  if (stub) await page.locator('nav[aria-label="Main"]').waitFor();
-  await page.waitForLoadState('networkidle');
-  await page.waitForTimeout(900); // let page transition + score/progress animations settle
-  return { page, state, problems, emit, close: () => context.close() };
-}
+const open = (route: string, opts: OpenOptions = {}) => h.open(route, opts);
 
 const shot = (s: Session, name: string) =>
   s.page.screenshot({ path: path.join(SHOTS, `${name}.png`) });
@@ -214,27 +88,21 @@ test('without the desktop bridge a clear notice is shown (no crash)', async () =
   await s.close();
 });
 
-test('home: URL validation, disabled start with tooltip, live checklist', async () => {
+test('home: URL validation, start enabled once everything is configured, live checklist', async () => {
   const s = await open('/', { scenario: 'configured' });
   const input = s.page.getByRole('textbox', { name: 'YouTube URL' });
   await input.fill('https://vimeo.com/12345');
   await input.blur();
   await expect(s.page.getByText(/not a YouTube link/i)).toBeVisible();
+  await expect(s.page.getByRole('button', { name: /Start clipping/ })).toBeDisabled();
   await input.fill('https://youtu.be/dQw4w9WgXcQ');
   await expect(s.page.getByText('dQw4w9WgXcQ')).toBeVisible();
-  await expect(s.page.getByRole('button', { name: /Start clipping/ })).toBeDisabled();
-  await s.page
-    .locator('span[tabindex="0"]')
-    .filter({ has: s.page.getByRole('button', { name: /Start clipping/ }) })
-    .hover();
-  await expect(s.page.getByRole('tooltip').first()).toContainText(
-    'Pipeline arrives in the next checkpoint',
-  );
+  await expect(s.page.getByTestId('url-preview')).toBeVisible();
+  await expect(s.page.getByRole('button', { name: /Start clipping/ })).toBeEnabled();
   await shot(s, 'home-valid-url-dark');
   // checklist reflects real stub state: anthropic set, storage configured, sidecar ready
   await expect(s.page.getByText('4 / 4')).toBeVisible();
   await expect(s.page.getByText('Running jobs')).toBeVisible();
-  await expect(s.page.getByText('Transcribe', { exact: false }).first()).toBeVisible();
   expect(s.problems).toEqual([]);
   await s.close();
 });
@@ -448,7 +316,7 @@ test('live events update the UI: storage, jobs, sidecar progress', async () => {
   await s.page.getByRole('navigation', { name: 'Main' }).waitFor();
   await s.emit('jobs:updated', {
     id: 'job-live',
-    kind: 'pipeline.render',
+    kind: 'storage.cleanup',
     status: 'running',
     progress: 0.6,
     stage: 'encoding',
@@ -460,7 +328,7 @@ test('live events update the UI: storage, jobs, sidecar progress', async () => {
     startedAt: Date.now(),
     finishedAt: null,
   });
-  await expect(s.page.getByText('Pipeline render')).toBeVisible();
+  await expect(s.page.getByText('Storage cleanup')).toBeVisible();
   await expect(s.page.getByText('60%')).toBeVisible();
   expect(s.problems).toEqual([]);
   await s.close();

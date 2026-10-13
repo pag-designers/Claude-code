@@ -103,7 +103,9 @@ export function mapApiError(e: unknown, model: string): Error {
         'Your Anthropic account has no credit left. Add credit at console.anthropic.com → Plans & Billing.',
         { cause: e },
       );
-    return new LlmError('bad-request', `Anthropic rejected the request: ${e.message}`, { cause: e });
+    return new LlmError('bad-request', `Anthropic rejected the request: ${e.message}`, {
+      cause: e,
+    });
   }
   if (e instanceof Anthropic.APIConnectionTimeoutError)
     return new LlmError('network', 'The request to Anthropic timed out. Retry in a moment.', {
@@ -120,9 +122,13 @@ export function mapApiError(e: unknown, model: string): Error {
       return new LlmError('overloaded', 'Anthropic is overloaded right now. Retry in a minute.', {
         cause: e,
       });
-    return new LlmError('api', `Anthropic API error${e.status ? ` (${e.status})` : ''}: ${e.message}`, {
-      cause: e,
-    });
+    return new LlmError(
+      'api',
+      `Anthropic API error${e.status ? ` (${e.status})` : ''}: ${e.message}`,
+      {
+        cause: e,
+      },
+    );
   }
   return e instanceof Error ? e : new Error(String(e));
 }

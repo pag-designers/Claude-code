@@ -55,7 +55,10 @@ export function buildIndex(
   });
   const n = words.length;
   const lastEnd = n > 0 ? (words[n - 1]?.e ?? 0) : 0;
-  const durationSec = Math.max(lastEnd, Number.isFinite(transcript.durationSec) ? transcript.durationSec : 0);
+  const durationSec = Math.max(
+    lastEnd,
+    Number.isFinite(transcript.durationSec) ? transcript.durationSec : 0,
+  );
 
   let sentences: SentenceSpan[] = [];
   for (const s of transcript.sentences) {
@@ -73,7 +76,15 @@ export function buildIndex(
     isSentenceStart[sp.first] = 1;
     isSentenceEnd[sp.last] = 1;
   });
-  return { words, durationSec, sentences, sentenceOfWord, isSentenceStart, isSentenceEnd, silences };
+  return {
+    words,
+    durationSec,
+    sentences,
+    sentenceOfWord,
+    isSentenceStart,
+    isSentenceEnd,
+    silences,
+  };
 }
 
 /** Fallback segmentation when the transcript carries no sentences: punctuation and long pauses. */
@@ -182,7 +193,11 @@ function isGoodEndWord(ix: WordIndex, i: number): boolean {
   const w = ix.words[i];
   const next = ix.words[i + 1];
   if (!w) return false;
-  return STRONG_END.test(w.w.trim()) || /[,;:]$/.test(w.w.trim()) || (next !== undefined && next.s - w.e >= 0.3);
+  return (
+    STRONG_END.test(w.w.trim()) ||
+    /[,;:]$/.test(w.w.trim()) ||
+    (next !== undefined && next.s - w.e >= 0.3)
+  );
 }
 
 /**
@@ -281,13 +296,16 @@ function fitToRange(
         if (b < a) continue;
         const d = paddedEnd(ix, b) - ps;
         if (d < range.minSec - 1e-6 || d > range.maxSec + 1e-6) continue;
-        let cost =
-          1.5 * Math.abs((words[a]?.s ?? 0) - w0.s) + Math.abs((words[b]?.e ?? 0) - wj0.e);
+        let cost = 1.5 * Math.abs((words[a]?.s ?? 0) - w0.s) + Math.abs((words[b]?.e ?? 0) - wj0.e);
         if (loose) {
           if (a !== i0 && !ix.isSentenceStart[a]) cost += 3 + (isGoodEndWord(ix, a - 1) ? 0 : 3);
           if (b !== j0 && !isGoodEndWord(ix, b)) cost += 6;
         }
-        if (best === null || cost < best.cost - 1e-9 || (Math.abs(cost - best.cost) <= 1e-9 && a < best.i)) {
+        if (
+          best === null ||
+          cost < best.cost - 1e-9 ||
+          (Math.abs(cost - best.cost) <= 1e-9 && a < best.i)
+        ) {
           best = { i: a, j: b, cost };
         }
       }

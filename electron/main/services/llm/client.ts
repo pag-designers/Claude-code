@@ -84,13 +84,13 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-type Once =
-  | { kind: 'text'; text: string }
-  | { kind: 'truncated'; outputTokens: number };
+type Once = { kind: 'text'; text: string } | { kind: 'truncated'; outputTokens: number };
 
 export class LlmEngine {
   private client: Anthropic | null = null;
   private clientKey = '';
+  /** Models that rejected `output_config.effort` (older generations); we stop sending it to them. */
+  private readonly noEffort = new Set<string>();
 
   constructor(private readonly deps: EngineDeps) {}
 
@@ -137,6 +137,7 @@ export class LlmEngine {
     let maxTokens = args.maxTokens;
     let repair: string | null = null;
     let midstream = 0;
+    let effortRetried = false;
     let lastProblem = '';
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -149,10 +150,27 @@ export class LlmEngine {
         once = await this.once(this.clientFor(key), args, { effort, maxTokens, repair }, flags);
       } catch (e) {
         if (signal?.aborted) throw abortError(signal);
+        if (
+          e instanceof Anthropic.BadRequestError &&
+          /\beffort\b/i.test(e.message) &&
+          !effortRetried &&
+          !this.noEffort.has(args.model)
+        ) {
+          // Settings let the user pick any model id; pre-5.x models have no `effort` parameter.
+          effortRetried = true;
+          this.noEffort.add(args.model);
+          attempt--;
+          this.deps.log(
+            `${args.purpose}: ${args.model} does not accept effort; retrying without it`,
+          );
+          continue;
+        }
         if (flags.started && isTransient(e) && midstream < MAX_MIDSTREAM_RETRIES) {
           midstream++;
           attempt--; // does not consume the validation/escalation retry
-          this.deps.log(`${args.purpose}: stream broke mid-response (${errText(e)}); retrying once`);
+          this.deps.log(
+            `${args.purpose}: stream broke mid-response (${errText(e)}); retrying once`,
+          );
           await sleep(1500, signal);
           continue;
         }
@@ -192,7 +210,8 @@ export class LlmEngine {
         const r = args.schema.safeParse(json);
         if (!r.success) problem = formatIssues(r.error);
         else {
-          const semantic = args.validate?.(r.data, { finalAttempt: attempt >= MAX_ATTEMPTS }) ?? null;
+          const semantic =
+            args.validate?.(r.data, { finalAttempt: attempt >= MAX_ATTEMPTS }) ?? null;
           if (semantic) problem = semantic;
           else parsed = r.data;
         }
@@ -233,7 +252,7 @@ export class LlmEngine {
       system: [{ type: 'text', text: args.system, cache_control: { type: 'ephemeral' } }],
       messages: [{ role: 'user', content }],
       output_config: {
-        effort: p.effort,
+        ...(this.noEffort.has(args.model) ? {} : { effort: p.effort }),
         format: { type: 'json_schema', schema: args.jsonSchema },
       },
     };
@@ -264,11 +283,12 @@ export class LlmEngine {
 
     const u = msg.usage;
     await this.record(args.model, args.purpose, msg);
+    const requestId = stream.request_id;
     this.deps.log(
       `${args.purpose}: ${args.model} effort=${p.effort} stop=${msg.stop_reason} ` +
         `in=${u.input_tokens} cacheRead=${u.cache_read_input_tokens ?? 0} ` +
         `cacheWrite=${u.cache_creation_input_tokens ?? 0} out=${u.output_tokens}` +
-        (msg._request_id ? ` req=${msg._request_id}` : ''),
+        (requestId ? ` req=${requestId}` : ''),
     );
 
     if (msg.stop_reason === 'refusal') {
@@ -280,9 +300,13 @@ export class LlmEngine {
       );
     }
     if (msg.stop_reason === 'model_context_window_exceeded') {
-      throw new LlmError('too-long', "This video's transcript does not fit into the model's context window.");
+      throw new LlmError(
+        'too-long',
+        "This video's transcript does not fit into the model's context window.",
+      );
     }
-    if (msg.stop_reason === 'max_tokens') return { kind: 'truncated', outputTokens: u.output_tokens };
+    if (msg.stop_reason === 'max_tokens')
+      return { kind: 'truncated', outputTokens: u.output_tokens };
 
     // Read by block type, never by position: adaptive thinking may put thinking blocks first.
     const text = msg.content

@@ -1,0 +1,62 @@
+{
+ "id": "dQw4w9WgXcQ",
+ "title": "Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)",
+ "fulltitle": "Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)",
+ "channel": "Rick Astley",
+ "uploader": "Rick Astley",
+ "duration": 213,
+ "thumbnail": "https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/maxresdefault.webp",
+ "description": "The official video for “Never Gonna Give You Up” by Rick Astley. \n\nNever: The Autobiography 📚 OUT NOW! \nFollow this link to get your copy and listen to Rick’s ‘Never’ playlist ❤️ #RickAstleyNever\nhttps://linktr.ee/rickastleynever\n\n“Never Gonna Give You Up” was a global smash on its release in July 1987, topping the charts in 25 countries including Rick’s native UK and the US Billboard Hot 100.  It",
+ "is_live": false,
+ "live_status": "not_live",
+ "availability": "public",
+ "upload_date": "20091025",
+ "chapters": null,
+ "age_limit": 0,
+ "view_count": 1826146801,
+ "_type": "video",
+ "thumbnails": [
+  {
+   "url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+   "height": 720,
+   "width": 1280,
+   "preference": -1,
+   "id": "40",
+   "resolution": "1280x720"
+  },
+  {
+   "url": "https://i.ytimg.com/vi_webp/dQw4w9WgXcQ/maxresdefault.webp",
+   "height": 1080,
+   "width": 1920,
+   "preference": 0,
+   "id": "41",
+   "resolution": "1920x1080"
+  }
+ ],
+ "formats": [
+  {
+   "format_id": "625",
+   "ext": "mp4",
+   "vcodec": "vp09.00.50.08",
+   "acodec": "none",
+   "height": 2160,
+   "filesize": null
+  },
+  {
+   "format_id": "313",
+   "ext": "webm",
+   "vcodec": "vp9",
+   "acodec": "none",
+   "height": 2160,
+   "filesize": 358608461
+  },
+  {
+   "format_id": "401",
+   "ext": "mp4",
+   "vcodec": "av01.0.12M.08",
+   "acodec": "none",
+   "height": 2160,
+   "filesize": 240334643
+  }
+ ]
+}

@@ -1,10 +1,11 @@
 'use client';
 
 /** Query + mutation hooks for videos, clips and the pipeline. Cache updates live in pipeline-cache.ts. */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { ClipView, PipelineOptionsInput, PipelineStage, VideoView } from '@shared/pipeline';
+import { useNow } from './clock';
 import { invoke, ipcKey, useIpcQuery, type IpcCallError } from './ipc';
 import {
   CLIPS_ALL_PAYLOAD,
@@ -22,10 +23,18 @@ export function useVideos() {
   return useIpcQuery('videos:list', VIDEOS_PAYLOAD, { staleTime: 30_000 });
 }
 export function useVideo(id: string | null) {
-  return useIpcQuery('videos:get', { id: id ?? '' }, { enabled: !!id, staleTime: 15_000, retry: false });
+  return useIpcQuery(
+    'videos:get',
+    { id: id ?? '' },
+    { enabled: !!id, staleTime: 15_000, retry: false },
+  );
 }
 export function useTranscript(id: string | null, enabled = true) {
-  return useIpcQuery('videos:transcript', { id: id ?? '' }, { enabled: !!id && enabled, staleTime: 5 * 60_000 });
+  return useIpcQuery(
+    'videos:transcript',
+    { id: id ?? '' },
+    { enabled: !!id && enabled, staleTime: 5 * 60_000 },
+  );
 }
 export function useAllClips() {
   return useIpcQuery('clips:list', CLIPS_ALL_PAYLOAD, { staleTime: 30_000 });
@@ -37,7 +46,11 @@ export function useVideoClips(videoId: string | null) {
   });
 }
 export function useProxyUrl(id: string | null, enabled = true) {
-  return useIpcQuery('videos:proxyUrl', { id: id ?? '' }, { enabled: !!id && enabled, staleTime: MEDIA_STALE });
+  return useIpcQuery(
+    'videos:proxyUrl',
+    { id: id ?? '' },
+    { enabled: !!id && enabled, staleTime: MEDIA_STALE },
+  );
 }
 export function useClipMediaUrl(id: string, kind: 'render' | 'thumb', enabled: boolean) {
   return useIpcQuery('clips:mediaUrl', { id, kind }, { enabled, staleTime: MEDIA_STALE, retry: 1 });
@@ -65,7 +78,11 @@ const fail = (title: string) => (e: IpcCallError) => toast.error(title, { descri
 
 export function useStartPipeline() {
   const qc = useQueryClient();
-  return useMutation<{ videoId: string }, IpcCallError, { url: string; options: PipelineOptionsInput }>({
+  return useMutation<
+    { videoId: string },
+    IpcCallError,
+    { url: string; options: PipelineOptionsInput }
+  >({
     mutationFn: ({ url, options }) => invoke('pipeline:start', { url, options }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['videos:list'] }),
     onError: fail('Could not start clipping'),
@@ -79,7 +96,9 @@ export function useCancelPipeline() {
     onSuccess: (_d, { videoId }) => {
       void qc.invalidateQueries({ queryKey: ['videos:list'] });
       void qc.invalidateQueries({ queryKey: ipcKey('videos:get', { id: videoId }) });
-      toast.info('Clipping canceled', { description: 'Everything finished so far is kept. You can resume any time.' });
+      toast.info('Clipping canceled', {
+        description: 'Everything finished so far is kept. You can resume any time.',
+      });
     },
     onError: fail('Could not cancel'),
   });
@@ -101,14 +120,20 @@ export function useRetryStage() {
 
 export function useSetVideoFavorite() {
   const qc = useQueryClient();
-  return useMutation<unknown, IpcCallError, { id: string; value: boolean }, { prev: VideoView | undefined }>({
+  return useMutation<
+    unknown,
+    IpcCallError,
+    { id: string; value: boolean },
+    { prev: VideoView | undefined }
+  >({
     mutationFn: (p) => invoke('videos:favorite', p),
     onMutate: async ({ id, value }) => {
       const prev = qc
         .getQueriesData<{ items: VideoView[] }>({ queryKey: ['videos:list'] })
         .flatMap(([, d]) => d?.items ?? [])
         .find((v) => v.id === id);
-      const base = prev ?? qc.getQueryData<{ video: VideoView }>(ipcKey('videos:get', { id }))?.video;
+      const base =
+        prev ?? qc.getQueryData<{ video: VideoView }>(ipcKey('videos:get', { id }))?.video;
       if (base) upsertVideoInCache(qc, { ...base, favorite: value });
       return { prev: base };
     },
@@ -121,7 +146,12 @@ export function useSetVideoFavorite() {
 
 export function useSetClipFavorite() {
   const qc = useQueryClient();
-  return useMutation<unknown, IpcCallError, { ids: string[]; value: boolean }, { prev: Map<string, boolean> }>({
+  return useMutation<
+    unknown,
+    IpcCallError,
+    { ids: string[]; value: boolean },
+    { prev: Map<string, boolean> }
+  >({
     mutationFn: (p) => invoke('clips:favorite', p),
     onMutate: async ({ ids, value }) => {
       const prev = new Map<string, boolean>();
@@ -130,9 +160,8 @@ export function useSetClipFavorite() {
       patchClipsInCache(qc, ids, { favorite: value });
       return { prev };
     },
-    onError: (e, { ids }, ctx) => {
+    onError: (e, _vars, ctx) => {
       ctx?.prev.forEach((v, id) => patchClipsInCache(qc, [id], { favorite: v }));
-      if (!ctx) patchClipsInCache(qc, ids, {});
       fail('Could not update favorites')(e);
     },
   });
@@ -142,13 +171,19 @@ export function useSetClipFavorite() {
 
 export function useDeleteVideo() {
   const qc = useQueryClient();
-  return useMutation<unknown, IpcCallError, { id: string; deleteFromStorage: boolean; title?: string }>({
+  return useMutation<
+    unknown,
+    IpcCallError,
+    { id: string; deleteFromStorage: boolean; title?: string }
+  >({
     mutationFn: ({ id, deleteFromStorage }) => invoke('videos:delete', { id, deleteFromStorage }),
     onSuccess: (_d, { id, title, deleteFromStorage }) => {
       removeVideoFromCache(qc, id);
       void qc.invalidateQueries({ queryKey: ['storage:usage'] });
       toast.success(title ? `Deleted “${title}”` : 'Video deleted', {
-        description: deleteFromStorage ? 'Its files were removed from your cloud storage too.' : 'Cloud files were kept.',
+        description: deleteFromStorage
+          ? 'Its files were removed from your cloud storage too.'
+          : 'Cloud files were kept.',
       });
     },
     onError: fail('Could not delete the video'),
@@ -173,7 +208,8 @@ export function useRerenderClip() {
   const qc = useQueryClient();
   return useMutation<unknown, IpcCallError, { id: string }>({
     mutationFn: (p) => invoke('clips:rerender', p),
-    onMutate: ({ id }) => patchClipsInCache(qc, [id], { status: 'queued', renderProgress: null, error: null }),
+    onMutate: ({ id }) =>
+      patchClipsInCache(qc, [id], { status: 'queued', renderProgress: null, error: null }),
     onError: fail('Could not re-render'),
   });
 }
@@ -184,7 +220,8 @@ export function useDownloadClips() {
     IpcCallError,
     { ids: string[]; withCaptions?: boolean }
   >({
-    mutationFn: ({ ids, withCaptions }) => invoke('clips:download', { ids, withCaptions: withCaptions ?? false }),
+    mutationFn: ({ ids, withCaptions }) =>
+      invoke('clips:download', { ids, withCaptions: withCaptions ?? false }),
     onSuccess: (r, { ids }) => {
       if (r.canceled) return;
       if (r.saved > 0)
@@ -194,7 +231,9 @@ export function useDownloadClips() {
       else
         toast.error('Nothing was downloaded', {
           description:
-            ids.length === 1 ? 'This clip has no finished render yet.' : 'None of the selected clips have a finished render yet.',
+            ids.length === 1
+              ? 'This clip has no finished render yet.'
+              : 'None of the selected clips have a finished render yet.',
         });
     },
     onError: fail('Download failed'),
@@ -206,20 +245,11 @@ export function useDownloadClips() {
 const WEEK = 7 * 86_400_000;
 export function useClipsThisWeek() {
   const q = useAllClips();
+  const now = useNow();
   const count = useMemo(() => {
-    const since = Date.now() - WEEK;
-    return (q.data?.items ?? []).filter((c) => c.createdAt >= since && c.status !== 'failed').length;
-  }, [q.data]);
+    const since = (now?.getTime() ?? 0) - WEEK;
+    return (q.data?.items ?? []).filter((c) => c.createdAt >= since && c.status !== 'failed')
+      .length;
+  }, [q.data, now]);
   return { count, loading: q.isPending, error: q.isError };
-}
-
-/** Returns true once on the 0 -> >=1 transition of `count` (used for the "first clip ready" moment). */
-export function useFirstArrival(count: number, active: boolean): boolean {
-  const prev = useRef<number | null>(null);
-  const [fired, setFired] = useState(false);
-  useEffect(() => {
-    if (prev.current !== null && prev.current === 0 && count > 0 && active) setFired(true);
-    prev.current = count;
-  }, [count, active]);
-  return fired;
 }

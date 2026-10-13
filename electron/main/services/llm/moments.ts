@@ -1,8 +1,8 @@
 import { durationRange, rankedMomentSchema, totalScore } from '@shared/pipeline';
-import type { MomentCandidate, PipelineOptions, RankedMoment, Sentence } from '@shared/pipeline';
+import type { MomentCandidate, RankedMoment, Sentence } from '@shared/pipeline';
 import type { LlmService } from '../../pipeline/contracts';
 import type { BudgetGuard } from './budget';
-import { LlmEngine } from './client';
+import type { LlmEngine } from './client';
 import { abortError } from './errors';
 import { buildRankStable, buildRankVolatile, RANK_SYSTEM } from './prompts';
 import { rankOutputSchema, toJsonSchema, type ModelMoment } from './schemas';
@@ -139,7 +139,9 @@ export function pickPromptCandidates(
     seen.add(c.id);
     return c.e > c.s && c.s >= window.startSec - 1 && c.e <= window.endSec + 1;
   });
-  const cap = frugal ? Math.ceil(Math.min(inWindow.length, MAX_PROMPT_CANDIDATES) / 2) : MAX_PROMPT_CANDIDATES;
+  const cap = frugal
+    ? Math.ceil(Math.min(inWindow.length, MAX_PROMPT_CANDIDATES) / 2)
+    : MAX_PROMPT_CANDIDATES;
   return [...inWindow]
     .sort((a, b) => b.prior - a.prior)
     .slice(0, cap)
@@ -198,14 +200,23 @@ export function verifyMoments(a: VerifyArgs): VerifyResult {
       const f = indexById.get(cand.sentenceIds[0] ?? NaN);
       const l = indexById.get(cand.sentenceIds[cand.sentenceIds.length - 1] ?? NaN);
       if (f !== undefined && l !== undefined) {
-        a.log(`rankMoments: moment ${index + 1} had unknown sentence ids; using candidate ${cand.id}'s span`);
+        a.log(
+          `rankMoments: moment ${index + 1} had unknown sentence ids; using candidate ${cand.id}'s span`,
+        );
         i0 = f;
         i1 = l;
       }
     }
     if (i0 === undefined || i1 === undefined)
-      return reject(index, `unknown sentence id (S${raw.startSentence}-S${raw.endSentence}) - not in this window`);
-    if (i0 > i1) return reject(index, `start sentence S${raw.startSentence} comes after end S${raw.endSentence}`);
+      return reject(
+        index,
+        `unknown sentence id (S${raw.startSentence}-S${raw.endSentence}) - not in this window`,
+      );
+    if (i0 > i1)
+      return reject(
+        index,
+        `start sentence S${raw.startSentence} comes after end S${raw.endSentence}`,
+      );
 
     const dur = (x: number, y: number) => (sentences[y]?.e ?? 0) - (sentences[x]?.s ?? 0);
 
@@ -213,13 +224,25 @@ export function verifyMoments(a: VerifyArgs): VerifyResult {
     for (let n = 0; n < 2; n++) {
       const first = sentences[i0]!;
       const prev = sentences[i0 - 1];
-      if (prev && startsLower(first.text) && !endsComplete(prev.text) && dur(i0 - 1, i1) <= range.maxSec + tol) i0--;
+      if (
+        prev &&
+        startsLower(first.text) &&
+        !endsComplete(prev.text) &&
+        dur(i0 - 1, i1) <= range.maxSec + tol
+      )
+        i0--;
       else break;
     }
     for (let n = 0; n < 2; n++) {
       const last = sentences[i1]!;
       const next = sentences[i1 + 1];
-      if (next && !endsComplete(last.text) && startsLower(next.text) && dur(i0, i1 + 1) <= range.maxSec + tol) i1++;
+      if (
+        next &&
+        !endsComplete(last.text) &&
+        startsLower(next.text) &&
+        dur(i0, i1 + 1) <= range.maxSec + tol
+      )
+        i1++;
       else break;
     }
     const firstS = sentences[i0]!;
@@ -234,7 +257,10 @@ export function verifyMoments(a: VerifyArgs): VerifyResult {
     const endSec = lastS.e;
     const d = endSec - startSec;
     if (startSec < a.window.startSec - 1 || endSec > a.window.endSec + 1)
-      return reject(index, `span ${startSec.toFixed(1)}-${endSec.toFixed(1)}s lies outside the window`);
+      return reject(
+        index,
+        `span ${startSec.toFixed(1)}-${endSec.toFixed(1)}s lies outside the window`,
+      );
     if (d < range.minSec - tol || d > range.maxSec + tol)
       return reject(
         index,
@@ -247,7 +273,8 @@ export function verifyMoments(a: VerifyArgs): VerifyResult {
     const why = raw.whyItWorks.replace(/\s+/g, ' ').trim().slice(0, 500);
     if (!title) return reject(index, 'empty title');
     if (!hook) return reject(index, 'empty hook');
-    if (title !== raw.title.trim()) a.log(`rankMoments: moment ${index + 1} title shortened to ${MAX_TITLE} chars`);
+    if (title !== raw.title.trim())
+      a.log(`rankMoments: moment ${index + 1} title shortened to ${MAX_TITLE} chars`);
 
     // ---- 5. scores: clamp to the rubric caps
     const sc = raw.scores;
@@ -263,7 +290,10 @@ export function verifyMoments(a: VerifyArgs): VerifyResult {
         a.log(`rankMoments: moment ${index + 1} ${k} score ${sc[k]} clamped to 0-${CAPS[k]}`);
     }
 
-    const spanText = sentences.slice(i0, i1 + 1).map((s) => s.text).join(' ');
+    const spanText = sentences
+      .slice(i0, i1 + 1)
+      .map((s) => s.text)
+      .join(' ');
     const parsed = rankedMomentSchema.safeParse({
       candidateId: cand ? cand.id : null,
       startSec,
@@ -276,18 +306,20 @@ export function verifyMoments(a: VerifyArgs): VerifyResult {
       confidence: normConfidence(raw.confidence),
       keywords: cleanKeywords(raw.keywords, spanText),
     });
-    if (!parsed.success) return reject(index, `invalid after normalisation: ${parsed.error.message.slice(0, 120)}`);
+    if (!parsed.success)
+      return reject(index, `invalid after normalisation: ${parsed.error.message.slice(0, 120)}`);
     ok.push({ m: parsed.data, i0, i1, total: totalScore(breakdown) });
   });
 
   // ---- 6. best first; drop overlaps (the lower-scored one loses) and anything beyond maxClips
   ok.sort(
-    (x, y) =>
-      y.total - x.total || y.m.confidence - x.m.confidence || x.m.startSec - y.m.startSec,
+    (x, y) => y.total - x.total || y.m.confidence - x.m.confidence || x.m.startSec - y.m.startSec,
   );
   const kept: Ok[] = [];
   for (const cur of ok) {
-    const clash = kept.find((k) => cur.m.startSec < k.m.endSec - 0.05 && k.m.startSec < cur.m.endSec - 0.05);
+    const clash = kept.find(
+      (k) => cur.m.startSec < k.m.endSec - 0.05 && k.m.startSec < cur.m.endSec - 0.05,
+    );
     if (clash) {
       a.log(
         `rankMoments: dropped "${cur.m.title}" (${cur.m.startSec.toFixed(0)}-${cur.m.endSec.toFixed(0)}s): overlaps higher-scored "${clash.m.title}"`,
@@ -317,7 +349,7 @@ function normConfidence(c: number): number {
 const QUOTES = /^["'“”‘’«»]+|["'“”‘’«»]+$/g;
 
 export function fitTitle(raw: string): string {
-  const t = raw.replace(/\s+/g, ' ').replace(QUOTES, '').trim();
+  const t = raw.replace(/\s+/g, ' ').trim().replace(QUOTES, '').trim();
   if (t.length <= MAX_TITLE) return t;
   const cut = t.slice(0, MAX_TITLE - 1);
   const lastSpace = cut.lastIndexOf(' ');
@@ -326,10 +358,13 @@ export function fitTitle(raw: string): string {
 }
 
 export function fitHook(raw: string): string {
-  const t = raw.replace(/\s+/g, ' ').replace(QUOTES, '').trim();
+  const t = raw.replace(/\s+/g, ' ').trim().replace(QUOTES, '').trim();
   const words = t.split(' ').filter(Boolean);
   if (words.length <= MAX_HOOK_WORDS) return t;
-  return `${words.slice(0, MAX_HOOK_WORDS).join(' ').replace(/[\s,;:\-–—]+$/u, '')}…`;
+  return `${words
+    .slice(0, MAX_HOOK_WORDS)
+    .join(' ')
+    .replace(/[\s,;:\-–—]+$/u, '')}…`;
 }
 
 const stripEdges = (w: string) => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
@@ -346,5 +381,3 @@ export function cleanKeywords(raw: readonly string[], spanText: string): string[
   }
   return out;
 }
-
-export type { PipelineOptions };

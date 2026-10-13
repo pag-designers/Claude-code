@@ -1,16 +1,12 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
-import { Activity, CircleAlert, RotateCcw, X } from 'lucide-react';
+import { CircleAlert, RotateCcw, X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { JobView } from '@shared/domain';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { EmptyState } from '@/components/ui/empty-state';
 import { Progress } from '@/components/ui/progress';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useIpcMutation } from '@/lib/ipc';
 import { useJobs } from '@/lib/queries';
 import { timeAgo } from '@/lib/format';
@@ -106,58 +102,32 @@ function JobRow({ job }: { job: JobView }) {
   );
 }
 
-export function JobsPanel() {
-  const { data, isPending } = useJobs();
+/** Background tasks that are not clipping runs (yt-dlp download, storage refresh, ...). Hidden when there are none. */
+export function JobsPanelRows() {
+  const { data } = useJobs();
   const items = (data?.items ?? [])
-    .filter((j) => j.status !== 'canceled' && j.status !== 'succeeded')
-    .concat((data?.items ?? []).filter((j) => j.status === 'succeeded').slice(0, 3))
+    .filter(
+      (j) =>
+        !j.kind.startsWith('pipeline') &&
+        (j.status === 'running' || j.status === 'queued' || j.status === 'failed'),
+    )
     .sort(
       (a, b) =>
         Number(b.status === 'running') - Number(a.status === 'running') ||
         b.createdAt - a.createdAt,
     )
-    .slice(0, 8);
-  const running = items.filter((j) => j.status === 'running' || j.status === 'queued').length;
-
+    .slice(0, 4);
+  if (items.length === 0) return null;
   return (
-    <Card>
-      <CardHeader className="pb-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <CardTitle className="font-display text-lg">Running jobs</CardTitle>
-            <CardDescription>Live progress for everything Clipfern is working on.</CardDescription>
-          </div>
-          {running > 0 ? (
-            <Badge variant="primary" dot>
-              {running} active
-            </Badge>
-          ) : null}
-        </div>
-      </CardHeader>
-      {isPending ? (
-        <CardContent className="flex flex-col gap-3 pt-0">
-          <Skeleton className="h-12" />
-          <Skeleton className="h-12" />
-        </CardContent>
-      ) : items.length === 0 ? (
-        <EmptyState
-          size="sm"
-          icon={Activity}
-          title="Nothing is running"
-          description="When you start clipping, each stage (download, transcribe, find moments, render) shows up here with live progress and ETA."
-          actions={
-            <Button variant="outline" asChild>
-              <Link href="/library/">Open library</Link>
-            </Button>
-          }
-        />
-      ) : (
-        <ul className="divide-y border-t">
-          {items.map((j) => (
-            <JobRow key={j.id} job={j} />
-          ))}
-        </ul>
-      )}
-    </Card>
+    <div className="border-t" data-testid="background-tasks">
+      <p className="px-5 pt-3 text-2xs font-semibold uppercase tracking-wider text-subtle">
+        Background tasks
+      </p>
+      <ul className="divide-y">
+        {items.map((j) => (
+          <JobRow key={j.id} job={j} />
+        ))}
+      </ul>
+    </div>
   );
 }

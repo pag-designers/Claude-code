@@ -30,7 +30,14 @@ export const usePipelineLog = create<LogState>((set, get) => ({
     const last = prev[prev.length - 1];
     if (last && last.stage === e.stage && last.status === e.status && last.text === text) return;
     // collapse consecutive running updates of the same stage into the latest message to avoid log spam
-    if (last && last.stage === e.stage && last.status === 'running' && e.status === 'running' && !e.message) return;
+    if (
+      last &&
+      last.stage === e.stage &&
+      last.status === 'running' &&
+      e.status === 'running' &&
+      !e.message
+    )
+      return;
     const next = [...prev, { at: e.at, stage: e.stage, status: e.status, text }].slice(-CAP);
     set({ byVideo: { ...get().byVideo, [e.videoId]: next } });
   },

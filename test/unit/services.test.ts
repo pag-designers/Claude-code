@@ -264,3 +264,14 @@ describe('binaries', () => {
     expect(ytdlpAssetName('linux', 'arm64')).toBe('yt-dlp_linux_aarch64');
   });
 });
+
+describe('cost: Haiku 5.5 long-prompt tier', () => {
+  it('bills 5x above 100K prompt tokens and normal below', async () => {
+    const { computeCostUsd } = await import('@main/services/cost');
+    const small = computeCostUsd('claude-haiku-5-5', { inputTokens: 50_000, outputTokens: 1000 });
+    expect(small).toBeCloseTo((50_000 * 0.1 + 1000 * 0.5) / 1e6);
+    const big = computeCostUsd('claude-haiku-5-5', { inputTokens: 120_000, outputTokens: 1000 });
+    expect(big).toBeCloseTo((120_000 * 0.5 + 1000 * 2.5) / 1e6);
+    expect(computeCostUsd('claude-sonnet-5-5', { inputTokens: 1e6, outputTokens: 0 })).toBeCloseTo(2);
+  });
+});

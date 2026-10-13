@@ -5,6 +5,7 @@ import { Bell, CircleAlert, CircleCheck, Info, TriangleAlert } from 'lucide-reac
 import type { AppNotification } from '@shared/domain';
 import { cn } from '@/lib/utils';
 import { timeAgo } from '@/lib/format';
+import { normalizeHref } from '@/lib/hrefs';
 import { useIpcMutation } from '@/lib/ipc';
 
 const LEVEL = {
@@ -29,7 +30,7 @@ export function NotificationRow({
     if (unread) markRead.mutate({ ids: [n.id] });
     if (n.href) {
       onNavigate?.();
-      router.push(n.href);
+      router.push(normalizeHref(n.href));
     }
   };
   return (

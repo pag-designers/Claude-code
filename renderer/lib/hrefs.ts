@@ -9,7 +9,9 @@ export function videoHref(id: string, tab?: string): string {
   return `/library/video/?${q.toString()}`;
 }
 
-export function libraryHref(tab?: 'videos' | 'clips' | 'favorites' | 'edited' | 'exported'): string {
+export function libraryHref(
+  tab?: 'videos' | 'clips' | 'favorites' | 'edited' | 'exported',
+): string {
   return tab ? `/library/?tab=${tab}` : '/library/';
 }
 

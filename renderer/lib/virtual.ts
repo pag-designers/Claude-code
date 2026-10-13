@@ -2,7 +2,11 @@
  * Minimal variable-height windowing maths (no dependency). A list of N rows has measured heights where known and an
  * estimate otherwise; `offsets[i]` is the top of row i and `offsets[N]` the total height.
  */
-export function computeOffsets(count: number, heightOf: (i: number) => number | undefined, estimate: number): number[] {
+export function computeOffsets(
+  count: number,
+  heightOf: (i: number) => number | undefined,
+  estimate: number,
+): number[] {
   const offsets = new Array<number>(count + 1);
   let y = 0;
   for (let i = 0; i < count; i++) {

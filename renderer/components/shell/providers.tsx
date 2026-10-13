@@ -9,6 +9,13 @@ import type { JobView } from '@shared/domain';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/sonner';
 import { ipcKey, useIpcEvent } from '@/lib/ipc';
+import { normalizeHref } from '@/lib/hrefs';
+import {
+  applyPipelineEvent,
+  refreshCostSoon,
+  upsertClipInCache,
+  upsertVideoInCache,
+} from '@/lib/pipeline-cache';
 import { JOBS_PAYLOAD, STORAGE_PAYLOAD } from '@/lib/queries';
 import { useSettings } from '@/lib/settings';
 import { applySidebarCollapsed, applyTheme, getThemePref } from '@/lib/prefs';
@@ -40,22 +47,34 @@ function EventBridge() {
         : [job, ...items];
       return { items: next.sort((a, b) => b.createdAt - a.createdAt) };
     });
-    if (job.status === 'succeeded' || job.status === 'failed')
-      void qc.invalidateQueries({ queryKey: ['cost:summary'] });
+    if (job.status === 'succeeded' || job.status === 'failed') refreshCostSoon(qc);
   });
   useIpcEvent('notifications:new', (n) => {
     void qc.invalidateQueries({ queryKey: ['notifications:list'] });
     const opts = {
       id: n.id,
       description: n.body ?? undefined,
-      action: n.href ? { label: 'View', onClick: () => router.push(n.href as string) } : undefined,
+      action: n.href
+        ? { label: 'View', onClick: () => router.push(normalizeHref(n.href as string)) }
+        : undefined,
     };
     if (n.level === 'error') toast.error(n.title, opts);
     else if (n.level === 'warning') toast.warning(n.title, opts);
     else if (n.level === 'success') toast.success(n.title, opts);
     else toast.info(n.title, opts);
   });
-  useIpcEvent('nav:go', ({ href }) => router.push(href));
+  useIpcEvent('nav:go', ({ href }) => router.push(normalizeHref(href)));
+
+  // Pipeline: events patch every cached video/clip list in place (no refetch, no polling).
+  useIpcEvent('videos:updated', (v) => {
+    upsertVideoInCache(qc, v);
+    if (v.status === 'ready' || v.status === 'failed') refreshCostSoon(qc, true);
+  });
+  useIpcEvent('clips:updated', (c) => {
+    upsertClipInCache(qc, c);
+    if (c.status === 'rendered') refreshCostSoon(qc);
+  });
+  useIpcEvent('pipeline:event', (e) => applyPipelineEvent(qc, e));
   return null;
 }
 

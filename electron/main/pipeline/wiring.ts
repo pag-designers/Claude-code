@@ -41,7 +41,8 @@ export function createPipeline(svc: Services, sidecar: SidecarManager, host: Pip
     getApiKey: () => svc.secrets.get('anthropic.apiKey'),
     getSettings: () => svc.settings.get(),
     cost: svc.cost,
-    baseUrl: process.env.ANTHROPIC_BASE_URL || undefined,
+    // Dev/test only (stub server). NOT the SDK's ANTHROPIC_BASE_URL: that one is often set by other tools.
+    baseUrl: process.env.CLIPFERN_ANTHROPIC_BASE_URL || undefined,
     log: (m) => logger.scoped('llm').info(m),
     onBudget: (level) => {
       if (level === 'hard-cap') return; // surfaced as a pipeline failure notification
@@ -83,6 +84,7 @@ export function createPipeline(svc: Services, sidecar: SidecarManager, host: Pip
     log,
     async checkReady() {
       if (!llm.isConfigured()) return 'Add your Anthropic API key in Settings → API Keys.';
+      await svc.storage.refresh();
       if (!svc.storage.get()) return 'Connect object storage first: add your Cloudflare R2 (or Backblaze B2) details in Settings → Storage.';
       const [ff, yt] = await Promise.all([svc.binaries.checkFfmpeg(), svc.binaries.checkYtdlp()]);
       if (!ff.ok) return `ffmpeg is not working: ${ff.error ?? 'unknown error'}`;

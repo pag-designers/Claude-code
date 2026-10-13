@@ -1,92 +1,158 @@
 'use client';
 
+import * as React from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   Clapperboard,
   Download,
   Film,
-  Grid2x2,
   Heart,
-  List,
   Scissors,
-  Search,
+  Star,
   SquarePen,
   Upload,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Page, PageHeader } from '@/components/ui/page';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DisabledTip } from '@/components/ui/tooltip';
-import { Page, PageHeader } from '@/components/ui/page';
-import { Segmented } from '@/components/ui/segmented';
+import { ClipsBrowser } from '@/components/library/clips-browser';
+import { VideosBrowser } from '@/components/library/videos-browser';
+import { useAllClips, useVideos } from '@/lib/library';
 
-const LOCKED = 'Filters unlock once your library has items';
+const TABS = ['videos', 'clips', 'favorites', 'edited', 'exported'] as const;
+type Tab = (typeof TABS)[number];
+const isTab = (v: string | null): v is Tab => !!v && (TABS as readonly string[]).includes(v);
 
-function FilterBar() {
+function Count({ n }: { n: number | undefined }) {
+  if (!n) return null;
   return (
-    <div
-      className="flex flex-wrap items-center gap-2.5"
-      role="group"
-      aria-label="Filters (unavailable until the library has items)"
-    >
-      <DisabledTip reason={LOCKED} side="bottom">
-        <Input
-          aria-label="Search library"
-          placeholder="Search titles and transcripts"
-          leading={<Search />}
-          disabled
-          className="w-72"
-        />
-      </DisabledTip>
-      {['Score', 'Duration', 'Platform', 'Campaign', 'Date'].map((f) => (
-        <DisabledTip key={f} reason={LOCKED} side="bottom">
-          <Select disabled>
-            <SelectTrigger aria-label={f} className="w-32">
-              <SelectValue placeholder={f} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="any">Any</SelectItem>
-            </SelectContent>
-          </Select>
-        </DisabledTip>
-      ))}
-      <div className="ml-auto">
-        <DisabledTip reason={LOCKED} side="bottom">
-          <Segmented
-            label="Layout"
-            value="grid"
-            onValueChange={() => {}}
-            disabled
-            size="sm"
-            options={[
-              { value: 'grid', label: <Grid2x2 className="size-4" />, hint: 'Grid' },
-              { value: 'list', label: <List className="size-4" />, hint: 'List' },
-            ]}
-          />
-        </DisabledTip>
-      </div>
+    <span className="rounded-full bg-muted px-1.5 text-2xs font-semibold tabular-nums text-muted-foreground">
+      {n}
+    </span>
+  );
+}
+
+function FavoritesTab() {
+  const clips = useAllClips();
+  const videos = useVideos();
+  const favClips = (clips.data?.items ?? []).filter((c) => c.favorite).length;
+  const favVideos = (videos.data?.items ?? []).filter((v) => v.favorite).length;
+  if (clips.isSuccess && videos.isSuccess && favClips + favVideos === 0)
+    return (
+      <EmptyState
+        size="lg"
+        icon={Heart}
+        title="No favorites yet"
+        description="Star the clips and videos you love and they are pinned here, so your best candidates are one click away."
+        actions={
+          <Button variant="outline" asChild>
+            <Link href="/library/?tab=clips">Browse clips</Link>
+          </Button>
+        }
+      />
+    );
+  return (
+    <div className="flex flex-col gap-10">
+      {favClips > 0 || clips.isPending ? (
+        <section aria-labelledby="fav-clips">
+          <h2
+            id="fav-clips"
+            className="mb-4 flex items-center gap-2 font-display text-lg font-semibold"
+          >
+            <Star className="size-4 fill-current text-warning" aria-hidden /> Favorite clips
+          </h2>
+          <ClipsBrowser scope={{ kind: 'favorites' }} />
+        </section>
+      ) : null}
+      {favVideos > 0 || videos.isPending ? (
+        <section aria-labelledby="fav-videos">
+          <h2
+            id="fav-videos"
+            className="mb-4 flex items-center gap-2 font-display text-lg font-semibold"
+          >
+            <Film className="size-4 text-primary-text" aria-hidden /> Favorite videos
+          </h2>
+          <VideosBrowser favoritesOnly />
+        </section>
+      ) : null}
     </div>
   );
 }
 
-const HOME_CTA = (
-  <Button variant="primary" asChild>
-    <Link href="/">Paste a YouTube URL</Link>
-  </Button>
-);
+function LibraryTabs() {
+  const params = useSearchParams();
+  const fromUrl = params.get('tab');
+  const [tab, setTab] = React.useState<Tab>(isTab(fromUrl) ? fromUrl : 'videos');
+  const [lastUrlTab, setLastUrlTab] = React.useState(fromUrl);
+  // follow in-app links such as /library/?tab=clips while already on the page
+  if (fromUrl !== lastUrlTab) {
+    setLastUrlTab(fromUrl);
+    if (isTab(fromUrl)) setTab(fromUrl);
+  }
+  const change = (v: string) => {
+    if (!isTab(v)) return;
+    setTab(v);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', v);
+    window.history.replaceState(null, '', `${url.pathname}${url.search}`);
+    setLastUrlTab(v);
+  };
+  const videos = useVideos();
+  const clips = useAllClips();
+  return (
+    <Tabs value={tab} onValueChange={change} className="flex flex-col gap-6">
+      <TabsList aria-label="Library sections" className="w-full">
+        <TabsTrigger value="videos">
+          <Film /> Videos <Count n={videos.data?.items.length} />
+        </TabsTrigger>
+        <TabsTrigger value="clips">
+          <Scissors /> Clips <Count n={clips.data?.items.length} />
+        </TabsTrigger>
+        <TabsTrigger value="favorites">
+          <Heart /> Favorites
+        </TabsTrigger>
+        <TabsTrigger value="edited">
+          <SquarePen /> Edited
+        </TabsTrigger>
+        <TabsTrigger value="exported">
+          <Download /> Exported
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="videos">
+        <VideosBrowser />
+      </TabsContent>
+      <TabsContent value="clips">
+        <ClipsBrowser scope={{ kind: 'all' }} />
+      </TabsContent>
+      <TabsContent value="favorites">
+        <FavoritesTab />
+      </TabsContent>
+      <TabsContent value="edited">
+        <EmptyState
+          size="lg"
+          icon={Clapperboard}
+          title="Nothing edited yet"
+          description="Clips you refine in the multi-track editor are kept here with their full edit history. The editor arrives in checkpoint 3."
+        />
+      </TabsContent>
+      <TabsContent value="exported">
+        <EmptyState
+          size="lg"
+          icon={Download}
+          title="No exports yet"
+          description="Finished renders you export from the editor (1080×1920 MP4 plus optional SRT/VTT) are listed here. Export arrives with the editor in checkpoint 3."
+        />
+      </TabsContent>
+    </Tabs>
+  );
+}
 
 export function LibraryView() {
   return (
-    <Page>
+    <Page wide>
       <PageHeader
         title="Library"
         description="Everything Clipfern has imported, found, edited and exported, in one searchable place."
@@ -98,79 +164,9 @@ export function LibraryView() {
           </DisabledTip>
         }
       />
-      <Tabs defaultValue="videos" className="flex flex-col gap-5">
-        <TabsList aria-label="Library sections" className="w-full">
-          <TabsTrigger value="videos">
-            <Film /> Videos
-          </TabsTrigger>
-          <TabsTrigger value="clips">
-            <Scissors /> Clips
-          </TabsTrigger>
-          <TabsTrigger value="favorites">
-            <Heart /> Favorites
-          </TabsTrigger>
-          <TabsTrigger value="edited">
-            <SquarePen /> Edited
-          </TabsTrigger>
-          <TabsTrigger value="exported">
-            <Download /> Exported
-          </TabsTrigger>
-        </TabsList>
-        <FilterBar />
-        <Card className="overflow-hidden">
-          <TabsContent value="videos">
-            <EmptyState
-              size="lg"
-              icon={Film}
-              title="No videos imported yet"
-              description="Imported YouTube videos live here as lightweight 480p proxies, with their transcript, chapters and AI notes."
-              steps={[
-                'Paste a YouTube URL on Home.',
-                'Clipfern downloads, transcribes and understands it.',
-                'Open the video to browse chapters and clips.',
-              ]}
-              actions={HOME_CTA}
-            />
-          </TabsContent>
-          <TabsContent value="clips">
-            <EmptyState
-              size="lg"
-              icon={Scissors}
-              title="Your clips will land here"
-              description="Every AI-found moment shows up as a card with a virality score, hook and captions, appearing as soon as the first candidates are ready."
-              steps={[
-                'Sort by score to see the strongest first.',
-                'Select several to render, download or schedule together.',
-              ]}
-              actions={HOME_CTA}
-            />
-          </TabsContent>
-          <TabsContent value="favorites">
-            <EmptyState
-              size="lg"
-              icon={Heart}
-              title="No favorites yet"
-              description="Star the clips you love and they are pinned here, so your best candidates are one click away."
-            />
-          </TabsContent>
-          <TabsContent value="edited">
-            <EmptyState
-              size="lg"
-              icon={Clapperboard}
-              title="Nothing edited yet"
-              description="Clips you refine in the multi-track editor are kept here with their full edit history. The editor arrives in checkpoint 3."
-            />
-          </TabsContent>
-          <TabsContent value="exported">
-            <EmptyState
-              size="lg"
-              icon={Download}
-              title="No exports yet"
-              description="Finished renders (1080×1920 MP4 plus optional SRT/VTT) are listed here, ready to download or send to the scheduler."
-            />
-          </TabsContent>
-        </Card>
-      </Tabs>
+      <React.Suspense fallback={null}>
+        <LibraryTabs />
+      </React.Suspense>
     </Page>
   );
 }

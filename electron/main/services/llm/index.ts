@@ -8,6 +8,7 @@ import { runUnderstand } from './understand';
 
 export { LlmError, type LlmErrorCode } from './errors';
 export type { BudgetLevel, CostPort } from './budget';
+export { estimateRunCost, type RunEstimate } from './estimate';
 
 export interface LlmDeps {
   /** Current Anthropic key (stored or .env); null when none is set. Called on every request. */

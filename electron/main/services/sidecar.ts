@@ -436,6 +436,13 @@ interface InstallState {
 
 const sha256 = (data: string | Buffer): string => createHash('sha256').update(data).digest('hex');
 
+/**
+ * Dedicated agent for the loopback sidecar. Node's default global agent applies a 5 s idle-socket
+ * timeout (keepAlive + timeout: 5000), which silently aborted any transcription/scan taking longer
+ * than 5 s while the server was computing. Long CPU jobs must never time out on the client side.
+ */
+const sidecarAgent = new http.Agent({ keepAlive: false, timeout: 0 });
+
 export class SidecarManager {
   private readonly store: StatusStore;
   private readonly doFetch: typeof fetch;
@@ -1288,7 +1295,8 @@ export class SidecarManager {
           path: urlPath,
           method,
           // No socket timeout by default: a CPU transcription of an hour of audio is slow.
-          timeout: opts.timeoutMs,
+          agent: sidecarAgent,
+          timeout: opts.timeoutMs ?? 0,
           signal: opts.signal,
           headers: {
             authorization: `Bearer ${token}`,

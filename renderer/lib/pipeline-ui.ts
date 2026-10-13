@@ -42,7 +42,9 @@ export function mergeStages(stages: readonly StageState[] | undefined): StageSta
 }
 
 /** The stage list implied by a list-row VideoView (the list carries only `stage` + `progress`). */
-export function stagesFromVideo(v: Pick<VideoView, 'status' | 'stage' | 'progress' | 'error'>): StageState[] {
+export function stagesFromVideo(
+  v: Pick<VideoView, 'status' | 'stage' | 'progress' | 'error'>,
+): StageState[] {
   const at = v.stage ? PIPELINE_STAGES.indexOf(v.stage) : -1;
   return PIPELINE_STAGES.map((stage, i) => {
     const base = emptyStage(stage);
@@ -92,15 +94,23 @@ export function applyEventToStages(
   const merged = mergeStages(stages);
   return merged.map((s) => {
     if (s.stage !== e.stage) {
-      // a later stage starting implies every earlier non-terminal stage is finished
+      // any report from a later stage implies the earlier stages that were still open have finished
       const later = PIPELINE_STAGES.indexOf(e.stage) > PIPELINE_STAGES.indexOf(s.stage);
-      if (later && e.status === 'running' && (s.status === 'running' || s.status === 'pending')) {
+      if (
+        later &&
+        (e.status === 'running' || e.status === 'done' || e.status === 'failed') &&
+        (s.status === 'running' || s.status === 'pending')
+      ) {
         return { ...s, status: 'done', progress: 1, finishedAt: s.finishedAt ?? e.at };
       }
       return s;
     }
     const startedAt = s.startedAt ?? (e.status === 'pending' ? null : e.at);
-    const terminal = e.status === 'done' || e.status === 'failed' || e.status === 'canceled' || e.status === 'skipped';
+    const terminal =
+      e.status === 'done' ||
+      e.status === 'failed' ||
+      e.status === 'canceled' ||
+      e.status === 'skipped';
     return {
       ...s,
       status: e.status,
@@ -109,14 +119,29 @@ export function applyEventToStages(
       detail: e.detail,
       startedAt,
       finishedAt: terminal ? e.at : null,
-      error: e.status === 'failed' ? (e.message ?? s.error ?? 'Stage failed') : e.status === 'running' ? null : s.error,
+      error:
+        e.status === 'failed'
+          ? (e.message ?? s.error ?? 'Stage failed')
+          : e.status === 'running'
+            ? null
+            : s.error,
     };
   });
 }
 
 /* ------------------------------------------------ error recovery ------------------------------------------------ */
 
-export type FailureKind = 'bot-check' | 'private' | 'age' | 'unavailable' | 'storage' | 'anthropic' | 'budget' | 'engine' | 'network' | 'other';
+export type FailureKind =
+  | 'bot-check'
+  | 'private'
+  | 'age'
+  | 'unavailable'
+  | 'storage'
+  | 'anthropic'
+  | 'budget'
+  | 'engine'
+  | 'network'
+  | 'other';
 
 export interface Recovery {
   kind: FailureKind;
@@ -152,7 +177,11 @@ export function classifyFailure(message: string | null | undefined): Recovery {
       hint: 'Only its owner (or members) can watch it. If you have access, sign in via your browser cookies and retry.',
       action: { label: 'Open Ingest settings', href: '/settings/ingest/' },
     };
-  if (/video unavailable|has been removed|no longer available|copyright|blocked it|not available in your country/.test(m))
+  if (
+    /video unavailable|has been removed|no longer available|copyright|blocked it|not available in your country/.test(
+      m,
+    )
+  )
     return {
       kind: 'unavailable',
       title: 'This video is not available',
@@ -192,10 +221,25 @@ export function classifyFailure(message: string | null | undefined): Recovery {
       title: 'Network problem',
       hint: 'Check your connection and retry. Partial downloads resume where they stopped.',
     };
-  return { kind: 'other', title: 'This step failed', hint: 'Retry the stage. If it keeps failing, Settings → Diagnostics → Export logs has the details.' };
+  return {
+    kind: 'other',
+    title: 'This step failed',
+    hint: 'Retry the stage. If it keeps failing, Settings → Diagnostics → Export logs has the details.',
+  };
 }
 
 /* --------------------------------------------------- status copy ---------------------------------------------------- */
+
+/** One-line, human wording for a failed video's error (the raw text stays available as a tooltip). */
+export function failureSummary(error: string | null | undefined): string {
+  const r = classifyFailure(error);
+  if (r.kind !== 'other') return r.title;
+  const first = (error ?? '')
+    .split('\n')[0]
+    ?.replace(/^ERROR:\s*(\[[^\]]+\]\s*)?/i, '')
+    .trim();
+  return first || 'The run failed';
+}
 
 export type StatusTone = 'primary' | 'success' | 'danger' | 'neutral' | 'warning';
 

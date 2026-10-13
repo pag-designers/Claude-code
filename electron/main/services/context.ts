@@ -174,6 +174,7 @@ export async function createServices(opts: {
     userDataDir: opts.userDataDir,
     storage,
     currentWhisperModel: () => snapshot.whisperModel,
-    currentCookies: () => (snapshot.cookiesFromBrowser === 'none' ? undefined : snapshot.cookiesFromBrowser),
+    currentCookies: () =>
+      snapshot.cookiesFromBrowser === 'none' ? undefined : snapshot.cookiesFromBrowser,
   };
 }

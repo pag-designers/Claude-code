@@ -69,7 +69,7 @@ const CJK = /[⺀-鿿가-힯豈-﫿぀-ヿ]/u;
 const TERMINAL = /[.?!…。？！]["'”’)\]]*$/u;
 const ONLY_PUNCT = /^[\p{P}\p{S}]+$/u;
 
-function isTerminal(word: string): boolean {
+export function isTerminal(word: string): boolean {
   const w = word.trim();
   if (!TERMINAL.test(w)) return false;
   const bare = w.replace(/["'”’)\]]*$/u, '');
@@ -78,7 +78,7 @@ function isTerminal(word: string): boolean {
   // "?" and "!" are always terminal; only a plain full stop can be an abbreviation / initial.
   if (/[?!？！。]$/u.test(bare)) return true;
   if (ABBREVIATIONS.has(core)) return false;
-  if (/^[a-z]$/i.test(core) && bare === `${core}.`) return false; // "J." initials
+  if (/^[a-z]$/i.test(core) && core !== 'i' && bare.toLowerCase() === `${core}.`) return false; // "J." initials (but "So do I." ends)
   return true;
 }
 
@@ -106,6 +106,43 @@ export function joinWords(words: readonly Word[]): string {
   return out.trim();
 }
 
+/**
+ * `pause[i]` = silence between word i-1 and word i, in seconds (pause[0] = 0). It is the larger of the
+ * ASR gap and the longest audio silence whose midpoint lies between the two word midpoints: Whisper
+ * tends to stretch a word's end into the pause that follows it, so the word gap alone under-reports.
+ */
+export function pauseBefore(
+  words: readonly Word[],
+  silences: readonly { s: number; e: number }[],
+): Float64Array {
+  const n = words.length;
+  const pause = new Float64Array(n);
+  const mid = (i: number): number => ((words[i]?.s ?? 0) + (words[i]?.e ?? 0)) / 2;
+  let si = 0;
+  for (let i = 1; i < n; i++) {
+    const a = words[i - 1];
+    const b = words[i];
+    if (!a || !b) continue;
+    let p = Math.max(0, b.s - a.e);
+    const lo = mid(i - 1);
+    const hi = mid(i);
+    while (si < silences.length) {
+      const sil = silences[si];
+      if (!sil || (sil.s + sil.e) / 2 >= lo) break;
+      si++;
+    }
+    for (let k = si; k < silences.length; k++) {
+      const sil = silences[k];
+      if (!sil) continue;
+      const m = (sil.s + sil.e) / 2;
+      if (m >= hi) break;
+      p = Math.max(p, sil.e - sil.s);
+    }
+    pause[i] = p;
+  }
+  return pause;
+}
+
 type SilenceInput = Pick<AudioSignals, 'silences' | 'speakerChanges'>;
 
 export function segmentSentences(words: Word[], signals?: Partial<SilenceInput>): Sentence[] {
@@ -116,27 +153,7 @@ export function segmentSentences(words: Word[], signals?: Partial<SilenceInput>)
 
   const mid = (i: number): number => ((words[i]?.s ?? 0) + (words[i]?.e ?? 0)) / 2;
 
-  /** gapBefore[i] = pause between word i-1 and i (seconds), silence-aware. */
-  const gapBefore = new Float64Array(n);
-  let si = 0;
-  for (let i = 1; i < n; i++) {
-    const a = words[i - 1];
-    const b = words[i];
-    if (!a || !b) continue;
-    let gap = Math.max(0, b.s - a.e);
-    // Silence overlap within [mid(a), mid(b)] - advance a monotone pointer for O(n + m).
-    const lo = mid(i - 1);
-    const hi = mid(i);
-    while (si < silences.length && (silences[si]?.e ?? 0) < lo) si++;
-    let overlap = 0;
-    for (let k = si; k < silences.length; k++) {
-      const sil = silences[k];
-      if (!sil || sil.s > hi) break;
-      overlap += Math.max(0, Math.min(sil.e, hi) - Math.max(sil.s, lo));
-    }
-    gap = Math.max(gap, overlap);
-    gapBefore[i] = gap;
-  }
+  const gapBefore = pauseBefore(words, silences);
 
   // Speaker change before word i: a change time t with mid(i-1) < t <= mid(i).
   const changeBefore = new Uint8Array(n);
@@ -177,7 +194,9 @@ export function segmentSentences(words: Word[], signals?: Partial<SilenceInput>)
     }
     // Candidate break after word k (k in [a+MIN-1, b-MIN]) so both parts keep >= MIN_PART_WORDS.
     const first = a + MIN_PART_WORDS - 1;
-    const last = Math.min(b - MIN_PART_WORDS, a + MAX_WORDS - 1);
+    let last = Math.min(b - MIN_PART_WORDS, a + MAX_WORDS - 1);
+    // Keep the first part within MAX_SEC when the minimum part size allows it.
+    while (last > first && (words[last]?.e ?? 0) - (words[a]?.s ?? 0) > MAX_SEC) last--;
     if (last < first) {
       out.push([a, b]);
       return;
@@ -190,7 +209,15 @@ export function segmentSentences(words: Word[], signals?: Partial<SilenceInput>)
       if (!next || !cur) continue;
       let score = gapBefore[k + 1] ?? 0;
       if (endsSoftBreak(cur.w)) score += 0.3;
-      if (CONJUNCTIONS.has(next.w.trim().toLowerCase().replace(/[^\p{L}']/gu, ''))) score += 0.15;
+      if (
+        CONJUNCTIONS.has(
+          next.w
+            .trim()
+            .toLowerCase()
+            .replace(/[^\p{L}']/gu, ''),
+        )
+      )
+        score += 0.15;
       // Prefer breaks that make the first part close to the cap, so we produce few parts.
       score += 0.2 * ((k - a + 1) / MAX_WORDS);
       if (score > bestScore) {

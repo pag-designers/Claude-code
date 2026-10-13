@@ -2,7 +2,7 @@ import type { Chapter, Sentence, VideoAnalysis } from '@shared/pipeline';
 import { videoAnalysisSchema } from '@shared/pipeline';
 import type { LlmService } from '../../pipeline/contracts';
 import type { BudgetGuard } from './budget';
-import { LlmEngine } from './client';
+import type { LlmEngine } from './client';
 import { abortError, LlmError } from './errors';
 import {
   buildUnderstandStable,
@@ -53,7 +53,10 @@ export async function runUnderstand(
     .filter((s) => s.text.trim().length > 0)
     .sort((a, b) => a.s - b.s);
   if (sentences.length === 0) {
-    throw new LlmError('empty-transcript', 'No speech was found in this video, so there is nothing to analyse.');
+    throw new LlmError(
+      'empty-transcript',
+      'No speech was found in this video, so there is nothing to analyse.',
+    );
   }
   const durationSec = Math.max(
     input.transcript.durationSec,
@@ -82,11 +85,14 @@ export async function runUnderstand(
       model = settings.modelFast;
       ctx.log(`understand: over monthly target - using ${model}`);
     } else {
-      ctx.log('understand: over monthly target but prompt >100K tokens; staying on the smart model');
+      ctx.log(
+        'understand: over monthly target but prompt >100K tokens; staying on the smart model',
+      );
     }
   }
 
-  const expectedChars = 5_500 + (yt.length ? yt.length * 250 : targetChapterCount(durationSec) * 400);
+  const expectedChars =
+    5_500 + (yt.length ? yt.length * 250 : targetChapterCount(durationSec) * 400);
   const common = {
     model,
     purpose: 'understand',
@@ -109,7 +115,9 @@ export async function runUnderstand(
       validate: (p) => {
         const have = new Set(p.chapterSummaries.map((c) => c.index));
         const missing = yt.map((_, i) => i).filter((i) => !have.has(i));
-        return missing.length ? `chapterSummaries is missing chapter indices ${missing.join(', ')}` : null;
+        return missing.length
+          ? `chapterSummaries is missing chapter indices ${missing.join(', ')}`
+          : null;
       },
     });
     const byIndex = new Map(out.chapterSummaries.map((c) => [c.index, c.summary.trim()] as const));

@@ -30,6 +30,15 @@ export function cleanText(text: string): string {
     .trim();
 }
 
+/**
+ * Speaker labels from the analysis stage look like "S1"/"S2", which collide with our "S<id>"
+ * sentence labels. Show them as "spk1"/"spk2" instead.
+ */
+export function speakerTag(label: string): string {
+  const n = /(\d+)\s*$/.exec(label)?.[1];
+  return n ? `spk${n}` : cleanText(label).slice(0, 20);
+}
+
 export function formatSentenceLines(sentences: readonly Sentence[], forceHours = false): string {
   const lines: string[] = [];
   let prevSpeaker: string | null = null;
@@ -37,16 +46,21 @@ export function formatSentenceLines(sentences: readonly Sentence[], forceHours =
     const text = cleanText(s.text);
     if (!text) continue;
     let tag = '';
-    if (s.speaker && s.speaker !== prevSpeaker) tag = `{${cleanText(s.speaker)}} `;
+    if (s.speaker && s.speaker !== prevSpeaker) tag = `{${speakerTag(s.speaker)}} `;
     if (s.speaker) prevSpeaker = s.speaker;
     lines.push(`S${s.id} [${fmtClock(s.s, forceHours)}] ${tag}${text}`);
   }
   return lines.join('\n');
 }
 
-/** Rough token estimate (≈3.6 chars/token). Only used for budget pre-checks and cost previews. */
+/**
+ * Rough token estimate: ≈3.6 characters per token plus ~6 tokens of label overhead for every
+ * "S<id> [mm:ss]" transcript line (digits and brackets tokenise poorly). Only used for the
+ * pre-call budget check and cost previews - real usage comes back from the API.
+ */
 export function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 3.6);
+  const labelled = text.match(/^S\d+ \[/gm)?.length ?? 0;
+  return Math.ceil(text.length / 3.6) + labelled * 6;
 }
 
 export function clamp(n: number, lo: number, hi: number): number {
@@ -86,13 +100,17 @@ export function buildSentenceIndex(sentences: readonly Sentence[]): SentenceInde
  * in; with several occurrences, the one closest to `hintIndex`. Null when the text is not there
  * verbatim, i.e. the model paraphrased or invented it.
  */
-export function locateQuote(index: SentenceIndex, quote: string, hintIndex: number): Sentence | null {
+export function locateQuote(
+  index: SentenceIndex,
+  quote: string,
+  hintIndex: number,
+): Sentence | null {
   const q = normalizeForMatch(quote);
   if (q.length < 8) return null;
   const needle = ` ${q} `;
   let best = -1;
   let bestDist = Infinity;
-  for (let from = index.haystack.indexOf(needle); from !== -1; ) {
+  for (let from = index.haystack.indexOf(needle); from !== -1;) {
     const si = sentenceAtOffset(index.offsets, from + 1);
     const dist = Math.abs(si - hintIndex);
     if (dist < bestDist) {

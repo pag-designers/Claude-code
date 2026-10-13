@@ -25,9 +25,9 @@ const usd = (n: number) => `$${n.toFixed(2)}`;
 export function hardCapMessage(spent: number, cap: number, estimate?: number): string {
   return estimate === undefined
     ? `Monthly Claude API hard cap reached: ${usd(spent)} spent of the ${usd(cap)} cap. ` +
-        'AI features are paused until next month — or raise the cap in Settings → Cost.'
+        'AI features are paused until next month — or raise the cap in Settings → Models & Budget.'
     : `This request (about ${usd(estimate)}) would push this month's Claude API spend (${usd(spent)}) ` +
-        `past the ${usd(cap)} hard cap, so it was not sent. Raise the cap in Settings → Cost or wait until next month.`;
+        `past the ${usd(cap)} hard cap, so it was not sent. Raise the cap in Settings → Models & Budget or wait until next month.`;
 }
 
 export function createBudgetGuard(deps: {
@@ -59,12 +59,14 @@ export function createBudgetGuard(deps: {
   return {
     async peek() {
       const s = await read();
-      if (s.level === 'hard-cap') throw new BudgetExceededError(hardCapMessage(s.spentUsd, s.hardCapUsd));
+      if (s.level === 'hard-cap')
+        throw new BudgetExceededError(hardCapMessage(s.spentUsd, s.hardCapUsd));
       return s;
     },
     async check(model, inputTokens, outputTokens) {
       const s = await read();
-      if (s.level === 'hard-cap') throw new BudgetExceededError(hardCapMessage(s.spentUsd, s.hardCapUsd));
+      if (s.level === 'hard-cap')
+        throw new BudgetExceededError(hardCapMessage(s.spentUsd, s.hardCapUsd));
       const p = priceFor(model);
       // Conservative: assume nothing is served from cache.
       const estimate = (inputTokens * p.input + outputTokens * p.output) / 1_000_000;

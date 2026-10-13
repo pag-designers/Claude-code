@@ -29,18 +29,22 @@ export function buildHandlers(svc: Services, host: HostApi): Handlers {
   const handlers: Handlers = {
     'app:info': () => host.appInfo(),
     'settings:get': () => svc.settings.get(),
-    'settings:set': (patch) => svc.settings.set(patch),
+    'settings:set': async (patch) => {
+      const next = await svc.settings.set(patch);
+      await svc.storage.refresh(); // so a Start right after saving sees the new provider
+      return next;
+    },
 
     'secrets:status': () => ({ backend: svc.secrets.backend, keys: svc.secrets.status() }),
-    'secrets:set': ({ key, value }) => {
+    'secrets:set': async ({ key, value }) => {
       svc.secrets.set(key, value);
-      void svc.storage.refresh();
+      await svc.storage.refresh();
       svc.storageUsage.invalidate();
       return ok;
     },
-    'secrets:clear': ({ key }) => {
+    'secrets:clear': async ({ key }) => {
       svc.secrets.clear(key);
-      void svc.storage.refresh();
+      await svc.storage.refresh();
       svc.storageUsage.invalidate();
       return ok;
     },
@@ -103,7 +107,9 @@ export function buildHandlers(svc: Services, host: HostApi): Handlers {
       return ok;
     },
 
-    'videos:list': async ({ favorite, limit }) => ({ items: await host.library.listVideos({ favorite, limit }) }),
+    'videos:list': async ({ favorite, limit }) => ({
+      items: await host.library.listVideos({ favorite, limit }),
+    }),
     'videos:get': ({ id }) => host.library.getVideo(id),
     'videos:transcript': ({ id }) => host.library.transcript(id),
     'videos:favorite': async ({ id, value }) => {

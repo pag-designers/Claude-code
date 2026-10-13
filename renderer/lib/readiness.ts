@@ -38,7 +38,8 @@ export function usePipelineReadiness() {
       if (!storage.data?.configured)
         blockers.push({
           id: 'storage',
-          message: 'Connect cloud storage (Cloudflare R2 or Backblaze B2). Clips and the 480p proxy are kept there, not on your disk.',
+          message:
+            'Connect cloud storage (Cloudflare R2 or Backblaze B2). Clips and the 480p proxy are kept there, not on your disk.',
           href: settingsHref('storage'),
           action: 'Connect',
         });
@@ -88,5 +89,15 @@ export function usePipelineReadiness() {
         });
     }
     return { loading, blockers, ready: !loading && blockers.length === 0 };
-  }, [secrets.loading, secrets.keys, storage.isPending, storage.data, bins.isPending, bins.data, sidecar.isPending, sidecar.data, cost.data]);
+  }, [
+    secrets.loading,
+    secrets.keys,
+    storage.isPending,
+    storage.data,
+    bins.isPending,
+    bins.data,
+    sidecar.isPending,
+    sidecar.data,
+    cost.data,
+  ]);
 }

@@ -11,6 +11,27 @@ export function resolveStorageProvider(
   settings: Settings,
   secrets: SecretStore,
 ): ProviderResolution {
+  // Dev/test only: point at an S3-compatible emulator (e.g. s3rver). Never needed in production.
+  const override = process.env.CLIPFERN_S3_ENDPOINT_OVERRIDE;
+  if (override) {
+    const accessKeyId = secrets.get('r2.accessKeyId') ?? 'S3RVER';
+    const secretAccessKey = secrets.get('r2.secretAccessKey') ?? 'S3RVER';
+    const bucket = settings.r2Bucket.trim() || settings.b2Bucket.trim();
+    if (!bucket)
+      return { ok: false, reason: 'Storage override is set but no bucket name is configured.' };
+    return {
+      ok: true,
+      provider: new S3Provider({
+        id: 'r2',
+        endpoint: override,
+        region: 'us-east-1',
+        bucket,
+        accessKeyId,
+        secretAccessKey,
+        forcePathStyle: true,
+      }),
+    };
+  }
   if (settings.storageProvider === 'r2') {
     const accessKeyId = secrets.get('r2.accessKeyId');
     const secretAccessKey = secrets.get('r2.secretAccessKey');

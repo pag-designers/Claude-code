@@ -53,7 +53,7 @@ export function analyzeFrame(x: Float32Array): FrameFeatures {
     if (i > 0) {
       const d = v - prev;
       diffSum += d * d;
-      if ((v >= 0) !== (prev >= 0)) zc++;
+      if (v >= 0 !== prev >= 0) zc++;
     }
     prev = v;
   }

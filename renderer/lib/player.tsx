@@ -29,7 +29,13 @@ function createStore(): PlayerStore {
     get: () => snap,
     set: (patch) => {
       const next = { ...snap, ...patch };
-      if (next.time === snap.time && next.duration === snap.duration && next.playing === snap.playing && next.available === snap.available) return;
+      if (
+        next.time === snap.time &&
+        next.duration === snap.duration &&
+        next.playing === snap.playing &&
+        next.available === snap.available
+      )
+        return;
       snap = next;
       ls.forEach((l) => l());
     },

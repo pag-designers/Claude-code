@@ -30,15 +30,13 @@ import type { SettingsService } from '../services/settings';
 import type { StorageProvider } from '../services/storage/provider';
 import { AppError } from '../ipc/dispatch';
 import { BudgetExceededError, IngestError } from './contracts';
+import { LlmError } from '../services/llm/errors';
 import type {
   AnalysisService,
-  CaptionService,
   IngestService,
   LlmService,
   MediaService,
   MomentService,
-  ReframeService,
-  RenderService,
 } from './contracts';
 import { StageTracker } from './state';
 import {
@@ -81,14 +79,13 @@ export interface SidecarLike {
     model: string;
     segments: { words: { word: string; start: number; end: number; probability: number }[] }[];
   }>;
-  scenes(
-    req: { video_path: string },
-    opts?: { signal?: AbortSignal },
-  ): Promise<{ cuts: number[] }>;
+  scenes(req: { video_path: string }, opts?: { signal?: AbortSignal }): Promise<{ cuts: number[] }>;
 }
 
-export interface PipelineDeps
-  extends Omit<RenderWorkerDeps, 'tracker' | 'ensureSource' | 'onClipChanged' | 'sidecar'> {
+export interface PipelineDeps extends Omit<
+  RenderWorkerDeps,
+  'tracker' | 'ensureSource' | 'onClipChanged' | 'sidecar'
+> {
   db: Db;
   queue: JobQueue;
   settings: SettingsService;
@@ -135,11 +132,10 @@ export class PipelineOrchestrator {
   }
 
   registerJobs(): void {
-    this.d.queue.register<{ videoId: string }>(
-      JOB_PROCESS,
-      async (ctx) => this.process(ctx),
-      { concurrency: 1, maxAttempts: 2 },
-    );
+    this.d.queue.register<{ videoId: string }>(JOB_PROCESS, async (ctx) => this.process(ctx), {
+      concurrency: 1,
+      maxAttempts: 2,
+    });
     this.d.queue.register<{ clipId: string; videoId: string }>(
       JOB_RENDER,
       async (ctx) => {
@@ -158,7 +154,8 @@ export class PipelineOrchestrator {
       // Dev/test only: let yt-dlp's generic extractor take a direct media URL (used by the e2e harness).
       sourceId = `x-${createHash('sha1').update(url.trim()).digest('hex').slice(0, 9)}`;
     }
-    if (!sourceId) throw new AppError('VALIDATION', 'That does not look like a YouTube video link.');
+    if (!sourceId)
+      throw new AppError('VALIDATION', 'That does not look like a YouTube video link.');
     const notReady = await this.d.checkReady();
     if (notReady) throw new AppError('UNAVAILABLE', notReady);
     const active = await this.d.db.video.findFirst({
@@ -186,7 +183,11 @@ export class PipelineOrchestrator {
       },
     });
     await this.emitVideo(row.id);
-    await this.d.queue.enqueue({ kind: JOB_PROCESS, payload: { videoId: row.id }, groupKey: row.id });
+    await this.d.queue.enqueue({
+      kind: JOB_PROCESS,
+      payload: { videoId: row.id },
+      groupKey: row.id,
+    });
     return { videoId: row.id };
   }
 
@@ -198,9 +199,14 @@ export class PipelineOrchestrator {
       if (s.status === 'running' || s.status === 'pending')
         await this.tracker.update(videoId, s.stage, { status: 'canceled', message: 'Canceled' });
     }
-    await this.d.db.video.update({ where: { id: videoId }, data: { status: 'canceled' } }).catch(() => {});
+    await this.d.db.video
+      .update({ where: { id: videoId }, data: { status: 'canceled' } })
+      .catch(() => {});
     await this.d.db.clip
-      .updateMany({ where: { videoId, status: { in: ['queued', 'rendering'] } }, data: { status: 'candidate' } })
+      .updateMany({
+        where: { videoId, status: { in: ['queued', 'rendering'] } },
+        data: { status: 'candidate' },
+      })
       .catch(() => {});
     await this.emitVideo(videoId);
   }
@@ -212,7 +218,12 @@ export class PipelineOrchestrator {
     // Failed clips are re-rendered individually; everything else restarts from the chosen stage.
     if (stage === 'render') {
       const failed = await this.d.db.clip.findMany({ where: { videoId, status: 'failed' } });
-      await this.tracker.update(videoId, 'render', { status: 'running', error: null, message: 'Retrying…' }, 'processing');
+      await this.tracker.update(
+        videoId,
+        'render',
+        { status: 'running', error: null, message: 'Retrying…' },
+        'processing',
+      );
       await this.tracker.update(videoId, 'finalize', { status: 'pending', error: null });
       for (const c of failed) await this.queueRender(videoId, c.id);
       if (failed.length === 0) await this.checkCompletion(videoId);
@@ -235,23 +246,33 @@ export class PipelineOrchestrator {
     if (!clip) throw new AppError('NOT_FOUND', 'Clip not found.');
     const notReady = await this.d.checkReady();
     if (notReady) throw new AppError('UNAVAILABLE', notReady);
-    await this.d.db.clip.update({ where: { id: clipId }, data: { error: null, renderProgress: 0 } });
+    await this.d.db.clip.update({
+      where: { id: clipId },
+      data: { error: null, renderProgress: 0 },
+    });
     await this.queueRender(clip.videoId, clipId);
     await this.tracker.update(clip.videoId, 'finalize', { status: 'pending' });
   }
 
   /** Called on app start: cleans stale 'processing' state for videos whose jobs no longer exist. */
   async reconcileOnStart(): Promise<void> {
-    const rows = await this.d.db.video.findMany({ where: { status: { in: ['ingesting', 'processing'] } } });
+    const rows = await this.d.db.video.findMany({
+      where: { status: { in: ['ingesting', 'processing'] } },
+    });
     for (const v of rows) {
       const jobs = await this.d.db.job.count({
         where: { groupKey: v.id, status: { in: ['queued', 'running'] } },
       });
       if (jobs === 0) {
-        await this.tracker.update(v.id, (v.stage as PipelineStage) ?? 'ingest', {
-          status: 'failed',
-          error: 'Interrupted. Press Retry to continue.',
-        }, 'failed');
+        await this.tracker.update(
+          v.id,
+          (v.stage as PipelineStage) ?? 'ingest',
+          {
+            status: 'failed',
+            error: 'Interrupted. Press Retry to continue.',
+          },
+          'failed',
+        );
       }
     }
   }
@@ -275,7 +296,12 @@ export class PipelineOrchestrator {
       const t = this.tracker;
       const run = async (stage: PipelineStage, fn: () => Promise<void>) => {
         if ((await t.status(videoId, stage)) === 'done') return;
-        await t.update(videoId, stage, { status: 'running', progress: null, message: null, error: null });
+        await t.update(videoId, stage, {
+          status: 'running',
+          progress: null,
+          message: null,
+          error: null,
+        });
         await fn();
         await t.update(videoId, stage, { status: 'done', message: null, detail: null });
       };
@@ -301,11 +327,23 @@ export class PipelineOrchestrator {
 
   private async fail(videoId: string, err: unknown): Promise<void> {
     const message = userMessage(err);
-    this.d.log(`pipeline ${videoId} failed: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
+    this.d.log(
+      `pipeline ${videoId} failed: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`,
+    );
     const states = await this.tracker.load(videoId);
-    const running = states.find((s) => s.status === 'running') ?? states.find((s) => s.status === 'pending');
-    if (running) await this.tracker.update(videoId, running.stage, { status: 'failed', error: message, message }, 'failed');
-    const row = await this.d.db.video.findUnique({ where: { id: videoId }, select: { title: true } });
+    const running =
+      states.find((s) => s.status === 'running') ?? states.find((s) => s.status === 'pending');
+    if (running)
+      await this.tracker.update(
+        videoId,
+        running.stage,
+        { status: 'failed', error: message, message },
+        'failed',
+      );
+    const row = await this.d.db.video.findUnique({
+      where: { id: videoId },
+      select: { title: true },
+    });
     await this.d.notifications.create({
       kind: 'job',
       level: 'error',
@@ -315,13 +353,24 @@ export class PipelineOrchestrator {
       os: true,
     });
     if (err instanceof BudgetExceededError) {
-      await this.d.notifications.create({ kind: 'system', level: 'warning', title: 'AI budget reached', body: message, href: '/settings/models/' });
+      await this.d.notifications.create({
+        kind: 'system',
+        level: 'warning',
+        title: 'AI budget reached',
+        body: message,
+        href: '/settings/models/',
+      });
     }
   }
 
   /* ------------------------------------------------------------------------ stages ----------- */
 
-  private async stageIngest(videoId: string, options: PipelineOptions, dir: string, signal: AbortSignal): Promise<void> {
+  private async stageIngest(
+    videoId: string,
+    options: PipelineOptions,
+    dir: string,
+    signal: AbortSignal,
+  ): Promise<void> {
     const t = this.tracker;
     const video = await this.mustVideo(videoId);
     const cookies = this.d.cookiesFromBrowser();
@@ -329,7 +378,11 @@ export class PipelineOrchestrator {
     if (!info) {
       await t.update(videoId, 'ingest', { message: 'Reading video details…' });
       info = await this.d.ingest.probe(video.sourceUrl, { cookiesFromBrowser: cookies, signal });
-      if (info.isLive) throw new IngestError('This is a live stream. Live Clipping arrives in a later version.', 'live');
+      if (info.isLive)
+        throw new IngestError(
+          'This is a live stream. Live Clipping arrives in a later version.',
+          'live',
+        );
       await this.d.db.video.update({
         where: { id: videoId },
         data: {
@@ -344,8 +397,18 @@ export class PipelineOrchestrator {
     }
     const source = path.join(dir, 'source.mp4');
     if (fs.existsSync(source) && fs.statSync(source).size > 0) return;
-    await this.downloadSource(video.sourceUrl, dir, options.maxResolution, cookies, signal, (f, msg) =>
-      void t.update(videoId, 'ingest', { progress: f, message: 'Downloading', detail: msg ?? null }),
+    await this.downloadSource(
+      video.sourceUrl,
+      dir,
+      options.maxResolution,
+      cookies,
+      signal,
+      (f, msg) =>
+        void t.update(videoId, 'ingest', {
+          progress: f,
+          message: 'Downloading',
+          detail: msg ?? null,
+        }),
     );
   }
 
@@ -357,7 +420,12 @@ export class PipelineOrchestrator {
     signal: AbortSignal,
     onProgress: (f: number | null, msg?: string) => void,
   ): Promise<void> {
-    const { filePath } = await this.d.ingest.download(url, dir, { maxResolution, cookiesFromBrowser: cookies, signal, onProgress });
+    const { filePath } = await this.d.ingest.download(url, dir, {
+      maxResolution,
+      cookiesFromBrowser: cookies,
+      signal,
+      onProgress,
+    });
     const target = path.join(dir, 'source.mp4');
     if (path.resolve(filePath) !== path.resolve(target)) fs.renameSync(filePath, target);
   }
@@ -374,14 +442,26 @@ export class PipelineOrchestrator {
       fs.mkdirSync(dir, { recursive: true });
       this.d.log(`re-downloading source for ${videoId}`);
       const options = readOptions(video.options);
-      await this.downloadSource(video.sourceUrl, dir, options.maxResolution, this.d.cookiesFromBrowser(), signal ?? new AbortController().signal, () => {});
+      await this.downloadSource(
+        video.sourceUrl,
+        dir,
+        options.maxResolution,
+        this.d.cookiesFromBrowser(),
+        signal ?? new AbortController().signal,
+        () => {},
+      );
       return target;
     })().finally(() => this.sourceLocks.delete(videoId));
     this.sourceLocks.set(videoId, p);
     return p;
   }
 
-  private async stagePrepare(videoId: string, dir: string, source: string, signal: AbortSignal): Promise<void> {
+  private async stagePrepare(
+    videoId: string,
+    dir: string,
+    source: string,
+    signal: AbortSignal,
+  ): Promise<void> {
     const t = this.tracker;
     const info = await this.d.media.probe(source);
     if (!info.hasVideo) throw new Error('The downloaded file has no video stream.');
@@ -395,14 +475,16 @@ export class PipelineOrchestrator {
       await t.update(videoId, 'prepare', { message: 'Extracting audio' });
       await this.d.media.extractAudio16k(source, wav, {
         signal,
-        onProgress: (f) => void t.update(videoId, 'prepare', { progress: f === null ? null : f * 0.35 }),
+        onProgress: (f) =>
+          void t.update(videoId, 'prepare', { progress: f === null ? null : f * 0.35 }),
       });
     }
     if (!fs.existsSync(proxy)) {
       await t.update(videoId, 'prepare', { message: 'Creating 480p proxy' });
       await this.d.media.makeProxy(source, proxy, {
         signal,
-        onProgress: (f) => void t.update(videoId, 'prepare', { progress: f === null ? null : 0.35 + f * 0.55 }),
+        onProgress: (f) =>
+          void t.update(videoId, 'prepare', { progress: f === null ? null : 0.35 + f * 0.55 }),
       });
     }
     const scenesFile = path.join(dir, 'scenes.json');
@@ -434,9 +516,11 @@ export class PipelineOrchestrator {
   ): Promise<void> {
     const t = this.tracker;
     const alreadyDone =
-      (await t.status(videoId, 'transcribe')) === 'done' && (await t.status(videoId, 'moments')) === 'done';
+      (await t.status(videoId, 'transcribe')) === 'done' &&
+      (await t.status(videoId, 'moments')) === 'done';
     if (alreadyDone) {
-      if ((await t.status(videoId, 'understand')) !== 'done') await this.stageUnderstand(videoId, signal);
+      if ((await t.status(videoId, 'understand')) !== 'done')
+        await this.stageUnderstand(videoId, signal);
       return;
     }
     const video = await this.mustVideo(videoId);
@@ -447,8 +531,18 @@ export class PipelineOrchestrator {
     const sourceId = video.sourceId ?? videoId;
     const cacheBase = `cache/yt-${sourceId}/${model}`;
 
-    await t.update(videoId, 'transcribe', { status: 'running', progress: 0, message: 'Starting transcription engine…', error: null });
-    await t.update(videoId, 'moments', { status: 'running', progress: 0, message: 'Waiting for the first transcript window…', error: null });
+    await t.update(videoId, 'transcribe', {
+      status: 'running',
+      progress: 0,
+      message: 'Starting transcription engine…',
+      error: null,
+    });
+    await t.update(videoId, 'moments', {
+      status: 'running',
+      progress: 0,
+      message: 'Waiting for the first transcript window…',
+      error: null,
+    });
     await this.d.sidecar.start();
 
     // Cross-run cache (BRIEF §4: "cache every intermediate keyed by content"): same video + model = no ASR.
@@ -457,16 +551,23 @@ export class PipelineOrchestrator {
     const total = Math.max(1, Math.ceil(duration / WINDOW_SEC));
     const words: Word[] = [];
     const signalParts: { start: number; signals: AudioSignals }[] = [];
-    const sceneCuts = parseJson<{ cuts: number[] }>(fs.readFileSync(path.join(dir, 'scenes.json'), 'utf8'), { cuts: [] }).cuts;
+    const sceneCuts = parseJson<{ cuts: number[] }>(
+      fs.readFileSync(path.join(dir, 'scenes.json'), 'utf8'),
+      { cuts: [] },
+    ).cuts;
     let language = 'en';
     let languageProbability = 1;
     let modelName = model;
     const { maxSec } = durationRange(options);
     const overlapSec = maxSec + 15;
     const wantedPerWindow =
-      options.clipCount === null ? 6 : Math.max(2, Math.ceil(((options.clipCount * WINDOW_SEC) / Math.max(duration, 1)) * 1.8) + 1);
+      options.clipCount === null
+        ? 6
+        : Math.max(
+            2,
+            Math.ceil(((options.clipCount * WINDOW_SEC) / Math.max(duration, 1)) * 1.8) + 1,
+          );
 
-    let understandPromise: Promise<void> | null = null;
     let rankChain: Promise<void> = Promise.resolve();
     let rankError: unknown = null;
 
@@ -477,24 +578,39 @@ export class PipelineOrchestrator {
       let windowWords: Word[];
       let windowSignals: AudioSignals;
       if (cached) {
-        windowWords = cached.transcript.words.filter((w) => mid(w) >= wStart && mid(w) < (k === total - 1 ? Infinity : wEnd));
+        windowWords = cached.transcript.words.filter(
+          (w) => mid(w) >= wStart && mid(w) < (k === total - 1 ? Infinity : wEnd),
+        );
         windowSignals = sliceSignals(cached.signals, wStart, wEnd);
         language = cached.transcript.language;
         languageProbability = cached.transcript.languageProbability;
         modelName = cached.transcript.model;
-        await t.update(videoId, 'transcribe', { progress: (k + 1) / total, message: `Using cached transcript (window ${k + 1}/${total})` });
+        await t.update(videoId, 'transcribe', {
+          progress: (k + 1) / total,
+          message: `Using cached transcript (window ${k + 1}/${total})`,
+        });
       } else {
         const slice = path.join(dir, `win-${k}.wav`);
         const padStart = Math.max(0, wStart - TRANSCRIBE_PAD_SEC);
         const padEnd = Math.min(duration, wEnd + TRANSCRIBE_PAD_SEC);
-        await this.d.media.extractAudio16k(wav, slice, { startSec: padStart, durSec: padEnd - padStart, signal });
+        await this.d.media.extractAudio16k(wav, slice, {
+          startSec: padStart,
+          durSec: padEnd - padStart,
+          signal,
+        });
         await t.update(videoId, 'transcribe', {
           progress: k / total,
           message: `Transcribing window ${k + 1}/${total}`,
           detail: `${fmt(wStart)}–${fmt(wEnd)}`,
         });
         const res = await this.d.sidecar.transcribe(
-          { audio_path: slice, model, language: options.language ?? undefined, vad_filter: true, condition_on_previous_text: false },
+          {
+            audio_path: slice,
+            model,
+            language: options.language ?? undefined,
+            vad_filter: true,
+            condition_on_previous_text: false,
+          },
           { signal },
         );
         fs.rmSync(slice, { force: true });
@@ -506,13 +622,22 @@ export class PipelineOrchestrator {
         windowWords = [];
         for (const seg of res.segments) {
           for (const w of seg.words) {
-            const word: Word = { w: w.word, s: w.start + padStart, e: w.end + padStart, p: w.probability };
+            const word: Word = {
+              w: w.word,
+              s: w.start + padStart,
+              e: w.end + padStart,
+              p: w.probability,
+            };
             if (mid(word) >= wStart && mid(word) < wEnd) windowWords.push(word);
           }
         }
         // Exact (un-padded) slice for the audio signals of this window.
         const sigWav = path.join(dir, `sig-${k}.wav`);
-        await this.d.media.extractAudio16k(wav, sigWav, { startSec: wStart, durSec: wEnd - wStart, signal });
+        await this.d.media.extractAudio16k(wav, sigWav, {
+          startSec: wStart,
+          durSec: wEnd - wStart,
+          signal,
+        });
         windowSignals = await this.d.analysis.computeSignals({
           wavPath: sigWav,
           words: windowWords.map((w) => ({ ...w, s: w.s - wStart, e: w.e - wStart })),
@@ -527,7 +652,14 @@ export class PipelineOrchestrator {
       signalParts.push({ start: wStart, signals: windowSignals });
       const signals = { ...mergeSignals(signalParts, wEnd), sceneCuts };
       const isLast = k === total - 1;
-      const transcript = this.buildTranscript(words, signals, wEnd, language, languageProbability, modelName);
+      const transcript = this.buildTranscript(
+        words,
+        signals,
+        wEnd,
+        language,
+        languageProbability,
+        modelName,
+      );
       // Rolling copy so clips found in this window can already be captioned by the render worker.
       atomicWrite(path.join(dir, 'transcript.json'), JSON.stringify(transcript));
 
@@ -536,8 +668,25 @@ export class PipelineOrchestrator {
       rankChain = rankChain
         .then(async () => {
           if (rankError || signal.aborted) return;
-          await t.update(videoId, 'moments', { message: `Finding moments in window ${k + 1}/${total}`, progress: k / total });
-          await this.rankWindow({ videoId, options, transcript, signals, k, total, wStart, wEnd, isLast, overlapSec, maxPerWindow: wantedPerWindow, signal, log });
+          await t.update(videoId, 'moments', {
+            message: `Finding moments in window ${k + 1}/${total}`,
+            progress: k / total,
+          });
+          await this.rankWindow({
+            videoId,
+            options,
+            transcript,
+            signals,
+            k,
+            total,
+            wStart,
+            wEnd,
+            isLast,
+            overlapSec,
+            maxPerWindow: wantedPerWindow,
+            signal,
+            log,
+          });
           await t.update(videoId, 'moments', { progress: (k + 1) / total });
         })
         .catch((e) => {
@@ -551,8 +700,20 @@ export class PipelineOrchestrator {
     if (signal.aborted) throw new Error('canceled');
 
     const signals = { ...mergeSignals(signalParts, duration), sceneCuts };
-    const transcript = this.buildTranscript(words, signals, duration, language, languageProbability, modelName);
-    await t.update(videoId, 'transcribe', { status: 'done', progress: 1, message: null, detail: `${transcript.words.length} words` });
+    const transcript = this.buildTranscript(
+      words,
+      signals,
+      duration,
+      language,
+      languageProbability,
+      modelName,
+    );
+    await t.update(videoId, 'transcribe', {
+      status: 'done',
+      progress: 1,
+      message: null,
+      detail: `${transcript.words.length} words`,
+    });
     // Persist artifacts (and the cross-run cache).
     const tJson = JSON.stringify(transcript);
     const sJson = JSON.stringify(signals);
@@ -561,12 +722,15 @@ export class PipelineOrchestrator {
     await Promise.all([
       storage.put(keys.transcript(videoId), tJson, { contentType: 'application/json' }),
       storage.put(keys.signals(videoId), sJson, { contentType: 'application/json' }),
-      cached ? Promise.resolve() : storage.put(`${cacheBase}/transcript.json`, tJson, { contentType: 'application/json' }),
-      cached ? Promise.resolve() : storage.put(`${cacheBase}/signals.json`, sJson, { contentType: 'application/json' }),
+      cached
+        ? Promise.resolve()
+        : storage.put(`${cacheBase}/transcript.json`, tJson, { contentType: 'application/json' }),
+      cached
+        ? Promise.resolve()
+        : storage.put(`${cacheBase}/signals.json`, sJson, { contentType: 'application/json' }),
     ]);
     await t.update(videoId, 'moments', { status: 'done', progress: 1, message: null });
-    understandPromise = this.stageUnderstand(videoId, signal);
-    await understandPromise;
+    await this.stageUnderstand(videoId, signal);
   }
 
   private async loadTranscriptCache(
@@ -574,10 +738,17 @@ export class PipelineOrchestrator {
     base: string,
   ): Promise<{ transcript: Transcript; signals: AudioSignals } | null> {
     try {
-      const [th, sh] = await Promise.all([storage.head(`${base}/transcript.json`), storage.head(`${base}/signals.json`)]);
+      const [th, sh] = await Promise.all([
+        storage.head(`${base}/transcript.json`),
+        storage.head(`${base}/signals.json`),
+      ]);
       if (!th || !sh) return null;
-      const transcript = transcriptSchema.parse(JSON.parse((await storage.get(`${base}/transcript.json`)).toString('utf8')));
-      const signals = audioSignalsSchema.parse(JSON.parse((await storage.get(`${base}/signals.json`)).toString('utf8')));
+      const transcript = transcriptSchema.parse(
+        JSON.parse((await storage.get(`${base}/transcript.json`)).toString('utf8')),
+      );
+      const signals = audioSignalsSchema.parse(
+        JSON.parse((await storage.get(`${base}/signals.json`)).toString('utf8')),
+      );
       return { transcript, signals };
     } catch (e) {
       this.d.log(`transcript cache miss/invalid: ${String(e)}`);
@@ -606,17 +777,33 @@ export class PipelineOrchestrator {
   private async stageUnderstand(videoId: string, signal: AbortSignal): Promise<void> {
     const t = this.tracker;
     if ((await t.status(videoId, 'understand')) === 'done') return;
-    await t.update(videoId, 'understand', { status: 'running', progress: null, message: 'Summarising, chaptering and taking notes…', error: null });
+    await t.update(videoId, 'understand', {
+      status: 'running',
+      progress: null,
+      message: 'Summarising, chaptering and taking notes…',
+      error: null,
+    });
     const video = await this.mustVideo(videoId);
     const dir = path.join(this.d.cacheDir, videoId);
     const storage = this.mustStorage();
-    const transcript = transcriptSchema.parse(JSON.parse(fs.readFileSync(path.join(dir, 'transcript.json'), 'utf8')));
+    const transcript = transcriptSchema.parse(
+      JSON.parse(fs.readFileSync(path.join(dir, 'transcript.json'), 'utf8')),
+    );
     const info = parseJson<VideoMeta>(video.metadata, {}).info;
     const analysis = await this.d.llm.understand({
-      info: { title: info?.title ?? video.title, channel: info?.channel ?? video.channel, description: info?.description ?? null, chapters: info?.chapters ?? [] },
+      info: {
+        title: info?.title ?? video.title,
+        channel: info?.channel ?? video.channel,
+        description: info?.description ?? null,
+        chapters: info?.chapters ?? [],
+      },
       transcript,
       signal,
-      onProgress: (f, m) => void t.update(videoId, 'understand', { progress: f, message: m ?? 'Understanding the video…' }),
+      onProgress: (f, m) =>
+        void t.update(videoId, 'understand', {
+          progress: f,
+          message: m ?? 'Understanding the video…',
+        }),
     });
     const json = JSON.stringify(analysis);
     fs.writeFileSync(path.join(dir, 'analysis.json'), json);
@@ -656,19 +843,32 @@ export class PipelineOrchestrator {
       if (last && !/[.!?…"”)]$/.test(last.text.trim())) sentences = sentences.slice(0, -1);
     }
     if (sentences.length === 0) return;
-    const ranked = await this.d.llm.rankMoments({
-      videoId: a.videoId,
-      info: { title: info?.title ?? video.title, channel: info?.channel ?? video.channel },
-      analysis: null,
-      options: a.options,
-      window: { startSec: ctxStart, endSec: sentences[sentences.length - 1]?.e ?? a.wEnd },
-      sentences,
-      candidates,
-      maxClips: a.maxPerWindow,
-      signal: a.signal,
-    });
-    a.log(`window ${a.k + 1}/${a.total}: ${candidates.length} candidates → ${ranked.length} ranked`);
-    for (const r of ranked) await this.addMoment(a.videoId, a.options, a.transcript, a.signals, r, a.wStart - 1);
+    let ranked: RankedMoment[];
+    try {
+      ranked = await this.d.llm.rankMoments({
+        videoId: a.videoId,
+        info: { title: info?.title ?? video.title, channel: info?.channel ?? video.channel },
+        analysis: null,
+        options: a.options,
+        window: { startSec: ctxStart, endSec: sentences[sentences.length - 1]?.e ?? a.wEnd },
+        sentences,
+        candidates,
+        maxClips: a.maxPerWindow,
+        signal: a.signal,
+      });
+    } catch (e) {
+      // A safety refusal on one window must not sink the whole video: skip that window and carry on.
+      if (e instanceof LlmError && e.code === 'refusal') {
+        a.log(`window ${a.k + 1}/${a.total}: model declined (refusal) — skipping this window`);
+        return;
+      }
+      throw e;
+    }
+    a.log(
+      `window ${a.k + 1}/${a.total}: ${candidates.length} candidates → ${ranked.length} ranked`,
+    );
+    for (const r of ranked)
+      await this.addMoment(a.videoId, a.options, a.transcript, a.signals, r, a.wStart - 1);
   }
 
   private async addMoment(
@@ -679,7 +879,13 @@ export class PipelineOrchestrator {
     r: RankedMoment,
     minStart: number,
   ): Promise<void> {
-    const snapped = this.d.moments.snap({ startSec: r.startSec, endSec: r.endSec, transcript, signals, options });
+    const snapped = this.d.moments.snap({
+      startSec: r.startSec,
+      endSec: r.endSec,
+      transcript,
+      signals,
+      options,
+    });
     const { minSec, maxSec } = durationRange(options);
     const dur = snapped.endSec - snapped.startSec;
     if (dur < minSec * 0.8 || dur > maxSec * 1.15) return;
@@ -705,22 +911,41 @@ export class PipelineOrchestrator {
         score,
         scoreDetail: JSON.stringify(r.breakdown),
         aspect: options.aspect,
-        metadata: JSON.stringify({ whyItWorks: r.whyItWorks, confidence: r.confidence, keywords: r.keywords, captionStyle: r.captionStyle }),
+        metadata: JSON.stringify({
+          whyItWorks: r.whyItWorks,
+          confidence: r.confidence,
+          keywords: r.keywords,
+          captionStyle: r.captionStyle,
+        }),
       },
     });
     await this.emitClip(row.id);
     await this.emitVideo(videoId);
-    const rendering = await this.d.db.clip.count({ where: { videoId, status: { in: ['queued', 'rendering', 'rendered'] } } });
+    const rendering = await this.d.db.clip.count({
+      where: { videoId, status: { in: ['queued', 'rendering', 'rendered'] } },
+    });
     const budget = options.clipCount ?? Infinity;
     if (score >= EAGER_RENDER_SCORE && rendering < budget) await this.queueRender(videoId, row.id);
   }
 
   /** After every window: keep the best N (or all ≥ minScore), drop the rest, render what's left. */
-  private async stageSelect(videoId: string, options: PipelineOptions, _signal: AbortSignal): Promise<void> {
+  private async stageSelect(
+    videoId: string,
+    options: PipelineOptions,
+    _signal: AbortSignal,
+  ): Promise<void> {
     const t = this.tracker;
     if ((await t.status(videoId, 'render')) === 'done') return;
-    await t.update(videoId, 'render', { status: 'running', progress: 0, message: 'Preparing clips…', error: null });
-    const all = await this.d.db.clip.findMany({ where: { videoId }, orderBy: [{ score: 'desc' }, { startSec: 'asc' }] });
+    await t.update(videoId, 'render', {
+      status: 'running',
+      progress: 0,
+      message: 'Preparing clips…',
+      error: null,
+    });
+    const all = await this.d.db.clip.findMany({
+      where: { videoId },
+      orderBy: [{ score: 'desc' }, { startSec: 'asc' }],
+    });
     const eligible = all.filter((c) => (c.score ?? 0) >= options.minScore);
     const keep = options.clipCount === null ? eligible : eligible.slice(0, options.clipCount);
     const keepIds = new Set(keep.map((c) => c.id));
@@ -733,7 +958,10 @@ export class PipelineOrchestrator {
       if (c.status === 'candidate') await this.queueRender(videoId, c.id);
     }
     if (keep.length === 0) {
-      await t.update(videoId, 'render', { status: 'skipped', message: 'No moments scored high enough' });
+      await t.update(videoId, 'render', {
+        status: 'skipped',
+        message: 'No moments scored high enough',
+      });
     }
     await this.emitVideo(videoId);
   }
@@ -741,9 +969,17 @@ export class PipelineOrchestrator {
   private async queueRender(videoId: string, clipId: string): Promise<void> {
     const clip = await this.d.db.clip.findUnique({ where: { id: clipId } });
     if (!clip || ['queued', 'rendering'].includes(clip.status)) return;
-    await this.d.db.clip.update({ where: { id: clipId }, data: { status: 'queued', error: null, renderProgress: 0 } });
+    await this.d.db.clip.update({
+      where: { id: clipId },
+      data: { status: 'queued', error: null, renderProgress: 0 },
+    });
     await this.emitClip(clipId);
-    await this.d.queue.enqueue({ kind: JOB_RENDER, payload: { clipId, videoId }, groupKey: videoId, priority: 1 });
+    await this.d.queue.enqueue({
+      kind: JOB_RENDER,
+      payload: { clipId, videoId },
+      groupKey: videoId,
+      priority: 1,
+    });
   }
 
   /* ------------------------------------------------------------ completion / finalize -------- */
@@ -768,9 +1004,19 @@ export class PipelineOrchestrator {
     try {
       const failedClips = clips.filter((c) => c.status === 'failed').length;
       if ((await this.tracker.status(videoId, 'render')) !== 'skipped') {
-        await this.tracker.update(videoId, 'render', failedClips && !rendered
-          ? { status: 'failed', error: 'Every clip failed to render. See the clip errors and press Retry.' }
-          : { status: 'done', message: failedClips ? `${rendered} rendered, ${failedClips} failed` : null });
+        await this.tracker.update(
+          videoId,
+          'render',
+          failedClips && !rendered
+            ? {
+                status: 'failed',
+                error: 'Every clip failed to render. See the clip errors and press Retry.',
+              }
+            : {
+                status: 'done',
+                message: failedClips ? `${rendered} rendered, ${failedClips} failed` : null,
+              },
+        );
       }
       await this.finalize(videoId);
     } catch (e) {
@@ -783,7 +1029,12 @@ export class PipelineOrchestrator {
   private async finalize(videoId: string): Promise<void> {
     const t = this.tracker;
     if ((await t.status(videoId, 'finalize')) === 'done') return;
-    await t.update(videoId, 'finalize', { status: 'running', progress: 0, message: 'Uploading proxy…', error: null });
+    await t.update(videoId, 'finalize', {
+      status: 'running',
+      progress: 0,
+      message: 'Uploading proxy…',
+      error: null,
+    });
     const settings = await this.d.settings.get();
     const storage = this.mustStorage();
     const dir = path.join(this.d.cacheDir, videoId);
@@ -792,7 +1043,8 @@ export class PipelineOrchestrator {
     if (settings.keepSourceAs !== 'none' && fs.existsSync(proxy)) {
       await storage.putFile(keys.proxy(videoId), proxy, {
         contentType: 'video/mp4',
-        onProgress: (l, tot) => void t.update(videoId, 'finalize', { progress: tot ? (l / tot) * 0.9 : null }),
+        onProgress: (l, tot) =>
+          void t.update(videoId, 'finalize', { progress: tot ? (l / tot) * 0.9 : null }),
       });
       keyMap.proxy = keys.proxy(videoId);
     }
@@ -807,18 +1059,28 @@ export class PipelineOrchestrator {
     const row = await this.mustVideo(videoId);
     await this.d.db.video.update({
       where: { id: videoId },
-      data: { storageKeys: JSON.stringify({ ...parseJson<Record<string, string>>(row.storageKeys, {}), ...keyMap }) },
+      data: {
+        storageKeys: JSON.stringify({
+          ...parseJson<Record<string, string>>(row.storageKeys, {}),
+          ...keyMap,
+        }),
+      },
     });
     // The full-res source is NOT kept by default (BRIEF §3): free the local disk, keep transcript/analysis locally for speed.
-    for (const f of ['source.mp4', 'audio.wav', 'proxy.mp4']) fs.rmSync(path.join(dir, f), { force: true });
+    for (const f of ['source.mp4', 'audio.wav', 'proxy.mp4'])
+      fs.rmSync(path.join(dir, f), { force: true });
     await t.update(videoId, 'finalize', { status: 'done', message: null, progress: 1 }, 'ready');
     const clips = await this.d.db.clip.findMany({ where: { videoId, status: 'rendered' } });
     const best = clips.reduce((m, c) => Math.max(m, c.score ?? 0), 0);
     await this.d.notifications.create({
       kind: 'clips-ready',
       level: clips.length ? 'success' : 'warning',
-      title: clips.length ? `${clips.length} clip${clips.length === 1 ? '' : 's'} ready` : 'No clips found',
-      body: clips.length ? `${row.title}${best ? ` · top score ${best}` : ''}` : `${row.title} — no moments scored high enough. Try a lower minimum score or a different clip length.`,
+      title: clips.length
+        ? `${clips.length} clip${clips.length === 1 ? '' : 's'} ready`
+        : 'No clips found',
+      body: clips.length
+        ? `${row.title}${best ? ` · top score ${best}` : ''}`
+        : `${row.title} — no moments scored high enough. Try a lower minimum score or a different clip length.`,
       href: `/library/video/?id=${videoId}`,
       os: true,
     });
@@ -848,11 +1110,16 @@ export class PipelineOrchestrator {
     await this.d.db.clip.deleteMany({ where: { id: { in: ids } } });
     if (storage) {
       const k: string[] = [];
-      for (const c of rows) k.push(keys.clip(c.id), keys.thumb(c.id), keys.ass(c.id), keys.srt(c.id), keys.vtt(c.id));
+      for (const c of rows)
+        k.push(keys.clip(c.id), keys.thumb(c.id), keys.ass(c.id), keys.srt(c.id), keys.vtt(c.id));
       await storage.delete(k).catch((e) => this.d.log(`storage delete failed: ${String(e)}`));
       this.d.invalidateStorage();
     }
-    for (const c of rows) fs.rmSync(path.join(this.d.cacheDir, c.videoId, 'clips', c.id), { recursive: true, force: true });
+    for (const c of rows)
+      fs.rmSync(path.join(this.d.cacheDir, c.videoId, 'clips', c.id), {
+        recursive: true,
+        force: true,
+      });
   }
 
   async cancelJob(jobId: string): Promise<void> {
@@ -860,13 +1127,19 @@ export class PipelineOrchestrator {
   }
 
   private async cancelJobs(videoId: string): Promise<void> {
-    const jobs = await this.d.db.job.findMany({ where: { groupKey: videoId, status: { in: ['queued', 'running'] } } });
+    const jobs = await this.d.db.job.findMany({
+      where: { groupKey: videoId, status: { in: ['queued', 'running'] } },
+    });
     for (const j of jobs) await this.d.queue.cancel(j.id);
   }
 
   private mustStorage(): StorageProvider {
     const s = this.d.getStorage();
-    if (!s) throw new AppError('UNAVAILABLE', 'Object storage is not connected. Add your Cloudflare R2 (or Backblaze B2) details in Settings → Storage.');
+    if (!s)
+      throw new AppError(
+        'UNAVAILABLE',
+        'Object storage is not connected. Add your Cloudflare R2 (or Backblaze B2) details in Settings → Storage.',
+      );
     return s;
   }
 
@@ -879,11 +1152,17 @@ export class PipelineOrchestrator {
   async videoView(id: string): Promise<VideoView | null> {
     const v = await this.d.db.video.findUnique({ where: { id } });
     if (!v) return null;
-    const clips = await this.d.db.clip.findMany({ where: { videoId: id }, select: { status: true, score: true } });
+    const clips = await this.d.db.clip.findMany({
+      where: { videoId: id },
+      select: { status: true, score: true },
+    });
     return toVideoView(v, {
       clipCount: clips.length,
       renderedCount: clips.filter((c) => c.status === 'rendered').length,
-      topScore: clips.reduce<number | null>((m, c) => (c.score !== null && (m === null || c.score > m) ? c.score : m), null),
+      topScore: clips.reduce<number | null>(
+        (m, c) => (c.score !== null && (m === null || c.score > m) ? c.score : m),
+        null,
+      ),
     });
   }
 
@@ -895,7 +1174,10 @@ export class PipelineOrchestrator {
   async emitClip(id: string): Promise<void> {
     const c = await this.d.db.clip.findUnique({ where: { id } });
     if (!c) return;
-    const v = await this.d.db.video.findUnique({ where: { id: c.videoId }, select: { title: true } });
+    const v = await this.d.db.video.findUnique({
+      where: { id: c.videoId },
+      select: { title: true },
+    });
     this.d.emit.clip(toClipView(c as ClipRow, v?.title ?? null));
     if (c.status === 'rendered') await this.notifyFirstClip(c.videoId, c.title);
   }
@@ -904,10 +1186,13 @@ export class PipelineOrchestrator {
   async loadAnalysis(videoId: string): Promise<VideoAnalysis | null> {
     const local = path.join(this.d.cacheDir, videoId, 'analysis.json');
     try {
-      if (fs.existsSync(local)) return videoAnalysisSchema.parse(JSON.parse(fs.readFileSync(local, 'utf8')));
+      if (fs.existsSync(local))
+        return videoAnalysisSchema.parse(JSON.parse(fs.readFileSync(local, 'utf8')));
       const storage = this.d.getStorage();
       if (!storage || !(await storage.head(keys.analysis(videoId)))) return null;
-      return videoAnalysisSchema.parse(JSON.parse((await storage.get(keys.analysis(videoId))).toString('utf8')));
+      return videoAnalysisSchema.parse(
+        JSON.parse((await storage.get(keys.analysis(videoId))).toString('utf8')),
+      );
     } catch {
       return null;
     }
@@ -916,10 +1201,13 @@ export class PipelineOrchestrator {
   async loadTranscript(videoId: string): Promise<Transcript | null> {
     const local = path.join(this.d.cacheDir, videoId, 'transcript.json');
     try {
-      if (fs.existsSync(local)) return transcriptSchema.parse(JSON.parse(fs.readFileSync(local, 'utf8')));
+      if (fs.existsSync(local))
+        return transcriptSchema.parse(JSON.parse(fs.readFileSync(local, 'utf8')));
       const storage = this.d.getStorage();
       if (!storage || !(await storage.head(keys.transcript(videoId)))) return null;
-      return transcriptSchema.parse(JSON.parse((await storage.get(keys.transcript(videoId))).toString('utf8')));
+      return transcriptSchema.parse(
+        JSON.parse((await storage.get(keys.transcript(videoId))).toString('utf8')),
+      );
     } catch {
       return null;
     }
@@ -933,10 +1221,12 @@ function atomicWrite(file: string, data: string): void {
 }
 
 const mid = (w: Word): number => (w.s + w.e) / 2;
-const fmt = (s: number): string => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+const fmt = (s: number): string =>
+  `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 function userMessage(err: unknown): string {
-  if (err instanceof IngestError || err instanceof BudgetExceededError || err instanceof AppError) return err.message;
+  if (err instanceof IngestError || err instanceof BudgetExceededError || err instanceof AppError)
+    return err.message;
   const m = err instanceof Error ? err.message : String(err);
   return m.length > 400 ? `${m.slice(0, 400)}…` : m;
 }
@@ -950,8 +1240,12 @@ export function sliceSignals(s: AudioSignals, start: number, end: number): Audio
     durationSec: end - start,
     loudness: s.loudness.slice(i0, i1),
     speechRate: s.speechRate.slice(i0, i1),
-    silences: s.silences.filter((x) => x.e > start && x.s < end).map((x) => ({ s: Math.max(x.s, start) - start, e: Math.min(x.e, end) - start })),
-    laughter: s.laughter.filter((x) => x.e > start && x.s < end).map((x) => ({ ...x, s: Math.max(x.s, start) - start, e: Math.min(x.e, end) - start })),
+    silences: s.silences
+      .filter((x) => x.e > start && x.s < end)
+      .map((x) => ({ s: Math.max(x.s, start) - start, e: Math.min(x.e, end) - start })),
+    laughter: s.laughter
+      .filter((x) => x.e > start && x.s < end)
+      .map((x) => ({ ...x, s: Math.max(x.s, start) - start, e: Math.min(x.e, end) - start })),
     speakerChanges: s.speakerChanges.filter((x) => x >= start && x < end).map((x) => x - start),
     sceneCuts: [],
   };

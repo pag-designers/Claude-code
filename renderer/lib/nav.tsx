@@ -153,6 +153,7 @@ export function titleForPath(pathname: string): { title: string; parent?: string
     const s = SETTINGS_SECTIONS.find((x) => x.slug === slug);
     return { title: s?.label ?? 'Settings', parent: 'Settings' };
   }
+  if (p.startsWith('/library/video/')) return { title: 'Video', parent: 'Library' };
   if (p.startsWith('/notifications')) return { title: 'Notifications' };
   if (p.startsWith('/design')) return { title: 'Design system' };
   const item = NAV_ITEMS.find((n) => n.href !== '/' && p.startsWith(n.href));

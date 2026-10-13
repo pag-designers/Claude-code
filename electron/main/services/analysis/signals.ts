@@ -1,13 +1,7 @@
 import type { AudioSignals, Word } from '@shared/pipeline';
 import { AbortError, LineBuffer, runProcess } from '../media/proc';
-import {
-  FRAME_SEC,
-  FrameAnalyzer,
-  SAMPLE_RATE,
-  median,
-  percentile,
-  type FrameSeries,
-} from './dsp';
+import { isTerminal, pauseBefore } from './sentences';
+import { FRAME_SEC, FrameAnalyzer, SAMPLE_RATE, median, percentile, type FrameSeries } from './dsp';
 
 /**
  * Audio signals for the moment finder (BRIEF §4.3). Everything is a pure function of (wav, words,
@@ -82,7 +76,8 @@ async function pass1Frames(args: ComputeSignalsArgs): Promise<FrameSeries> {
       },
     },
   );
-  if (res.code !== 0) throw new Error(`ffmpeg failed decoding ${args.wavPath}: ${lastLines(res.stderrTail)}`);
+  if (res.code !== 0)
+    throw new Error(`ffmpeg failed decoding ${args.wavPath}: ${lastLines(res.stderrTail)}`);
   return analyzer.finish();
 }
 
@@ -104,7 +99,21 @@ async function pass2Silence(
   });
   const res = await runProcess(
     args.ffmpegPath,
-    ['-hide_banner', '-nostdin', '-nostats', '-v', 'info', '-i', args.wavPath, '-vn', '-af', filter, '-f', 'null', '-'],
+    [
+      '-hide_banner',
+      '-nostdin',
+      '-nostats',
+      '-v',
+      'info',
+      '-i',
+      args.wavPath,
+      '-vn',
+      '-af',
+      filter,
+      '-f',
+      'null',
+      '-',
+    ],
     {
       signal: args.signal,
       onStdout: (c) => outLines.push(c),
@@ -113,7 +122,8 @@ async function pass2Silence(
   );
   errLines.flush();
   outLines.flush();
-  if (res.code !== 0) throw new Error(`ffmpeg loudness/silence pass failed: ${lastLines(res.stderrTail)}`);
+  if (res.code !== 0)
+    throw new Error(`ffmpeg loudness/silence pass failed: ${lastLines(res.stderrTail)}`);
   return {
     silences: parseSilenceLog(silenceLog, args.durationSec),
     loudness: parseEbur128(meta),
@@ -181,7 +191,8 @@ export function adaptiveSilenceDb(levelDb: Float32Array): number {
   return Math.max(-58, Math.min(-32, thr));
 }
 
-export const hopCount = (durationSec: number): number => Math.max(1, Math.ceil(durationSec / HOP_SEC));
+export const hopCount = (durationSec: number): number =>
+  Math.max(1, Math.ceil(durationSec / HOP_SEC));
 
 /** Mean momentary LUFS (power average) of the samples that end inside each hop. */
 export function loudnessSeries(samples: readonly Ebur128Sample[], durationSec: number): number[] {
@@ -223,7 +234,8 @@ export function speechRateSeries(words: readonly Word[], durationSec: number): n
   return out;
 }
 
-const LAUGH_TOKEN = /^[[(]?\s*(?:(?:ha|he|hah|heh|hee|haa|ho)+[!.,?]*|lol|laughs?|laughter|laughing|applause|clapping|cheers?|cheering)\s*[\])]?[!.,?]*$/i;
+const LAUGH_TOKEN =
+  /^[[(]?\s*(?:(?:ha|he|hah|heh|hee|haa|ho)+[!.,?]*|lol|laughs?|laughter|laughing|applause|clapping|cheers?|cheering)\s*[\])]?[!.,?]*$/i;
 
 /** Per-frame mask: true where a (non-laughter-token) word is being spoken, with a small dilation. */
 function speechMask(frames: FrameSeries, words: readonly Word[]): Uint8Array {
@@ -256,23 +268,26 @@ export interface LaughterOptions {
  *   - it is loud: within 10 dB of the speech reference (75th percentile level of word-covered frames; the
  *     90th percentile of all non-silent frames when there are no words) and above -45 dBFS.
  * Candidates are merged (dips <= bridgeSec are bridged) and kept when >= minSec. Each burst is scored
- * 0..1 as 0.35 loudness-vs-speech + 0.25 duration (saturates at 1.5 s) + 0.40 character, where
- * character = max(noisiness, modulation): noisiness = mean brightness `hf` (applause/crowd noise are
- * broadband), modulation = std-dev of the frame level (laughter pulses; steady music/hum do not).
- * Bursts whose character < 0.3 (steady, tonal: music beds, hum, room tone) are discarded.
+ * 0..1 as 0.30 loudness-vs-speech + 0.20 duration (saturates at 1.5 s) + 0.30 character + 0.20
+ * polyphony, where character = max(noisiness, modulation): noisiness = mean brightness `hf`
+ * (applause/crowd noise are broadband), modulation = std-dev of the frame level (laughter pulses; steady
+ * music/hum do not); polyphony = 1 - voicedFraction / 0.55 (overlapping voices have no single clear
+ * pitch). Bursts are discarded when character < 0.3 (steady, tonal: music beds, hum, room tone) or when
+ * more than 55 % of their frames are voiced (almost certainly ONE person talking that the ASR dropped).
  *
- * Honest limits: this cannot tell applause from loud noise, a music sting, or a door slam; it is a prior
- * for "something non-verbal and loud happens here", which is what clip hooks use it for. It does not
- * detect quiet laughter that overlaps speech.
+ * Honest limits: it targets audience laughter, cheering and applause. It cannot tell applause from other
+ * loud broadband noise (a door slam, rain), and one person laughing alone is deliberately NOT reported
+ * because it is indistinguishable from speech the ASR missed. Laughter overlapping speech is invisible.
+ * Treat the score as a prior for "something non-verbal and loud happens here", not as a classifier.
  */
 export function detectLaughter(
   frames: FrameSeries,
   words: readonly Word[],
   opts: LaughterOptions = {},
 ): { s: number; e: number; score: number }[] {
-  const minSec = opts.minSec ?? 0.4;
+  const minSec = opts.minSec ?? 0.6;
   const bridge = Math.round((opts.bridgeSec ?? 0.3) / FRAME_SEC);
-  const minScore = opts.minScore ?? 0.35;
+  const minScore = opts.minScore ?? 0.4;
   if (frames.count === 0) return [];
   const mask = speechMask(frames, words);
 
@@ -323,32 +338,44 @@ export function detectLaughter(
     if (dur < minSec) continue;
     let lvlSum = 0;
     let hfSum = 0;
+    let voiced = 0;
     const lv: number[] = [];
     for (let k = a; k <= b; k++) {
       const l = frames.levelDb[k] ?? -140;
       lvlSum += l;
       hfSum += frames.hf[k] ?? 0;
+      if ((frames.f0[k] ?? 0) > 0) voiced++;
       lv.push(l);
     }
     const n = b - a + 1;
     const meanLvl = lvlSum / n;
     const meanHf = hfSum / n;
-    const sd = stdev(lv);
+    const voicedFrac = voiced / n;
+    // A single clean voice (a word the ASR dropped, a filler, a breath) has a clear pitch in most
+    // frames; a crowd of overlapping voices or broadband noise does not.
+    if (voicedFrac > 0.55) continue;
     const loudness = clamp01((meanLvl - (ref - 12)) / 12);
     const noisiness = clamp01((meanHf - 0.25) / 0.9);
-    const modulation = clamp01(sd / 6);
+    const modulation = clamp01(stdev(lv) / 6);
     const character = Math.max(noisiness, modulation);
     if (character < 0.3) continue;
-    const score = 0.35 * loudness + 0.25 * clamp01(dur / 1.5) + 0.4 * character;
+    const polyphony = clamp01(1 - voicedFrac / 0.55);
+    const score = 0.3 * loudness + 0.2 * clamp01(dur / 1.5) + 0.3 * character + 0.2 * polyphony;
     if (score < minScore) continue;
-    out.push({ s: round(a * FRAME_SEC, 2), e: round((b + 1) * FRAME_SEC, 2), score: round(score, 3) });
+    out.push({
+      s: round(a * FRAME_SEC, 2),
+      e: round((b + 1) * FRAME_SEC, 2),
+      score: round(score, 3),
+    });
   }
   return out;
 }
 
 export interface SpeakerChangeOptions {
-  /** Shortest pause that can carry a turn change. */
+  /** Shortest pause that can carry a turn change (after a sentence end). */
   minPauseSec?: number;
+  /** Pause that can carry a turn change even in the middle of a sentence (interruption). */
+  midSentencePauseSec?: number;
   /** Context window on each side of the pause. */
   windowSec?: number;
   /** Minimum separation between two reported changes. */
@@ -358,20 +385,25 @@ export interface SpeakerChangeOptions {
 /**
  * Speaker-change heuristic. There is NO diarisation (BRIEF: pyannote is LATER); this looks only at turn
  * boundaries that are acoustically plausible:
- *   1. candidate = a pause >= minPauseSec between consecutive words (ASR gap or audio silence, whichever
- *      is longer);
- *   2. compare the voice 2.5 s before vs 2.5 s after, using only word-covered frames:
- *        dp = |ln(F0_after / F0_before)| / ln(1.2)      (median fundamental frequency; 1.0 == 20 % shift)
+ *   1. candidate = a pause between consecutive words (ASR gap or audio silence, whichever is longer)
+ *      of >= minPauseSec that follows a sentence end (. ? !), or >= midSentencePauseSec anywhere - people
+ *      do not hand over the floor in the middle of a clause after a short breath;
+ *   2. compare the voice 2.5 s before vs 2.5 s after, using only word-covered voiced frames:
+ *        dp = |ln(F0_after / F0_before)| / ln(1.3)      (median fundamental frequency; 1.0 == 30 % shift)
  *        dl = |level_after - level_before| / 6 dB        (median level - mic distance / loudness of voice)
  *        dh = |hf_after - hf_before| / 0.25              (median brightness - rough timbre)
- *   3. evidence = dp + 0.5 dl + 0.5 dh; a change is reported when dp >= 0.5 and evidence >= 1.2 - 0.2 *
- *      min(pause, 1.5 s) (longer pauses need less evidence). Reported time = middle of the pause.
+ *   3. evidence = dp + 0.5 dl + 0.5 dh; a change is reported when dp >= 0.8 (F0 differs by >= ~23 %) and
+ *      evidence >= 1.3 - 0.2 * min(pause, 1.5 s) (longer pauses need less evidence). Reported time =
+ *      middle of the pause. The same speaker's pitch moves ~10-15 % between sentences (question
+ *      intonation, emphasis), which is why the pitch gate sits well above that.
  *   4. changes closer than minSeparationSec keep the strongest one.
  * Both sides need >= 8 voiced frames, otherwise the pause is skipped (no evidence either way).
  *
- * Honest limits: F0 separates male/female and many same-gender pairs, but two similar voices (or one
- * speaker changing pitch drastically while excited) are mis-judged; overlapping speech and back-channels
- * ("mm-hm") are invisible. Treat results as hints that only ever *split* sentences.
+ * Honest limits: F0 separates male/female and many same-gender pairs, but two similar voices (e.g. two
+ * women at 190 vs 200 Hz) are NOT separated, and a speaker who suddenly raises their pitch by >25 %
+ * (excited question) can be mistaken for a new one; overlapping speech and back-channels ("mm-hm") are
+ * invisible. Treat results as hints that only ever *split* sentences. Tuned on a real 19-min
+ * host/guest/guest interview: finds the male/female turn changes, misses female/female ones.
  */
 export function detectSpeakerChanges(
   frames: FrameSeries,
@@ -379,7 +411,8 @@ export function detectSpeakerChanges(
   silences: readonly Silence[],
   opts: SpeakerChangeOptions = {},
 ): number[] {
-  const minPause = opts.minPauseSec ?? 0.3;
+  const minPause = opts.minPauseSec ?? 0.4;
+  const midPause = opts.midSentencePauseSec ?? 1.2;
   const win = opts.windowSec ?? 2.5;
   const minSep = opts.minSeparationSec ?? 1.5;
   if (frames.count === 0 || words.length < 2) return [];
@@ -405,32 +438,23 @@ export function detectSpeakerChanges(
   };
 
   const cands: { t: number; strength: number }[] = [];
-  let si = 0;
+  const pauses = pauseBefore(words, silences);
   for (let i = 1; i < words.length; i++) {
     const prev = words[i - 1];
     const next = words[i];
     if (!prev || !next) continue;
-    let pause = Math.max(0, next.s - prev.e);
-    const lo = (prev.s + prev.e) / 2;
-    const hi = (next.s + next.e) / 2;
-    while (si < silences.length && (silences[si]?.e ?? 0) < lo) si++;
-    let overlap = 0;
-    for (let k = si; k < silences.length; k++) {
-      const sil = silences[k];
-      if (!sil || sil.s > hi) break;
-      overlap += Math.max(0, Math.min(sil.e, hi) - Math.max(sil.s, lo));
-    }
-    pause = Math.max(pause, overlap);
+    const pause = pauses[i] ?? 0;
     if (pause < minPause) continue;
+    if (!isTerminal(prev.w) && pause < midPause) continue;
 
     const before = describe(prev.e - win, prev.e);
     const after = describe(next.s, next.s + win);
     if (!before || !after) continue;
-    const dp = Math.abs(Math.log(after.f0 / before.f0)) / Math.log(1.2);
+    const dp = Math.abs(Math.log(after.f0 / before.f0)) / Math.log(1.3);
     const dl = Math.abs(after.level - before.level) / 6;
     const dh = Math.abs(after.hf - before.hf) / 0.25;
     const evidence = dp + 0.5 * dl + 0.5 * dh;
-    if (dp >= 0.5 && evidence >= 1.2 - 0.2 * Math.min(pause, 1.5)) {
+    if (dp >= 0.8 && evidence >= 1.3 - 0.2 * Math.min(pause, 1.5)) {
       cands.push({ t: (prev.e + next.s) / 2, strength: evidence });
     }
   }

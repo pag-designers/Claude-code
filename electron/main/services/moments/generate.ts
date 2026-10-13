@@ -9,7 +9,14 @@ import {
   type PipelineOptions,
   type Transcript,
 } from '@shared/pipeline';
-import { clamp01, hasNumberText, hookStrength, selfContainment, sentenceHasQuestion, tokensOf } from './heuristics';
+import {
+  clamp01,
+  hasNumberText,
+  hookStrength,
+  selfContainment,
+  sentenceHasQuestion,
+  tokensOf,
+} from './heuristics';
 import { buildIndex, paddedEnd, paddedStart, type WordIndex } from './words';
 
 /** Windows are rejected when they are mostly silence/music. */
@@ -185,6 +192,9 @@ export function generateCandidatesImpl(args: GenerateArgs): MomentCandidate[] {
     }
     const hook = hookStrength(openWords.join(' '), sa.text, openWords.length);
     const firstTokens = tokensOf(sa.text).slice(0, 4);
+    const firstRaw = (words[sa.first]?.w ?? '').trim().replace(/^[^\p{L}]+/u, '');
+    const startsLower =
+      firstRaw !== '' && firstRaw === firstRaw.toLowerCase() && firstRaw !== firstRaw.toUpperCase();
 
     for (let b = a; b < sents.length; b++) {
       const sb = sents[b];
@@ -234,10 +244,13 @@ export function generateCandidatesImpl(args: GenerateArgs): MomentCandidate[] {
         speakerChanges,
         startsAtSentenceStart: true,
         endsAtSentenceEnd: true,
+        startsLowercase: startsLower,
       });
 
       const density = clamp01(wps / 2.4);
-      const lengthFit = clamp01(1 - Math.abs(dur - target) / Math.max(1, range.maxSec - range.minSec));
+      const lengthFit = clamp01(
+        1 - Math.abs(dur - target) / Math.max(1, range.maxSec - range.minSec),
+      );
       let prior =
         0.28 * hook.score +
         0.12 * energy +

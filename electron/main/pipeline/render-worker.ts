@@ -68,6 +68,16 @@ export interface RenderWorkerDeps {
     outJpg: string,
     opts?: { atSec?: number },
   ): Promise<void>;
+  /** A caption-free, hook-free still of the reframed clip (render module helper). */
+  cleanFrame(req: {
+    ffmpegPath: string;
+    sourcePath: string;
+    startSec: number;
+    atSec: number;
+    plan: ReframePlan;
+    outJpg: string;
+    signal?: AbortSignal;
+  }): Promise<void>;
   ffmpegPath(): string;
   fontsDir(): string | null;
   getStorage(): StorageProvider | null;
@@ -177,6 +187,20 @@ export class RenderWorker {
         meta,
         hookOn: hook !== null,
         durationSec: built.durationSec,
+        // Posters/thumbnails must not carry burned-in captions or the title card (they would collide with
+        // overlay text and with the Style Studio preview), so they are re-rendered caption-free from the source.
+        clean: built.clean
+          ? (atSec, out) =>
+              this.d.cleanFrame({
+                ffmpegPath: this.d.ffmpegPath(),
+                sourcePath: source,
+                startSec: built.clean!.startSec,
+                atSec,
+                plan: built.clean!.plan,
+                outJpg: out,
+                signal: ctx.signal,
+              })
+          : null,
       });
       await set({ renderProgress: 0.93 });
       await storage.putFile(keys.clip(clipId), outPath, { contentType: 'video/mp4' });
@@ -327,7 +351,7 @@ export class RenderWorker {
       signal: a.ctx.signal,
       onProgress: a.tick,
     });
-    return { ...result, layout: plan.layout ?? 'single' };
+    return { ...result, layout: plan.layout ?? 'single', clean: { startSec: a.startSec, plan } };
   }
 
   /** Highlights reel: each segment is reframed + captioned on its own, then stitched with transitions. */
@@ -388,33 +412,40 @@ export class RenderWorker {
       signal: a.ctx.signal,
       onProgress: a.tick,
     });
-    return { ...result, layout };
+    return { ...result, layout, clean: null };
   }
 
-  /** Thumbnail: the user's chosen frame (+ overlay text) when set, else a sharp frame after the hook card. */
+  /** Thumbnail: the user's chosen frame (+ overlay text) when set, else a frame after the hook card has faded. */
   private async makeThumb(a: {
     outPath: string;
     thumbPath: string;
     meta: ClipMetaJson;
     hookOn: boolean;
     durationSec: number;
+    clean: ((atSec: number, out: string) => Promise<void>) | null;
   }): Promise<void> {
     const ff = this.d.ffmpegPath();
     const chosen = a.meta.thumbs?.chosenT ?? null;
-    if (chosen === null) {
-      await this.d.thumbnail(ff, a.outPath, a.thumbPath, {
-        atSec: a.hookOn && a.durationSec > 6 ? HOOK_SECONDS + 0.7 : undefined,
-      });
-      return;
-    }
-    const t = Math.min(Math.max(0, chosen), Math.max(0, a.durationSec - 0.1));
-    const overlay = a.meta.thumbs?.overlayText ?? null;
+    const defaultAt = a.hookOn && a.durationSec > 6 ? HOOK_SECONDS + 0.7 : Math.min(2, a.durationSec / 3);
+    const at = Math.min(Math.max(0, chosen ?? defaultAt), Math.max(0, a.durationSec - 0.1));
+    const grab = async (out: string) => {
+      if (a.clean) {
+        try {
+          await a.clean(at, out);
+          return;
+        } catch (e) {
+          this.d.log(`caption-free still failed, using the rendered frame: ${String(e)}`);
+        }
+      }
+      await this.d.thumbnail(ff, a.outPath, out, { atSec: chosen === null && !a.hookOn ? undefined : at });
+    };
+    const overlay = chosen === null ? null : (a.meta.thumbs?.overlayText ?? null);
     if (!overlay) {
-      await this.d.thumbnail(ff, a.outPath, a.thumbPath, { atSec: t });
+      await grab(a.thumbPath);
       return;
     }
     const raw = `${a.thumbPath}.raw.jpg`;
-    await this.d.thumbnail(ff, a.outPath, raw, { atSec: t });
+    await grab(raw);
     await this.d.thumbnails.compose({
       ffmpegPath: ff,
       framePath: raw,

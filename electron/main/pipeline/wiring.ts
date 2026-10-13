@@ -8,7 +8,7 @@ import { createMediaService } from '../services/media/ffmpeg';
 import { createIngestService } from '../services/media/ytdlp';
 import { createMomentService } from '../services/moments';
 import { createReframeService, facesFromSidecar } from '../services/reframe';
-import { createRenderService, createThumbnailService, extractThumbnail } from '../services/render';
+import { createRenderService, createThumbnailService, extractThumbnail, renderCleanFrame } from '../services/render';
 import { logger } from '../logger';
 import type { ChatEvent, MomentRun } from '@shared/cp2';
 import { ChatService } from './chat';
@@ -105,6 +105,7 @@ export function createPipeline(svc: Services, sidecar: SidecarManager, host: Pip
     sidecar,
     toFaceSamples: (wire) => facesFromSidecar(wire as Parameters<typeof facesFromSidecar>[0]),
     thumbnail: extractThumbnail,
+    cleanFrame: renderCleanFrame,
     cacheDir: path.join(svc.userDataDir, 'cache'),
     ffmpegPath,
     fontsDir: host.fontsDir,

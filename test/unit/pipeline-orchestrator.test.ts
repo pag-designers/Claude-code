@@ -344,6 +344,9 @@ async function makeEnv(): Promise<Env> {
       },
     },
     toFaceSamples: () => [],
+    cleanFrame: async (r) => {
+      fs.writeFileSync(r.outJpg, 'clean-jpg');
+    },
     thumbnail: async (_f, _c, out) => {
       fs.writeFileSync(out, 'jpg-bytes');
     },

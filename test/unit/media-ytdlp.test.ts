@@ -364,6 +364,11 @@ describe('progress parsing', () => {
 describe('error classification', () => {
   const cases: [string, string, IngestError['kind']][] = [
     ['bot check (recorded)', STDERR_BOT, 'bot-check'],
+    [
+      '403 on media url (recorded)',
+      'ERROR: unable to download video data: HTTP Error 403: Forbidden\n',
+      'bot-check',
+    ],
     ['unavailable (recorded)', STDERR_UNAVAILABLE, 'unavailable'],
     ['404 (recorded)', STDERR_404, 'unavailable'],
     ['connection refused (recorded)', STDERR_REFUSED, 'network'],

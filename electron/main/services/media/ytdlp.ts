@@ -499,7 +499,8 @@ export function classifyYtdlpError(stderr: string, ctx: { cookies?: boolean } = 
   const hay = `${err ?? ''}\n${text}`;
   const has = (re: RegExp): boolean => re.test(hay);
 
-  if (has(/confirm you.?re not a bot|not a bot/i)) {
+  // HTTP 403 on the media URL is YouTube refusing an unauthenticated client - same remedy as the bot check.
+  if (has(/confirm you.?re not a bot|not a bot|http error 403.*forbidden/i)) {
     return {
       kind: 'bot-check',
       message: ctx.cookies ? BOT_CHECK_WITH_COOKIES_MESSAGE : BOT_CHECK_MESSAGE,

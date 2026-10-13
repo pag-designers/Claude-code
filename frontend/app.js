@@ -158,7 +158,8 @@ async function loadCampaigns() {
 }
 
 function route() {
-  clearInterval(state.poll); state.io?.disconnect(); state.io2?.disconnect(); state.io = state.io2 = null;
+  clearInterval(state.poll);
+  $("#drawer").classList.add("hidden"); $("#pv").pause(); state.editing = null; state.dirty = false;   // an open editor never survives navigation state.io?.disconnect(); state.io2?.disconnect(); state.io = state.io2 = null;
   const h = location.hash, m = h.match(/^#\/v\/(.+)$/);
   const page = m ? "video" : h === "#/library" ? "library" : h === "#/campaigns" ? "campaigns" : h === "#/learn" ? "learn" : "home";
   $$("#sidebar [data-nav]").forEach((el) => { const on = el.dataset.nav === (page === "video" ? "library" : page); el.classList.toggle("active", on); on ? el.setAttribute("aria-current", "page") : el.removeAttribute("aria-current"); });
@@ -292,6 +293,7 @@ function renderCampList() {
 
 // ---------------- video page ----------------
 async function showVideo(id) {
+  if (state.video?.id !== id) state.video = null;
   mount("#tpl-video"); $("#crumb").classList.remove("hidden"); $("#vTitle").textContent = state.video?.id === id ? state.video.title : "Loading…";
   state.selected.clear(); state.sel = [null, null]; state.eta = null; state.transcript = null; renderClips._sig = null;
   $$(".tabs button").forEach((b) => (b.onclick = () => switchTab(b.dataset.tab)));
@@ -317,6 +319,7 @@ async function startReclip(id, ask) {
   askNotify();
   try {
     await api(`/api/videos/${id}/clip`, { method: "POST" });
+    state.selected.clear();
     if (state.video) state.video.status = { stage: "queued", progress: 0 };   // so polling resumes immediately
     state.eta = null; toast("Finding clips…"); startPolling(id); refreshVideo(id);
   }
@@ -355,7 +358,13 @@ function friendlyError(e = "") {
 
 async function refreshVideo(id) {
   let v;
-  try { v = await api(`/api/videos/${id}`); } catch (e) { toast(e.message, true); return; }
+  try { v = await api(`/api/videos/${id}`); }
+  catch (e) {
+    if (location.hash !== "#/v/" + id) return;
+    if (/unknown video/i.test(e.message)) { $("#app").innerHTML = `<div class="panel" style="align-items:flex-start"><h2>Video not found</h2><p class="muted">It may have been deleted from the data folder.</p><a class="btn primary" href="#/library">Back to Library</a></div>`; $("#vTitle").textContent = ""; return; }
+    toast(e.message, true); return;
+  }
+  if (!$("#vProgress") || location.hash !== "#/v/" + id) return;   // the user already left this page
   const prevStage = state.video?.id === id ? state.video?.status?.stage : undefined;
   state.video = v;
   const st = v.status || {}, busy = isBusy(st.stage);
@@ -439,6 +448,7 @@ function clipCard(c, v) {
 function renderClips(force = false) {
   const v = state.video; if (!v || !$("#clips")) return;
   let clips = [...(v.clips || [])];
+  const known = new Set(clips.map((c) => c.id)); [...state.selected].forEach((i) => known.has(i) || state.selected.delete(i));   // deleted / re-generated clips
   if (state.sort === "time") clips.sort((a, b) => a.start - b.start);
   else if (state.sort === "compliance") { const o = { pass: 0, warn: 1, fail: 2 }; clips.sort((a, b) => (o[compliance(a)?.after_fixes] ?? 3) - (o[compliance(b)?.after_fixes] ?? 3) || (b.score ?? 0) - (a.score ?? 0)); }
   else clips.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));

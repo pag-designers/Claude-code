@@ -122,6 +122,11 @@ function frameGray(file: string, t: number, out: string): Buffer {
   const raw = spawnSync(FFMPEG, ['-v', 'error', '-i', out, '-vf', 'format=gray', '-f', 'rawvideo', '-'], { maxBuffer: 1 << 24 });
   return raw.stdout;
 }
+/** Same for a still image (JPEG). */
+function imageGray(file: string): Buffer {
+  const raw = spawnSync(FFMPEG, ['-v', 'error', '-i', file, '-vf', 'scale=270:480,format=gray', '-f', 'rawvideo', '-'], { maxBuffer: 1 << 24 });
+  return raw.stdout;
+}
 const meanAbsDiff = (a: Buffer, b: Buffer) => {
   const n = Math.min(a.length, b.length);
   let s = 0;
@@ -394,8 +399,11 @@ test('thumbnails: real frames scored, candidates load from storage, choosing one
   await invoke('thumbs:choose', { clipId: c!.id, t: pick.t, overlayText: 'WATCH THIS' });
   const after = await download(c!.id, 'thumb-after.jpg', 'thumb');
   expect(fs.statSync(after).size).toBeGreaterThan(5000);
-  const d = meanAbsDiff(frameGray(before, 0, path.join(OUT, 'tb.png')), frameGray(after, 0, path.join(OUT, 'ta.png')));
-  expect(d).toBeGreaterThan(1);
+  const a = imageGray(before);
+  const b = imageGray(after);
+  expect(a.length).toBeGreaterThan(1000);
+  expect(b.length).toBe(a.length);
+  expect(meanAbsDiff(a, b)).toBeGreaterThan(1);
   expect((await clipById(c!.id))?.hasThumbOptions).toBe(true);
 });
 

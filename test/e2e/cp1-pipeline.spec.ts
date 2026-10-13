@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -49,6 +49,7 @@ let mediaUrl: string;
 let stub: StubAnthropic;
 const S3_PORT = 4571;
 const BUCKET = 'clipfern-cp1';
+let lastVideoId = '';
 
 const invoke = <T = unknown>(channel: string, payload?: unknown) =>
   page.evaluate(
@@ -104,8 +105,11 @@ test.beforeAll(async () => {
     if (fs.existsSync(path.join(SIDECAR_BASE!, d)))
       execFileSync('cp', ['-al', path.join(SIDECAR_BASE!, d), path.join(userData, d)]);
   }
+  // CLIPFERN_E2E_EXE points at a packaged binary (release/linux-unpacked/clipfern) to test the installer output.
+  const exe = process.env.CLIPFERN_E2E_EXE;
   app = await electron.launch({
-    args: ['--no-sandbox', '.'],
+    ...(exe ? { executablePath: exe } : {}),
+    args: exe ? ['--no-sandbox'] : ['--no-sandbox', '.'],
     cwd: path.resolve(__dirname, '../..'),
     env: {
       ...process.env,
@@ -240,6 +244,7 @@ test('pipeline: real media in → ready clips out (streaming), artifacts in stor
     )
     .toBe('ready');
   const total = Date.now() - t0;
+  lastVideoId = videoId;
 
   const g = await invoke<VideoGet>('videos:get', { id: videoId });
   fs.writeFileSync(
@@ -377,6 +382,110 @@ test('pipeline: real media in → ready clips out (streaming), artifacts in stor
   const cost = await invoke<{ calls: number }>('cost:summary');
   expect(cost.calls).toBeGreaterThanOrEqual(2);
   test.info().annotations.push({ type: 'out', description: OUT });
+});
+
+test('the real UI renders the real library: thumbnails from storage, tabs, transcript, clip player', async () => {
+  test.setTimeout(180_000);
+  const problems: string[] = [];
+  page.on('console', (m) => {
+    if (m.type() === 'error' || m.type() === 'warning')
+      problems.push(`console.${m.type()}: ${m.text()}`);
+  });
+  page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
+  const shot = (name: string) => page.screenshot({ path: path.join(OUT, `ui-${name}.png`) });
+  const { items: clips } = await invoke<{ items: Clip[] }>('clips:list', { videoId: lastVideoId });
+  expect(clips.length).toBeGreaterThan(0);
+
+  // Home with the live cost chip
+  await page.goto('app://clipfern/');
+  await expect(page.getByTestId('cost-chip')).toBeVisible();
+  await shot('home');
+
+  // Library → Videos tab shows the real video
+  await page.goto('app://clipfern/library/');
+  await expect(page.getByText(/talk|Journal|Autism|Belmont/i).first()).toBeVisible({
+    timeout: 20_000,
+  });
+  await shot('library-videos');
+
+  // Library → Clips tab: every clip card shows a thumbnail loaded from the (S3) presigned URL
+  await page.getByRole('tab', { name: /^Clips/ }).click();
+  await expect(page.getByTestId('clip-card')).toHaveCount(clips.length, { timeout: 20_000 });
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () =>
+            Array.from(document.querySelectorAll('[data-testid="clip-card"] img')).filter(
+              (i) => (i as HTMLImageElement).complete && (i as HTMLImageElement).naturalWidth > 0,
+            ).length,
+        ),
+      { timeout: 30_000 },
+    )
+    .toBe(clips.length);
+  await shot('library-clips');
+
+  // Video detail page, every tab
+  await page.goto(`app://clipfern/library/video/?id=${lastVideoId}`);
+  await expect(page.getByTestId('video-title')).toBeVisible({ timeout: 20_000 });
+  await shot('detail-overview');
+  for (const tab of ['Transcript', 'Chapters', 'Clips', 'Notes']) {
+    await page.getByRole('tab', { name: new RegExp(`^${tab}`) }).click();
+    await page.waitForTimeout(600);
+    await shot(`detail-${tab.toLowerCase()}`);
+  }
+  await page.getByRole('tab', { name: /^Transcript/ }).click();
+  await expect(page.getByText(/\d+:\d{2}/).first()).toBeVisible();
+
+  // Open a clip: the real rendered MP4 plays from the presigned URL
+  await page.getByRole('tab', { name: /^Clips/ }).click();
+  await page.getByTestId('clip-card').first().click();
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() =>
+          Array.from(document.querySelectorAll('video')).some(
+            (v) => v.readyState >= 2 && v.videoHeight > v.videoWidth,
+          ),
+        ),
+      { timeout: 30_000 },
+    )
+    .toBe(true);
+  // Playback must actually advance and the painted frame must not be black (measured on real pixels).
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () =>
+            (document.querySelector('[data-testid="drawer-clip-video"]') as HTMLVideoElement | null)
+              ?.currentTime ?? 0,
+        ),
+      { timeout: 20_000 },
+    )
+    .toBeGreaterThan(0.6);
+  const frameFile = path.join(OUT, 'ui-clip-frame.png');
+  await page.getByTestId('drawer-clip-video').screenshot({ path: frameFile });
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const ffmpegBin = require('ffmpeg-static') as string;
+  const out = spawnSync(
+    ffmpegBin,
+    [
+      '-hide_banner',
+      '-i',
+      frameFile,
+      '-vf',
+      'signalstats,metadata=print:key=lavfi.signalstats.YAVG',
+      '-f',
+      'null',
+      '-',
+    ],
+    { encoding: 'utf8' },
+  );
+  const yavg = Number(/YAVG=([\d.]+)/.exec(`${out.stdout}${out.stderr}`)?.[1] ?? 0);
+  expect(yavg, 'the clip frame is painted (not black)').toBeGreaterThan(25);
+  await shot('clip-drawer');
+
+  expect(problems, problems.join('\n')).toEqual([]);
 });
 
 test('favorites, delete and bulk download work on the real library', async () => {

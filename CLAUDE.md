@@ -19,11 +19,13 @@ pnpm dist                   # electron-builder installer for the current OS
 Headless Linux: `xvfb-run -a pnpm start`.
 
 CP1 real-media e2e (real yt-dlp/ffmpeg/faster-whisper/render; only the Claude answers are scripted — no key needed):
+
 ```bash
 CLIPFERN_E2E_CP1_VIDEO=<mp4> CLIPFERN_E2E_SIDECAR_USERDATA=<userData with sidecar-venv+models+uv> \
   CLIPFERN_E2E_OUT=<dir for inspectable output> xvfb-run -a pnpm exec playwright test test/e2e/cp1-pipeline.spec.ts
 node scripts/llm-smoke.mjs <transcript.json> [--dry-run]   # with ANTHROPIC_API_KEY: real-model check + dollar cost
 ```
+
 Dev/test-only env: `CLIPFERN_S3_ENDPOINT_OVERRIDE`, `CLIPFERN_ALLOW_ANY_URL=1`, `CLIPFERN_ANTHROPIC_BASE_URL` (see `.env.example`). Set `CLIPFERN_USER_DATA=/some/dir` to isolate app data.
 
 ## Architecture (see DECISIONS.md ADR-000)
@@ -52,7 +54,7 @@ Dev/test-only env: `CLIPFERN_S3_ENDPOINT_OVERRIDE`, `CLIPFERN_ALLOW_ANY_URL=1`, 
 | #   | Name                        | Status                                    |
 | --- | --------------------------- | ----------------------------------------- |
 | 0   | Foundation (runnable shell) | **DONE (Linux-verified) — awaiting "go"** |
-| 1   | YouTube → clips (core)      | **IN PROGRESS**                           |
+| 1   | YouTube → clips (core)      | **DONE (Linux-verified) — awaiting "go"** |
 | 2   | Clip intelligence depth     | not started                               |
 | 3   | Full editor                 | not started                               |
 | 4   | Brand Kit                   | not started                               |

@@ -34,7 +34,14 @@ export const STAGE_LABELS: Record<PipelineStage, string> = {
   finalize: 'Upload & clean up',
 };
 
-export const stageStatusSchema = z.enum(['pending', 'running', 'done', 'failed', 'skipped', 'canceled']);
+export const stageStatusSchema = z.enum([
+  'pending',
+  'running',
+  'done',
+  'failed',
+  'skipped',
+  'canceled',
+]);
 export type StageStatus = z.infer<typeof stageStatusSchema>;
 
 export const stageStateSchema = z.object({
@@ -69,8 +76,24 @@ export const pipelineOptionsSchema = z.object({
   hookCard: z.boolean().default(true),
   /** Spoken language override; null = auto-detect. */
   language: z.string().nullable().default(null),
-  maxResolution: z.union([z.literal(720), z.literal(1080), z.literal(1440), z.literal(2160)]).default(1080),
+  maxResolution: z
+    .union([z.literal(720), z.literal(1080), z.literal(1440), z.literal(2160)])
+    .default(1080),
 });
+/**
+ * Patch form: every field optional WITHOUT its default (zod's `.partial()` would re-apply defaults to
+ * omitted keys, silently overriding the user's saved defaults when a caller sends only one option).
+ */
+export const pipelineOptionsPatchSchema = z
+  .object(
+    Object.fromEntries(
+      Object.entries(pipelineOptionsSchema.shape).map(([k, f]) => [
+        k,
+        f instanceof z.ZodDefault ? f.removeDefault().optional() : (f as z.ZodType).optional(),
+      ]),
+    ),
+  )
+  .strict() as unknown as z.ZodType<Partial<z.output<typeof pipelineOptionsSchema>>>;
 export type PipelineOptions = z.output<typeof pipelineOptionsSchema>;
 export type PipelineOptionsInput = z.input<typeof pipelineOptionsSchema>;
 
@@ -264,7 +287,14 @@ export type ReframePlan = z.infer<typeof reframePlanSchema>;
 
 /* ---------------------------------------------- views ------------------------------------------- */
 
-export const videoStatusSchema = z.enum(['new', 'ingesting', 'processing', 'ready', 'failed', 'canceled']);
+export const videoStatusSchema = z.enum([
+  'new',
+  'ingesting',
+  'processing',
+  'ready',
+  'failed',
+  'canceled',
+]);
 export type VideoStatus = z.infer<typeof videoStatusSchema>;
 
 export const videoViewSchema = z.object({
@@ -371,7 +401,8 @@ export function parseYouTubeId(input: string): string | null {
     return null;
   }
   const host = u.hostname.replace(/^www\.|^m\./, '');
-  if (host === 'youtu.be') return /^[\w-]{11}$/.test(u.pathname.slice(1)) ? u.pathname.slice(1) : null;
+  if (host === 'youtu.be')
+    return /^[\w-]{11}$/.test(u.pathname.slice(1)) ? u.pathname.slice(1) : null;
   if (host === 'youtube.com' || host === 'music.youtube.com') {
     const v = u.searchParams.get('v');
     if (v && /^[\w-]{11}$/.test(v)) return v;

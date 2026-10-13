@@ -13,7 +13,7 @@ import {
 import {
   clipViewSchema,
   pipelineEventSchema,
-  pipelineOptionsSchema,
+  pipelineOptionsPatchSchema,
   pipelineStageSchema,
   stageStateSchema,
   transcriptSchema,
@@ -94,14 +94,17 @@ export const invokeContract = {
   /* ---- CP1: pipeline, videos, clips ---- */
   'pipeline:probe': ch(z.object({ url: z.string().min(1) }), urlInfoSchema),
   'pipeline:start': ch(
-    z.object({ url: z.string().min(1), options: pipelineOptionsSchema.partial().optional() }),
+    z.object({ url: z.string().min(1), options: pipelineOptionsPatchSchema.optional() }),
     z.object({ videoId: z.string() }),
   ),
   'pipeline:cancel': ch(z.object({ videoId: z.string() }), ok),
   'pipeline:retryStage': ch(z.object({ videoId: z.string(), stage: pipelineStageSchema }), ok),
 
   'videos:list': ch(
-    z.object({ favorite: z.boolean().optional(), limit: z.number().int().min(1).max(500).default(200) }),
+    z.object({
+      favorite: z.boolean().optional(),
+      limit: z.number().int().min(1).max(500).default(200),
+    }),
     z.object({ items: z.array(videoViewSchema) }),
   ),
   'videos:get': ch(
@@ -114,7 +117,10 @@ export const invokeContract = {
   ),
   'videos:transcript': ch(z.object({ id: z.string() }), transcriptSchema.nullable()),
   'videos:favorite': ch(z.object({ id: z.string(), value: z.boolean() }), ok),
-  'videos:delete': ch(z.object({ id: z.string(), deleteFromStorage: z.boolean().default(true) }), ok),
+  'videos:delete': ch(
+    z.object({ id: z.string(), deleteFromStorage: z.boolean().default(true) }),
+    ok,
+  ),
   /** Presigned playback URL for the 480p proxy (null when none exists yet). */
   'videos:proxyUrl': ch(z.object({ id: z.string() }), z.object({ url: z.string().nullable() })),
 

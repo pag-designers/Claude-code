@@ -57,7 +57,12 @@ interface Env {
   events: PipelineEvent[];
   clipsSeen: ClipView[];
   calls: { transcribe: number; ingest: number; rank: number; render: number; understand: number };
-  hooks: { failIngestOnce: boolean; ingestDelayMs: number; llmError: Error | null; renderDelayMs: number };
+  hooks: {
+    failIngestOnce: boolean;
+    ingestDelayMs: number;
+    llmError: Error | null;
+    renderDelayMs: number;
+  };
   cleanup: () => Promise<void>;
 }
 
@@ -73,7 +78,12 @@ async function makeEnv(): Promise<Env> {
   const events: PipelineEvent[] = [];
   const clipsSeen: ClipView[] = [];
   const calls = { transcribe: 0, ingest: 0, rank: 0, render: 0, understand: 0 };
-  const hooks = { failIngestOnce: false, ingestDelayMs: 0, llmError: null as Error | null, renderDelayMs: 0 };
+  const hooks = {
+    failIngestOnce: false,
+    ingestDelayMs: 0,
+    llmError: null as Error | null,
+    renderDelayMs: 0,
+  };
   const cacheDir = path.join(dir, 'cache');
 
   const llm: LlmService = {
@@ -96,7 +106,12 @@ async function makeEnv(): Promise<Env> {
       // one strong (84) and one OK (66) moment per window, ~35 s long, from the sentences we were given
       const out: RankedMoment[] = [];
       // start picking after the overlap context (first ~80 s of a non-first window) so moments belong to this window
-      const base = Math.max(0, input.sentences.findIndex((x) => x.s >= (input.window.startSec > 0 ? input.window.startSec + 80 : 0)));
+      const base = Math.max(
+        0,
+        input.sentences.findIndex(
+          (x) => x.s >= (input.window.startSec > 0 ? input.window.startSec + 80 : 0),
+        ),
+      );
       const picks = [base + 3, base + 14];
       picks.forEach((idx, n) => {
         const a = input.sentences[idx];
@@ -130,7 +145,18 @@ async function makeEnv(): Promise<Env> {
     cacheDir,
     ingest: {
       async probe() {
-        return { id: 'abcdefghijk', title: 'A Real Talk', channel: 'Chan', durationSec: DURATION, thumbnail: null, description: null, isLive: false, chapters: [], uploadDate: null, license: null };
+        return {
+          id: 'abcdefghijk',
+          title: 'A Real Talk',
+          channel: 'Chan',
+          durationSec: DURATION,
+          thumbnail: null,
+          description: null,
+          isLive: false,
+          chapters: [],
+          uploadDate: null,
+          license: null,
+        };
       },
       async download(_url, outDir, opts) {
         calls.ingest++;
@@ -149,10 +175,23 @@ async function makeEnv(): Promise<Env> {
     },
     media: {
       async probe() {
-        return { durationSec: DURATION, width: 1920, height: 1080, fps: 30, videoCodec: 'h264', audioCodec: 'aac', hasAudio: true, hasVideo: true, sizeBytes: 2000 };
+        return {
+          durationSec: DURATION,
+          width: 1920,
+          height: 1080,
+          fps: 30,
+          videoCodec: 'h264',
+          audioCodec: 'aac',
+          hasAudio: true,
+          hasVideo: true,
+          sizeBytes: 2000,
+        };
       },
       async extractAudio16k(_s, out, opts) {
-        fs.writeFileSync(out, JSON.stringify({ startSec: opts?.startSec ?? 0, durSec: opts?.durSec ?? DURATION }));
+        fs.writeFileSync(
+          out,
+          JSON.stringify({ startSec: opts?.startSec ?? 0, durSec: opts?.durSec ?? DURATION }),
+        );
       },
       async makeProxy(_s, out) {
         fs.writeFileSync(out, 'proxy-bytes');
@@ -163,7 +202,16 @@ async function makeEnv(): Promise<Env> {
       segmentSentences: (words) => fakeSentences(words),
       async computeSignals({ durationSec }): Promise<AudioSignals> {
         const n = Math.ceil(durationSec / 0.5);
-        return { hopSec: 0.5, durationSec, loudness: new Array(n).fill(-20), speechRate: new Array(n).fill(2.5), silences: [], laughter: [], speakerChanges: [], sceneCuts: [] };
+        return {
+          hopSec: 0.5,
+          durationSec,
+          loudness: new Array(n).fill(-20),
+          speechRate: new Array(n).fill(2.5),
+          silences: [],
+          laughter: [],
+          speakerChanges: [],
+          sceneCuts: [],
+        };
       },
     },
     llm,
@@ -208,10 +256,18 @@ async function makeEnv(): Promise<Env> {
       async start() {},
       async transcribe(req) {
         calls.transcribe++;
-        const meta = JSON.parse(fs.readFileSync(req.audio_path, 'utf8')) as { startSec: number; durSec: number };
+        const meta = JSON.parse(fs.readFileSync(req.audio_path, 'utf8')) as {
+          startSec: number;
+          durSec: number;
+        };
         const words: { word: string; start: number; end: number; probability: number }[] = [];
         for (let t = 0; t + 0.4 < meta.durSec; t += 0.5) {
-          words.push({ word: `w${Math.round((meta.startSec + t) * 2)}`, start: t, end: t + 0.4, probability: 0.9 });
+          words.push({
+            word: `w${Math.round((meta.startSec + t) * 2)}`,
+            start: t,
+            end: t + 0.4,
+            probability: 0.9,
+          });
         }
         return { language: 'en', language_probability: 0.99, model: 'fake', segments: [{ words }] };
       },
@@ -219,7 +275,16 @@ async function makeEnv(): Promise<Env> {
         return { cuts: [100, 500] };
       },
       async faces() {
-        return { width: 1920, height: 1080, source_fps: 30, sample_fps: 4, frames_sampled: 0, frames_with_faces: 0, frames: [], elapsed_s: 0 } as never;
+        return {
+          width: 1920,
+          height: 1080,
+          source_fps: 30,
+          sample_fps: 4,
+          frames_sampled: 0,
+          frames_with_faces: 0,
+          frames: [],
+          elapsed_s: 0,
+        } as never;
       },
     },
     toFaceSamples: () => [],
@@ -248,7 +313,8 @@ async function makeEnv(): Promise<Env> {
   return env;
 }
 
-const videoStatus = async (e: Env, id: string) => (await e.svc.dbHandle.prisma.video.findUniqueOrThrow({ where: { id } })).status;
+const videoStatus = async (e: Env, id: string) =>
+  (await e.svc.dbHandle.prisma.video.findUniqueOrThrow({ where: { id } })).status;
 
 describe('PipelineOrchestrator', () => {
   it('runs the whole pipeline: windows → clips → renders → finalize, streaming clips early', async () => {
@@ -260,7 +326,10 @@ describe('PipelineOrchestrator', () => {
     expect(v?.title).toBe('A Real Talk');
     expect(v?.status).toBe('ready');
     expect(v?.hasProxy).toBe(true);
-    const clips = await e.svc.dbHandle.prisma.clip.findMany({ where: { videoId }, orderBy: { rank: 'asc' } });
+    const clips = await e.svc.dbHandle.prisma.clip.findMany({
+      where: { videoId },
+      orderBy: { rank: 'asc' },
+    });
     expect(clips.length).toBeGreaterThanOrEqual(3);
     expect(clips.length).toBeLessThanOrEqual(4);
     expect(clips.every((c) => c.status === 'rendered')).toBe(true);
@@ -290,7 +359,16 @@ describe('PipelineOrchestrator', () => {
     void stages;
     const last = new Map<string, string>();
     for (const ev of e.events) last.set(ev.stage, ev.status);
-    for (const s of ['ingest', 'prepare', 'transcribe', 'moments', 'understand', 'render', 'finalize']) expect(last.get(s), s).toBe('done');
+    for (const s of [
+      'ingest',
+      'prepare',
+      'transcribe',
+      'moments',
+      'understand',
+      'render',
+      'finalize',
+    ])
+      expect(last.get(s), s).toBe('done');
     expect(e.calls.transcribe).toBe(3);
     expect(e.calls.rank).toBe(3);
     expect(e.calls.understand).toBe(1);
@@ -311,7 +389,9 @@ describe('PipelineOrchestrator', () => {
     // events are chronological: a 'render' clip event for a clip must appear before transcribe finished
     const firstRendered = e.clipsSeen.findIndex((c) => c.status === 'rendered');
     expect(firstRendered).toBeGreaterThanOrEqual(0);
-    const transcribeDoneAt = e.events.findIndex((x) => x.stage === 'transcribe' && x.status === 'done');
+    const transcribeDoneAt = e.events.findIndex(
+      (x) => x.stage === 'transcribe' && x.status === 'done',
+    );
     expect(transcribeDoneAt).toBeGreaterThan(-1);
     void order;
     // the strong (>=72) clip of window 0 is queued during transcription, so its 'queued' state precedes transcribe 'done'
@@ -327,7 +407,9 @@ describe('PipelineOrchestrator', () => {
     const v = await e.orch.videoView(videoId);
     expect(v?.error).toMatch(/not a bot/);
     expect(v?.stage).toBe('ingest');
-    const note = (await e.svc.notifications.list()).items.find((n) => n.title === 'Clipping failed');
+    const note = (await e.svc.notifications.list()).items.find(
+      (n) => n.title === 'Clipping failed',
+    );
     expect(note?.body).toMatch(/not a bot/);
 
     await e.orch.retryStage(videoId, 'ingest');
@@ -373,7 +455,10 @@ describe('PipelineOrchestrator', () => {
 
   it('refuses to start when prerequisites are missing, with an actionable message', async () => {
     const e = await makeEnv();
-    const orch2 = new PipelineOrchestrator({ ...(e.orch as unknown as { d: PipelineDeps }).d, checkReady: async () => 'Add your Anthropic API key in Settings → API Keys.' });
+    const orch2 = new PipelineOrchestrator({
+      ...(e.orch as unknown as { d: PipelineDeps }).d,
+      checkReady: async () => 'Add your Anthropic API key in Settings → API Keys.',
+    });
     await expect(orch2.start(URL1, {})).rejects.toThrow(/Anthropic API key/);
     await expect(orch2.start('https://example.com/nope', {})).rejects.toThrow(/YouTube/);
   });
@@ -388,7 +473,13 @@ describe('PipelineOrchestrator', () => {
   it('startup reconciliation fails videos whose jobs vanished instead of leaving them spinning', async () => {
     const e = await makeEnv();
     const row = await e.svc.dbHandle.prisma.video.create({
-      data: { sourceUrl: URL1, sourceId: 'zzzzzzzzzzz', title: 'stuck', status: 'processing', stage: 'transcribe' },
+      data: {
+        sourceUrl: URL1,
+        sourceId: 'zzzzzzzzzzz',
+        title: 'stuck',
+        status: 'processing',
+        stage: 'transcribe',
+      },
     });
     await e.orch.reconcileOnStart();
     expect(await videoStatus(e, row.id)).toBe('failed');
@@ -397,5 +488,31 @@ describe('PipelineOrchestrator', () => {
   it('exposes the job kinds it registers', () => {
     expect(JOB_KINDS.refreshStorage).toBe('storage.refresh-usage');
     expect(WINDOW_SEC).toBe(600);
+  });
+});
+
+describe('pipeline options patch', () => {
+  it('a one-key patch does not re-apply schema defaults (user defaults must survive)', async () => {
+    const { pipelineOptionsPatchSchema } = await import('@shared/pipeline');
+    expect(Object.keys(pipelineOptionsPatchSchema.parse({ clipCount: 3 }))).toEqual(['clipCount']);
+    expect(Object.keys(pipelineOptionsPatchSchema.parse({}))).toEqual([]);
+    expect(() => pipelineOptionsPatchSchema.parse({ nope: 1 })).toThrow();
+  });
+
+  it('start() layers: saved settings defaults < explicit options', async () => {
+    const e = await makeEnv();
+    await e.svc.settings.set({
+      defaultClipCount: 7,
+      defaultAspect: '1:1',
+      defaultClipPreset: '15-30',
+    });
+    const { videoId } = await e.orch.start(URL1, { clipCount: 3 });
+    const row = await e.svc.dbHandle.prisma.video.findUniqueOrThrow({ where: { id: videoId } });
+    const opts = JSON.parse(row.options) as {
+      clipCount: number;
+      aspect: string;
+      clipPreset: string;
+    };
+    expect(opts).toMatchObject({ clipCount: 3, aspect: '1:1', clipPreset: '15-30' });
   });
 });

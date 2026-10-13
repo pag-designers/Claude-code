@@ -37,18 +37,17 @@ import {
   useChatThreads,
   useChatUi,
   useMarkers,
+  usePeek,
   type ChatScope,
 } from '@/lib/cp2-chat';
-import { formatClock, timeAgo } from '@/lib/format';
+import { timeAgo } from '@/lib/format';
 import { invoke, ipcKey } from '@/lib/ipc';
 import { normalizeHref } from '@/lib/hrefs';
 import { useVideo } from '@/lib/library';
 import { cn } from '@/lib/utils';
 import { AssistantMessage, ErrorBubble, StoredAssistant, UserBubble } from './chat-messages';
 import { TimeChip } from './chat-markdown';
-
-const NO_SOURCE_MESSAGE =
-  'This video has no 480p source copy to play, so the timestamp cannot be shown. Re-run “Prepare media” on the video to create it.';
+import { SourcePeek } from './source-peek';
 
 /* ------------------------------------------------------------------------------------- header menus */
 
@@ -61,7 +60,9 @@ function MarkersMenu({ videoId, onSeek }: { videoId: string; onSeek: (sec: numbe
       await invoke('markers:delete', { id });
       await qc.invalidateQueries({ queryKey: ipcKey('markers:list', { videoId }) });
     } catch (e) {
-      toast.error('Could not delete the marker', { description: e instanceof Error ? e.message : undefined });
+      toast.error('Could not delete the marker', {
+        description: e instanceof Error ? e.message : undefined,
+      });
     }
   };
   return (
@@ -81,7 +82,9 @@ function MarkersMenu({ videoId, onSeek }: { videoId: string; onSeek: (sec: numbe
       <PopoverContent align="end" className="z-[90] w-80 p-0" data-testid="chat-markers-menu">
         <div className="border-b px-3.5 py-2.5">
           <p className="text-sm font-semibold">Markers</p>
-          <p className="text-xs text-muted-foreground">Moments you or the chat flagged in this video.</p>
+          <p className="text-xs text-muted-foreground">
+            Moments you or the chat flagged in this video.
+          </p>
         </div>
         {q.isPending ? (
           <div className="space-y-2 p-3">
@@ -97,7 +100,10 @@ function MarkersMenu({ videoId, onSeek }: { videoId: string; onSeek: (sec: numbe
         ) : (
           <ul className="scrollbar-thin max-h-72 overflow-y-auto p-1.5">
             {items.map((m) => (
-              <li key={m.id} className="group flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent">
+              <li
+                key={m.id}
+                className="group flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent"
+              >
                 <TimeChip sec={m.atSec} onSeek={onSeek} />
                 <span className="min-w-0 flex-1 truncate text-sm" title={m.label}>
                   {m.label}
@@ -134,6 +140,7 @@ function ThreadsMenu({
   const qc = useQueryClient();
   const q = useChatThreads(scope, true);
   const [confirm, setConfirm] = React.useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = React.useState(false);
   const items = [...(q.data?.items ?? [])].sort((a, b) => b.updatedAt - a.updatedAt);
   const del = async (id: string) => {
     try {
@@ -142,14 +149,21 @@ function ThreadsMenu({
       if (id === activeId) onNew();
       await qc.invalidateQueries({ queryKey: ['chat:threads'] });
     } catch (e) {
-      toast.error('Could not delete the conversation', { description: e instanceof Error ? e.message : undefined });
+      toast.error('Could not delete the conversation', {
+        description: e instanceof Error ? e.message : undefined,
+      });
     }
   };
   return (
-    <Popover>
+    <Popover open={menuOpen} onOpenChange={setMenuOpen}>
       <Tip content="Conversations">
         <PopoverTrigger asChild>
-          <Button variant="ghost" size="icon-sm" aria-label="Conversations" data-testid="chat-threads">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Conversations"
+            data-testid="chat-threads"
+          >
             <History />
           </Button>
         </PopoverTrigger>
@@ -157,7 +171,15 @@ function ThreadsMenu({
       <PopoverContent align="end" className="z-[90] w-80 p-0" data-testid="chat-threads-menu">
         <div className="flex items-center justify-between border-b px-3.5 py-2.5">
           <p className="text-sm font-semibold">Conversations</p>
-          <Button size="xs" variant="soft" onClick={onNew} data-testid="chat-new-thread">
+          <Button
+            size="xs"
+            variant="soft"
+            onClick={() => {
+              setMenuOpen(false);
+              onNew();
+            }}
+            data-testid="chat-new-thread"
+          >
             <MessageSquarePlus /> New chat
           </Button>
         </div>
@@ -184,7 +206,10 @@ function ThreadsMenu({
               >
                 <button
                   type="button"
-                  onClick={() => onPick(t.id)}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onPick(t.id);
+                  }}
                   className="min-w-0 flex-1 px-2.5 py-2 text-left"
                 >
                   <span className="block truncate text-sm font-medium">{t.title}</span>
@@ -200,7 +225,12 @@ function ThreadsMenu({
                     >
                       <Check /> Delete
                     </Button>
-                    <Button variant="ghost" size="icon-xs" aria-label="Keep conversation" onClick={() => setConfirm(null)}>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label="Keep conversation"
+                      onClick={() => setConfirm(null)}
+                    >
                       <X />
                     </Button>
                   </span>
@@ -277,7 +307,13 @@ function Composer({
           className="min-h-9 flex-1 resize-none border-0 bg-transparent px-2 py-1.5 shadow-none ring-0 hover:border-0 focus-visible:border-0 focus-visible:ring-0"
         />
         {busy ? (
-          <Button variant="danger" size="icon" aria-label="Stop generating" onClick={onStop} data-testid="chat-stop">
+          <Button
+            variant="danger"
+            size="icon"
+            aria-label="Stop generating"
+            onClick={onStop}
+            data-testid="chat-stop"
+          >
             <Square className="fill-current" />
           </Button>
         ) : (
@@ -309,12 +345,29 @@ function Composer({
 
 function suggestionsFor(clip: boolean) {
   return [
-    { id: 'linkedin', label: 'Summarize this for LinkedIn', text: 'Summarize this for LinkedIn', send: true },
+    {
+      id: 'linkedin',
+      label: 'Summarize this for LinkedIn',
+      text: 'Summarize this for LinkedIn',
+      send: true,
+    },
     { id: 'find', label: 'Find the part where…', text: 'Find the part where ', send: false },
-    { id: 'story', label: 'Make a clip of the best story', text: 'Make a clip of the best story', send: true },
+    {
+      id: 'story',
+      label: 'Make a clip of the best story',
+      text: 'Make a clip of the best story',
+      send: true,
+    },
     ...(clip
       ? [{ id: 'hook', label: 'Rewrite this hook', text: 'Rewrite this hook', send: true }]
-      : [{ id: 'takeaways', label: 'What are the key takeaways?', text: 'What are the key takeaways?', send: true }]),
+      : [
+          {
+            id: 'takeaways',
+            label: 'What are the key takeaways?',
+            text: 'What are the key takeaways?',
+            send: true,
+          },
+        ]),
   ];
 }
 
@@ -339,20 +392,27 @@ export function ChatPanel({ scope }: { scope: ChatScope }) {
   const inputRef = React.useRef<HTMLTextAreaElement | null>(null);
   const scroller = React.useRef<HTMLDivElement | null>(null);
   const [stick, setStick] = React.useState(true);
-  const [unseen, setUnseen] = React.useState(false);
+  // the signature at the moment the user scrolled away: anything newer than that is "unseen"
+  const [seenSig, setSeenSig] = React.useState<string | null>(null);
 
   const messages = React.useMemo(() => messagesQ.data?.items ?? [], [messagesQ.data]);
   const visibleStream =
-    stream && !messages.some((m) => m.id === stream.messageId && stream.messageId) ? stream : undefined;
-  const streaming = visibleStream?.phase === 'streaming' || (!!pending && !visibleStream && !sendError);
+    stream && !messages.some((m) => m.id === stream.messageId && stream.messageId)
+      ? stream
+      : undefined;
+  const streaming =
+    visibleStream?.phase === 'streaming' || (!!pending && !visibleStream && !sendError);
   const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
   const lastUser = [...messages].reverse().find((m) => m.role === 'user');
-  const contextTitle = scope.clipId ? (clip?.title ?? 'this clip') : (video.data?.video.title ?? 'this video');
+  const contextTitle = scope.clipId
+    ? (clip?.title ?? 'this clip')
+    : (video.data?.video.title ?? 'this video');
 
   /* ---- actions ---- */
   const onSeek = React.useCallback(
     (sec: number) => {
-      if (!seekSource(scope.videoId, sec)) toast.info('Cannot play the source here', { description: NO_SOURCE_MESSAGE });
+      // the page's players first; the in-panel peek when none of them can show the moment
+      if (!seekSource(scope.videoId, sec)) usePeek.getState().show(scope.videoId, sec);
     },
     [scope.videoId],
   );
@@ -395,13 +455,14 @@ export function ChatPanel({ scope }: { scope: ChatScope }) {
 
   /* ---- scroll: follow the stream unless the user scrolled away ---- */
   const signature = `${messages.length}:${visibleStream?.text.length ?? 0}:${visibleStream?.actions.length ?? 0}:${pending ? 1 : 0}:${sendError ? 1 : 0}`;
+  const signatureRef = React.useRef(signature);
+  React.useEffect(() => {
+    signatureRef.current = signature;
+  });
+  const unseen = !stick && seenSig !== null && seenSig !== signature;
   React.useLayoutEffect(() => {
     const el = scroller.current;
-    if (!el) return;
-    if (stick) {
-      el.scrollTop = el.scrollHeight;
-      setUnseen(false);
-    } else setUnseen(true);
+    if (el && stick) el.scrollTop = el.scrollHeight;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature]);
   React.useEffect(() => {
@@ -409,8 +470,9 @@ export function ChatPanel({ scope }: { scope: ChatScope }) {
     if (el) el.scrollTop = el.scrollHeight;
   }, [threadId]);
 
-  const empty = !messagesQ.isPending && messages.length === 0 && !pending && !visibleStream && !sendError;
   const loadingMessages = !!threadId && messagesQ.isPending && !pending;
+  const empty =
+    !loadingMessages && messages.length === 0 && !pending && !visibleStream && !sendError;
   const suggestions = suggestionsFor(!!scope.clipId);
 
   return (
@@ -420,7 +482,9 @@ export function ChatPanel({ scope }: { scope: ChatScope }) {
           <span className="flex size-7 items-center justify-center rounded-lg bg-primary-soft text-primary-text">
             <Sparkles className="size-4" aria-hidden />
           </span>
-          <DialogPrimitive.Title className="font-display text-lg font-semibold">AI Chat</DialogPrimitive.Title>
+          <DialogPrimitive.Title className="font-display text-lg font-semibold">
+            AI Chat
+          </DialogPrimitive.Title>
           <span className="ml-auto flex items-center gap-0.5">
             <MarkersMenu videoId={scope.videoId} onSeek={onSeek} />
             <ThreadsMenu
@@ -430,12 +494,23 @@ export function ChatPanel({ scope }: { scope: ChatScope }) {
               onNew={newThread}
             />
             <Tip content="New chat">
-              <Button variant="ghost" size="icon-sm" aria-label="New chat" onClick={newThread} data-testid="chat-new">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="New chat"
+                onClick={newThread}
+                data-testid="chat-new"
+              >
                 <MessageSquarePlus />
               </Button>
             </Tip>
             <DialogPrimitive.Close asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="Close chat" data-testid="chat-close">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Close chat"
+                data-testid="chat-close"
+              >
                 <X />
               </Button>
             </DialogPrimitive.Close>
@@ -446,7 +521,11 @@ export function ChatPanel({ scope }: { scope: ChatScope }) {
             className="flex min-w-0 items-center gap-1.5 rounded-lg border bg-muted/50 px-2.5 py-1.5 text-xs text-muted-foreground"
             data-testid="chat-context"
           >
-            {scope.clipId ? <Scissors className="size-3.5 shrink-0" aria-hidden /> : <Film className="size-3.5 shrink-0" aria-hidden />}
+            {scope.clipId ? (
+              <Scissors className="size-3.5 shrink-0" aria-hidden />
+            ) : (
+              <Film className="size-3.5 shrink-0" aria-hidden />
+            )}
             <span className="shrink-0">Chatting about:</span>
             <span className="min-w-0 truncate font-semibold text-foreground" title={contextTitle}>
               {contextTitle}
@@ -455,14 +534,17 @@ export function ChatPanel({ scope }: { scope: ChatScope }) {
         </DialogPrimitive.Description>
       </header>
 
+      <SourcePeek videoId={scope.videoId} />
       <div className="relative min-h-0 flex-1">
         <div
           ref={scroller}
           onScroll={(e) => {
             const el = e.currentTarget;
             const near = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-            setStick(near);
-            if (near) setUnseen(false);
+            if (near !== stick) {
+              setStick(near);
+              setSeenSig(near ? null : signatureRef.current);
+            }
           }}
           role="log"
           aria-label="Conversation"
@@ -477,7 +559,10 @@ export function ChatPanel({ scope }: { scope: ChatScope }) {
           ) : null}
 
           {empty ? (
-            <div className="my-auto flex flex-col items-center gap-4 py-6 text-center" data-testid="chat-empty">
+            <div
+              className="my-auto flex flex-col items-center gap-4 py-6 text-center"
+              data-testid="chat-empty"
+            >
               <span className="flex size-12 items-center justify-center rounded-xl border border-border-strong bg-raised text-primary-text shadow-sm">
                 <Sparkles className="size-5" aria-hidden />
               </span>
@@ -486,8 +571,8 @@ export function ChatPanel({ scope }: { scope: ChatScope }) {
                   Ask anything about {scope.clipId ? 'this clip' : 'this video'}
                 </p>
                 <p className="mx-auto mt-1 max-w-xs text-sm text-muted-foreground">
-                  Answers cite the transcript with timestamps you can click, and Clipfern can act on them: make
-                  clips, add markers, write metadata.
+                  Answers cite the transcript with timestamps you can click, and Clipfern can act on
+                  them: make clips, add markers, write metadata.
                 </p>
               </div>
               <div className="flex flex-wrap justify-center gap-2" data-testid="chat-suggestions">
@@ -527,7 +612,10 @@ export function ChatPanel({ scope }: { scope: ChatScope }) {
             ),
           )}
 
-          {pending && !messages.some((m) => m.role === 'user' && m.text === pending.text && m.createdAt >= pending.at - 1000) ? (
+          {pending &&
+          !messages.some(
+            (m) => m.role === 'user' && m.text === pending.text && m.createdAt >= pending.at - 1000,
+          ) ? (
             <UserBubble text={pending.text} pending />
           ) : null}
 
@@ -542,17 +630,27 @@ export function ChatPanel({ scope }: { scope: ChatScope }) {
               onOpenHref={onOpenHref}
             />
           ) : pending && !sendError ? (
-            <AssistantMessage text="" citations={[]} actions={[]} streaming onSeek={onSeek} onOpenHref={onOpenHref} />
+            <AssistantMessage
+              text=""
+              citations={[]}
+              actions={[]}
+              streaming
+              onSeek={onSeek}
+              onOpenHref={onOpenHref}
+            />
           ) : null}
 
           {visibleStream?.phase === 'error' ? (
-            <ErrorBubble message={visibleStream.error ?? 'The answer stopped unexpectedly.'} onRetry={regenerate} />
+            <ErrorBubble
+              message={visibleStream.error ?? 'The answer stopped unexpectedly.'}
+              onRetry={regenerate}
+            />
           ) : null}
           {sendError ? (
             <ErrorBubble message={sendError.message} onRetry={() => send(sendError.text)} />
           ) : null}
         </div>
-        {unseen && !stick ? (
+        {unseen ? (
           <Button
             variant="secondary"
             size="xs"
@@ -560,7 +658,7 @@ export function ChatPanel({ scope }: { scope: ChatScope }) {
               const el = scroller.current;
               if (el) el.scrollTop = el.scrollHeight;
               setStick(true);
-              setUnseen(false);
+              setSeenSig(null);
             }}
             className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full shadow-md"
             data-testid="chat-jump-latest"
@@ -577,14 +675,26 @@ export function ChatPanel({ scope }: { scope: ChatScope }) {
         inputRef={inputRef}
         draft={draft}
         setDraft={setDraft}
-        placeholder={scope.clipId ? 'Ask about this clip, or “rewrite this hook”…' : 'Ask about this video, or “make a clip of…”'}
+        placeholder={
+          scope.clipId
+            ? 'Ask about this clip, or “rewrite this hook”…'
+            : 'Ask about this video, or “make a clip of…”'
+        }
       />
     </div>
   );
 }
 
 /** Non-modal right-hand panel: the page and the source player stay interactive while the chat is open. */
-export function ChatSheet({ scope, open, onOpenChange }: { scope: ChatScope; open: boolean; onOpenChange: (o: boolean) => void }) {
+export function ChatSheet({
+  scope,
+  open,
+  onOpenChange,
+}: {
+  scope: ChatScope;
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+}) {
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange} modal={false}>
       <DialogPrimitive.Portal>
@@ -595,7 +705,9 @@ export function ChatSheet({ scope, open, onOpenChange }: { scope: ChatScope; ope
           onInteractOutside={(e) => e.preventDefault()}
           onOpenAutoFocus={(e) => {
             e.preventDefault();
-            (e.currentTarget as HTMLElement | null)?.querySelector<HTMLTextAreaElement>('textarea')?.focus();
+            (e.currentTarget as HTMLElement | null)
+              ?.querySelector<HTMLTextAreaElement>('textarea')
+              ?.focus();
           }}
           className={cn(
             'app-no-drag fixed bottom-3 right-3 top-14 z-[70] flex w-[min(440px,calc(100vw-24px))] flex-col overflow-hidden rounded-2xl border border-border-strong bg-popover text-foreground shadow-lg outline-none',

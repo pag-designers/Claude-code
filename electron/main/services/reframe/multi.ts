@@ -117,7 +117,12 @@ export function planMulti(args: PlanArgs, opts: MultiOptions): ReframePlan | nul
   const region = opts.region;
   const panels = splitPanels(aspect);
   const pa = panels.a.w / panels.a.h;
-  const tilesPx = opts.tiles.map((t) => toPx(t, srcW, srcH));
+  // tile edges are estimated to a few px and often carry a dark/blended seam: stay a little inside
+  const inset = Math.max(3, Math.round(0.008 * srcH));
+  const tilesPx = opts.tiles.map((t) => {
+    const r = toPx(t, srcW, srcH);
+    return { x: r.x + inset, y: r.y + inset, w: r.w - 2 * inset, h: r.h - 2 * inset };
+  });
 
   // ---- constant window size -------------------------------------------------------------------
   const picked: { track: FaceTrack; side: 'a' | 'b'; pair: FacePair | null }[] = [];

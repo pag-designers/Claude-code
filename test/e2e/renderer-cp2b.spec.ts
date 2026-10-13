@@ -1,6 +1,12 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { formatCopyAll } from '../../renderer/lib/cp2-clips';
-import { canRunB, createHarnessB, type HarnessB, type OpenB, type SessionB } from './support/cp2b-harness';
+import {
+  canRunB,
+  createHarnessB,
+  type HarnessB,
+  type OpenB,
+  type SessionB,
+} from './support/cp2b-harness';
 import { BUDGET_ERROR, bstate } from './support/cp2-stub-b';
 
 /**
@@ -27,7 +33,11 @@ const CLIP = 'vid-interview-c1';
 const clean = (s: SessionB) => expect(s.problems).toEqual([]);
 
 async function openDrawer(p: Page, tab?: string, index = 0) {
-  await p.getByTestId('clip-card').nth(index).getByRole('button', { name: /Open clip/ }).click();
+  await p
+    .getByTestId('clip-card')
+    .nth(index)
+    .getByRole('button', { name: /Open clip/ })
+    .click();
   await expect(p.getByTestId('clip-drawer')).toBeVisible();
   if (tab) await p.getByTestId(`drawer-tab-${tab}`).click();
   return p.getByTestId('clip-drawer');
@@ -45,7 +55,11 @@ const noOverflow = async (p: Page, sel?: string) => {
 };
 const imgLoaded = (img: Locator) =>
   expect
-    .poll(() => img.evaluate((el) => (el as HTMLImageElement).complete && (el as HTMLImageElement).naturalWidth > 0))
+    .poll(() =>
+      img.evaluate(
+        (el) => (el as HTMLImageElement).complete && (el as HTMLImageElement).naturalWidth > 0,
+      ),
+    )
     .toBe(true);
 
 /* ------------------------------------------------------------------------------------------------- hooks */
@@ -67,7 +81,9 @@ test.describe('Clip drawer: Hook tab', () => {
     const tiktok0 = await dlg.getByTestId('hook-variant-0').locator('p').first().innerText();
     await dlg.getByTestId('platform-reels').click();
     await expect(dlg.locator('[data-testid^="hook-variant-"]')).toHaveCount(5);
-    expect(await dlg.getByTestId('hook-variant-0').locator('p').first().innerText()).not.toBe(tiktok0);
+    expect(await dlg.getByTestId('hook-variant-0').locator('p').first().innerText()).not.toBe(
+      tiktok0,
+    );
     await dlg.getByTestId('platform-shorts').click();
     await dlg.getByTestId('hook-use-2').click();
     expect(calls(s, 'hooks:apply').at(-1)?.payload).toEqual({
@@ -82,7 +98,9 @@ test.describe('Clip drawer: Hook tab', () => {
     await s.ctl.finishRender(CLIP);
     await expect(dlg.getByTestId('tab-render-progress')).toBeHidden();
     await expect(dlg.getByTestId('hook-applied')).toHaveAttribute('data-applied', 'true');
-    await expect(dlg.getByTestId('hook-applied-text')).toContainText('YouTube Shorts #3'.replace('YouTube ', ''));
+    await expect(dlg.getByTestId('hook-applied-text')).toContainText(
+      'YouTube Shorts #3'.replace('YouTube ', ''),
+    );
     await expect(dlg.getByTestId('hook-variant-2')).toHaveAttribute('data-applied', 'true');
     await expect(dlg.getByTestId('hook-applied-badge')).toBeVisible();
     expect(clipState(s).hookApplied).not.toBeNull();
@@ -95,7 +113,10 @@ test.describe('Clip drawer: Hook tab', () => {
     await expect(dlg.getByTestId('hook-remove')).toBeHidden();
 
     // regenerate really replaces the wording
-    const before = await dlg.getByTestId('platform-tiktok').click().then(() => dlg.getByTestId('hook-variant-0').locator('p').first().innerText());
+    const before = await dlg
+      .getByTestId('platform-tiktok')
+      .click()
+      .then(() => dlg.getByTestId('hook-variant-0').locator('p').first().innerText());
     await dlg.getByTestId('hook-regenerate').click();
     await expect(dlg.getByTestId('hook-variant-0')).toContainText('Fresh angle');
     expect(before).not.toContain('Fresh angle');
@@ -111,7 +132,10 @@ test.describe('Clip drawer: Hook tab', () => {
     await dlg.getByTestId('hook-generate').click();
     const err = dlg.locator('[role="alert"]').first();
     await expect(err).toContainText('Monthly AI budget reached');
-    await expect(err.getByRole('link', { name: 'Open Models & Budget' })).toHaveAttribute('href', '/settings/models/');
+    await expect(err.getByRole('link', { name: 'Open Models & Budget' })).toHaveAttribute(
+      'href',
+      '/settings/models/',
+    );
     await err.getByRole('button', { name: 'Try again' }).click();
     await expect(dlg.getByTestId('hook-variant-0')).toBeVisible();
     await expect(dlg.locator('[role="alert"]')).toHaveCount(0);
@@ -143,9 +167,13 @@ test.describe('Clip drawer: Metadata tab', () => {
     await expect(dlg.getByTestId('meta-savebar')).toHaveAttribute('aria-hidden', 'true');
 
     // TikTok: caption counter, honest posting-time note
-    await expect(dlg.getByTestId('meta-desc')).toContainText('Awareness means people know the word');
+    await expect(dlg.getByTestId('meta-desc')).toContainText(
+      'Awareness means people know the word',
+    );
     await expect(dlg.getByText(/\/ 2,200 chars/)).toBeVisible();
-    await expect(dlg.getByTestId('meta-time-note')).toContainText('not from your own audience data');
+    await expect(dlg.getByTestId('meta-time-note')).toContainText(
+      'not from your own audience data',
+    );
     await expect(dlg.getByTestId('meta-time-reason')).not.toBeEmpty();
     await expect(dlg.getByTestId('meta-day')).toContainText('Tuesday');
     await expect(dlg.getByTestId('meta-hour')).toContainText('7:00 PM');
@@ -158,12 +186,15 @@ test.describe('Clip drawer: Metadata tab', () => {
     // hashtags: add (Enter and comma), normalise, de-duplicate, remove
     const tags = dlg.getByTestId('meta-tag');
     const n0 = await tags.count();
-    await dlg.getByTestId('meta-tag-input').fill('Brand New!');
+    await dlg.getByTestId('meta-tag-input').fill('Brand-New!');
     await dlg.getByTestId('meta-tag-input').press('Enter');
     await expect(tags.filter({ hasText: '#BrandNew' })).toHaveCount(1);
     await dlg.getByTestId('meta-tag-input').fill('brandnew,');
     await expect(tags).toHaveCount(n0 + 1);
-    await tags.filter({ hasText: '#BrandNew' }).getByRole('button', { name: /Remove/ }).click();
+    await tags
+      .filter({ hasText: '#BrandNew' })
+      .getByRole('button', { name: /Remove/ })
+      .click();
     await expect(tags).toHaveCount(n0);
 
     // Shorts: title limit 100
@@ -201,9 +232,13 @@ test.describe('Clip drawer: Metadata tab', () => {
     // save: every dirty platform is sent, then the bar goes away
     await dlg.getByTestId('meta-save').click();
     await expect(dlg.getByTestId('meta-savebar')).toHaveAttribute('aria-hidden', 'true');
-    const saved = calls(s, 'meta:save').map((c) => (c.payload as { platform: string }).platform).sort();
+    const saved = calls(s, 'meta:save')
+      .map((c) => (c.payload as { platform: string }).platform)
+      .sort();
     expect(saved).toEqual(['reels', 'shorts', 'tiktok']);
-    const tik = calls(s, 'meta:save').find((c) => (c.payload as { platform: string }).platform === 'tiktok')!;
+    const tik = calls(s, 'meta:save').find(
+      (c) => (c.payload as { platform: string }).platform === 'tiktok',
+    )!;
     expect((tik.payload as { meta: { title: string } }).meta.title).toBe('A sharper title');
     // persisted: reopen the drawer -> edited title is still there (cache + stub)
     await s.page.keyboard.press('Escape');
@@ -262,13 +297,16 @@ test.describe('Clip drawer: Thumbnail tab + tester', () => {
     await expect(dlg.getByTestId('thumb-detail')).toContainText('AI rank #1');
     await expect(dlg.getByTestId('thumb-ai-note')).not.toBeEmpty();
     // the AI's top pick is preselected
-    const best = await dlg.locator('[data-testid^="thumb-candidate-"][data-selected]').first().getAttribute('data-testid');
+    const best = await dlg
+      .locator('[data-testid^="thumb-candidate-"][data-selected]')
+      .first()
+      .getAttribute('data-testid');
     expect(best).toMatch(/thumb-candidate-\d/);
 
     // overlay text: suggested from the title, <= 5 words
     const overlay = dlg.getByTestId('thumb-overlay');
-    await expect(overlay).toHaveValue('Awareness isn’t enough. Acceptance');
-    await expect(dlg.getByTestId('thumb-overlay-count')).toHaveText('4 / 5 words');
+    await expect(overlay).toHaveValue('Awareness isn’t enough. Acceptance changes');
+    await expect(dlg.getByTestId('thumb-overlay-count')).toHaveText('5 / 5 words');
     await overlay.fill('one two three four five six');
     await expect(dlg.getByTestId('thumb-overlay-count')).toContainText('6 / 5');
     await expect(dlg.getByTestId('thumb-choose')).toBeDisabled();
@@ -314,10 +352,11 @@ test.describe('Clip drawer: Thumbnail tab + tester', () => {
 
     // A/B compare: B sits next to A in every mockup
     await dlg.getByRole('radio', { name: 'A/B compare' }).click();
-    await expect(dlg.getByTestId('thumb-ab-hint')).toContainText('choose option A');
-    await dlg.getByTestId('thumb-candidate-1').click();
+    // A starts as the frame that was selected; B is the one still to pick
     await expect(dlg.getByTestId('thumb-ab-hint')).toContainText('choose option B');
-    await dlg.getByTestId('thumb-candidate-4').click();
+    await dlg.getByTestId('thumb-candidate-1').click();
+    await expect(dlg.getByTestId('thumb-ab-hint')).toContainText('Comparing A and B');
+    await dlg.getByTestId('thumb-candidate-4').click(); // a third pick swaps out the older one
     await expect(dlg.getByTestId('thumb-tag-A')).toBeVisible();
     await expect(dlg.getByTestId('thumb-tag-B')).toBeVisible();
     for (const id of ['tiktok', 'reels', 'shorts']) {
@@ -328,7 +367,9 @@ test.describe('Clip drawer: Thumbnail tab + tester', () => {
     await expect(tester.getByTestId('tester-small-tiktok-b')).toBeVisible();
     await dlg.getByTestId('thumb-use-b').click();
     await expect.poll(() => bstate(s.state).log.chosen.length).toBe(2);
-    expect(bstate(s.state).log.chosen[1]!.t).toBe(bstate(s.state).thumbs.get(CLIP)!.candidates[4]!.t);
+    expect(bstate(s.state).log.chosen[1]!.t).toBe(
+      bstate(s.state).thumbs.get(CLIP)!.candidates[4]!.t,
+    );
 
     // full size
     await dlg.getByTestId('tester-expand').click();
@@ -377,7 +418,10 @@ test.describe('Clip drawer: Reframe & Style tab', () => {
     await s.ctl.setRender(CLIP, 0.7);
     await expect(dlg.getByTestId('tab-render-progress')).toContainText('70%');
     await s.ctl.finishRender(CLIP); // the stub's layout stays "single": only one face was found
-    await expect(dlg.getByTestId('reframe-mode-multi-face')).toHaveAttribute('aria-checked', 'true');
+    await expect(dlg.getByTestId('reframe-mode-multi-face')).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
     await expect(dlg.getByTestId('reframe-note')).toContainText('only one face was found');
     await expect(dlg.getByTestId('reframe-layout')).toContainText('Single crop');
     clean(s);
@@ -406,7 +450,9 @@ test.describe('Clip drawer: Reframe & Style tab', () => {
       clipId: CLIP,
       format: 'srt',
     });
-    expect(s.problems.filter((p) => !p.includes('HTTP') && !p.includes('Failed to load resource'))).toEqual([]);
+    expect(
+      s.problems.filter((p) => !p.includes('HTTP') && !p.includes('Failed to load resource')),
+    ).toEqual([]);
     await s.close();
   });
 
@@ -476,9 +522,13 @@ test.describe('Steering: Find more moments', () => {
     await s.ctl.runStep();
     await expect(s.page.getByTestId('clip-card')).toHaveCount(10);
     await expect(run.getByTestId('run-status')).toContainText('1 found so far');
-    const first = s.page.getByTestId('clip-card').filter({ has: s.page.getByTestId('clip-found-by') });
+    const first = s.page
+      .getByTestId('clip-card')
+      .filter({ has: s.page.getByTestId('clip-found-by') });
     await expect(first).toHaveCount(1);
-    await expect(first.getByTestId('clip-found-by')).toContainText('found by: only the funny parts');
+    await expect(first.getByTestId('clip-found-by')).toContainText(
+      'found by: only the funny parts',
+    );
     await s.ctl.runStep();
     await s.ctl.finishRun();
     await expect(run).toHaveAttribute('data-status', 'done');
@@ -517,13 +567,18 @@ test.describe('Steering: Find more moments', () => {
     const failed = panel.getByTestId('moment-run').first();
     await expect(failed).toHaveAttribute('data-status', 'failed');
     await expect(failed.getByTestId('run-error')).toContainText('Monthly AI budget reached');
-    await expect(failed.getByRole('link', { name: 'Open Models & Budget' })).toHaveAttribute('href', '/settings/models/');
+    await expect(failed.getByRole('link', { name: 'Open Models & Budget' })).toHaveAttribute(
+      'href',
+      '/settings/models/',
+    );
 
     // a run that fails for another reason shows the raw message
     await panel.getByTestId('steer-input').fill('numbers and claims');
     await panel.getByTestId('steer-submit').click();
     await s.ctl.failRun('The model returned malformed JSON twice.');
-    await expect(panel.getByTestId('moment-run').first().getByTestId('run-error')).toContainText('malformed JSON');
+    await expect(panel.getByTestId('moment-run').first().getByTestId('run-error')).toContainText(
+      'malformed JSON',
+    );
 
     // moments:find itself rejected (hard cap) -> inline, actionable error and the text is kept
     s.ctl.failNext('moments:find', BUDGET_ERROR);
@@ -534,7 +589,9 @@ test.describe('Steering: Find more moments', () => {
     await expect(err.getByRole('link', { name: 'Open Models & Budget' })).toBeVisible();
     await expect(panel.getByTestId('steer-input')).toHaveValue('emotional moments');
     await err.getByRole('button', { name: 'Try again' }).click();
-    await expect(panel.getByTestId('moment-run').first().getByTestId('run-prompt')).toHaveText('“emotional moments”');
+    await expect(panel.getByTestId('moment-run').first().getByTestId('run-prompt')).toHaveText(
+      '“emotional moments”',
+    );
     clean(s);
     await s.close();
   });
@@ -579,7 +636,9 @@ test.describe('One-Click Highlights', () => {
     await expect(card).toBeVisible();
     await expect(card).toHaveAttribute('data-state', 'working');
     // the reel shows up in the grid with its own badge
-    const reel = s.page.getByTestId('clip-card').filter({ has: s.page.getByTestId('clip-highlight-badge') });
+    const reel = s.page
+      .getByTestId('clip-card')
+      .filter({ has: s.page.getByTestId('clip-highlight-badge') });
     await expect(reel).toHaveCount(1);
     await expect(reel.getByTestId('clip-highlight-badge')).toHaveText('Highlight reel');
     const reelId = s.state.clips[0]!.id;
@@ -593,7 +652,7 @@ test.describe('One-Click Highlights', () => {
     await expect(dlg).toBeVisible();
     await expect(dlg.getByTestId('drawer-highlight-badge')).toBeVisible();
     await expect(dlg.getByTestId('drawer-hook')).toContainText('The best moments, in story order.');
-    await expect(dlg.getByTestId('drawer-why')).toContainText('story');
+    await expect(dlg.getByTestId('drawer-why')).toContainText('crossfades');
     clean(s);
     await s.close();
   });
@@ -621,8 +680,16 @@ const send = async (p: Page, text: string) => {
   await panel(p).getByTestId('chat-input').fill(text);
   await panel(p).getByTestId('chat-input').press('Enter');
 };
-const proxyTime = (p: Page) =>
-  p.evaluate(() => (document.querySelector('[data-testid="proxy-video"]') as HTMLVideoElement | null)?.currentTime ?? -1);
+const videoTime = (p: Page, testId: string) =>
+  p.evaluate(
+    (id) =>
+      (document.querySelector(`[data-testid="${id}"]`) as HTMLVideoElement | null)?.currentTime ??
+      -1,
+    testId,
+  );
+/** The page's proxy player and the chat panel's own source peek. */
+const proxyTime = (p: Page) => videoTime(p, 'proxy-video');
+const peekTime = (p: Page) => videoTime(p, 'chat-peek-video');
 
 test.describe('AI Chat', () => {
   test('opens from the launcher and with Ctrl+J, shows the context, empty state and suggestions', async () => {
@@ -631,7 +698,7 @@ test.describe('AI Chat', () => {
     await s.page.getByTestId('chat-launcher').click();
     await expect(panel(s.page)).toBeVisible();
     await expect(panel(s.page).getByTestId('chat-context')).toContainText(
-      'Chatting about: Community Conversations: Autism Awareness & Local Art',
+      /Chatting about:\s*Community Conversations: Autism Awareness & Local Art/,
     );
     await expect(panel(s.page).getByTestId('chat-empty')).toBeVisible();
     await expect(panel(s.page).getByTestId('chat-input')).toBeFocused();
@@ -673,7 +740,9 @@ test.describe('AI Chat', () => {
       /* drain the rest of the script */
     }
     await expect(panel(s.page).getByTestId('chat-send')).toBeVisible();
-    await expect(answer).toHaveAttribute('aria-busy', 'false').catch(() => undefined);
+    await expect(answer)
+      .toHaveAttribute('aria-busy', 'false')
+      .catch(() => undefined);
     // markdown: numbered list, bold, no raw markers
     await expect(panel(s.page).locator('ol li').first()).toContainText('collage');
     await expect(panel(s.page).locator('strong').first()).toContainText(/places|place/);
@@ -685,10 +754,42 @@ test.describe('AI Chat', () => {
     const sec = Number(await chips.first().getAttribute('data-sec'));
     expect(sec).toBeGreaterThan(5);
     await chips.first().click();
-    await expect.poll(() => proxyTime(s.page), { timeout: 8000 }).toBeGreaterThanOrEqual(sec - 1);
-    expect(await proxyTime(s.page)).toBeLessThan(sec + 6);
+    // at 1440 px the panel covers the page's player, so the click is shown in the panel's own source peek
+    await expect(panel(s.page).getByTestId('chat-peek')).toBeVisible();
+    await expect.poll(() => peekTime(s.page), { timeout: 8000 }).toBeGreaterThanOrEqual(sec - 1);
+    expect(await peekTime(s.page)).toBeLessThan(sec + 6);
+    // clicking another timestamp re-seeks the same peek
+    const second = panel(s.page).getByTestId('chat-sources').getByTestId('chat-time').last();
+    const sec2 = Number(await second.getAttribute('data-sec'));
+    await second.click();
+    await expect.poll(() => peekTime(s.page), { timeout: 8000 }).toBeGreaterThanOrEqual(sec2 - 1);
+    await panel(s.page).getByRole('button', { name: 'Close source video' }).click();
+    await expect(panel(s.page).getByTestId('chat-peek')).toHaveCount(0);
     // the stored message came back through chat:messages as well
     expect(calls(s, 'chat:send')).toHaveLength(1);
+    clean(s);
+    await s.close();
+  });
+
+  test('timestamps seek the page player when it is visible (wide screen), the peek when it is not (Clips tab)', async () => {
+    const s = await open(VIDEO('overview'), { width: 2560, height: 1080 });
+    await s.page.getByTestId('chat-launcher').click();
+    await send(s.page, 'Find the part where they talk about the collage');
+    while ((await s.ctl.chatStep(8)) > 0) {
+      /* drain */
+    }
+    const chip = panel(s.page).getByTestId('chat-answer').getByTestId('chat-time').first();
+    const sec = Number(await chip.getAttribute('data-sec'));
+    await chip.click();
+    await expect.poll(() => proxyTime(s.page), { timeout: 8000 }).toBeGreaterThanOrEqual(sec - 1);
+    await expect(panel(s.page).getByTestId('chat-peek')).toHaveCount(0); // the real player shows it
+    // the Clips tab hides the player: the click is shown in the peek instead of playing hidden audio
+    await s.page.getByRole('tab', { name: /Clips/ }).click();
+    const chip2 = panel(s.page).getByTestId('chat-sources').getByTestId('chat-time').last();
+    const sec2 = Number(await chip2.getAttribute('data-sec'));
+    await chip2.click();
+    await expect(panel(s.page).getByTestId('chat-peek')).toBeVisible();
+    await expect.poll(() => peekTime(s.page), { timeout: 8000 }).toBeGreaterThanOrEqual(sec2 - 1);
     clean(s);
     await s.close();
   });
@@ -725,8 +826,8 @@ test.describe('AI Chat', () => {
     await expect(card).toHaveCount(1);
     await expect(card).toHaveAttribute('data-status', 'done');
     await expect(card.getByTestId('chat-action-summary')).toContainText('Created clip');
-    const before = s.state.clips.length;
-    expect(before).toBe(10);
+    const forVideo = s.state.clips.filter((c) => c.videoId === 'vid-interview').length;
+    expect(forVideo).toBe(10); // the stub created the clip when the card turned done
     await card.getByTestId('chat-action-link').click();
     // navigates to the Clips tab and opens the new clip in the drawer
     await expect(s.page.getByTestId('clip-drawer')).toBeVisible();
@@ -741,7 +842,7 @@ test.describe('AI Chat', () => {
   test('add_marker: card links to the moment; ticks show under the player; markers menu lists and deletes', async () => {
     const s = await open(VIDEO('overview'));
     await s.page.getByTestId('chat-launcher').click();
-    await send(s.page, 'Add a marker where they talk about the exhibit opening');
+    await send(s.page, 'Add a marker where they say the first fifty visitors');
     while ((await s.ctl.chatStep(8)) > 0) {
       /* drain */
     }
@@ -750,7 +851,9 @@ test.describe('AI Chat', () => {
     await expect(card.getByTestId('chat-action-summary')).toContainText('Marker');
     await expect(s.page.getByTestId('marker-tick')).toHaveCount(1); // markers:changed refreshed the strip
     await card.getByTestId('chat-action-link').click(); // href with &t= seeks, no navigation
-    await expect.poll(() => proxyTime(s.page), { timeout: 8000 }).toBeGreaterThan(30);
+    const at = bstate(s.state).markers[0]!.atSec;
+    expect(at).toBeGreaterThan(100); // "first fifty visitors" is near the end of the interview
+    await expect.poll(() => peekTime(s.page), { timeout: 8000 }).toBeGreaterThanOrEqual(at - 1);
     await panel(s.page).getByTestId('chat-markers').click();
     const menu = s.page.getByTestId('chat-markers-menu');
     await expect(menu.getByTestId('chat-time')).toHaveCount(1);
@@ -771,7 +874,10 @@ test.describe('AI Chat', () => {
     }
     const err = panel(s.page).getByTestId('chat-error');
     await expect(err).toHaveAttribute('data-kind', 'budget');
-    await expect(err.getByRole('link', { name: 'Open Models & Budget' })).toHaveAttribute('href', '/settings/models/');
+    await expect(err.getByRole('link', { name: 'Open Models & Budget' })).toHaveAttribute(
+      'href',
+      '/settings/models/',
+    );
     await expect(panel(s.page).getByTestId('chat-send')).toBeVisible(); // composer is usable again
 
     // chat:send itself rejects
@@ -779,12 +885,17 @@ test.describe('AI Chat', () => {
     await send(s.page, 'What are the key takeaways?');
     const err2 = panel(s.page).getByTestId('chat-error').last();
     await expect(err2).toHaveAttribute('data-kind', 'anthropic');
-    await expect(err2.getByRole('link', { name: 'Open API keys' })).toHaveAttribute('href', '/settings/api-keys/');
+    await expect(err2.getByRole('link', { name: 'Open API keys' })).toHaveAttribute(
+      'href',
+      '/settings/api-keys/',
+    );
     await err2.getByTestId('chat-retry').click();
     while ((await s.ctl.chatStep(8)) > 0) {
       /* drain */
     }
-    await expect(panel(s.page).getByTestId('chat-assistant-msg').last()).toContainText('key');
+    await expect(panel(s.page).getByTestId('chat-assistant-msg').last()).toContainText(
+      'What stood out',
+    );
     clean(s);
     await s.close();
   });
@@ -820,13 +931,20 @@ test.describe('AI Chat', () => {
   test('threads: new chat, switch, delete (two-step); a thread keeps its messages', async () => {
     const s = await open(VIDEO('overview'), {
       prepare: (st, ctl) => {
-        ctl.seedThread('vid-interview', null, [['What is this video about?', 'It is a community interview about **acceptance** and collage art.']]);
+        ctl.seedThread('vid-interview', null, [
+          [
+            'What is this video about?',
+            'It is a community interview about **acceptance** and collage art.',
+          ],
+        ]);
         st.counter += 1;
       },
     });
     await s.page.getByTestId('chat-launcher').click();
     // the latest thread opens by itself
-    await expect(panel(s.page).getByTestId('chat-user-msg')).toContainText('What is this video about?');
+    await expect(panel(s.page).getByTestId('chat-user-msg')).toContainText(
+      'What is this video about?',
+    );
     await expect(panel(s.page).locator('strong')).toContainText('acceptance');
     await panel(s.page).getByTestId('chat-new').click();
     await expect(panel(s.page).getByTestId('chat-empty')).toBeVisible();
@@ -840,13 +958,25 @@ test.describe('AI Chat', () => {
     await panel(s.page).getByTestId('chat-threads').click();
     const menu = s.page.getByTestId('chat-threads-menu');
     await expect(menu.getByTestId('chat-thread')).toHaveCount(2);
-    await menu.getByTestId('chat-thread').filter({ hasText: 'What is this video about?' }).getByRole('button').first().click();
-    await expect(panel(s.page).getByTestId('chat-user-msg')).toContainText('What is this video about?');
+    await menu
+      .getByTestId('chat-thread')
+      .filter({ hasText: 'What is this video about?' })
+      .getByRole('button')
+      .first()
+      .click();
+    await expect(menu).toBeHidden(); // picking a conversation closes the menu
+    await expect(panel(s.page).getByTestId('chat-user-msg')).toContainText(
+      'What is this video about?',
+    );
     await expect(panel(s.page).getByTestId('chat-user-msg')).toHaveCount(1);
     // delete needs a confirmation click
     await panel(s.page).getByTestId('chat-threads').click();
     await menu.getByTestId('chat-thread').filter({ hasText: 'Summarize' }).hover();
-    await menu.getByTestId('chat-thread').filter({ hasText: 'Summarize' }).getByTestId('chat-thread-delete').click();
+    await menu
+      .getByTestId('chat-thread')
+      .filter({ hasText: 'Summarize' })
+      .getByTestId('chat-thread-delete')
+      .click();
     expect(calls(s, 'chat:delete')).toHaveLength(0);
     await menu.getByTestId('chat-thread-delete-confirm').click();
     await expect(menu.getByTestId('chat-thread')).toHaveCount(1);
@@ -873,7 +1003,9 @@ test.describe('AI Chat', () => {
     await expect(ans.getByTestId('chat-time').nth(1)).toHaveAttribute('data-sec', '3723');
     await expect(ans).toContainText('[99:99]'); // not a clock: stays text
     await expect(ans.locator('a')).toHaveCount(0); // non-http links stay text
-    expect(await s.page.evaluate(() => (window as unknown as { __pwned?: number }).__pwned)).toBeUndefined();
+    expect(
+      await s.page.evaluate(() => (window as unknown as { __pwned?: number }).__pwned),
+    ).toBeUndefined();
     clean(s);
     await s.close();
   });
@@ -882,10 +1014,15 @@ test.describe('AI Chat', () => {
     const s = await open(VIDEO('clips'));
     const dlg = await openDrawer(s.page);
     await dlg.getByTestId('chat-launcher-clip').click();
-    await expect(panel(s.page).getByTestId('chat-context')).toContainText('Awareness isn’t enough. Acceptance changes the room.');
+    await expect(panel(s.page).getByTestId('chat-context')).toContainText(
+      'Awareness isn’t enough. Acceptance changes the room.',
+    );
     await expect(panel(s.page).getByTestId('chat-suggestion-hook')).toBeVisible();
     await panel(s.page).getByTestId('chat-suggestion-hook').click();
-    expect(bstate(s.state).log.sends.at(-1)).toMatchObject({ text: 'Rewrite this hook', clipId: CLIP });
+    expect(bstate(s.state).log.sends.at(-1)).toMatchObject({
+      text: 'Rewrite this hook',
+      clipId: CLIP,
+    });
     while ((await s.ctl.chatStep(8)) > 0) {
       /* drain */
     }
@@ -895,7 +1032,11 @@ test.describe('AI Chat', () => {
     // interacting with the panel did not dismiss the modal drawer
     await expect(dlg).toBeVisible();
     // a timestamp chip makes the drawer play the source at that moment
-    const chip = panel(s.page).getByTestId('chat-answer').getByTestId('chat-time').first().or(panel(s.page).getByTestId('chat-sources').getByTestId('chat-time').first());
+    const chip = panel(s.page)
+      .getByTestId('chat-answer')
+      .getByTestId('chat-time')
+      .first()
+      .or(panel(s.page).getByTestId('chat-sources').getByTestId('chat-time').first());
     await chip.click();
     await expect(dlg.getByTestId('drawer-source-video')).toBeVisible();
     // the action link opens the Hook tab with the rewritten hook first
@@ -915,15 +1056,31 @@ test.describe('AI Chat', () => {
     const s = await open(VIDEO('overview'), {
       height: 700,
       prepare: (_st, ctl) => {
-        ctl.seedThread('vid-interview', null, Array.from({ length: 6 }, (_, i) => [`Question number ${i + 1}?`, `Answer ${i + 1}: ` + 'This is a fairly long answer about the interview. '.repeat(12)] as [string, string]));
+        ctl.seedThread(
+          'vid-interview',
+          null,
+          Array.from(
+            { length: 6 },
+            (_, i) =>
+              [
+                `Question number ${i + 1}?`,
+                `Answer ${i + 1}: ` +
+                  'This is a fairly long answer about the interview. '.repeat(12),
+              ] as [string, string],
+          ),
+        );
       },
     });
     await s.page.getByTestId('chat-launcher').click();
     const sc = panel(s.page).getByTestId('chat-scroller');
-    await expect.poll(() => sc.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight)).toBeLessThan(4);
+    await expect
+      .poll(() => sc.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight))
+      .toBeLessThan(4);
     await send(s.page, 'Find the part where they talk about the collage');
     await s.ctl.chatStep(4);
-    await expect.poll(() => sc.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight)).toBeLessThan(4);
+    await expect
+      .poll(() => sc.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight))
+      .toBeLessThan(4);
     // the user scrolls up: new text must not yank the view back down
     await sc.evaluate((el) => (el.scrollTop = 0));
     await s.ctl.chatStep(6);
@@ -931,7 +1088,9 @@ test.describe('AI Chat', () => {
     expect(await sc.evaluate((el) => el.scrollTop)).toBeLessThan(40);
     await expect(panel(s.page).getByTestId('chat-jump-latest')).toBeVisible();
     await panel(s.page).getByTestId('chat-jump-latest').click();
-    await expect.poll(() => sc.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight)).toBeLessThan(4);
+    await expect
+      .poll(() => sc.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight))
+      .toBeLessThan(4);
     clean(s);
     await s.close();
   });
@@ -952,7 +1111,12 @@ test.describe('Layout', () => {
           ctl.seedHooks(CLIP, { platform: 'reels', index: 0 });
           ctl.seedMeta(CLIP);
           ctl.seedThumbs(CLIP);
-          ctl.seedThread('vid-interview', null, [['A long question about the whole interview and everything in it?', 'A long answer. ' + 'word '.repeat(80)]]);
+          ctl.seedThread('vid-interview', null, [
+            [
+              'A long question about the whole interview and everything in it?',
+              'A long answer. ' + 'word '.repeat(80),
+            ],
+          ]);
         },
       });
       await noOverflow(s.page);
@@ -966,7 +1130,9 @@ test.describe('Layout', () => {
         await noOverflow(s.page, '[data-testid="clip-drawer"]');
         // the scrolling column must not scroll sideways
         const cols = await s.page.evaluate(() =>
-          [...document.querySelectorAll('[data-testid="clip-drawer"] .overflow-y-auto')].map((e) => e.scrollWidth - e.clientWidth),
+          [...document.querySelectorAll('[data-testid="clip-drawer"] .overflow-y-auto')].map(
+            (e) => e.scrollWidth - e.clientWidth,
+          ),
         );
         for (const c of cols) expect(c).toBeLessThanOrEqual(1);
       }

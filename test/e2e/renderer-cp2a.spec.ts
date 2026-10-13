@@ -26,6 +26,15 @@ const open = (route: string, opts: OpenOptions = {}) => h.open(route, { settle: 
 const VIDEO = '/library/video/?id=vid-interview';
 const SUBS = `${VIDEO}&tab=subtitles`;
 const rows = (p: Page) => p.getByTestId('cue-row');
+/** The row whose caption text is exactly `text`. */
+const rowIs = (p: Page, text: string) =>
+  rows(p)
+    .filter({
+      has: p.locator('[data-testid="cue-text"]', {
+        hasText: new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`),
+      }),
+    })
+    .first();
 const row = (p: Page, text: string | RegExp) => rows(p).filter({ hasText: text }).first();
 const saveState = (p: Page) => p.getByTestId('save-state');
 const saves = (s: { state: Parameters<typeof cp2a>[0] }) => cp2a(s.state).log.saves;
@@ -82,7 +91,9 @@ test.describe('Subtitles tab', () => {
       merges: [],
     }).length;
     expect(total).toBeGreaterThan(1500);
-    await expect(s.page.getByText(new RegExp(`^${total.toLocaleString('en-US')} captions`))).toBeVisible();
+    await expect(
+      s.page.getByText(new RegExp(`^${total.toLocaleString('en-US')} captions`)),
+    ).toBeVisible();
     const dom = await rows(s.page).count();
     expect(dom).toBeGreaterThan(5);
     expect(dom).toBeLessThan(60);
@@ -125,7 +136,9 @@ test.describe('Subtitles tab', () => {
     expect(saves(s)[0]!.edits.words).toEqual({ '4': { text: 'Chats,' } });
     expect(saves(s)[0]!.edits.rev).toBe(0);
     // the video's revision moved, so the next save sends rev 1
-    await expect.poll(() => s.state.videos.find((v) => v.id === 'vid-interview')!.subtitleRev).toBe(1);
+    await expect
+      .poll(() => s.state.videos.find((v) => v.id === 'vid-interview')!.subtitleRev)
+      .toBe(1);
     expect(s.problems).toEqual([]);
     await s.close();
   });
@@ -159,7 +172,7 @@ test.describe('Subtitles tab', () => {
     // caret after "Joining me" (10 characters)
     await ta.evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(10, 10));
     await r.getByRole('button', { name: 'Split at caret' }).click();
-    await expect(row(s.page, /^\s*\d+:\d\d\.\d\s*\d+\.\ds\s*Joining me\s*$/)).toBeVisible();
+    await expect(rowIs(s.page, 'Joining me')).toBeVisible();
     await expect(row(s.page, 'are a pediatric therapist who')).toBeVisible();
     await expect(s.page.getByTestId('cue-input')).toHaveCount(0);
     await expect.poll(() => saves(s).length).toBe(1);
@@ -173,28 +186,28 @@ test.describe('Subtitles tab', () => {
     ta = await edit(s.page, row(s.page, 'are a pediatric therapist who'));
     await ta.evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(5, 5));
     await ta.press('Alt+Enter');
-    await expect(row(s.page, /^\s*\d+:\d\d\.\d\s*\d+\.\ds\s*are a\s*$/)).toBeVisible();
+    await expect(rowIs(s.page, 'are a')).toBeVisible();
     await expect.poll(() => saves(s).length).toBe(2);
 
     // merge "Joining me" with the next cue
-    const joining = row(s.page, /Joining me\s*$/);
+    const joining = rowIs(s.page, 'Joining me');
     await joining.getByRole('button', { name: 'Merge with next' }).click();
-    await expect(row(s.page, /Joining me are a\s*$/)).toBeVisible();
+    await expect(rowIs(s.page, 'Joining me are a')).toBeVisible();
     await expect.poll(() => saves(s).length).toBe(3);
     expect(saves(s)[2]!.edits.merges.length).toBeGreaterThan(0);
 
     // undo walks back through merge and both splits
     await s.page.getByRole('button', { name: 'Undo' }).click();
-    await expect(row(s.page, /Joining me\s*$/)).toBeVisible();
+    await expect(rowIs(s.page, 'Joining me')).toBeVisible();
     await s.page.keyboard.press('Control+z');
     await s.page.keyboard.press('Control+z');
     await expect(rows(s.page).filter({ hasText: /Joining me/ })).toHaveCount(1);
-    await expect(row(s.page, 'Joining me are a pediatric therapist who')).toBeVisible();
+    await expect(rowIs(s.page, 'Joining me are a pediatric therapist who')).toBeVisible();
     await expect(s.page.getByRole('button', { name: 'Undo' })).toBeDisabled();
     await expect(s.page.getByRole('button', { name: 'Redo' })).toBeEnabled();
     // redo re-applies the first split
     await s.page.keyboard.press('Control+Shift+z');
-    await expect(row(s.page, /Joining me\s*$/)).toBeVisible();
+    await expect(rowIs(s.page, 'Joining me')).toBeVisible();
     // undo/redo are saved too (the three undos and the redo happened inside one debounce window: one save)
     await expect.poll(() => saves(s).length).toBe(4);
     await expect(saveState(s.page)).toHaveAttribute('data-status', 'saved');
@@ -243,7 +256,9 @@ test.describe('Subtitles tab', () => {
     await expect(pop.getByRole('button', { name: 'Retime' })).toBeDisabled();
     await input.fill('0:30.5');
     await pop.getByRole('button', { name: 'Retime' }).click();
-    await expect(row(s.page, 'I’m so glad you’re here.').getByTestId('cue-time')).toHaveText('0:30.5');
+    await expect(row(s.page, 'I’m so glad you’re here.').getByTestId('cue-time')).toHaveText(
+      '0:30.5',
+    );
     await expect(saveState(s.page)).toHaveAttribute('data-status', 'saved');
     expect(s.problems).toEqual([]);
     await s.close();
@@ -300,19 +315,24 @@ test.describe('Subtitles tab', () => {
     await expect(rows(s.page).and(s.page.locator('[data-active]')).first()).toBeVisible({
       timeout: 8000,
     });
-    // pause, then seek into a later cue: the highlight moves with the playhead
-    await s.page.evaluate(() =>
-      (document.querySelector('[data-testid="proxy-video"]') as HTMLVideoElement).pause(),
-    );
-    await s.page.evaluate(() => {
-      (document.querySelector('[data-testid="proxy-video"]') as HTMLVideoElement).currentTime = 30.2;
-    });
-    await expect
-      .poll(async () => (await s.page.locator('[data-testid="cue-row"][data-active]').first().innerText()).length)
-      .toBeGreaterThan(0);
-    const active = await s.page.locator('[data-testid="cue-row"][data-active]').first().getByTestId('cue-time').innerText();
-    expect(Number(active.split(':')[1])).toBeLessThanOrEqual(30.2);
-    expect(Number(active.split(':')[1])).toBeGreaterThan(24);
+    // the highlight moves on while the video keeps playing (cues are ~2 s long)
+    const activeStart = async () => {
+      const t = await s.page
+        .locator('[data-testid="cue-row"][data-active]')
+        .first()
+        .getByTestId('cue-time')
+        .innerText({ timeout: 1000 })
+        .catch(() => null);
+      return t === null ? -1 : Number(t.split(':')[1]);
+    };
+    await expect.poll(activeStart).toBeGreaterThan(0);
+    const first = await activeStart();
+    await expect.poll(activeStart, { timeout: 9000 }).not.toBe(first);
+    const t = await proxyTime(s.page);
+    const now = await activeStart();
+    expect(now).toBeGreaterThan(first);
+    expect(now).toBeLessThanOrEqual(t + 0.5); // the active cue has started
+    expect(now).toBeGreaterThan(t - 6);
     expect(s.problems).toEqual([]);
     await s.close();
   });
@@ -325,7 +345,9 @@ test.describe('Subtitles tab', () => {
     await ta.press('Enter');
     await expect(saveState(s.page)).toHaveAttribute('data-status', 'error');
     await expect(saveState(s.page)).toContainText('Not saved');
-    const toast = s.page.locator('[data-sonner-toast]').filter({ hasText: 'Subtitles were not saved' });
+    const toast = s.page
+      .locator('[data-sonner-toast]')
+      .filter({ hasText: 'Subtitles were not saved' });
     await expect(toast).toContainText('Storage is unreachable (ECONNRESET).');
     await expect(row(s.page, 'Welcome back everyone,')).toBeVisible(); // the edit is still on screen
     await toast.getByRole('button', { name: 'Retry' }).click();
@@ -378,7 +400,9 @@ test.describe('Subtitles tab', () => {
     expect(call.ids).toHaveLength(8);
     expect(call.ids.every((id) => id.startsWith('vid-interview-c'))).toBe(true);
     await expect(banner).toHaveCount(0);
-    await expect(s.page.locator('[data-sonner-toast]').filter({ hasText: 'Re-rendering 8 clips' })).toBeVisible();
+    await expect(
+      s.page.locator('[data-sonner-toast]').filter({ hasText: 'Re-rendering 8 clips' }),
+    ).toBeVisible();
     // once they are re-rendered with the new revision the banner stays gone after another edit-free save
     expect(s.problems).toEqual([]);
     await s.close();
@@ -395,7 +419,9 @@ test.describe('Subtitles tab', () => {
     // the pending edit was saved BEFORE the export ran
     expect(saves(s)).toHaveLength(1);
     expect(cp2a(s.state).log.exports[0]).toMatchObject({ videoId: 'vid-interview', format: 'srt' });
-    await expect(s.page.locator('[data-sonner-toast]').filter({ hasText: 'Exported SRT' })).toBeVisible();
+    await expect(
+      s.page.locator('[data-sonner-toast]').filter({ hasText: 'Exported SRT' }),
+    ).toBeVisible();
     await s.page.getByTestId('export-menu').click();
     await s.page.getByRole('menuitem', { name: /WebVTT/ }).click();
     await expect.poll(() => cp2a(s.state).log.exports.length).toBe(2);
@@ -412,7 +438,10 @@ test.describe('Subtitles tab', () => {
     await expect(s.page.getByTestId('cue-input')).toBeFocused();
     await s.page.keyboard.press('Escape');
     await expect(text).toBeVisible();
-    const t = await tip(s.page, row(s.page, 'Welcome back').getByRole('button', { name: 'Merge with next' }));
+    const t = await tip(
+      s.page,
+      row(s.page, 'Welcome back').getByRole('button', { name: 'Merge with next' }),
+    );
     await expect(t).toContainText('Merge with the next caption');
     expect(s.problems).toEqual([]);
     await s.close();
@@ -434,7 +463,9 @@ test.describe('Subtitles tab', () => {
     await s.page.getByRole('button', { name: 'Try again' }).click();
     await expect(rows(s.page).first()).toBeVisible();
     // first failure was retried by TanStack (retry: 1), the manual retry succeeded
-    expect(s.problems.filter((p) => !/subtitle store is locked|Failed to load resource|500/.test(p))).toEqual([]);
+    expect(
+      s.problems.filter((p) => !/subtitle store is locked|Failed to load resource|500/.test(p)),
+    ).toEqual([]);
     await s.close();
   });
 });
@@ -442,7 +473,8 @@ test.describe('Subtitles tab', () => {
 /* ================================================================================================================== */
 
 const studio = (p: Page) => p.getByTestId('style-studio');
-const tile = (p: Page, id: string) => studio(p).locator(`[data-testid="style-tile"][data-style-id="${id}"]`);
+const tile = (p: Page, id: string) =>
+  studio(p).locator(`[data-testid="style-tile"][data-style-id="${id}"]`);
 const previews = (s: { state: Parameters<typeof cp2a>[0] }) => cp2a(s.state).log.previews;
 const sizeBox = (p: Page) => studio(p).getByLabel('Size', { exact: true }).first();
 const nameBox = (p: Page) => studio(p).getByRole('textbox', { name: 'Style name' });
@@ -468,18 +500,27 @@ test.describe('Caption Style Studio', () => {
     await expect(studio(s.page).getByText('Built-in · 14')).toBeVisible();
     await expect(studio(s.page).getByText('My styles · 0')).toBeVisible();
     // skeletons while the renders are held
-    await expect(tile(s.page, 'clean-pop').getByTestId('style-thumb')).toHaveAttribute('data-state', 'loading');
+    await expect(tile(s.page, 'clean-pop').getByTestId('style-thumb')).toHaveAttribute(
+      'data-state',
+      'loading',
+    );
     // only what is on screen was requested (not all 14 + the editor preview)
     const requestedBefore = new Set(previews(s).map((r) => r.style.id));
     expect(requestedBefore.size).toBeLessThan(14);
     expect(cp2a(s.state).maxPreviewsInFlight).toBeLessThanOrEqual(3); // 2 tiles + the live preview
     release();
-    await expect(tile(s.page, 'clean-pop').getByTestId('style-thumb')).toHaveAttribute('data-state', 'ready');
+    await expect(tile(s.page, 'clean-pop').getByTestId('style-thumb')).toHaveAttribute(
+      'data-state',
+      'ready',
+    );
     const src = await tile(s.page, 'clean-pop').locator('img').getAttribute('src');
     expect(src).toMatch(/^data:image\/png;base64,/);
     // scrolling reveals and fetches the rest
     await s.page.getByTestId('studio-gallery').evaluate((el) => (el.scrollTop = el.scrollHeight));
-    await expect(tile(s.page, 'subtle-serif').getByTestId('style-thumb')).toHaveAttribute('data-state', 'ready');
+    await expect(tile(s.page, 'subtle-serif').getByTestId('style-thumb')).toHaveAttribute(
+      'data-state',
+      'ready',
+    );
     const all = new Set(previews(s).map((r) => r.style.id));
     expect(all.size).toBe(14);
     expect(cp2a(s.state).maxPreviewsInFlight).toBeLessThanOrEqual(3);
@@ -503,7 +544,15 @@ test.describe('Caption Style Studio', () => {
     expect(lastPreview(s, 'hormozi-bold').style.font.family).toBe('Anton');
     await expect(studio(s.page).getByTestId('style-preview-img')).toBeVisible();
     // the editor shows every field group
-    for (const g of ['Typography', 'Colours', 'Active word', 'Shadow', 'Background box', 'Position', 'Line breaking'])
+    for (const g of [
+      'Typography',
+      'Colours',
+      'Active word',
+      'Shadow',
+      'Background box',
+      'Position',
+      'Line breaking',
+    ])
       await expect(studio(s.page).getByRole('region', { name: g })).toBeVisible();
     expect(s.problems).toEqual([]);
     await s.close();
@@ -531,7 +580,10 @@ test.describe('Caption Style Studio', () => {
     await studio(s.page).getByRole('button', { name: 'Text fill: green' }).click();
     await settled(s.page);
     expect(lastPreview(s).style.fill).toBe('#4ADE80');
-    await expect(studio(s.page).getByRole('button', { name: 'Text fill: green' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(studio(s.page).getByRole('button', { name: 'Text fill: green' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
 
     // case, animation, highlight mode, box toggle (reveals its colour/opacity/padding fields)
     await studio(s.page).getByRole('radio', { name: 'lower' }).click();
@@ -573,7 +625,11 @@ test.describe('Caption Style Studio', () => {
     expect(s.state.calls.filter((c) => c.channel === 'captions:fonts')).toHaveLength(1);
 
     // every request carried a complete, valid style (the stub parsed it with the real schema)
-    expect(previews(s).every((r) => r.style.name === 'Clean Pop')).toBe(true);
+    expect(
+      previews(s)
+        .filter((r) => r.style.id === 'clean-pop')
+        .every((r) => r.style.name === 'Clean Pop'),
+    ).toBe(true);
     expect(s.problems).toEqual([]);
     await s.close();
   });
@@ -599,7 +655,10 @@ test.describe('Caption Style Studio', () => {
     await expect(img).not.toHaveClass(/opacity-55/);
 
     // error state with retry
-    controls(s.state).failNext('captions:preview', 'ffmpeg exited with code 1 (libass: font not found).');
+    controls(s.state).failNext(
+      'captions:preview',
+      'ffmpeg exited with code 1 (libass: font not found).',
+    );
     await sizeBox(s.page).fill('8');
     await expect(pv.getByRole('alert')).toContainText('Could not render the preview');
     await expect(pv.getByRole('alert')).toContainText('libass: font not found');
@@ -632,18 +691,26 @@ test.describe('Caption Style Studio', () => {
     const err = studio(s.page).getByRole('alert').filter({ hasText: 'Must be between 2 and 14.' });
     await expect(err).toBeVisible();
     await expect(sizeBox(s.page)).toHaveAttribute('aria-invalid', 'true');
-    await expect(studio(s.page).getByText('Fix the highlighted fields to refresh the preview.')).toBeVisible();
+    await expect(
+      studio(s.page).getByText('Fix the highlighted fields to refresh the preview.'),
+    ).toBeVisible();
     await expect(studio(s.page).getByTestId('studio-apply')).toBeDisabled();
-    await expect(studio(s.page).getByRole('button', { name: 'Save as custom copy' })).toBeDisabled();
+    await expect(
+      studio(s.page).getByRole('button', { name: 'Save as custom copy' }),
+    ).toBeDisabled();
     await settled(s.page);
     expect(previews(s).length).toBe(n); // nothing was requested for the invalid draft
     await sizeBox(s.page).fill('');
-    await expect(studio(s.page).getByRole('alert').filter({ hasText: 'Enter a number.' })).toBeVisible();
+    await expect(
+      studio(s.page).getByRole('alert').filter({ hasText: 'Enter a number.' }),
+    ).toBeVisible();
 
     await sizeBox(s.page).fill('7.8');
     await expect(err).toHaveCount(0);
     await studio(s.page).getByLabel('Text fill', { exact: true }).fill('#12');
-    await expect(studio(s.page).getByText('Use a 6-digit hex colour such as #FFD60A.')).toBeVisible();
+    await expect(
+      studio(s.page).getByText('Use a 6-digit hex colour such as #FFD60A.'),
+    ).toBeVisible();
     await expect(studio(s.page).getByTestId('studio-apply')).toBeDisabled();
     await studio(s.page).getByLabel('Text fill', { exact: true }).fill('#FFFFFF');
     await expect(studio(s.page).getByTestId('studio-apply')).toBeEnabled();
@@ -677,7 +744,10 @@ test.describe('Caption Style Studio', () => {
     await expect(nameBox(s.page)).toHaveValue('Clean Pop copy');
     await expect(studio(s.page).getByTestId('studio-selected')).toContainText('Custom');
     expect(cp2a(s.state).log.savedStyles).toHaveLength(1);
-    expect(cp2a(s.state).log.savedStyles[0]).toMatchObject({ builtin: false, font: { sizePct: 9 } });
+    expect(cp2a(s.state).log.savedStyles[0]).toMatchObject({
+      builtin: false,
+      font: { sizePct: 9 },
+    });
     // clean-pop itself is untouched
     expect(cp2a(s.state).styles.find((x) => x.id === 'clean-pop')!.font.sizePct).toBe(7.8);
 
@@ -687,7 +757,10 @@ test.describe('Caption Style Studio', () => {
     await studio(s.page).getByRole('button', { name: 'Save', exact: true }).click();
     await expect(studio(s.page).getByText('My styles · 1')).toBeVisible();
     await expect(tile(s.page, 'custom-1')).toContainText('My punchy style');
-    expect(cp2a(s.state).log.savedStyles.at(-1)).toMatchObject({ id: 'custom-1', name: 'My punchy style' });
+    expect(cp2a(s.state).log.savedStyles.at(-1)).toMatchObject({
+      id: 'custom-1',
+      name: 'My punchy style',
+    });
     expect(cp2a(s.state).styles.find((x) => x.id === 'custom-1')!.font.sizePct).toBe(12);
     await expect(studio(s.page).getByTestId('studio-selected')).not.toContainText('Unsaved');
 
@@ -703,11 +776,17 @@ test.describe('Caption Style Studio', () => {
     await dlg.getByRole('button', { name: 'Cancel' }).click();
     await expect(studio(s.page).getByText('My styles · 2')).toBeVisible();
     await studio(s.page).getByRole('button', { name: 'Delete' }).click();
-    await s.page.getByRole('dialog').filter({ hasText: 'Delete “My punchy style copy”?' }).getByRole('button', { name: 'Delete style' }).click();
+    await s.page
+      .getByRole('dialog')
+      .filter({ hasText: 'Delete “My punchy style copy”?' })
+      .getByRole('button', { name: 'Delete style' })
+      .click();
     await expect(studio(s.page).getByText('My styles · 1')).toBeVisible();
     expect(cp2a(s.state).log.deletedStyles).toEqual(['custom-2']);
     await expect(tile(s.page, 'clean-pop')).toHaveAttribute('aria-pressed', 'true'); // selection fell back
-    await expect(s.page.locator('[data-sonner-toast]').filter({ hasText: 'Deleted “My punchy style copy”' })).toBeVisible();
+    await expect(
+      s.page.locator('[data-sonner-toast]').filter({ hasText: 'Deleted “My punchy style copy”' }),
+    ).toBeVisible();
     expect(s.problems).toEqual([]);
     await s.close();
   });
@@ -723,7 +802,11 @@ test.describe('Caption Style Studio', () => {
     await expect(tile(s.page, 'clean-pop')).toHaveAttribute('aria-pressed', 'true');
     await expect(sizeBox(s.page)).toHaveValue('10');
     await tile(s.page, 'neon-glow').click();
-    await s.page.getByRole('dialog').filter({ hasText: 'Discard unsaved changes?' }).getByRole('button', { name: 'Discard changes' }).click();
+    await s.page
+      .getByRole('dialog')
+      .filter({ hasText: 'Discard unsaved changes?' })
+      .getByRole('button', { name: 'Discard changes' })
+      .click();
     await expect(tile(s.page, 'neon-glow')).toHaveAttribute('aria-pressed', 'true');
     await expect(nameBox(s.page)).toHaveValue('Neon Glow');
     expect(s.problems).toEqual([]);
@@ -736,7 +819,9 @@ test.describe('Caption Style Studio', () => {
     await openStudio(s);
     await tile(s.page, 'neon-glow').click();
     await studio(s.page).getByTestId('studio-apply').click();
-    await expect.poll(() => cp2a(s.state).log.styleSelections).toEqual([{ id: 'vid-interview', styleId: 'neon-glow' }]);
+    await expect
+      .poll(() => cp2a(s.state).log.styleSelections)
+      .toEqual([{ id: 'vid-interview', styleId: 'neon-glow' }]);
     const dlg = s.page.getByTestId('apply-all-dialog');
     await expect(dlg).toBeVisible();
     await expect(dlg).toContainText('Apply “Neon Glow” to existing clips?');
@@ -749,7 +834,10 @@ test.describe('Caption Style Studio', () => {
     const call = cp2a(s.state).log.restyles[0]!;
     expect(call.styleId).toBe('neon-glow');
     expect([...call.ids].sort()).toEqual(
-      s.state.clips.filter((c) => c.videoId === 'vid-interview').map((c) => c.id).sort(),
+      s.state.clips
+        .filter((c) => c.videoId === 'vid-interview')
+        .map((c) => c.id)
+        .sort(),
     );
     await expect(dlg).toHaveCount(0);
     // the clips show as queued immediately
@@ -767,13 +855,17 @@ test.describe('Caption Style Studio', () => {
     await expect(studio(s.page).getByTestId('studio-apply')).toHaveText('Save copy & apply');
     await studio(s.page).getByTestId('studio-apply').click();
     await expect.poll(() => cp2a(s.state).log.savedStyles.length).toBe(1);
-    await expect.poll(() => cp2a(s.state).log.styleSelections).toEqual([{ id: 'vid-interview', styleId: 'custom-1' }]);
+    await expect
+      .poll(() => cp2a(s.state).log.styleSelections)
+      .toEqual([{ id: 'vid-interview', styleId: 'custom-1' }]);
     const dlg = s.page.getByTestId('apply-all-dialog');
     await expect(dlg).toContainText('Apply “Boxed Highlight copy” to existing clips?');
     await dlg.getByRole('button', { name: 'Only new clips' }).click();
     await expect(dlg).toHaveCount(0);
     expect(cp2a(s.state).log.restyles).toHaveLength(0);
-    await expect(s.page.getByTestId('caption-style-button').first()).toContainText('Boxed Highlight copy');
+    await expect(s.page.getByTestId('caption-style-button').first()).toContainText(
+      'Boxed Highlight copy',
+    );
     // a video without rendered clips just stores the choice
     expect(s.problems).toEqual([]);
     await s.close();
@@ -787,7 +879,9 @@ test.describe('Caption Style Studio', () => {
     await studio(s.page).getByTestId('studio-apply').click();
     await expect.poll(() => cp2a(s.state).log.styleSelections.length).toBe(1);
     await expect(s.page.getByTestId('apply-all-dialog')).toHaveCount(0);
-    await expect(s.page.locator('[data-sonner-toast]').filter({ hasText: 'Caption style updated' })).toBeVisible();
+    await expect(
+      s.page.locator('[data-sonner-toast]').filter({ hasText: 'Caption style updated' }),
+    ).toBeVisible();
     expect(s.problems).toEqual([]);
     await s.close();
   });
@@ -795,7 +889,8 @@ test.describe('Caption Style Studio', () => {
   test('gallery errors are recoverable; studio is keyboard-operable and closes with Escape', async () => {
     const s = await open(VIDEO, {
       scenario: 'library',
-      prepare: (st) => controls(st).failNext('captions:styles', 'The style store could not be read.', 50),
+      prepare: (st) =>
+        controls(st).failNext('captions:styles', 'The style store could not be read.', 50),
     });
     await s.page.getByTestId('caption-style-button').first().click();
     await expect(studio(s.page).getByText('Could not load caption styles')).toBeVisible();
@@ -809,7 +904,9 @@ test.describe('Caption Style Studio', () => {
     await expect(tile(s.page, 'karaoke-highlight')).toHaveAttribute('aria-pressed', 'true');
     await s.page.keyboard.press('Escape');
     await expect(studio(s.page)).toHaveCount(0);
-    expect(s.problems.filter((p) => !/style store could not be read|Failed to load resource/.test(p))).toEqual([]);
+    expect(
+      s.problems.filter((p) => !/style store could not be read|Failed to load resource/.test(p)),
+    ).toEqual([]);
     await s.close();
   });
 });
@@ -864,11 +961,516 @@ test.describe('Home: caption style + reframe options', () => {
     const s = await open('/', { scenario: 'configured' });
     await s.page.getByRole('switch', { name: 'Captions' }).click();
     await expect(s.page.getByTestId('home-caption-style')).toBeDisabled();
-    const t = await tip(s.page, s.page.locator('span[tabindex="0"]').filter({ has: s.page.getByTestId('home-caption-style') }));
+    const t = await tip(
+      s.page,
+      s.page
+        .locator('span[tabindex="0"]')
+        .filter({ has: s.page.getByTestId('home-caption-style') }),
+    );
     await expect(t).toContainText('Captions are switched off');
     expect(s.problems).toEqual([]);
     await s.close();
   });
+});
+
+/* ================================================================================================================== */
+
+const TOOL_ROUTES = [
+  ['find-moments', 'Find Moments'],
+  ['highlights', 'One-Click Highlights'],
+  ['summary', 'Video Summary'],
+  ['transcripts', 'Video Transcripts'],
+  ['subtitles', 'AI Subtitles'],
+  ['reframe', 'AI Reframe'],
+  ['thumbnail', 'AI Thumbnail'],
+  ['hook', 'AI Hook'],
+] as const;
+const TOOL_BODY: Record<string, string> = {
+  'find-moments': 'find-moments-tool',
+  highlights: 'highlights-tool',
+  summary: 'summary-tool',
+  transcripts: 'transcripts-tool',
+  subtitles: 'subtitles-tool',
+  reframe: 'reframe-tool',
+  thumbnail: 'thumbnail-tool',
+  hook: 'hook-tool',
+};
+const cards = (p: Page) => p.getByTestId('tool-card');
+const card = (p: Page, id: string) => p.locator(`[data-testid="tool-card"][data-tool="${id}"]`);
+
+test.describe('Tools hub', () => {
+  test('lists every tool from the brief; available ones link to their route, the rest are disabled with a reason', async () => {
+    const s = await open('/tools/', { scenario: 'library' });
+    await expect(cards(s.page)).toHaveCount(15);
+    const names = await cards(s.page).locator('p.font-display').allInnerTexts();
+    expect(names.sort()).toEqual(
+      [
+        'AI Clipping',
+        'Find Moments',
+        'One-Click Highlights',
+        'Video Editor',
+        'Video Summary',
+        'Video Transcripts',
+        'AI Subtitles',
+        'AI Reframe',
+        'AI Thumbnail',
+        'AI Hook',
+        'B-roll',
+        'Live Clipping',
+        'Game Clipping',
+        'Speech Enhancer',
+        'AI Video Generator',
+      ].sort(),
+    );
+    const hrefs: Record<string, string> = {
+      'ai-clipping': '/',
+      'find-moments': '/tools/find-moments/',
+      highlights: '/tools/highlights/',
+      summary: '/tools/summary/',
+      transcripts: '/tools/transcripts/',
+      subtitles: '/tools/subtitles/',
+      reframe: '/tools/reframe/',
+      thumbnail: '/tools/thumbnail/',
+      hook: '/tools/hook/',
+    };
+    for (const [id, href] of Object.entries(hrefs)) {
+      await expect(card(s.page, id)).toHaveAttribute('data-available', 'true');
+      await expect(card(s.page, id).getByRole('link')).toHaveAttribute('href', href);
+    }
+    for (const id of [
+      'editor',
+      'broll',
+      'live-clipping',
+      'game-clipping',
+      'speech-enhancer',
+      'video-generator',
+    ]) {
+      const c = card(s.page, id);
+      await expect(c).toHaveAttribute('data-available', 'false');
+      await expect(c.getByRole('link')).toHaveCount(0);
+      await expect(c.locator('[aria-disabled="true"]')).toBeVisible();
+      const t = await tip(s.page, c.locator('span[tabindex="0"]'));
+      await expect(t).toContainText('Coming in a later version');
+      await s.page.mouse.move(0, 0);
+    }
+    // grouped sections, LATER group at the end
+    await expect(s.page.getByRole('region', { name: 'Later' })).toContainText('Game Clipping');
+    // clicking a card navigates
+    await card(s.page, 'subtitles').getByRole('link').click();
+    await expect(s.page).toHaveURL(/\/tools\/subtitles\/$/);
+    expect(s.problems).toEqual([]);
+    await s.close();
+  });
+
+  test('AI Clipping opens Home; the command palette lists every tool and opens the available ones', async () => {
+    const s = await open('/tools/', { scenario: 'library' });
+    await card(s.page, 'ai-clipping').getByRole('link').click();
+    await expect(s.page).toHaveURL(/\/$/);
+    await s.page.keyboard.press('Control+k');
+    const palette = s.page.getByRole('dialog', { name: 'Command palette' });
+    await expect(palette).toBeVisible();
+    for (const [, name] of TOOL_ROUTES)
+      await expect(
+        palette.getByRole('option', { name: new RegExp(`^${name}`) }).first(),
+      ).toBeVisible();
+    for (const name of [
+      'Video Editor',
+      'B-roll',
+      'Live Clipping',
+      'Game Clipping',
+      'Speech Enhancer',
+      'AI Video Generator',
+    ])
+      await expect(
+        palette.getByRole('option', { name: new RegExp(`^${name}`) }).first(),
+      ).toHaveAttribute('aria-disabled', 'true');
+    await s.page.keyboard.type('summ');
+    await s.page.keyboard.press('Enter');
+    await expect(s.page).toHaveURL(/\/tools\/summary\/$/);
+    expect(s.problems).toEqual([]);
+    await s.close();
+  });
+});
+
+test.describe('Standalone tool routes', () => {
+  for (const [id, title] of TOOL_ROUTES) {
+    test(`${title}: breadcrumb, video picker, choosing a video, deep link, last choice remembered`, async () => {
+      const s = await open(`/tools/${id}/`, { scenario: 'library' });
+      await expect(s.page.getByRole('navigation', { name: 'Breadcrumb' })).toContainText(
+        `Tools${title}`,
+      );
+      await expect(s.page.getByRole('heading', { level: 1 })).toHaveText(title);
+      await expect(s.page.locator('#page-title')).toHaveText(title); // top bar: "Tools › <tool>"
+      const picker = s.page.getByTestId('video-picker');
+      await expect(picker).toBeVisible();
+      await expect(s.page.getByTestId('picker-video')).toHaveCount(4);
+      const needsClips = ['reframe', 'thumbnail', 'hook'].includes(id);
+      await expect(s.page.getByTestId('analyse-new')).toHaveCount(needsClips ? 0 : 1);
+      // search filters the library
+      await s.page.getByRole('textbox', { name: 'Search your videos' }).fill('podcast');
+      await expect(s.page.getByTestId('picker-video')).toHaveCount(1);
+      await s.page.getByRole('textbox', { name: 'Search your videos' }).fill('zzz');
+      await expect(s.page.getByText('No videos match')).toBeVisible();
+      await s.page.getByRole('button', { name: 'Clear search' }).first().click();
+      // choose
+      await s.page.locator('[data-video-id="vid-interview"]').click();
+      await expect(s.page).toHaveURL(new RegExp(`/tools/${id}/\\?video=vid-interview`));
+      await expect(s.page.getByTestId(TOOL_BODY[id]!)).toBeVisible();
+      await expect(s.page.getByTestId('tool-source-title')).toHaveText(
+        'Community Conversations: Autism Awareness & Local Art',
+      );
+      expect(await s.page.evaluate(() => localStorage.getItem('clipfern.tools.lastVideo'))).toBe(
+        'vid-interview',
+      );
+      // change video -> picker again, with the last choice marked and listed first
+      await s.page.getByTestId('change-video').click();
+      await expect(s.page.getByTestId('video-picker')).toBeVisible();
+      await expect(s.page.getByTestId('picker-video').first()).toHaveAttribute(
+        'data-video-id',
+        'vid-interview',
+      );
+      await expect(s.page.getByTestId('last-used')).toBeVisible();
+      expect(s.problems).toEqual([]);
+      await s.close();
+
+      // a fresh session on the deep link goes straight to the tool
+      const d = await open(`/tools/${id}/?video=vid-podcast`, { scenario: 'library' });
+      await expect(d.page.getByTestId(TOOL_BODY[id]!)).toBeVisible();
+      await expect(d.page.getByTestId('tool-source-title')).toContainText(
+        'The Slow Founder Podcast',
+      );
+      expect(d.problems).toEqual([]);
+      await d.close();
+    });
+  }
+
+  test("?clip=<id> alone is enough: the clip's video is opened and the clip preselected", async () => {
+    const s = await open('/tools/hook/?clip=vid-interview-c3', { scenario: 'library' });
+    await expect(s.page.getByTestId('tool-source-title')).toContainText('Community Conversations');
+    await expect(
+      s.page.locator('[data-testid="clip-pick"][data-clip-id="vid-interview-c3"]'),
+    ).toHaveAttribute('aria-pressed', 'true');
+    await expect(s.page.getByRole('region', { name: 'Hook variants' })).toContainText(
+      'It took me forty years',
+    );
+    // choosing another clip updates the link
+    await s.page.locator('[data-testid="clip-pick"][data-clip-id="vid-interview-c1"]').click();
+    await expect(s.page).toHaveURL(/clip=vid-interview-c1/);
+    await expect(s.page.getByRole('region', { name: 'Hook variants' })).toContainText(
+      'Awareness isn’t enough',
+    );
+    // unknown clip: honest message + the picker
+    const u = await open('/tools/hook/?clip=nope', { scenario: 'library' });
+    await expect(u.page.getByText('That clip is not in your library')).toBeVisible();
+    await expect(u.page.getByTestId('video-picker')).toBeVisible();
+    expect(s.problems).toEqual([]);
+    await s.close();
+    await u.close();
+  });
+
+  test('unknown video id and an empty library are handled', async () => {
+    let s = await open('/tools/summary/?video=missing', { scenario: 'library' });
+    await expect(s.page.getByText('This video is not in your library')).toBeVisible();
+    await s.page.getByRole('button', { name: 'Choose a video' }).click();
+    await expect(s.page.getByTestId('video-picker')).toBeVisible();
+    await s.close();
+    s = await open('/tools/reframe/', { scenario: 'configured' });
+    await expect(s.page.getByText('Your library is empty')).toBeVisible();
+    await expect(s.page.getByRole('link', { name: 'Go to Home' })).toBeVisible();
+    expect(s.problems).toEqual([]);
+    await s.close();
+  });
+
+  test('Video Summary: overview / chapters / notes, Copy as Markdown, Download .md', async () => {
+    const s = await open('/tools/summary/?video=vid-interview', { scenario: 'library' });
+    await expect(s.page.getByTestId('overview-summary')).toContainText(
+      'A warm, practical conversation',
+    );
+    await s.page.getByRole('radio', { name: 'Chapters' }).click();
+    await expect(s.page.getByTestId('chapter-row')).toHaveCount(6);
+    await s.page.getByRole('radio', { name: 'Notes' }).click();
+    await expect(s.page.getByTestId('notes-tab')).toBeVisible();
+    await s.page.getByRole('button', { name: 'Copy as Markdown' }).click();
+    const md = await s.page.evaluate(() => navigator.clipboard.readText());
+    expect(md).toContain('# Community Conversations: Autism Awareness & Local Art');
+    expect(md).toContain('## Summary');
+    expect(md).toContain('## Key takeaways');
+    expect(md).toContain('## Chapters');
+    expect(md).toMatch(/- \*\*0:00 Welcome and introductions\*\*: /);
+    expect(md).toContain('## Quotes');
+    expect(md).toContain('## Action items');
+    expect(md).toContain('## Topics');
+    expect(md).toContain('Source: https://www.youtube.com/watch?v=Ab3dEf9GhIj');
+    await expect(
+      s.page.locator('[data-sonner-toast]').filter({ hasText: 'Summary copied as Markdown' }),
+    ).toBeVisible();
+    const [dl] = await Promise.all([
+      s.page.waitForEvent('download'),
+      s.page.getByRole('button', { name: 'Download .md' }).click(),
+    ]);
+    expect(dl.suggestedFilename()).toBe(
+      'community-conversations-autism-awareness-local-art-summary.md',
+    );
+    const path = await dl.path();
+    const body = (await import('node:fs')).readFileSync(path, 'utf8');
+    expect(body).toBe(md);
+    // timestamps seek the shared player
+    await s.page.getByRole('radio', { name: 'Chapters' }).click();
+    await s.page.getByTestId('chapter-row').nth(2).click();
+    await expect.poll(() => proxyTime(s.page)).toBeGreaterThan(40);
+    expect(s.problems).toEqual([]);
+    await s.close();
+  });
+
+  test('Video Summary on a video without analysis shows the honest waiting state and disables the exports', async () => {
+    const s = await open('/tools/summary/?video=vid-failed', { scenario: 'library' });
+    await expect(s.page.getByRole('button', { name: 'Copy as Markdown' })).toBeDisabled();
+    await expect(s.page.getByRole('button', { name: 'Download .md' })).toBeDisabled();
+    await expect(s.page.getByTestId('pipeline-progress')).toBeVisible(); // failure + retry live on the tool page too
+    expect(s.problems).toEqual([]);
+    await s.close();
+  });
+
+  test('Video Transcripts: searchable transcript; copy; download TXT / SRT / VTT', async () => {
+    const s = await open('/tools/transcripts/?video=vid-interview', { scenario: 'library' });
+    await s.page.getByRole('textbox', { name: 'Search transcript' }).fill('collage');
+    await expect(s.page.getByTestId('match-count')).toHaveText(/^1 of \d+$/);
+    await s.page.getByRole('button', { name: 'Copy transcript' }).click();
+    const txt = await s.page.evaluate(() => navigator.clipboard.readText());
+    expect(txt).toContain('Welcome back to Community Conversations');
+    await s.page.getByTestId('transcript-download').click();
+    const [dl] = await Promise.all([
+      s.page.waitForEvent('download'),
+      s.page.getByRole('menuitem', { name: /Plain text/ }).click(),
+    ]);
+    expect(dl.suggestedFilename()).toBe(
+      'community-conversations-autism-awareness-local-art-transcript.txt',
+    );
+    const body = (await import('node:fs')).readFileSync((await dl.path())!, 'utf8');
+    expect(body).toMatch(/^\[0:01\] Speaker 1: Welcome back to Community Conversations/);
+    expect(body.split('\n')).toHaveLength(s.state.transcripts['vid-interview']!.sentences.length);
+    await expect(s.page.getByRole('menu')).toHaveCount(0);
+    await s.page.getByTestId('transcript-download').click();
+    await s.page.getByRole('menuitem', { name: /SubRip/ }).click();
+    await expect(s.page.getByRole('menu')).toHaveCount(0);
+    await s.page.getByTestId('transcript-download').click();
+    await s.page.getByRole('menuitem', { name: /WebVTT/ }).click();
+    await expect.poll(() => cp2a(s.state).log.exports.map((e) => e.format)).toEqual(['srt', 'vtt']);
+    await s.page.getByTestId('transcript-row').nth(2).click();
+    await expect.poll(() => proxyTime(s.page)).toBeGreaterThan(2);
+    expect(s.problems).toEqual([]);
+    await s.close();
+  });
+
+  test('AI Subtitles: the subtitle editor with the style studio entry, on any library video', async () => {
+    const s = await open('/tools/subtitles/?video=vid-interview', { scenario: 'library' });
+    await expect(rows(s.page).first()).toBeVisible();
+    const ta = await edit(s.page, row(s.page, 'Welcome back'));
+    await ta.fill('Welcome back to Community Chats,');
+    await ta.press('Enter');
+    await expect.poll(() => saves(s).length).toBe(1);
+    await openStudio(s);
+    await tile(s.page, 'subtle-serif').click();
+    await studio(s.page).getByTestId('studio-apply').click();
+    await expect
+      .poll(() => cp2a(s.state).log.styleSelections)
+      .toEqual([{ id: 'vid-interview', styleId: 'subtle-serif' }]);
+    await s.page
+      .getByTestId('apply-all-dialog')
+      .getByRole('button', { name: /Re-render 9 clips/ })
+      .click();
+    await expect.poll(() => cp2a(s.state).log.restyles.length).toBe(1);
+    expect(s.problems).toEqual([]);
+    await s.close();
+  });
+
+  test('AI Reframe: per-clip mode, shows the layout used, re-frames one clip or all (with confirmation)', async () => {
+    const s = await open('/tools/reframe/?video=vid-interview', { scenario: 'library' });
+    const cardsList = s.page.getByTestId('reframe-card');
+    await expect(cardsList).toHaveCount(9);
+    const c1 = s.page.locator('[data-testid="reframe-card"][data-clip-id="vid-interview-c1"]');
+    await expect(c1.getByTestId('reframe-layout')).toContainText('Layout: Single panel');
+    await expect(c1.getByTestId('reframe-layout')).toContainText('Mode: Auto');
+    await expect(c1.getByTestId('reframe-apply')).toBeDisabled(); // nothing changed yet
+    await expect(c1.getByRole('radio', { name: 'Auto' })).toHaveAttribute('aria-checked', 'true');
+    await c1.getByRole('radio', { name: 'Split screen (two people)' }).click();
+    await expect(c1.getByText('Two people stacked, top and bottom')).toBeVisible();
+    await c1.getByTestId('reframe-apply').click();
+    await expect
+      .poll(() => cp2a(s.state).log.reframes)
+      .toEqual([{ ids: ['vid-interview-c1'], mode: 'multi-face' }]);
+    await expect(c1.getByText('Queued')).toBeVisible();
+    // the render lands: layout badge updates from the pushed clip
+    const clip = s.state.clips.find((c) => c.id === 'vid-interview-c1')!;
+    Object.assign(clip, {
+      status: 'rendered',
+      renderProgress: null,
+      hasRender: true,
+      layout: 'split',
+    });
+    await s.emit('clips:updated', { ...clip });
+    await expect(c1.getByTestId('reframe-layout')).toContainText('Layout: Split screen');
+    await expect(c1.getByTestId('reframe-layout')).toContainText('Mode: Split screen (two people)');
+
+    // all clips
+    await s.page.getByTestId('reframe-all').click();
+    const dlg = s.page.getByTestId('reframe-confirm');
+    await expect(dlg).toContainText('Re-frame 9 clips?');
+    await dlg.getByRole('button', { name: 'Cancel' }).click();
+    expect(cp2a(s.state).log.reframes).toHaveLength(1);
+    await expect(dlg).toHaveCount(0);
+    await s.page.getByRole('radio', { name: 'Centre crop' }).first().click();
+    await s.page.getByTestId('reframe-all').click();
+    await s.page
+      .getByTestId('reframe-confirm')
+      .getByRole('button', { name: 'Re-frame 9 clips' })
+      .click();
+    await expect.poll(() => cp2a(s.state).log.reframes.length).toBe(2);
+    expect(cp2a(s.state).log.reframes[1]!.mode).toBe('center');
+    expect(cp2a(s.state).log.reframes[1]!.ids).toHaveLength(9);
+    expect(s.problems).toEqual([]);
+    await s.close();
+  });
+
+  test('clip tools on a video without clips explain it and point to Find Moments', async () => {
+    const s = await open('/tools/reframe/?video=vid-processing', {
+      scenario: 'library',
+      prepare: (st) => {
+        const v = st.videos.find((x) => x.id === 'vid-processing')!;
+        Object.assign(v, { status: 'ready', stage: null, progress: null, clipCount: 0 });
+        st.clips = st.clips.filter((c) => c.videoId !== 'vid-processing');
+      },
+    });
+    await expect(s.page.getByText('This video has no clips yet')).toBeVisible();
+    await s.page.getByRole('link', { name: 'Find moments' }).click();
+    await expect(s.page).toHaveURL(/\/tools\/find-moments\/\?video=vid-processing/);
+    await expect(s.page.getByTestId('clips-extras')).toBeVisible();
+    expect(s.problems).toEqual([]);
+    await s.close();
+  });
+
+  test('AI Hook / AI Thumbnail host the clip tabs; Find Moments / Highlights host the steering panel', async () => {
+    let s = await open('/tools/thumbnail/?video=vid-interview', { scenario: 'library' });
+    await expect(s.page.getByTestId('clip-pick')).toHaveCount(9);
+    await expect(s.page.getByRole('region', { name: 'Thumbnail options' })).toBeVisible();
+    await expect(s.page).toHaveURL(/clip=vid-interview-c1/); // the best clip is preselected
+    await s.close();
+    s = await open('/tools/find-moments/?video=vid-interview', { scenario: 'library' });
+    await expect(s.page.getByTestId('clips-extras')).toBeVisible();
+    await expect(s.page.getByTestId('clip-card').first()).toBeVisible();
+    await s.close();
+    s = await open('/tools/highlights/?video=vid-interview', { scenario: 'library' });
+    await expect(s.page.getByTestId('clips-extras')).toBeVisible();
+    expect(s.problems).toEqual([]);
+    await s.close();
+  });
+
+  test('Analyse a new video: paste a URL, start in analysis mode, watch live progress, then use the result', async () => {
+    const s = await open('/tools/summary/', { scenario: 'configured' });
+    const box = s.page.getByRole('textbox', { name: 'YouTube URL to analyse' });
+    const go = s.page.getByRole('button', { name: 'Analyse', exact: true });
+    await expect(go).toBeDisabled();
+    await box.fill('https://vimeo.com/123');
+    await box.blur();
+    await expect(s.page.getByText(/not a YouTube link/i)).toBeVisible();
+    await box.fill('https://youtu.be/dQw4w9WgXcQ');
+    await expect(s.page.getByTestId('url-preview')).toBeVisible();
+    await expect(s.page.getByTestId('preview-title')).toHaveText(
+      'Designing for Attention: A 15-Minute Talk',
+    );
+    await expect(go).toBeEnabled();
+    await go.click();
+    await expect(s.page).toHaveURL(/\/tools\/summary\/\?video=vid-new-1$/);
+    // analysis mode and nothing else is sent: transcript + summary only
+    expect(s.state.log.started).toEqual([
+      { url: 'https://youtu.be/dQw4w9WgXcQ', options: { mode: 'analysis' } },
+    ]);
+    const progress = s.page.getByTestId('pipeline-progress');
+    await expect(progress).toBeVisible();
+    await s.sim('vid-new-1').run(2);
+    await expect(progress).toContainText('Prepare media');
+    // the summary tool waits honestly until the analysis exists
+    await expect(s.page.getByRole('button', { name: 'Copy as Markdown' })).toBeDisabled();
+    await s.sim('vid-new-1').run(5);
+    await expect(s.page.getByTestId('overview-summary')).toContainText(
+      'A warm, practical conversation',
+    );
+    await expect(s.page.getByRole('button', { name: 'Copy as Markdown' })).toBeEnabled();
+    await s.sim('vid-new-1').run();
+    await expect(s.page.getByTestId('tool-source')).toContainText('Ready');
+    // no clips were made, and moments/render were skipped
+    expect(s.state.clips.filter((c) => c.videoId === 'vid-new-1')).toHaveLength(0);
+    expect(s.state.sims['vid-new-1']!.remaining()).toBe(0);
+    // the same video in a clip tool: no clips yet -> pointer to Find Moments
+    await s.page.goto(new URL('/tools/reframe/?video=vid-new-1', s.page.url()).toString());
+    await expect(s.page.getByText('This video has no clips yet')).toBeVisible();
+    await expect(s.page.getByText(/analysed without clips/)).toBeVisible();
+    expect(s.problems).toEqual([]);
+    await s.close();
+  });
+
+  test('Analyse a new video is blocked with the first unmet setup step on a fresh install', async () => {
+    const s = await open('/tools/transcripts/', { scenario: 'fresh' });
+    await s.page
+      .getByRole('textbox', { name: 'YouTube URL to analyse' })
+      .fill('https://youtu.be/dQw4w9WgXcQ');
+    await expect(s.page.getByTestId('url-preview')).toBeVisible();
+    await expect(s.page.getByRole('button', { name: 'Analyse', exact: true })).toBeDisabled();
+    await expect(s.page.getByText('Finish setup to analyse a video')).toBeVisible();
+    await expect(s.page.getByRole('link', { name: 'Add key' })).toHaveAttribute(
+      'href',
+      '/settings/api-keys/',
+    );
+    expect(s.state.log.started).toHaveLength(0);
+    expect(s.problems).toEqual([]);
+    await s.close();
+  });
+});
+
+/* ================================================================================================================== */
+
+test.describe('Layout: no horizontal overflow, nothing leaves the viewport', () => {
+  const overflow = (p: Page) =>
+    p.evaluate(() => ({
+      doc: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      main: (() => {
+        const m = document.getElementById('main');
+        return m ? m.scrollWidth - m.clientWidth : 0;
+      })(),
+    }));
+  for (const width of [1280, 2560]) {
+    test(`at ${width}px: hub, pickers, tools, subtitles, studio, Home`, async () => {
+      const routes = [
+        '/tools/',
+        '/tools/summary/',
+        '/tools/summary/?video=vid-interview',
+        '/tools/transcripts/?video=vid-interview',
+        '/tools/subtitles/?video=vid-interview',
+        '/tools/reframe/?video=vid-interview',
+        '/tools/hook/?video=vid-interview',
+        `${SUBS}`,
+        '/',
+      ];
+      for (const r of routes) {
+        const s = await open(r, { scenario: 'library', width, height: 900 });
+        const o = await overflow(s.page);
+        expect(o, `${r} @${width}`).toEqual({ doc: 0, main: 0 });
+        expect(s.problems, r).toEqual([]);
+        await s.close();
+      }
+      const s = await open(SUBS, { scenario: 'library', width, height: 800 });
+      await openStudio(s);
+      await expect(studio(s.page).getByTestId('style-preview-img')).toBeVisible();
+      const box = (await studio(s.page).boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+      expect(box.y + box.height).toBeLessThanOrEqual(800);
+      expect((await overflow(s.page)).doc).toBe(0);
+      expect(s.problems).toEqual([]);
+      await s.close();
+    });
+  }
 });
 
 // keep imports used even when specs are trimmed while debugging

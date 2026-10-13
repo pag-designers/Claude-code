@@ -10,13 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PipelineProgress } from '@/components/pipeline/pipeline-progress';
 import { useAllClips, useVideo } from '@/lib/library';
 import { isActiveVideo, mergeStages } from '@/lib/pipeline-ui';
-import {
-  TOOL_ROUTE_META,
-  readLastVideo,
-  rememberVideo,
-  toolHref,
-  type ToolRouteId,
-} from '@/lib/cp2-tools';
+import { TOOL_ROUTE_META, rememberVideo, toolHref, type ToolRouteId } from '@/lib/cp2-tools';
 import { ClipTool, MomentsTool } from './clip-tools';
 import { ReframeTool } from './reframe-tool';
 import { NoClipsYet, SubtitlesTool, SummaryTool, TranscriptsTool } from './tool-bodies';
@@ -55,7 +49,11 @@ function Workspace({
         <EmptyState
           size="md"
           icon={q.error.code === 'NOT_FOUND' ? Film : CircleAlert}
-          title={q.error.code === 'NOT_FOUND' ? 'This video is not in your library' : 'Could not open this video'}
+          title={
+            q.error.code === 'NOT_FOUND'
+              ? 'This video is not in your library'
+              : 'Could not open this video'
+          }
           description={
             q.error.code === 'NOT_FOUND'
               ? 'It may have been deleted. Choose another video to continue.'
@@ -76,7 +74,9 @@ function Workspace({
         />
       </ToolShell>
     );
-  return <Loaded tool={tool} data={q.data} clipId={clipId} onChange={change} onSelectClip={selectClip} />;
+  return (
+    <Loaded tool={tool} data={q.data} clipId={clipId} onChange={change} onSelectClip={selectClip} />
+  );
 }
 
 function Loaded({
@@ -94,8 +94,7 @@ function Loaded({
 }) {
   const { video, analysis } = data;
   const stages = mergeStages(data.stages);
-  const progress =
-    isActiveVideo(video) || video.status === 'failed' || video.status === 'canceled';
+  const progress = isActiveVideo(video) || video.status === 'failed' || video.status === 'canceled';
   const meta = TOOL_ROUTE_META[tool];
   const waiting = isActiveVideo(video);
   // clip tools cannot work on a video that has finished without any clips
@@ -136,8 +135,6 @@ export function ToolRoute({ tool }: { tool: ToolRouteId }) {
   const resolvingClip = !urlVideo && !!urlClip && clips.isPending;
   const videoId = urlVideo ?? clipOwner ?? null;
 
-  // read once at mount (the route renders client-side only: it sits behind useSearchParams' Suspense boundary)
-  const [lastId] = React.useState<string | null>(readLastVideo);
   React.useEffect(() => {
     if (videoId) rememberVideo(videoId);
   }, [videoId]);
@@ -171,7 +168,7 @@ export function ToolRoute({ tool }: { tool: ToolRouteId }) {
           description="It may have been deleted. Choose a video below to continue."
         />
       ) : null}
-      <VideoPicker tool={tool} meta={meta} lastId={lastId} onPick={pick} />
+      <VideoPicker tool={tool} meta={meta} onPick={pick} />
     </ToolShell>
   );
 }

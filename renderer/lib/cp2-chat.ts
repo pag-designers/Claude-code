@@ -49,18 +49,15 @@ export type Block =
   | { t: 'code'; lang: string; text: string; open: boolean }
   | { t: 'hr' };
 
-const INLINE_RE = new RegExp(
-  [
-    '(`[^`\\n]+`)', // 1 code
-    '(\\*\\*[^*\\n]+?\\*\\*)', // 2 bold
-    '(__[^_\\n]+?__)', // 3 bold (underscores)
-    '(\\*[^*\\s][^*\\n]*?\\*)', // 4 italic
-    '((?<![\\w])_[^_\\s][^_\\n]*?_(?![\\w]))', // 5 italic (underscores)
-    `(\\[${CLOCK}(?:\\s*[–—-]\\s*${CLOCK})?\\])`, // 6 [mm:ss] or [mm:ss–mm:ss]
-    '(\\[[^\\]\\n]+\\]\\(https?:\\/\\/[^)\\s]+\\))', // 7 link
-  ].join('|'),
-  'g',
-);
+const INLINE_SRC = [
+  '(`[^`\\n]+`)', // 1 code
+  '(\\*\\*[^*\\n]+?\\*\\*)', // 2 bold
+  '((?<=^|[\\s(])__(?!\\s)[^_\\n]+?(?<!\\s)__(?=$|[\\s).,;:!?]))', // 3 bold (underscores, word-delimited)
+  '(\\*[^*\\s][^*\\n]*?\\*)', // 4 italic
+  '((?<=^|[\\s(])_(?!\\s)[^_\\n]+?(?<!\\s)_(?=$|[\\s).,;:!?]))', // 5 italic (underscores, word-delimited)
+  `(\\[${CLOCK}(?:\\s*[–—-]\\s*${CLOCK})?\\])`, // 6 [mm:ss] or [mm:ss–mm:ss]
+  '(\\[[^\\]\\n]+\\]\\(https?:\\/\\/[^)\\s]+\\))', // 7 link
+].join('|');
 
 /** Inline parser. Anything it does not recognise stays literal text, so a half-streamed `**bo` is just text. */
 export function parseInline(src: string): Inline[] {
@@ -70,12 +67,16 @@ export function parseInline(src: string): Inline[] {
     const parts = s.split('\n');
     parts.forEach((part, i) => {
       if (i > 0) out.push({ t: 'br' });
-      if (part) out.push({ t: 'text', text: part });
+      if (!part) return;
+      const prev = out[out.length - 1];
+      if (prev?.t === 'text') prev.text += part;
+      else out.push({ t: 'text', text: part });
     });
   };
   let last = 0;
-  INLINE_RE.lastIndex = 0;
-  for (let m = INLINE_RE.exec(src); m; m = INLINE_RE.exec(src)) {
+  // a fresh regex per call: bold/italic recurse into parseInline, which would otherwise clobber a shared lastIndex
+  const re = new RegExp(INLINE_SRC, 'g');
+  for (let m = re.exec(src); m; m = re.exec(src)) {
     pushText(src.slice(last, m.index));
     last = m.index + m[0].length;
     const tok = m[0];
@@ -103,6 +104,20 @@ const UL = /^\s{0,6}[-*•]\s+(.*)$/;
 const OL = /^\s{0,6}(\d{1,3})[.)]\s+(.*)$/;
 const QUOTE = /^\s{0,3}>\s?(.*)$/;
 const HR = /^\s{0,3}([-*_])(\s*\1){2,}\s*$/;
+
+/**
+ * While an answer is still streaming, an unclosed `**bold` or `code` at the very end would show its raw markers until the
+ * closing one arrives. Close them for display only (the stored text is never touched).
+ */
+export function closeOpenMarkers(src: string): string {
+  const fences = (src.match(/^\s{0,3}(`{3,}|~{3,})/gm) ?? []).length;
+  if (fences % 2 === 1) return src; // inside an open code block: leave it alone
+  const lastLine = src.slice(src.lastIndexOf('\n') + 1);
+  let out = src;
+  if (((lastLine.match(/\*\*/g) ?? []).length & 1) === 1) out += '**';
+  else if (((lastLine.match(/`/g) ?? []).length & 1) === 1) out += '`';
+  return out;
+}
 
 /** Tiny, forgiving markdown block parser. Never produces HTML: the renderer maps these nodes to React elements. */
 export function parseMarkdown(src: string): Block[] {
@@ -150,7 +165,8 @@ export function parseMarkdown(src: string): Block[] {
     if (ul) {
       flush();
       const items: Inline[][] = [parseInline(ul[1]!)];
-      while (i + 1 < lines.length && UL.test(lines[i + 1]!)) items.push(parseInline(UL.exec(lines[++i]!)![1]!));
+      while (i + 1 < lines.length && UL.test(lines[i + 1]!))
+        items.push(parseInline(UL.exec(lines[++i]!)![1]!));
       blocks.push({ t: 'ul', items });
       continue;
     }
@@ -158,7 +174,8 @@ export function parseMarkdown(src: string): Block[] {
     if (ol) {
       flush();
       const items: Inline[][] = [parseInline(ol[2]!)];
-      while (i + 1 < lines.length && OL.test(lines[i + 1]!)) items.push(parseInline(OL.exec(lines[++i]!)![2]!));
+      while (i + 1 < lines.length && OL.test(lines[i + 1]!))
+        items.push(parseInline(OL.exec(lines[++i]!)![2]!));
       blocks.push({ t: 'ol', start: Number(ol[1]), items });
       continue;
     }
@@ -166,7 +183,8 @@ export function parseMarkdown(src: string): Block[] {
     if (q) {
       flush();
       const qs = [q[1]!];
-      while (i + 1 < lines.length && QUOTE.test(lines[i + 1]!)) qs.push(QUOTE.exec(lines[++i]!)![1]!);
+      while (i + 1 < lines.length && QUOTE.test(lines[i + 1]!))
+        qs.push(QUOTE.exec(lines[++i]!)![1]!);
       blocks.push({ t: 'quote', inline: parseInline(qs.join('\n')) });
       continue;
     }
@@ -247,6 +265,18 @@ export function useLauncherOwner(): boolean {
   const top = React.useSyncExternalStore(subscribeLaunchers, topLauncher, () => 0);
   return top === id;
 }
+
+/** Source peek: a small player inside the chat panel, used when no on-screen player can show the moment. */
+interface PeekState {
+  peek: { videoId: string; sec: number; n: number } | null;
+  show: (videoId: string, sec: number) => void;
+  close: () => void;
+}
+export const usePeek = create<PeekState>((set) => ({
+  peek: null,
+  show: (videoId, sec) => set((s) => ({ peek: { videoId, sec, n: (s.peek?.n ?? 0) + 1 } })),
+  close: () => set({ peek: null }),
+}));
 
 /* ----------------------------------------------------------------------------------- href routing */
 
@@ -390,7 +420,8 @@ export function applyChatEvent(qc: QueryClient, e: ChatEvent): void {
     case 'citation':
       patch(e.threadId, (s) => {
         const base = s ?? emptyStream(e.messageId);
-        if (base.citations.some((c) => c.t === e.citation.t && c.label === e.citation.label)) return base;
+        if (base.citations.some((c) => c.t === e.citation.t && c.label === e.citation.label))
+          return base;
         return { ...base, citations: [...base.citations, e.citation] };
       });
       return;
@@ -485,18 +516,40 @@ export function useChatThreads(scope: ChatScope | null, enabled: boolean) {
 }
 
 export function useChatMessages(threadId: string | null) {
-  return useIpcQuery('chat:messages', { threadId: threadId ?? '' }, {
-    enabled: !!threadId,
-    staleTime: 60_000,
-  });
+  return useIpcQuery(
+    'chat:messages',
+    { threadId: threadId ?? '' },
+    {
+      enabled: !!threadId,
+      staleTime: 60_000,
+    },
+  );
 }
 
 export function useMarkers(videoId: string, enabled = true) {
   const qc = useQueryClient();
   useIpcEvent('markers:changed', (p) => {
-    if (p.videoId === videoId) void qc.invalidateQueries({ queryKey: ipcKey('markers:list', { videoId }) });
+    if (p.videoId === videoId)
+      void qc.invalidateQueries({ queryKey: ipcKey('markers:list', { videoId }) });
   });
   return useIpcQuery('markers:list', { videoId }, { enabled, staleTime: 30_000 });
+}
+
+const ANSWER_TIMEOUT_MS = 90_000;
+/** If main never starts answering, turn the endless "thinking" state into an error with a retry. */
+function watchAnswer(threadId: string) {
+  window.setTimeout(() => {
+    useChatStreams.getState().patch(threadId, (s) =>
+      s && s.phase === 'streaming' && s.messageId === '' && s.text === ''
+        ? {
+            ...s,
+            phase: 'error',
+            error:
+              'The assistant did not respond. Check your connection and Anthropic key, then try again.',
+          }
+        : s,
+    );
+  }, ANSWER_TIMEOUT_MS);
 }
 
 /** Sends a message; a `new:` pending key is used until the thread exists. */
@@ -523,6 +576,9 @@ export async function sendChat(
       st.setPending(key, undefined);
       st.setPending(res.threadId, { text, at: Date.now() });
     }
+    // "thinking" until the first stream event arrives (it may already have: keep what is there)
+    st.patch(res.threadId, (cur) => cur ?? emptyStream(''));
+    watchAnswer(res.threadId);
     await qc.invalidateQueries({ queryKey: ipcKey('chat:messages', { threadId: res.threadId }) });
     st.setPending(res.threadId, undefined);
     void qc.invalidateQueries({ queryKey: ['chat:threads'] });

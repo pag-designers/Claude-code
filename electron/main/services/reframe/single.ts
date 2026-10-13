@@ -105,10 +105,6 @@ export function planSingle(args: PlanArgs, o: SingleOptions = {}): ReframePlan {
   const dur = Math.max(0.1, endSec - startSec);
   const region: Rect = o.region ?? { x: 0, y: 0, w: srcW, h: srcH };
   const g0 = cropGeometry(aspect as Aspect, region.w, region.h);
-  const centre0 = {
-    x: region.x + (region.w - g0.cropW) / 2,
-    y: region.y + (region.h - g0.cropH) / 2,
-  };
   const canPan0 = region.w - g0.cropW > 0.5 || region.h - g0.cropH > 0.5;
 
   // face samples that matter (a little margin so the first/last shot has data at its edges)
@@ -150,10 +146,9 @@ export function planSingle(args: PlanArgs, o: SingleOptions = {}): ReframePlan {
 
   // ---- zoom (constant per plan), from the reliable shots --------------------------------------
   let g: CropGeometry = g0;
-  let zoom = 1;
   if (o.zoom !== false) {
     const reliable = data.filter((d) => !d.flaky).flatMap((d) => d.obs);
-    zoom = chooseZoom(reliable, g0, region, aspect as Aspect);
+    const zoom = chooseZoom(reliable, g0, region, aspect as Aspect);
     if (zoom > 1) {
       const cropH = evenFloor(g0.cropH / zoom);
       const ratio = g0.outW / g0.outH;

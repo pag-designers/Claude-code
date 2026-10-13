@@ -41,7 +41,8 @@ export const TOOL_ROUTE_META: Record<ToolRouteId, ToolRouteMeta> = {
   },
   highlights: {
     title: 'One-Click Highlights',
-    blurb: 'A single highlight reel stitched from the best micro-moments, in the order that tells the story.',
+    blurb:
+      'A single highlight reel stitched from the best micro-moments, in the order that tells the story.',
     pickerHint: 'Choose a transcribed video to build its highlight reel.',
     needs: 'transcript',
   },
@@ -65,7 +66,8 @@ export const TOOL_ROUTE_META: Record<ToolRouteId, ToolRouteMeta> = {
   },
   reframe: {
     title: 'AI Reframe',
-    blurb: 'Pick how each clip is cropped to vertical: follow a face, split two people, or show the screen.',
+    blurb:
+      'Pick how each clip is cropped to vertical: follow a face, split two people, or show the screen.',
     pickerHint: 'Choose a video that already has clips.',
     needs: 'clips',
   },
@@ -83,7 +85,10 @@ export const TOOL_ROUTE_META: Record<ToolRouteId, ToolRouteMeta> = {
   },
 };
 
-export function toolHref(tool: ToolRouteId, params: { video?: string | null; clip?: string | null } = {}): string {
+export function toolHref(
+  tool: ToolRouteId,
+  params: { video?: string | null; clip?: string | null } = {},
+): string {
   const q = new URLSearchParams();
   if (params.video) q.set('video', params.video);
   if (params.clip) q.set('clip', params.clip);
@@ -113,6 +118,7 @@ export function slugify(text: string, fallback = 'video'): string {
   const s = text
     .toLowerCase()
     .normalize('NFKD')
+    .replace(/\p{M}+/gu, '')
     .replace(/[^\p{L}\p{N}]+/gu, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 60);
@@ -142,7 +148,8 @@ export function summaryToMarkdown(
   if (facts.length) out.push(`_${facts.join(' · ')}_`, '');
   if (meta.sourceUrl) out.push(`Source: ${meta.sourceUrl}`, '');
   out.push('## Summary', '', a.overview.summary, '');
-  if (a.overview.participants.length) out.push(`**Participants:** ${a.overview.participants.join(', ')}`, '');
+  if (a.overview.participants.length)
+    out.push(`**Participants:** ${a.overview.participants.join(', ')}`, '');
   const list = (h: string, items: string[]) => {
     if (items.length) out.push(`## ${h}`, '', ...items.map((i) => `- ${i}`), '');
   };

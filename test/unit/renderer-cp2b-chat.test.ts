@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { ChatMessage } from '../../shared/cp2';
 import {
   applyChatEvent,
+  closeOpenMarkers,
   inlineTimestamps,
   parseAppHref,
   parseClock,
@@ -32,13 +33,17 @@ describe('timestamps', () => {
     expect(parseInline('[99:99] [note]')).toEqual([{ t: 'text', text: '[99:99] [note]' }]);
   });
   it('lists the distinct timestamps in order', () => {
-    expect(inlineTimestamps('a [0:10] b **[0:20]** c [0:10]\n\n- [0:30]').map((t) => t.sec)).toEqual([10, 20, 30]);
+    expect(
+      inlineTimestamps('a [0:10] b **[0:20]** c [0:10]\n\n- [0:30]').map((t) => t.sec),
+    ).toEqual([10, 20, 30]);
   });
 });
 
 describe('markdown', () => {
   it('parses headings, lists, quotes, rules and paragraphs', () => {
-    const blocks = parseMarkdown('# Title\n\nHello **world**\nsecond line\n\n- a\n- b\n\n1. x\n2. y\n\n> quote\n\n---');
+    const blocks = parseMarkdown(
+      '# Title\n\nHello **world**\nsecond line\n\n- a\n- b\n\n1. x\n2. y\n\n> quote\n\n---',
+    );
     expect(blocks.map((b) => b.t)).toEqual(['h', 'p', 'ul', 'ol', 'quote', 'hr']);
     expect(blocks[0]).toMatchObject({ t: 'h', level: 1 });
     expect(blocks[2]).toMatchObject({ t: 'ul' });
@@ -69,7 +74,21 @@ describe('markdown', () => {
     expect(parseInline('[docs](https://example.com/a?b=1)')).toEqual([
       { t: 'link', text: 'docs', url: 'https://example.com/a?b=1' },
     ]);
-    expect(parseInline('[x](javascript:alert(1))')).toEqual([{ t: 'text', text: '[x](javascript:alert(1))' }]);
+    expect(parseInline('[x](javascript:alert(1))')).toEqual([
+      { t: 'text', text: '[x](javascript:alert(1))' },
+    ]);
+  });
+  it('underscore emphasis only applies to whole words, never inside identifiers', () => {
+    expect(parseInline('window.__pwned=2 and snake__case__x')).toEqual([
+      { t: 'text', text: 'window.__pwned=2 and snake__case__x' },
+    ]);
+    expect(parseInline('a __bold__ and _it_ here')).toEqual([
+      { t: 'text', text: 'a ' },
+      { t: 'bold', children: [{ t: 'text', text: 'bold' }] },
+      { t: 'text', text: ' and ' },
+      { t: 'italic', children: [{ t: 'text', text: 'it' }] },
+      { t: 'text', text: ' here' },
+    ]);
   });
   it('inline code, italics and nesting', () => {
     expect(parseInline('`a *b*` and *c*')).toEqual([
@@ -82,14 +101,21 @@ describe('markdown', () => {
 
 describe('href routing', () => {
   it('seek, clip and plain routes', () => {
-    expect(parseAppHref('/library/video/?id=v1&t=125')).toEqual({ kind: 'seek', videoId: 'v1', sec: 125 });
+    expect(parseAppHref('/library/video/?id=v1&t=125')).toEqual({
+      kind: 'seek',
+      videoId: 'v1',
+      sec: 125,
+    });
     expect(parseAppHref('/library/video/?id=v1&tab=clips&clip=c9&view=hook')).toMatchObject({
       kind: 'clip',
       videoId: 'v1',
       clipId: 'c9',
       view: 'hook',
     });
-    expect(parseAppHref('/library/video/?id=v1&clip=c9&view=bogus')).toMatchObject({ kind: 'clip', view: null });
+    expect(parseAppHref('/library/video/?id=v1&clip=c9&view=bogus')).toMatchObject({
+      kind: 'clip',
+      view: null,
+    });
     expect(parseAppHref('/settings/models/')).toEqual({ kind: 'route', url: '/settings/models/' });
     expect(parseAppHref('/library/video?id=v1&tab=notes')).toMatchObject({ kind: 'route' });
   });
@@ -130,18 +156,42 @@ describe('chat event folding', () => {
     applyChatEvent(qc, { type: 'start', threadId: 't1', messageId: 'm2' });
     applyChatEvent(qc, { type: 'delta', threadId: 't1', messageId: 'm2', text: 'Hello ' });
     applyChatEvent(qc, { type: 'delta', threadId: 't1', messageId: 'm2', text: 'world' });
-    applyChatEvent(qc, { type: 'citation', threadId: 't1', messageId: 'm2', citation: { t: 3, label: 'x' } });
-    applyChatEvent(qc, { type: 'citation', threadId: 't1', messageId: 'm2', citation: { t: 3, label: 'x' } });
-    const a = { id: 'a1', tool: 'create_clip' as const, input: {}, status: 'running' as const, summary: null, href: null };
+    applyChatEvent(qc, {
+      type: 'citation',
+      threadId: 't1',
+      messageId: 'm2',
+      citation: { t: 3, label: 'x' },
+    });
+    applyChatEvent(qc, {
+      type: 'citation',
+      threadId: 't1',
+      messageId: 'm2',
+      citation: { t: 3, label: 'x' },
+    });
+    const a = {
+      id: 'a1',
+      tool: 'create_clip' as const,
+      input: {},
+      status: 'running' as const,
+      summary: null,
+      href: null,
+    };
     applyChatEvent(qc, { type: 'action', threadId: 't1', messageId: 'm2', action: a });
-    applyChatEvent(qc, { type: 'action', threadId: 't1', messageId: 'm2', action: { ...a, status: 'done', summary: 'ok' } });
+    applyChatEvent(qc, {
+      type: 'action',
+      threadId: 't1',
+      messageId: 'm2',
+      action: { ...a, status: 'done', summary: 'ok' },
+    });
     expect(stream()).toMatchObject({ text: 'Hello world', phase: 'streaming', messageId: 'm2' });
     expect(stream()?.citations).toHaveLength(1); // de-duplicated
     expect(stream()?.actions).toEqual([{ ...a, status: 'done', summary: 'ok' }]); // upserted by id
     qc.setQueryData(['chat:messages', { threadId: 't1' }], { items: [] });
     applyChatEvent(qc, { type: 'done', threadId: 't1', message: final });
     expect(stream()).toBeUndefined();
-    expect(qc.getQueryData<{ items: ChatMessage[] }>(['chat:messages', { threadId: 't1' }])?.items).toEqual([final]);
+    expect(
+      qc.getQueryData<{ items: ChatMessage[] }>(['chat:messages', { threadId: 't1' }])?.items,
+    ).toEqual([final]);
   });
   it('a delta without a start still creates the stream; error keeps the partial text', () => {
     applyChatEvent(qc, { type: 'delta', threadId: 't1', messageId: 'm9', text: 'abc' });
@@ -149,10 +199,34 @@ describe('chat event folding', () => {
     expect(stream()).toMatchObject({ text: 'abc', phase: 'error', error: 'boom' });
   });
   it('done replaces an already stored message instead of duplicating it', () => {
-    qc.setQueryData(['chat:messages', { threadId: 't1' }], { items: [{ ...final, text: 'partial' }] });
+    qc.setQueryData(['chat:messages', { threadId: 't1' }], {
+      items: [{ ...final, text: 'partial' }],
+    });
     applyChatEvent(qc, { type: 'done', threadId: 't1', message: final });
-    const items = qc.getQueryData<{ items: ChatMessage[] }>(['chat:messages', { threadId: 't1' }])!.items;
+    const items = qc.getQueryData<{ items: ChatMessage[] }>([
+      'chat:messages',
+      { threadId: 't1' },
+    ])!.items;
     expect(items).toHaveLength(1);
     expect(items[0]!.text).toBe('Hello world');
+  });
+});
+
+describe('streaming display', () => {
+  it('closes an unclosed bold / code marker at the very end, for display only', () => {
+    expect(closeOpenMarkers('this is **bo')).toBe('this is **bo**');
+    expect(closeOpenMarkers('run `npm i')).toBe('run `npm i`');
+    expect(closeOpenMarkers('all **closed** here')).toBe('all **closed** here');
+    expect(closeOpenMarkers('first **line**\nsecond **open')).toBe(
+      'first **line**\nsecond **open**',
+    );
+    expect(closeOpenMarkers('```\ncode **not closed')).toBe('```\ncode **not closed'); // inside a fence
+    expect(parseMarkdown(closeOpenMarkers('Hello **wor'))[0]).toMatchObject({
+      t: 'p',
+      inline: [
+        { t: 'text', text: 'Hello ' },
+        { t: 'bold', children: [{ t: 'text', text: 'wor' }] },
+      ],
+    });
   });
 });

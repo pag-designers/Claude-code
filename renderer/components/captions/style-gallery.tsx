@@ -55,7 +55,9 @@ function Tile({
         >
           {style.name}
         </span>
-        {style.builtin ? <Lock className="size-3 shrink-0 text-subtle" aria-label="Built-in" /> : null}
+        {style.builtin ? (
+          <Lock className="size-3 shrink-0 text-subtle" aria-label="Built-in" />
+        ) : null}
       </span>
     </button>
   );
@@ -93,7 +95,11 @@ export function StyleGallery({
       <div className="rounded-lg border border-danger/35 bg-danger-soft p-4 text-sm" role="alert">
         <p className="font-semibold text-foreground">Could not load caption styles</p>
         <p className="mt-1 text-muted-foreground">{error}</p>
-        <button type="button" onClick={onRetry} className="mt-2 font-medium text-primary-text hover:underline">
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-2 font-medium text-primary-text hover:underline"
+        >
           Try again
         </button>
       </div>
@@ -126,7 +132,8 @@ export function StyleGallery({
         {custom.length === 0 ? (
           <p className="flex items-start gap-2 rounded-lg border border-dashed border-border-strong px-3 py-3 text-xs text-muted-foreground">
             <Plus className="mt-0.5 size-3.5 shrink-0 text-subtle" aria-hidden />
-            Tweak any preset on the right, then choose “Save as custom copy” to keep your own version here.
+            Tweak any preset on the right, then choose “Save as custom copy” to keep your own
+            version here.
           </p>
         ) : (
           <div className="grid grid-cols-3 gap-1">

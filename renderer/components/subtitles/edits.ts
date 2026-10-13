@@ -43,11 +43,7 @@ export function wordTimes(
 }
 
 /** Indices of the words of a cue that are still shown. */
-export function visibleIndices(
-  edits: SubtitleEdits,
-  wordStart: number,
-  wordEnd: number,
-): number[] {
+export function visibleIndices(edits: SubtitleEdits, wordStart: number, wordEnd: number): number[] {
   const out: number[] = [];
   for (let i = wordStart; i <= wordEnd; i++) if (!isHidden(edits, i)) out.push(i);
   return out;
@@ -88,7 +84,8 @@ function cloneEdits(e: SubtitleEdits): SubtitleEdits {
 function putWord(e: SubtitleEdits, i: number, patch: Partial<WordEdit>): void {
   const key = String(i);
   const next: WordEdit = { ...e.words[key], ...patch };
-  for (const k of Object.keys(next) as (keyof WordEdit)[]) if (next[k] === undefined) delete next[k];
+  for (const k of Object.keys(next) as (keyof WordEdit)[])
+    if (next[k] === undefined) delete next[k];
   if (next.shift !== undefined && Math.abs(next.shift) < 0.0005) delete next.shift;
   if (next.hidden === false) delete next.hidden;
   if (Object.keys(next).length === 0) delete e.words[key];
@@ -106,7 +103,7 @@ const removeValue = (list: number[], n: number) => {
 
 let tempId = 0;
 /** Cues created locally (split) get a negative id until the server answers with the real ones. */
-export const newTempCueId = (): number => -(++tempId);
+export const newTempCueId = (): number => -++tempId;
 
 /* ------------------------------------------------------------ text diff ------------------------------------------ */
 
@@ -165,7 +162,8 @@ export function applyCueText(
 
   const edits = cloneEdits(s.edits);
   const original = (i: number) => (words[i]?.w ?? '').trim();
-  const setText = (i: number, t: string) => putWord(edits, i, { text: t === original(i) ? undefined : t });
+  const setText = (i: number, t: string) =>
+    putWord(edits, i, { text: t === original(i) ? undefined : t });
   const hide = (i: number) => putWord(edits, i, { hidden: true });
   let warning: string | undefined;
 
@@ -279,8 +277,7 @@ export function shiftCue(
   // never before 0:00
   const minStart = cueSpan(words, s.edits, cue.wordStart, cue.wordEnd).s;
   const d = minStart + delta < 0 ? -minStart : delta;
-  if (Math.abs(d) < 0.0005)
-    return { state: s, warning: 'This cue already starts at 0:00.' };
+  if (Math.abs(d) < 0.0005) return { state: s, warning: 'This cue already starts at 0:00.' };
   const edits = cloneEdits(s.edits);
   for (let i = cue.wordStart; i <= cue.wordEnd; i++)
     putWord(edits, i, { shift: r3((edits.words[String(i)]?.shift ?? 0) + d) });
@@ -333,7 +330,11 @@ export function wordsBeforeCaret(text: string, caret: number): number {
 /* ------------------------------------------------------------ lookup / search ------------------------------------ */
 
 /** The cue being spoken at `t` (last cue starting at or before t, if t is not past its end by more than `grace`). */
-export function activeCueIndex(cues: readonly Pick<Cue, 's' | 'e'>[], t: number, grace = 0.35): number {
+export function activeCueIndex(
+  cues: readonly Pick<Cue, 's' | 'e'>[],
+  t: number,
+  grace = 0.35,
+): number {
   let lo = 0;
   let hi = cues.length - 1;
   let ans = -1;
@@ -410,19 +411,25 @@ export interface History<T> {
   future: T[];
 }
 export const HISTORY_LIMIT = 50;
-export const emptyHistory = <T,>(): History<T> => ({ past: [], future: [] });
+export const emptyHistory = <T>(): History<T> => ({ past: [], future: [] });
 
 export function pushHistory<T>(h: History<T>, current: T): History<T> {
   const past = [...h.past, current];
   if (past.length > HISTORY_LIMIT) past.splice(0, past.length - HISTORY_LIMIT);
   return { past, future: [] };
 }
-export function undoHistory<T>(h: History<T>, current: T): { history: History<T>; value: T } | null {
+export function undoHistory<T>(
+  h: History<T>,
+  current: T,
+): { history: History<T>; value: T } | null {
   const value = h.past[h.past.length - 1];
   if (value === undefined) return null;
   return { value, history: { past: h.past.slice(0, -1), future: [current, ...h.future] } };
 }
-export function redoHistory<T>(h: History<T>, current: T): { history: History<T>; value: T } | null {
+export function redoHistory<T>(
+  h: History<T>,
+  current: T,
+): { history: History<T>; value: T } | null {
   const value = h.future[0];
   if (value === undefined) return null;
   return { value, history: { past: [...h.past, current], future: h.future.slice(1) } };

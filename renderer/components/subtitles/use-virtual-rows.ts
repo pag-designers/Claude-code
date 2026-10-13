@@ -103,10 +103,7 @@ export function useVirtualRows(
         bottom <= el.scrollTop + viewport - 8
       )
         return;
-      const target = Math.max(
-        0,
-        Math.min(top - viewport * 0.35, (offsets[count] ?? 0) - viewport),
-      );
+      const target = Math.max(0, Math.min(top - viewport * 0.35, (offsets[count] ?? 0) - viewport));
       el.scrollTo({ top: target, behavior: opts?.smooth ? 'smooth' : 'auto' });
     },
     [scroller, offsets, viewport, count],

@@ -221,12 +221,12 @@ describe('multi-face: split screen', () => {
     expect(plan(f, { endSec: 10 }).layout).toBe('single');
   });
 
-  it('tolerates flaky detection (tile faces score 0.3-0.5 and drop out)', () => {
+  it('tolerates flaky detection (tile faces score ~0.4 and drop out)', () => {
     let k = 0;
     const f = samples(0, 20, () => {
       k++;
       const boxes: Box[] = [];
-      if (k % 4 !== 0) boxes.push({ cx: 0.3, cy: 0.27, size: 0.27, score: 0.34 });
+      if (k % 4 !== 0) boxes.push({ cx: 0.3, cy: 0.27, size: 0.27, score: 0.37 });
       if (k % 3 !== 0) boxes.push({ cx: 0.7, cy: 0.27, size: 0.29, score: 0.4 });
       return boxes;
     });

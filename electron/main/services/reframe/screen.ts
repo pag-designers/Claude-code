@@ -97,12 +97,8 @@ export function planScreenFace(
   // content bleeds into the strip), never smaller than the face itself
   const faceH = track?.h ?? cam.h / 1.8;
   let ch = faceH / WEBCAM_FACE_FRAC;
-  let cw = ch * pa;
-  const s = Math.min(1, cam.w / cw, cam.h / ch);
-  cw *= s;
-  ch *= s;
+  ch *= Math.min(1, cam.w / (ch * pa), cam.h / ch);
   ch = Math.max(ch, Math.min(faceH * 1.25, cam.h));
-  cw = ch * pa;
   const cropH = evenFloor(Math.min(ch, srcH));
   const cropW = Math.min(evenFloor(srcW), evenRound(cropH * pa));
 

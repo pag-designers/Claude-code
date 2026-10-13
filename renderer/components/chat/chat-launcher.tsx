@@ -12,6 +12,7 @@ import {
   useChatHub,
   useChatUi,
   useLauncherOwner,
+  usePeek,
   type ChatScope,
 } from '@/lib/cp2-chat';
 import { useOptionalPlayer } from '@/lib/player';
@@ -27,7 +28,10 @@ export function ChatLauncher({ videoId, clipId }: { videoId: string; clipId?: st
   useChatHub();
   const owner = useLauncherOwner();
   const player = useOptionalPlayer();
-  const scope = React.useMemo<ChatScope>(() => ({ videoId, clipId: clipId ?? null }), [videoId, clipId]);
+  const scope = React.useMemo<ChatScope>(
+    () => ({ videoId, clipId: clipId ?? null }),
+    [videoId, clipId],
+  );
   const key = scopeKey(scope);
   const open = useChatUi((s) => s.open);
   const activeKey = useChatUi((s) => (s.scope ? scopeKey(s.scope) : null));
@@ -41,22 +45,27 @@ export function ChatLauncher({ videoId, clipId }: { videoId: string; clipId?: st
     else openChat(scope);
   }, [key, scope, openChat, closeChat]);
 
-  useHotkeys('mod+j', toggle, { enableOnFormTags: true, preventDefault: true, enabled: owner }, [toggle]);
+  useHotkeys('mod+j', toggle, { enableOnFormTags: true, preventDefault: true, enabled: owner }, [
+    toggle,
+  ]);
 
-  // the page's proxy player (only present on the video page) is a seek target for chat timestamps
+  // the page's proxy player (only present on the video page) is a seek target for chat timestamps, as long as it can
+  // actually be seen: hidden on another tab or covered by the chat panel, the chat's own source peek takes over
   React.useEffect(() => {
     if (!player || clipId) return;
     return registerSeeker((vid, t) => {
       if (vid !== videoId) return false;
-      // On the Clips tab the player is hidden: switch to a tab that shows it, so the seek is visible (and audible).
       const el = player.videoRef.current;
-      if (el && el.offsetParent === null) {
-        const url = new URL(window.location.href);
-        if (url.searchParams.get('tab') === 'clips') {
-          url.searchParams.set('tab', 'overview');
-          window.history.replaceState(null, '', `${url.pathname}${url.search}`);
-        }
+      if (!el || el.offsetParent === null) return false;
+      const chat = document.querySelector('[data-chat-panel]');
+      if (chat) {
+        const a = el.getBoundingClientRect();
+        const c = chat.getBoundingClientRect();
+        const w = Math.min(a.right, c.right) - Math.max(a.left, c.left);
+        const h = Math.min(a.bottom, c.bottom) - Math.max(a.top, c.top);
+        if (w > 0 && h > 0 && (w * h) / Math.max(1, a.width * a.height) > 0.3) return false;
       }
+      usePeek.getState().close();
       return player.seek(t, { play: true });
     });
   }, [player, videoId, clipId]);

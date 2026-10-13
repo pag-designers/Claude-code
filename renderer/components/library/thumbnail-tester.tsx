@@ -107,7 +107,7 @@ function Frame({
       {source.overlay ? (
         <span
           aria-hidden
-          className="pointer-events-none absolute inset-x-[6%] bottom-[12%] text-center font-display text-[13cqw] font-extrabold uppercase leading-[1.05] text-white [text-shadow:0_0_0.12em_#000,0_0.05em_0.1em_#000]"
+          className="pointer-events-none absolute inset-x-[6%] bottom-[22%] text-center font-display text-[10cqw] font-extrabold uppercase leading-[1.05] text-white [text-shadow:0_0_0.12em_#000,0_0.05em_0.1em_#000]"
         >
           {source.overlay}
         </span>
@@ -123,7 +123,12 @@ function Pill({ tone, className }: { tone: Tone; className?: string }) {
 
 function StatusBar({ tone }: { tone: Tone }) {
   return (
-    <div className={cn('flex h-[22px] items-center justify-between px-4 text-[9px] font-semibold', tone.fg)}>
+    <div
+      className={cn(
+        'flex h-[22px] items-center justify-between px-4 text-[9px] font-semibold',
+        tone.fg,
+      )}
+    >
       <span className="tabular-nums">9:41</span>
       <span aria-hidden className="flex items-center gap-1">
         <Wifi className="size-2.5" />
@@ -221,7 +226,9 @@ function GridTile({
           {badge}
         </span>
       ) : null}
-      {glyph ? <span className="absolute right-1 top-1 text-white [&_svg]:size-3">{glyph}</span> : null}
+      {glyph ? (
+        <span className="absolute right-1 top-1 text-white [&_svg]:size-3">{glyph}</span>
+      ) : null}
     </>
   );
   if (!source) return <div className={cn(tone.tile)} style={{ aspectRatio: ratio }} aria-hidden />;
@@ -232,7 +239,17 @@ function GridTile({
   );
 }
 
-function TikTokMock({ a, b, tone, zoom }: { a: TesterSource; b: TesterSource | null; tone: Tone; zoom: number }) {
+function TikTokMock({
+  a,
+  b,
+  tone,
+  zoom,
+}: {
+  a: TesterSource;
+  b: TesterSource | null;
+  tone: Tone;
+  zoom: number;
+}) {
   const ratio = '3 / 4';
   const tiles: (TesterSource | null)[] = [a, b, null, null, null, null];
   return (
@@ -275,13 +292,21 @@ function TikTokMock({ a, b, tone, zoom }: { a: TesterSource; b: TesterSource | n
             ratio={ratio}
             views={PLACEHOLDER_VIEWS[i] ?? '1K'}
             badge={i === 0 && !b ? 'Pinned' : undefined}
-            testId={i === 0 ? 'tester-tile-a-tiktok' : i === 1 && b ? 'tester-tile-b-tiktok' : undefined}
+            testId={
+              i === 0 ? 'tester-tile-a-tiktok' : i === 1 && b ? 'tester-tile-b-tiktok' : undefined
+            }
           />
         ))}
       </div>
       <BottomNav
         tone={tone}
-        icons={[<Home key="h" />, <Users key="u" />, <Plus key="p" />, <MessageCircle key="m" />, <User key="a" />]}
+        icons={[
+          <Home key="h" />,
+          <Users key="u" />,
+          <Plus key="p" />,
+          <MessageCircle key="m" />,
+          <User key="a" />,
+        ]}
       />
     </Phone>
   );
@@ -289,7 +314,17 @@ function TikTokMock({ a, b, tone, zoom }: { a: TesterSource; b: TesterSource | n
 
 /* ----------------------------------------------------------------------------- Instagram-style reels tab */
 
-function ReelsMock({ a, b, tone, zoom }: { a: TesterSource; b: TesterSource | null; tone: Tone; zoom: number }) {
+function ReelsMock({
+  a,
+  b,
+  tone,
+  zoom,
+}: {
+  a: TesterSource;
+  b: TesterSource | null;
+  tone: Tone;
+  zoom: number;
+}) {
   const ratio = '9 / 16';
   const tiles: (TesterSource | null)[] = [a, b, null, null, null, null];
   return (
@@ -330,13 +365,21 @@ function ReelsMock({ a, b, tone, zoom }: { a: TesterSource; b: TesterSource | nu
             ratio={ratio}
             views={PLACEHOLDER_VIEWS[(i + 2) % 6] ?? '1K'}
             glyph={<Clapperboard />}
-            testId={i === 0 ? 'tester-tile-a-reels' : i === 1 && b ? 'tester-tile-b-reels' : undefined}
+            testId={
+              i === 0 ? 'tester-tile-a-reels' : i === 1 && b ? 'tester-tile-b-reels' : undefined
+            }
           />
         ))}
       </div>
       <BottomNav
         tone={tone}
-        icons={[<Home key="h" />, <Search key="s" />, <Plus key="p" />, <Clapperboard key="c" />, <User key="a" />]}
+        icons={[
+          <Home key="h" />,
+          <Search key="s" />,
+          <Plus key="p" />,
+          <Clapperboard key="c" />,
+          <User key="a" />,
+        ]}
       />
     </Phone>
   );
@@ -404,12 +447,20 @@ function ShortsMock({
                 />
               </Frame>
             ) : (
-              <div className={cn('rounded-lg', tone.tile)} style={{ aspectRatio: '9 / 16' }} aria-hidden />
+              <div
+                className={cn('rounded-lg', tone.tile)}
+                style={{ aspectRatio: '9 / 16' }}
+                aria-hidden
+              />
             )}
             {s ? (
               <div className="mt-1">
-                <p className="line-clamp-2 text-[10px] font-semibold leading-[13px]">{title || s.label}</p>
-                <p className={cn('mt-0.5 text-[9px]', tone.mute)}>{key === 'b' ? '8.2K' : '12K'} views</p>
+                <p className="line-clamp-2 text-[10px] font-semibold leading-[13px]">
+                  {title || s.label}
+                </p>
+                <p className={cn('mt-0.5 text-[9px]', tone.mute)}>
+                  {key === 'b' ? '8.2K' : '12K'} views
+                </p>
               </div>
             ) : (
               <div className="mt-1 space-y-1" aria-hidden>
@@ -422,7 +473,13 @@ function ShortsMock({
       </div>
       <BottomNav
         tone={tone}
-        icons={[<Home key="h" />, <Clapperboard key="c" />, <Plus key="p" />, <Compass key="o" />, <ThumbsUp key="t" />]}
+        icons={[
+          <Home key="h" />,
+          <Clapperboard key="c" />,
+          <Plus key="p" />,
+          <Compass key="o" />,
+          <ThumbsUp key="t" />,
+        ]}
       />
     </Phone>
   );
@@ -444,7 +501,13 @@ function SmallSizes({ sources, tone }: { sources: TesterSource[]; tone: Tone }) 
           How it reads at 80 px wide, the size of a tile in a crowded grid.
         </p>
       </div>
-      <div className={cn('flex flex-wrap items-end gap-x-6 gap-y-4 rounded-xl border p-4', tone.screen, tone.line)}>
+      <div
+        className={cn(
+          'flex flex-wrap items-end gap-x-6 gap-y-4 rounded-xl border p-4',
+          tone.screen,
+          tone.line,
+        )}
+      >
         {sources.map((s, si) => (
           <div key={si} className="flex flex-wrap items-end gap-3">
             {specs.map((sp) => (
@@ -507,7 +570,11 @@ export function ThumbnailTester({
   const tone = TONES[chrome];
   const second = b ?? null;
   return (
-    <section className="flex flex-col gap-4" data-testid="thumbnail-tester" aria-label="Thumbnail tester">
+    <section
+      className="flex flex-col gap-4"
+      data-testid="thumbnail-tester"
+      aria-label="Thumbnail tester"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="font-display text-lg font-semibold">Thumbnail Tester</h3>
@@ -543,8 +610,8 @@ export function ThumbnailTester({
       </div>
       {hideSmall ? null : <SmallSizes sources={second ? [a, second] : [a]} tone={tone} />}
       <p className="text-2xs text-subtle">
-        Feed crops differ: TikTok’s profile grid shows the centre 3:4 of a 9:16 frame, so keep faces and
-        text away from the top and bottom edges.
+        Feed crops differ: TikTok’s profile grid shows the centre 3:4 of a 9:16 frame, so keep faces
+        and text away from the top and bottom edges.
       </p>
     </section>
   );

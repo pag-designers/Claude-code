@@ -231,7 +231,7 @@ const CueRow = React.memo(function CueRow(props: RowProps) {
     }
   }, [isEditing]);
 
-  const caretNow = () => area.current?.selectionStart ?? (editing?.text.length ?? cue.text.length);
+  const caretNow = () => area.current?.selectionStart ?? editing?.text.length ?? cue.text.length;
   const actions = (
     <div
       className={cn(
@@ -324,17 +324,25 @@ const CueRow = React.memo(function CueRow(props: RowProps) {
           isEditing && 'bg-accent/70',
         )}
       >
-        <div className="flex w-[84px] shrink-0 flex-col items-start gap-0.5 pt-0.5">
-          <RetimePopover cue={cue} onApply={(s) => onRetime(cue, s)}>
-            <button
-              type="button"
-              aria-label={`Retime caption starting at ${formatCueTime(cue.s)}`}
-              data-testid="cue-time"
-              className="rounded-xs px-1 -mx-1 font-mono text-xs tabular-nums text-muted-foreground hover:bg-accent hover:text-foreground"
-            >
-              {formatCueTime(cue.s)}
-            </button>
-          </RetimePopover>
+        <div className="flex w-[112px] shrink-0 flex-col items-start gap-0.5 pt-1.5">
+          <span className="flex items-center gap-1 font-mono text-xs tabular-nums text-muted-foreground">
+            <RetimePopover cue={cue} onApply={(s) => onRetime(cue, s)}>
+              <button
+                type="button"
+                aria-label={`Retime caption starting at ${formatCueTime(cue.s)}`}
+                data-testid="cue-time"
+                className="-mx-1 rounded-xs px-1 hover:bg-accent hover:text-foreground"
+              >
+                {formatCueTime(cue.s)}
+              </button>
+            </RetimePopover>
+            <span aria-hidden className="text-subtle">
+              –
+            </span>
+            <span data-testid="cue-end" className="text-subtle">
+              {formatCueTime(cue.e)}
+            </span>
+          </span>
           <button
             type="button"
             onClick={() => onPlay(cue)}
@@ -394,11 +402,7 @@ const CueRow = React.memo(function CueRow(props: RowProps) {
                 'hover:border-border-strong',
               )}
             >
-              <Highlighted
-                text={cue.text}
-                ranges={match?.ranges ?? []}
-                current={currentMatch}
-              />
+              <Highlighted text={cue.text} ranges={match?.ranges ?? []} current={currentMatch} />
             </button>
           )}
         </div>
@@ -419,7 +423,8 @@ function SaveState({
   error: string | null;
   onRetry: () => void;
 }) {
-  if (status === 'idle') return <span className="w-20" aria-hidden />;
+  // fixed-width slot: the toolbar must not reflow when the state changes (Unsaved / Saving / Saved / Not saved + Retry)
+  if (status === 'idle') return <span className="w-[116px]" aria-hidden />;
   return (
     <span
       role="status"
@@ -427,7 +432,7 @@ function SaveState({
       data-testid="save-state"
       data-status={status}
       className={cn(
-        'inline-flex items-center gap-1.5 text-xs font-medium',
+        'inline-flex w-[116px] items-center justify-end gap-1.5 whitespace-nowrap text-xs font-medium',
         status === 'error' ? 'text-danger' : 'text-muted-foreground',
       )}
       title={error ?? undefined}
@@ -460,7 +465,12 @@ function SaveState({
 
 function isTypingTarget(t: EventTarget | null): boolean {
   if (!(t instanceof HTMLElement)) return false;
-  return t.isContentEditable || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT';
+  return (
+    t.isContentEditable ||
+    t.tagName === 'INPUT' ||
+    t.tagName === 'TEXTAREA' ||
+    t.tagName === 'SELECT'
+  );
 }
 
 function SubtitlesPanel({ video }: { video: VideoView }) {
@@ -495,8 +505,17 @@ function SubtitlesPanel({ video }: { video: VideoView }) {
   const [follow, setFollow] = React.useState(true);
 
   const keyOf = React.useCallback((i: number) => String(cues[i]?.id ?? i), [cues]);
-  const { scrollerRef, onScroll, total, range, offsets, scrollTop, viewport, measure, scrollToIndex } =
-    useVirtualRows(n, keyOf, ESTIMATE);
+  const {
+    scrollerRef,
+    onScroll,
+    total,
+    range,
+    offsets,
+    scrollTop,
+    viewport,
+    measure,
+    scrollToIndex,
+  } = useVirtualRows(n, keyOf, ESTIMATE);
 
   const lastFollowed = React.useRef(-2);
   React.useEffect(() => {
@@ -568,7 +587,8 @@ function SubtitlesPanel({ video }: { video: VideoView }) {
   const onRetime = React.useCallback((cue: Cue, s: number) => ed.setStart(cue.id, s), [ed]);
   const onDelete = React.useCallback(
     (cue: Cue) => {
-      if (ed.remove(cue.id)) toast.success('Caption removed', { description: 'Undo with Ctrl/⌘ Z.' });
+      if (ed.remove(cue.id))
+        toast.success('Caption removed', { description: 'Undo with Ctrl/⌘ Z.' });
     },
     [ed],
   );
@@ -599,12 +619,16 @@ function SubtitlesPanel({ video }: { video: VideoView }) {
     () => (clipsQ.data?.items ?? []).filter((c) => c.hasRender),
     [clipsQ.data],
   );
-  const staleIds = React.useMemo(() => {
+  const staleStrict = React.useMemo(() => {
     const target = Math.max(rev, video.subtitleRev);
-    const stale = rendered.filter((c) => c.subtitleRev < target).map((c) => c.id);
-    return stale.length > 0 ? stale : rendered.map((c) => c.id);
+    return rendered.filter((c) => c.subtitleRev < target).map((c) => c.id);
   }, [rendered, rev, video.subtitleRev]);
-  const showBanner = ed.outdated > 0 && dismissedRev !== rev && staleIds.length > 0;
+  // the API count says "something is outdated"; the clip list (kept live by clips:updated) says how many still are, so the
+  // banner disappears by itself as the re-renders land. Before the clip list is known, trust the API.
+  const outdatedNow = clipsQ.isSuccess ? staleStrict.length : ed.outdated;
+  const staleIds = staleStrict;
+  const showBanner =
+    ed.outdated > 0 && outdatedNow > 0 && dismissedRev !== rev && staleIds.length > 0;
   const rerender = () =>
     restyle.mutate(
       { ids: staleIds, styleId },
@@ -629,7 +653,8 @@ function SubtitlesPanel({ video }: { video: VideoView }) {
         return;
       }
       const r = await invoke('subtitles:export', { videoId: video.id, format });
-      if (r.saved) toast.success(`Exported ${format.toUpperCase()}`, { description: r.path ?? undefined });
+      if (r.saved)
+        toast.success(`Exported ${format.toUpperCase()}`, { description: r.path ?? undefined });
     } catch (e) {
       toast.error('Export failed', { description: e instanceof Error ? e.message : undefined });
     } finally {
@@ -752,7 +777,7 @@ function SubtitlesPanel({ video }: { video: VideoView }) {
       {showBanner ? (
         <Banner
           tone="warning"
-          title={`${ed.outdated} rendered ${ed.outdated === 1 ? 'clip uses' : 'clips use'} older captions`}
+          title={`${outdatedNow} rendered ${outdatedNow === 1 ? 'clip uses' : 'clips use'} older captions`}
           action={
             <Button
               size="sm"
@@ -765,7 +790,7 @@ function SubtitlesPanel({ video }: { video: VideoView }) {
             </Button>
           }
         >
-          Your subtitle edits apply to new renders only. Re-render the clips to burn them in.
+          Subtitle edits apply to new renders. Re-render to burn them in.
         </Banner>
       ) : null}
 
@@ -796,17 +821,29 @@ function SubtitlesPanel({ video }: { video: VideoView }) {
             ) : undefined
           }
           className="h-9"
-          wrapperClassName="w-60"
+          wrapperClassName="min-w-40 max-w-60 flex-1"
         />
         {query.trim().length >= 2 ? (
           <div className="flex items-center gap-1 text-xs text-muted-foreground" aria-live="polite">
             <span className="tabular-nums" data-testid="cue-match-count">
               {matches.length ? `${matchPos + 1} of ${matches.length}` : 'No matches'}
             </span>
-            <Button variant="ghost" size="icon-xs" aria-label="Previous match" disabled={!matches.length} onClick={() => stepMatch(-1)}>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Previous match"
+              disabled={!matches.length}
+              onClick={() => stepMatch(-1)}
+            >
               <ChevronUp />
             </Button>
-            <Button variant="ghost" size="icon-xs" aria-label="Next match" disabled={!matches.length} onClick={() => stepMatch(1)}>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Next match"
+              disabled={!matches.length}
+              onClick={() => stepMatch(1)}
+            >
               <ChevronDown />
             </Button>
           </div>
@@ -816,12 +853,24 @@ function SubtitlesPanel({ video }: { video: VideoView }) {
           <SaveState status={ed.status} error={ed.saveError} onRetry={ed.retry} />
           <div className="flex items-center gap-0.5" role="group" aria-label="History">
             <Tip content="Undo (Ctrl/⌘ Z)">
-              <Button variant="ghost" size="icon-sm" aria-label="Undo" disabled={!ed.canUndo} onClick={ed.undo}>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Undo"
+                disabled={!ed.canUndo}
+                onClick={ed.undo}
+              >
                 <Undo2 />
               </Button>
             </Tip>
             <Tip content="Redo (Ctrl/⌘ Shift Z)">
-              <Button variant="ghost" size="icon-sm" aria-label="Redo" disabled={!ed.canRedo} onClick={ed.redo}>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Redo"
+                disabled={!ed.canRedo}
+                onClick={ed.redo}
+              >
                 <Redo2 />
               </Button>
             </Tip>
@@ -840,8 +889,12 @@ function SubtitlesPanel({ video }: { video: VideoView }) {
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuLabel>Whole video</DropdownMenuLabel>
-              <DropdownMenuItem onSelect={() => void exportAs('srt')}>SubRip (.srt)</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void exportAs('vtt')}>WebVTT (.vtt)</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void exportAs('srt')}>
+                SubRip (.srt)
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void exportAs('vtt')}>
+                WebVTT (.vtt)
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -879,8 +932,8 @@ function SubtitlesPanel({ video }: { video: VideoView }) {
         ) : null}
       </div>
       <p className="px-1 text-xs tabular-nums text-subtle">
-        {formatInt(n)} captions · {formatInt(totalWords)} words · click a caption to edit, Enter saves, Esc
-        cancels, Alt+Enter splits at the caret
+        {formatInt(n)} captions · {formatInt(totalWords)} words · click a caption to edit, Enter
+        saves, Esc cancels, Alt+Enter splits at the caret
       </p>
     </div>
   );

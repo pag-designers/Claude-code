@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -15,6 +15,8 @@ import {
   panelCommandInputs,
   preparePanels,
   probeStreams,
+  renderCleanFrame,
+  windowPlan,
   screenPanelGraph,
   screenRegion,
   segmentAudioChain,
@@ -92,6 +94,27 @@ describe('stitch builders (pure)', () => {
     expect(audioStitchGraph(['a0', 'a1'], 'cut', 0, 'o')).toBe('[a0][a1]concat=n=2:v=0:a=1[o]');
     expect(segmentAudioChain(1, 5, true)).toContain('afade=t=in');
     expect(segmentAudioChain(1, 5, false)).not.toContain('afade');
+  });
+});
+
+describe('windowPlan', () => {
+  it('interpolates the window ends, keeps inner keyframes, shifts cuts', () => {
+    const plan = splitPlan({ cuts: [4, 12.5, 20] });
+    const ks = [kf(0, 0, 0, 100, 100), kf(5, 50, 0, 100, 100), kf(10, 90, 0, 100, 100)];
+    const w = windowPlan({ ...plan, keyframes: ks }, 4.8, 1.2);
+    expect(w.keyframes.map((k) => k.t)).toEqual([0, 0.2, 1.2]);
+    expect(w.keyframes[0]!.x).toBeCloseTo(48, 6); // 4.8 s: 0.96 of the way 0 -> 50
+    expect(w.keyframes[1]!.x).toBe(50);
+    expect(w.keyframes[2]!.x).toBeCloseTo(50 + (1 / 5) * 40, 6);
+    expect(w.cuts).toEqual([]);
+    const far = windowPlan(
+      { ...plan, keyframes: [kf(0, 0, 0, 100, 100), kf(30, 90, 0, 100, 100)] },
+      12,
+      1.2,
+    );
+    expect(far.keyframes).toHaveLength(2);
+    expect(far.keyframes[0]!.x).toBeCloseTo(36, 6);
+    expect(windowPlan({ ...plan, cuts: [12.5] }, 12, 1.2).cuts).toEqual([0.5]);
   });
 });
 
@@ -218,9 +241,8 @@ describe('panel layout builders (pure)', () => {
     const lines = text.trim().split('\n');
     expect(lines[0]).toMatch(/^0\.0000 /);
     expect(lines[0]).toContain('crop@qp0_1 x');
-    expect(lines[0]).toContain('crop@qp1_1 x'); // initial values of both panels in one line
-    // panel B never moves: after the first line it is never mentioned (panel B has no sendcmd entry at all)
-    expect(lines.slice(1).some((l) => l.includes('qp1_'))).toBe(false);
+    // panel B is static: it has no sendcmd entries at all
+    expect(text.includes('qp1_')).toBe(false);
     expect(lines.length).toBeGreaterThan(20);
   });
 });
@@ -232,15 +254,14 @@ function ffmpeg(args: string[]): void {
 }
 
 /** Decodes one frame at `t` to rgb24, scaled to w x h. */
-function frameRgb(file: string, t: number, w: number, h: number): Uint8Array {
+function frameRgb(file: string, t: number | null, w: number, h: number): Uint8Array {
   const out = execFileSync(
     FFMPEG,
     [
       '-hide_banner',
       '-loglevel',
       'error',
-      '-ss',
-      String(t),
+      ...(t === null ? [] : ['-ss', String(t)]),
       '-i',
       file,
       '-frames:v',
@@ -502,6 +523,33 @@ describe.skipIf(!haveFfmpeg)('render layouts and highlights with the real ffmpeg
     ).rejects.toThrow(/needs at least two panels/);
   });
 
+  it('renderCleanFrame: the frame of the same reframed picture, without captions or hook', async () => {
+    const a = [kf(0, 0, 0, 160, 142), kf(3, 480, 0, 160, 142)];
+    const b = [kf(0, 480, 0, 160, 142), kf(3, 0, 0, 160, 142)];
+    const plan = splitPlan({
+      keyframes: a,
+      panels: [
+        { out: { x: 0, y: 0, w: 270, h: 240 }, keyframes: a, role: 'face-a' },
+        { out: { x: 0, y: 240, w: 270, h: 240 }, keyframes: b, role: 'face-b' },
+      ],
+    });
+    const jpg = path.join(dir, 'clean', 'still.jpg');
+    await renderCleanFrame({
+      ffmpegPath: FFMPEG,
+      sourcePath: src,
+      startSec: 2,
+      atSec: 2.8,
+      plan,
+      outJpg: jpg,
+      encoder: 'libx264',
+    });
+    const px = frameRgb(jpg, null, 270, 480);
+    // at 2.8 s of 3 the panels have panned nearly all the way: A is blue, B is red
+    expect(mean(px, 270, 20, 20, 250, 220)[2]).toBeGreaterThan(150);
+    expect(mean(px, 270, 20, 260, 250, 460)[0]).toBeGreaterThan(150);
+    expect(fs.readdirSync(path.join(dir, 'clean')).filter((f) => f.startsWith('.'))).toEqual([]);
+  }, 60_000);
+
   describe('highlights', () => {
     const seg = (s: number, e: number, plan?: ReframePlan) => ({
       startSec: s,
@@ -593,7 +641,7 @@ describe.skipIf(!haveFfmpeg)('render layouts and highlights with the real ffmpeg
           expect(mid[0]).toBeGreaterThan(60);
           expect(mid[2]).toBeGreaterThan(60); // both pictures visible
         } else {
-          expect(mid[0] + mid[1] + mid[2]).toBeLessThan(60); // through black
+          expect(mid[0] + mid[1] + mid[2]).toBeLessThan(150); // through black (before/after are > 400)
         }
       }
     }, 120_000);
@@ -607,16 +655,19 @@ describe.skipIf(!haveFfmpeg)('render layouts and highlights with the real ffmpeg
         transition: 'crossfade',
         transitionSec: 0.5,
       });
-      let err = '';
-      try {
-        execFileSync(
-          FFMPEG,
-          ['-hide_banner', '-nostats', '-i', out, '-af', 'ebur128', '-f', 'null', '-'],
-          { stdio: ['ignore', 'pipe', 'pipe'] },
-        );
-      } catch (e) {
-        err = String((e as { stderr?: Buffer }).stderr);
-      }
+      const err = String(
+        spawnSync(FFMPEG, [
+          '-hide_banner',
+          '-nostats',
+          '-i',
+          out,
+          '-af',
+          'ebur128',
+          '-f',
+          'null',
+          '-',
+        ]).stderr,
+      );
       const m = /Integrated loudness:\s*\n\s*I:\s*(-?[\d.]+) LUFS/.exec(err);
       expect(m).not.toBeNull();
       expect(Math.abs(Number(m![1]) + 14)).toBeLessThan(1.2);

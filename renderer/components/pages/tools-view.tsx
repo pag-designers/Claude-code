@@ -100,9 +100,11 @@ export function ToolsView() {
         <section key={g.id} aria-label={g.title} className="flex flex-col gap-4">
           <SectionTitle title={g.title} description={g.description} />
           <ul className="grid grid-cols-4 gap-4 max-[1280px]:grid-cols-3 max-[1000px]:grid-cols-2">
-            {TOOLS.filter((t) => t.group === g.id).map((t) => (
-              <ToolCard key={t.id} tool={t} />
-            ))}
+            {TOOLS.filter((t) => t.group === g.id)
+              .sort((a, b) => Number(isToolAvailable(b)) - Number(isToolAvailable(a)))
+              .map((t) => (
+                <ToolCard key={t.id} tool={t} />
+              ))}
           </ul>
         </section>
       ))}

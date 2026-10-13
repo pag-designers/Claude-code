@@ -161,17 +161,10 @@ export function ErrorBlock({
   );
 }
 
-export function SectionLabel({
-  children,
-  className,
-  ...props
-}: React.ComponentProps<'h3'>) {
+export function SectionLabel({ children, className, ...props }: React.ComponentProps<'h3'>) {
   return (
     <h3
-      className={cn(
-        'text-2xs font-semibold uppercase tracking-wider text-subtle',
-        className,
-      )}
+      className={cn('text-2xs font-semibold uppercase tracking-wider text-subtle', className)}
       {...props}
     >
       {children}

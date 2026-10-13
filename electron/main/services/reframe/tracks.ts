@@ -42,6 +42,12 @@ export interface TrackOptions {
   cfg: TrackerConfig;
 }
 
+/** Both faces of a pair must be detected in at least this share of the shot's samples. */
+export const MIN_PAIR_PRESENCE = 0.35;
+
+/** ... and have at least this mean detector confidence (tile faces score 0.35-0.6, junk 0.3). */
+export const MIN_PAIR_SCORE = 0.35;
+
 export const DEFAULT_TRACK_OPTS: TrackOptions = { minPresence: 0.25, cfg: MULTI_TRACKER };
 
 const median = (a: number[]): number => {
@@ -143,7 +149,8 @@ export function pickPair(tracks: FaceTrack[]): FacePair | null {
     if (!wellSeparated(first, other)) continue;
     const ratio = other.h / first.h;
     if (ratio < 0.5 || ratio > 2) continue;
-    if (other.evidence < 0.3 * first.evidence) continue;
+    if (other.presence < MIN_PAIR_PRESENCE || first.presence < MIN_PAIR_PRESENCE) continue;
+    if (other.score < MIN_PAIR_SCORE || first.score < MIN_PAIR_SCORE) continue;
     const horizontal = Math.abs(first.cx - other.cx) >= Math.abs(first.cy - other.cy);
     const firstIsA = horizontal ? first.cx <= other.cx : first.cy <= other.cy;
     return firstIsA ? { a: first, b: other, horizontal } : { a: other, b: first, horizontal };

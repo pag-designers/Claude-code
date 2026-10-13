@@ -297,9 +297,11 @@ function Loaded({ id, data }: { id: string; data: Detail }) {
   };
   const showPlayer = activeTab !== 'clips';
   // The URL is the source of truth once the page is open: the AI Chat (and other deep links) switch tabs through it.
-  React.useEffect(() => {
-    if (isTab(urlTab)) setTab((cur) => (cur === urlTab ? cur : urlTab));
-  }, [urlTab]);
+  const [seenUrlTab, setSeenUrlTab] = React.useState(urlTab);
+  if (seenUrlTab !== urlTab) {
+    setSeenUrlTab(urlTab);
+    if (isTab(urlTab)) setTab(urlTab);
+  }
 
   return (
     <>

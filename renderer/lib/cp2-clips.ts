@@ -109,10 +109,7 @@ export const hashtagLine = (tags: readonly string[]) => tags.join(' ');
 /** Length of everything the platform counts against its caption limit. */
 export function captionLength(platform: Platform, m: PlatformMeta): number {
   const tags = hashtagLine(m.hashtags);
-  const parts =
-    platform === 'shorts'
-      ? [m.description, tags]
-      : [m.title, m.description, tags];
+  const parts = platform === 'shorts' ? [m.description, tags] : [m.title, m.description, tags];
   return parts.filter(Boolean).join('\n\n').length;
 }
 
@@ -264,8 +261,10 @@ export const isClipBusy = (c: Pick<ClipView, 'status'>) =>
   c.status === 'queued' || c.status === 'rendering';
 
 /** Captions are outdated when subtitle edits were saved after the clip was rendered. */
-export const captionsOutdated = (clip: Pick<ClipView, 'subtitleRev'>, videoRev: number | undefined) =>
-  videoRev !== undefined && clip.subtitleRev < videoRev;
+export const captionsOutdated = (
+  clip: Pick<ClipView, 'subtitleRev'>,
+  videoRev: number | undefined,
+) => videoRev !== undefined && clip.subtitleRev < videoRev;
 
 /* --------------------------------------------------------------------------------------- steering */
 
@@ -356,7 +355,8 @@ export const useClipUi = create<ClipUi>((set) => ({
   drawerView: 'overview',
   setDrawerView: (drawerView) => set({ drawerView }),
   runFilter: {},
-  setRunFilter: (videoId, runId) => set((s) => ({ runFilter: { ...s.runFilter, [videoId]: runId } })),
+  setRunFilter: (videoId, runId) =>
+    set((s) => ({ runFilter: { ...s.runFilter, [videoId]: runId } })),
 }));
 
 /** Clips that pass the steering-run filter chip (`null` = all, 'auto' = found by the initial automatic run). */
@@ -394,7 +394,11 @@ export function useThumbCandidateUrl(clipId: string, index: number, enabled: boo
   );
 }
 export function useCaptionStyles(enabled = true) {
-  return useIpcQuery('captions:styles', undefined, { enabled, staleTime: 5 * 60_000, retry: false });
+  return useIpcQuery('captions:styles', undefined, {
+    enabled,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
 }
 
 /* --------------------------------------------------------------------------------------- mutations */
@@ -481,7 +485,9 @@ export function useChooseThumb(clipId: string) {
         old ? { ...old, chosenT: p.t, overlayText: p.overlayText } : old,
       );
       // thumb.jpg was rebuilt: drop the cached presigned URL so the card/drawer show the new frame
-      void qc.invalidateQueries({ queryKey: ipcKey('clips:mediaUrl', { id: clipId, kind: 'thumb' }) });
+      void qc.invalidateQueries({
+        queryKey: ipcKey('clips:mediaUrl', { id: clipId, kind: 'thumb' }),
+      });
       patchClipsInCache(qc, [clipId], { hasThumb: true });
     },
     onError: fail('Could not set the thumbnail'),

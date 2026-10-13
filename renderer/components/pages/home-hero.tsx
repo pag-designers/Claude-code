@@ -127,10 +127,14 @@ function CaptionStyleOption({
       onClick={() => setOpen(true)}
       aria-label={`Caption style: ${style?.name ?? 'loading'}`}
       data-testid="home-caption-style"
-      className="flex h-11 items-center gap-2.5 rounded-lg border border-border-strong bg-transparent py-1 pl-1 pr-3 text-left transition-colors duration-(--duration-fast) hover:bg-accent disabled:pointer-events-none disabled:opacity-45"
+      className="flex h-11 items-center gap-3 rounded-lg border border-border-strong bg-transparent py-1 pl-1 pr-3 text-left transition-colors duration-(--duration-fast) hover:bg-accent disabled:pointer-events-none disabled:opacity-45"
     >
-      <span className="w-6 shrink-0 overflow-hidden rounded-xs border border-border-strong">
-        {style ? <StyleThumb style={style} alt="" /> : <Skeleton className="aspect-[9/16] w-full rounded-none" />}
+      <span className="w-[68px] shrink-0 overflow-hidden rounded-md border border-border-strong">
+        {style ? (
+          <StyleThumb style={style} alt="" band />
+        ) : (
+          <Skeleton className="aspect-[16/9] w-full rounded-none" />
+        )}
       </span>
       <span className="min-w-0">
         <span className="block max-w-36 truncate text-sm font-medium leading-4">

@@ -203,12 +203,28 @@ describe('helpers', () => {
     expect(activeCueIndex(cues, 2.6)).toBe(-1);
     expect(activeCueIndex(cues, 5.9)).toBe(2);
     // overlapping cues after a nudge: the one that really contains t wins
-    expect(activeCueIndex([{ s: 1, e: 5 }, { s: 3, e: 4 }], 4.5)).toBe(0);
+    expect(
+      activeCueIndex(
+        [
+          { s: 1, e: 5 },
+          { s: 3, e: 4 },
+        ],
+        4.5,
+      ),
+    ).toBe(0);
   });
 
   it('searches case-insensitively with every occurrence', () => {
     const m = findCueMatches([{ text: 'Hello hello' }, { text: 'nope' }], 'HELLO');
-    expect(m).toEqual([{ cue: 0, ranges: [[0, 5], [6, 11]] }]);
+    expect(m).toEqual([
+      {
+        cue: 0,
+        ranges: [
+          [0, 5],
+          [6, 11],
+        ],
+      },
+    ]);
     expect(findCueMatches([{ text: 'a' }], 'a')).toEqual([]); // < 2 chars
   });
 

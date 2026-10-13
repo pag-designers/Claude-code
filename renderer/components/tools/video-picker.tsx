@@ -13,7 +13,7 @@ import { StatusBadge, VideoThumb } from '@/components/library/video-card';
 import { formatClock, timeAgo } from '@/lib/format';
 import { useVideos } from '@/lib/library';
 import { cn } from '@/lib/utils';
-import type { ToolRouteId, ToolRouteMeta } from '@/lib/cp2-tools';
+import { readLastVideo, type ToolRouteId, type ToolRouteMeta } from '@/lib/cp2-tools';
 import { AnalyseNewVideo } from './analyse-new';
 
 function PickerCard({
@@ -57,7 +57,9 @@ function PickerCard({
         </div>
         <div className="flex flex-1 flex-col gap-2 p-3.5">
           <div className="min-w-0">
-            <h3 className="line-clamp-2 font-sans text-sm font-semibold leading-[18px]">{video.title}</h3>
+            <h3 className="line-clamp-2 font-sans text-sm font-semibold leading-[18px]">
+              {video.title}
+            </h3>
             <p className="mt-1 truncate text-xs text-muted-foreground">
               {video.channel ?? 'Unknown channel'} · {timeAgo(video.createdAt)}
             </p>
@@ -66,7 +68,10 @@ function PickerCard({
             <StatusBadge video={video} />
             {needsClips ? (
               <span
-                className={cn('tabular-nums', video.clipCount === 0 ? 'text-subtle' : 'text-muted-foreground')}
+                className={cn(
+                  'tabular-nums',
+                  video.clipCount === 0 ? 'text-subtle' : 'text-muted-foreground',
+                )}
               >
                 {video.clipCount === 0
                   ? 'No clips yet'
@@ -84,15 +89,15 @@ function PickerCard({
 export function VideoPicker({
   tool,
   meta,
-  lastId,
   onPick,
 }: {
   tool: ToolRouteId;
   meta: ToolRouteMeta;
-  lastId: string | null;
   onPick: (videoId: string) => void;
 }) {
   const q = useVideos();
+  // read each time the picker opens (the route component stays mounted while the user picks and changes videos)
+  const [lastId] = React.useState<string | null>(readLastVideo);
   const [text, setText] = React.useState('');
   const needsClips = meta.needs === 'clips';
   const canAnalyse = meta.needs !== 'clips';

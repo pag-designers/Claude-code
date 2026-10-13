@@ -102,14 +102,17 @@ export async function createHarnessB(): Promise<HarnessB> {
       if (!res) throw new Error(`stubB does not handle ${channel}`);
       return spec.output.parse(res.value);
     });
-    await page.addInitScript((channels: string[]) => {
-      const w = window as unknown as {
-        clipfern: { invoke: (c: string, p?: unknown) => Promise<unknown> };
-        __stubBInvoke: (c: string, p?: unknown) => Promise<unknown>;
-      };
-      const orig = w.clipfern.invoke;
-      w.clipfern.invoke = (c, p) => (channels.includes(c) ? w.__stubBInvoke(c, p) : orig(c, p));
-    }, [...STUB_B_CHANNELS]);
+    await page.addInitScript(
+      (channels: string[]) => {
+        const w = window as unknown as {
+          clipfern: { invoke: (c: string, p?: unknown) => Promise<unknown> };
+          __stubBInvoke: (c: string, p?: unknown) => Promise<unknown>;
+        };
+        const orig = w.clipfern.invoke;
+        w.clipfern.invoke = (c, p) => (channels.includes(c) ? w.__stubBInvoke(c, p) : orig(c, p));
+      },
+      [...STUB_B_CHANNELS],
+    );
     await page.addInitScript(
       ([t]) => {
         try {

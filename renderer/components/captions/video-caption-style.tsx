@@ -15,11 +15,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Tip } from '@/components/ui/tooltip';
-import {
-  useCaptionStyle,
-  useRestyleClips,
-  useSetVideoCaptionStyle,
-} from '@/lib/cp2-captions';
+import { useCaptionStyle, useRestyleClips, useSetVideoCaptionStyle } from '@/lib/cp2-captions';
 import { useVideoClips } from '@/lib/library';
 import { StyleStudio } from './style-studio';
 
@@ -56,8 +52,8 @@ export function ApplyToClipsDialog({
               </DialogTitle>
               <DialogDescription className="mt-1 text-sm text-muted-foreground">
                 This video now uses “{styleName}” for new clips. Re-rendering {count}{' '}
-                {count === 1 ? 'clip' : 'clips'} replaces their current captions; each takes about as
-                long as the first render.
+                {count === 1 ? 'clip' : 'clips'} replaces their current captions; each takes about
+                as long as the first render.
               </DialogDescription>
             </div>
           </div>
@@ -103,7 +99,10 @@ export function VideoCaptionStyleControl({
     // the studio just saved/selected it, so the list already has the name
     const name = style && style.id === id ? style.name : id;
     if (eligible.length > 0) setConfirm({ id, name });
-    else toast.success('Caption style updated', { description: 'New clips of this video will use it.' });
+    else
+      toast.success('Caption style updated', {
+        description: 'New clips of this video will use it.',
+      });
   };
 
   return (

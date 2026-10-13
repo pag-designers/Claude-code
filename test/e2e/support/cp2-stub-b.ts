@@ -18,7 +18,12 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { encodeIpcError, invokeContract, type InvokeChannel, type InvokeInput } from '../../../shared/ipc';
+import {
+  encodeIpcError,
+  invokeContract,
+  type InvokeChannel,
+  type InvokeInput,
+} from '../../../shared/ipc';
 import { captionStyleSchema } from '../../../shared/cp2';
 import type {
   CaptionStyle,
@@ -177,7 +182,18 @@ export function ensureFrame(file: string, at: number, variant: number): string {
     // last resort: a solid frame so the UI still has an image
     execFileSync(
       ff,
-      ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'color=c=0x444466:s=360x640:d=1', '-frames:v', '1', out],
+      [
+        '-y',
+        '-v',
+        'error',
+        '-f',
+        'lavfi',
+        '-i',
+        'color=c=0x444466:s=360x640:d=1',
+        '-frames:v',
+        '1',
+        out,
+      ],
       { stdio: 'pipe' },
     );
   }
@@ -280,7 +296,10 @@ const videoOf = (state: Cp1State, id: string) => {
 const pushClip = (state: Cp1State, c: ClipView) => state.emit?.('clips:updated', { ...c });
 
 /** Sentences of the clip's range (real transcript text). */
-function clipSentences(state: Cp1State, c: Pick<ClipView, 'videoId' | 'startSec' | 'endSec'>): Sentence[] {
+function clipSentences(
+  state: Cp1State,
+  c: Pick<ClipView, 'videoId' | 'startSec' | 'endSec'>,
+): Sentence[] {
   const tr = state.transcripts[c.videoId];
   if (!tr) return [];
   return tr.sentences.filter((s) => s.e > c.startSec && s.s < c.endSec);
@@ -297,7 +316,14 @@ const ANGLES: Record<Platform, string[]> = {
 export function makeHooks(state: Cp1State, clip: ClipView): ClipHooks {
   const sents = clipSentences(state, clip);
   const first = sents[0]?.text ?? clip.hook ?? clip.title;
-  const numMatch = sents.map((s) => s.text.match(/\b(\d[\d,]*|[A-Z][a-z]+ (?:hundred|thousand|years?)|forty|twenty|four hundred(?: and twelve)?)\b/i)?.[0]).find(Boolean);
+  const numMatch = sents
+    .map(
+      (s) =>
+        s.text.match(
+          /\b(\d[\d,]*|[A-Z][a-z]+ (?:hundred|thousand|years?)|forty|twenty|four hundred(?: and twelve)?)\b/i,
+        )?.[0],
+    )
+    .find(Boolean);
   const topic = words(clip.title.replace(/[“”"]/g, ''), 6).replace(/…$/, '');
   const lower = topic.charAt(0).toLowerCase() + topic.slice(1);
   const mk = (platform: Platform): HookVariant[] => {
@@ -315,12 +341,13 @@ export function makeHooks(state: Cp1State, clip: ClipView): ClipHooks {
           : `Three seconds that change how you see ${lower}`,
         numMatch ? `${numMatch}. Let me explain.` : null,
       ],
+      [['What if', 'Ever wonder if', 'Is'][tone]! + ` ${lower} is backwards?`, null],
       [
-        ['What if', 'Ever wonder if', 'Is'][tone]! + ` ${lower} is backwards?`,
-        null,
-      ],
-      [
-        ["I didn't expect this answer", 'This answer stayed with me', 'The answer that stopped the room'][tone]!,
+        [
+          "I didn't expect this answer",
+          'This answer stayed with me',
+          'The answer that stopped the room',
+        ][tone]!,
         'I was not ready for this answer.',
       ],
     ];
@@ -345,7 +372,14 @@ export function makeMeta(state: Cp1State, clip: ClipView): ClipMeta {
     (k) => `#${k.replace(/[^A-Za-z0-9]/g, '')}`,
   );
   const why = clip.whyItWorks ?? 'A moment worth sharing.';
-  const base = (title: string, desc: string, tags: string[], day: number | null, hour: number, reason: string): PlatformMeta => ({
+  const base = (
+    title: string,
+    desc: string,
+    tags: string[],
+    day: number | null,
+    hour: number,
+    reason: string,
+  ): PlatformMeta => ({
     title,
     description: desc,
     hashtags: tags,
@@ -386,7 +420,7 @@ export function makeThumbs(state: Cp1State, clip: ClipView): ClipThumbnails & { 
   const n = 6;
   const files: string[] = [];
   const cands = Array.from({ length: n }, (_, i) => {
-    const rel = Math.round((clip.durationSec * (0.06 + (0.88 * i) / (n - 1))) * 10) / 10;
+    const rel = Math.round(clip.durationSec * (0.06 + (0.88 * i) / (n - 1)) * 10) / 10;
     const abs = clip.startSec + rel;
     const f = `${clip.id.replace(/[^a-z0-9-]/gi, '_')}-${i}.jpg`;
     files.push(ensureFrame(f, abs, i));
@@ -439,7 +473,8 @@ function scriptRunClips(state: Cp1State, videoId: string, runId: string, prompt:
     const e = tr?.sentences[r.to];
     const startSec = s ? Math.round((s.s - 0.15) * 100) / 100 : 20 + i * 30;
     const endSec = e ? Math.round((e.e + 0.2) * 100) / 100 : startSec + 28;
-    const text = (tr?.sentences[r.from + 1] ?? tr?.sentences[r.from])?.text ?? 'A moment from the video';
+    const text =
+      (tr?.sentences[r.from + 1] ?? tr?.sentences[r.from])?.text ?? 'A moment from the video';
     const total = 70 + Math.floor(rnd() * 18);
     return {
       title: words(text.replace(/[.!?]+$/, ''), 9).replace(/…$/, ''),
@@ -469,7 +504,10 @@ function bestSentences(tr: Transcript | undefined, query: string, n: number): Se
   return scored;
 }
 
-type Chunk = { kind: 'text'; text: string } | { kind: 'cite'; t: number; label: string } | { kind: 'action'; action: ChatAction };
+type Chunk =
+  | { kind: 'text'; text: string }
+  | { kind: 'cite'; t: number; label: string }
+  | { kind: 'action'; action: ChatAction };
 
 interface Answer {
   chunks: Chunk[];
@@ -496,8 +534,10 @@ function buildAnswer(
   const clip = ctx.clipId ? state.clips.find((c) => c.id === ctx.clipId) : undefined;
   const lower = text.toLowerCase();
   const chunks: Chunk[] = [];
-  const t = (s: string) => chunks.push(...chunkText(s).map((x) => ({ kind: 'text' as const, text: x })));
-  const cite = (s: Sentence) => chunks.push({ kind: 'cite', t: Math.floor(s.s), label: words(s.text, 12) });
+  const t = (s: string) =>
+    chunks.push(...chunkText(s).map((x) => ({ kind: 'text' as const, text: x })));
+  const cite = (s: Sentence) =>
+    chunks.push({ kind: 'cite', t: Math.floor(s.s), label: words(s.text, 12) });
   const mkAction = (tool: ChatAction['tool'], input: Record<string, unknown>): ChatAction => ({
     id: nextId(b, 'act'),
     tool,
@@ -513,12 +553,18 @@ function buildAnswer(
 
   // ---- make / create a clip
   if (/(make|create|cut)\b.*\bclip|clip of/.test(lower)) {
-    const hits = bestSentences(tr, text.replace(/make|create|clip|of|the|best|story/gi, ' '), 1);
+    const hits = bestSentences(
+      tr,
+      text.replace(/\b(make|create|clip|of|the|best|story)\b/gi, ' '),
+      1,
+    );
     const pick = hits[0] ?? tr?.sentences[18];
     const startSec = Math.max(0, (pick?.s ?? 20) - 0.2);
     const endSec = startSec + 30;
     const title = words(pick?.text ?? 'The best story', 8).replace(/…$/, '');
-    t(`Here is the strongest self-contained story I can find. It starts at **${clock(startSec)}** and works as a clip on its own: ${words(pick?.text ?? '', 18)}\n\nI am cutting it now.`);
+    t(
+      `Here is the strongest self-contained story I can find. It starts at **${clock(startSec)}** and works as a clip on its own: ${words(pick?.text ?? '', 18)}\n\nI am cutting it now.`,
+    );
     const id = nextId(b, 'chat-clip');
     const running = mkAction('create_clip', { title, startSec, endSec });
     pushAction(running, {
@@ -551,7 +597,10 @@ function buildAnswer(
           status: 'rendered',
           renderProgress: null,
         };
-        state.clipAssets[id] = state.clipAssets[base.id] ?? { thumb: 'c1.jpg', render: 'clip-a.webm' };
+        state.clipAssets[id] = state.clipAssets[base.id] ?? {
+          thumb: 'c1.jpg',
+          render: 'clip-a.webm',
+        };
         state.clips.unshift(created);
         await pushClip(state, created);
       },
@@ -561,13 +610,17 @@ function buildAnswer(
   // ---- rewrite the hook
   if (/rewrite.*hook|better hook|new hook/.test(lower)) {
     if (!clip) {
-      t('Open a clip first and I can rewrite its hook. Right now I am looking at the whole video, which has many hooks.');
+      t(
+        'Open a clip first and I can rewrite its hook. Right now I am looking at the whole video, which has many hooks.',
+      );
       return { chunks };
     }
     const sents = clipSentences(state, clip);
     const line = sents[1]?.text ?? clip.title;
     const hook = `${words(line.replace(/[.!?]+$/, ''), 8).replace(/…$/, '')}. Wait for it.`;
-    t(`Your current hook is “${clip.hook ?? clip.title}”. It is accurate but it explains before it surprises.\n\nTry this instead:\n\n> ${hook}\n\nIt opens on the claim and promises a payoff, which is what the first two seconds need.`);
+    t(
+      `Your current hook is “${clip.hook ?? clip.title}”. It is accurate but it explains before it surprises.\n\nTry this instead:\n\n> ${hook}\n\nIt opens on the claim and promises a payoff, which is what the first two seconds need.`,
+    );
     cite(sents[1] ?? sents[0]!);
     const running = mkAction('rewrite_hook', { clipId: clip.id });
     pushAction(running, {
@@ -588,11 +641,13 @@ function buildAnswer(
 
   // ---- add a marker
   if (/marker|bookmark/.test(lower)) {
-    const hits = bestSentences(tr, text.replace(/add|marker|bookmark|where|at/gi, ' '), 1);
+    const hits = bestSentences(tr, text.replace(/\b(add|marker|bookmark|where|at)\b/gi, ' '), 1);
     const pick = hits[0] ?? tr?.sentences[11];
     const at = Math.floor(pick?.s ?? 60);
     const label = words(pick?.text ?? 'Key moment', 7).replace(/…$/, '');
-    t(`Done, I flagged the moment at [${clock(at)}] where they say: “${words(pick?.text ?? '', 16)}”.`);
+    t(
+      `Done, I flagged the moment at [${clock(at)}] where they say: “${words(pick?.text ?? '', 16)}”.`,
+    );
     const running = mkAction('add_marker', { atSec: at, label });
     pushAction(running, {
       summary: `Marker “${label}” at ${clock(at)}`,
@@ -601,7 +656,13 @@ function buildAnswer(
     return {
       chunks,
       effects: async () => {
-        b.markers.push({ id: nextId(b, 'mk'), videoId: ctx.videoId, atSec: at, label, createdAt: Date.now() });
+        b.markers.push({
+          id: nextId(b, 'mk'),
+          videoId: ctx.videoId,
+          atSec: at,
+          label,
+          createdAt: Date.now(),
+        });
         await state.emit?.('markers:changed', { videoId: ctx.videoId });
       },
     };
@@ -609,7 +670,9 @@ function buildAnswer(
 
   // ---- write metadata
   if (/metadata|hashtags|title and description|caption for/.test(lower) && clip) {
-    t(`I wrote a title, description and hashtags for **${clip.title}** on all three platforms. TikTok and Reels keep the hook in the first line; Shorts gets a searchable title under 100 characters.`);
+    t(
+      `I wrote a title, description and hashtags for **${clip.title}** on all three platforms. TikTok and Reels keep the hook in the first line; Shorts gets a searchable title under 100 characters.`,
+    );
     const running = mkAction('write_metadata', { clipId: clip.id });
     pushAction(running, {
       summary: 'Metadata saved for TikTok, Reels and Shorts',
@@ -648,7 +711,10 @@ function buildAnswer(
           finishedAt: null,
         };
         b.runs.unshift(run);
-        b.runScripts.set(run.id, { clips: scriptRunClips(state, ctx.videoId, run.id, prompt), cursor: 0 });
+        b.runScripts.set(run.id, {
+          clips: scriptRunClips(state, ctx.videoId, run.id, prompt),
+          cursor: 0,
+        });
         await state.emit?.('moments:run', { ...run });
       },
     };
@@ -658,7 +724,9 @@ function buildAnswer(
   if (/summar|linkedin|tl;?dr|takeaways/.test(lower)) {
     const points = analysis?.notes.keyPoints.slice(0, 4) ?? [];
     const quote = analysis?.notes.quotes[0];
-    t(`## LinkedIn post\n\n**${video.title}**\n\n${analysis?.overview.summary ?? 'A conversation worth your time.'}\n\n`);
+    t(
+      `## LinkedIn post\n\n**${video.title}**\n\n${analysis?.overview.summary ?? 'A conversation worth your time.'}\n\n`,
+    );
     t(`### What stood out\n\n`);
     points.forEach((p) => t(`- ${p}\n`));
     t(`\n`);
@@ -667,7 +735,9 @@ function buildAnswer(
       chunks.push({ kind: 'cite', t: Math.floor(quote.at), label: words(quote.text, 12) });
       t(`\n\n`);
     }
-    t(`Worth a listen if you work with families or community programs. What would you change in your own space?\n\n\`#acceptance\` \`#community\``);
+    t(
+      `Worth a listen if you work with families or community programs. What would you change in your own space?\n\n\`#acceptance\` \`#community\``,
+    );
     const hit = tr?.sentences[11];
     if (hit) chunks.push({ kind: 'cite', t: Math.floor(hit.s), label: words(hit.text, 12) });
     return { chunks };
@@ -676,7 +746,9 @@ function buildAnswer(
   // ---- find the part where… / question answering with real quotes
   const hits = bestSentences(tr, text, 3);
   if (hits.length === 0) {
-    t(`I could not find anything about that in ${clip ? 'this clip' : 'the transcript'}. Try different words, or ask me to summarize what is covered.`);
+    t(
+      `I could not find anything about that in ${clip ? 'this clip' : 'the transcript'}. Try different words, or ask me to summarize what is covered.`,
+    );
     return { chunks };
   }
   t(
@@ -708,7 +780,12 @@ function chatEventsFor(
       events.push({ type: 'delta', threadId, messageId, text: ch.text });
     } else if (ch.kind === 'cite') {
       if (!citations.some((c) => c.t === ch.t)) citations.push({ t: ch.t, label: ch.label });
-      events.push({ type: 'citation', threadId, messageId, citation: { t: ch.t, label: ch.label } });
+      events.push({
+        type: 'citation',
+        threadId,
+        messageId,
+        citation: { t: ch.t, label: ch.label },
+      });
     } else {
       actions.set(ch.action.id, ch.action);
       events.push({ type: 'action', threadId, messageId, action: ch.action });
@@ -781,7 +858,10 @@ export function controls(state: Cp1State): StubBControls {
       return sent;
     },
     chatPending: () =>
-      [...b.chatRuns.values()].map((r) => ({ threadId: r.threadId, remaining: r.events.length - r.cursor })),
+      [...b.chatRuns.values()].map((r) => ({
+        threadId: r.threadId,
+        remaining: r.events.length - r.cursor,
+      })),
     failChatNext(message, afterEvents = 3) {
       b.chatError = { message, afterEvents };
     },
@@ -793,7 +873,9 @@ export function controls(state: Cp1State): StubBControls {
       b.chatError = null;
     },
     async runStep(runId) {
-      const run = runId ? b.runs.find((r) => r.id === runId) : b.runs.find((r) => r.status === 'running');
+      const run = runId
+        ? b.runs.find((r) => r.id === runId)
+        : b.runs.find((r) => r.status === 'running');
       if (!run || run.status !== 'running') return false;
       const script = b.runScripts.get(run.id);
       const next = script?.clips[script.cursor];
@@ -802,8 +884,13 @@ export function controls(state: Cp1State): StubBControls {
       const base = state.clips.find((c) => c.videoId === run.videoId && c.kind === 'clip');
       const id = nextId(b, 'run-clip');
       const idx = (b.counter + script.cursor) % 9;
-      const tpl = state.clips.filter((c) => c.videoId === run.videoId)[idx % Math.max(1, state.clips.length)];
-      const assets = (tpl && state.clipAssets[tpl.id]) ?? { thumb: 'c1.jpg', render: 'clip-a.webm' };
+      const tpl = state.clips.filter((c) => c.videoId === run.videoId)[
+        idx % Math.max(1, state.clips.length)
+      ];
+      const assets = (tpl && state.clipAssets[tpl.id]) ?? {
+        thumb: 'c1.jpg',
+        render: 'clip-a.webm',
+      };
       state.clipAssets[id] = assets;
       const clip: ClipView = {
         ...(base as ClipView),
@@ -835,14 +922,18 @@ export function controls(state: Cp1State): StubBControls {
       return true;
     },
     async finishRun(runId) {
-      const run = runId ? b.runs.find((r) => r.id === runId) : b.runs.find((r) => r.status === 'running');
+      const run = runId
+        ? b.runs.find((r) => r.id === runId)
+        : b.runs.find((r) => r.status === 'running');
       if (!run) return;
       run.status = 'done';
       run.finishedAt = Date.now();
       await emit('moments:run', { ...run });
     },
     async failRun(message, runId) {
-      const run = runId ? b.runs.find((r) => r.id === runId) : b.runs.find((r) => r.status === 'running');
+      const run = runId
+        ? b.runs.find((r) => r.id === runId)
+        : b.runs.find((r) => r.status === 'running');
       if (!run) return;
       run.status = 'failed';
       run.error = message;
@@ -857,7 +948,13 @@ export function controls(state: Cp1State): StubBControls {
     },
     async finishRender(clipId) {
       const c = clipOf(state, clipId);
-      Object.assign(c, { status: 'rendered', renderProgress: null, hasRender: true, hasThumb: true, layout: c.layout ?? 'single' });
+      Object.assign(c, {
+        status: 'rendered',
+        renderProgress: null,
+        hasRender: true,
+        hasThumb: true,
+        layout: c.layout ?? 'single',
+      });
       const h = b.hooks.get(clipId);
       c.hookApplied = h?.applied ? (h[h.applied.platform][h.applied.index]?.text ?? null) : null;
       await pushClip(state, c);
@@ -940,7 +1037,10 @@ export function controls(state: Cp1State): StubBControls {
         ...r,
       };
       b.runs.unshift(run);
-      b.runScripts.set(run.id, { clips: scriptRunClips(state, run.videoId, run.id, run.prompt), cursor: 0 });
+      b.runScripts.set(run.id, {
+        clips: scriptRunClips(state, run.videoId, run.id, run.prompt),
+        cursor: 0,
+      });
       return run;
     },
   };
@@ -1029,6 +1129,8 @@ function builtinStyle(id: string, name: string, fill: string, hi: string): Capti
     box: { color: '#000000' },
     highlight: { color: hi, boxColor: hi },
     keywordColor: '#7CFFB2',
+    layout: {},
+    chunking: {},
   });
 }
 
@@ -1060,7 +1162,11 @@ async function handle(
       const prev = b.hooks.get(c.id);
       const h = { ...makeHooks(state, c), applied: prev?.applied ?? null, generatedAt: Date.now() };
       // regenerate really changes the wording so tests can see it
-      if (prev) h.tiktok = h.tiktok.map((v, i) => ({ ...v, text: i === 0 ? `Fresh angle: ${v.text}` : v.text }));
+      if (prev)
+        h.tiktok = h.tiktok.map((v, i) => ({
+          ...v,
+          text: i === 0 ? `Fresh angle: ${v.text}` : v.text,
+        }));
       b.hooks.set(c.id, h);
       c.hasHooks = true;
       await pushClip(state, c);
@@ -1072,7 +1178,8 @@ async function handle(
       const h = b.hooks.get(c.id);
       if (!h) throw fail('Generate hooks first.');
       const choice = p.choice as { platform: Platform; index: number } | null;
-      if (choice && !h[choice.platform][choice.index]) throw fail('That hook variant does not exist.');
+      if (choice && !h[choice.platform][choice.index])
+        throw fail('That hook variant does not exist.');
       b.log.applied.push({ clipId: c.id, choice });
       h.applied = choice;
       Object.assign(c, { status: 'queued', renderProgress: null, error: null });
@@ -1151,7 +1258,12 @@ async function handle(
       b.log.reframed.push({ ids, mode: p.mode as string });
       for (const id of ids) {
         const c = clipOf(state, id);
-        Object.assign(c, { reframeMode: p.mode, status: 'queued', renderProgress: null, error: null });
+        Object.assign(c, {
+          reframeMode: p.mode,
+          status: 'queued',
+          renderProgress: null,
+          error: null,
+        });
         await pushClip(state, c);
         if (auto !== null) void autoRender(state, b, id, 'reframe');
       }
@@ -1258,7 +1370,10 @@ async function handle(
       const base = state.clips.find((c) => c.videoId === v.id && c.kind === 'clip');
       if (!base) throw fail('This video has no clips to build a highlight from yet.');
       const id = nextId(b, 'highlight');
-      state.clipAssets[id] = state.clipAssets[base.id] ?? { thumb: 'c1.jpg', render: 'clip-a.webm' };
+      state.clipAssets[id] = state.clipAssets[base.id] ?? {
+        thumb: 'c1.jpg',
+        render: 'clip-a.webm',
+      };
       const hl: ClipView = {
         ...base,
         id,
@@ -1302,7 +1417,8 @@ async function handle(
       return { value: { items } };
     }
     case 'chat:messages': {
-      if (!b.threads.some((t) => t.id === p.threadId)) throw fail('Conversation not found', 'NOT_FOUND');
+      if (!b.threads.some((t) => t.id === p.threadId))
+        throw fail('Conversation not found', 'NOT_FOUND');
       return { value: { items: b.messages.get(p.threadId as string) ?? [] } };
     }
     case 'chat:send': {
@@ -1335,7 +1451,12 @@ async function handle(
       };
       b.messages.get(th.id)!.push(userMsg);
       th.updatedAt = Date.now();
-      const answer = buildAnswer(state, b, { videoId: v.id, clipId: p.clipId as string | undefined }, p.text as string);
+      const answer = buildAnswer(
+        state,
+        b,
+        { videoId: v.id, clipId: p.clipId as string | undefined },
+        p.text as string,
+      );
       const asstId = nextId(b, 'm');
       const { events, final } = chatEventsFor(b, th.id, asstId, answer);
       const run: ChatRun = {
@@ -1367,12 +1488,22 @@ async function handle(
         run.canceled = true;
         b.chatRuns.delete(run.threadId);
         // main finishes the turn with whatever was produced so far
-        const partial: ChatMessage = { ...run.final, text: run.text, citations: [], actions: [], createdAt: Date.now() };
+        const partial: ChatMessage = {
+          ...run.final,
+          text: run.text,
+          citations: [],
+          actions: [],
+          createdAt: Date.now(),
+        };
         if (run.text) {
           const list = b.messages.get(run.threadId) ?? [];
           list.push(partial);
           b.messages.set(run.threadId, list);
-          await state.emit?.('chat:event', { type: 'done', threadId: run.threadId, message: partial });
+          await state.emit?.('chat:event', {
+            type: 'done',
+            threadId: run.threadId,
+            message: partial,
+          });
         }
       }
       return { value: { ok: true } };
@@ -1424,7 +1555,11 @@ async function autoRender(state: Cp1State, b: BState, clipId: string, _why?: str
 
 export const stubB = {
   /** Handles CP2 clip-intelligence channels; resolves null for any other channel. */
-  async handle(state: Cp1State, channel: string, payload: unknown): Promise<{ value: unknown } | null> {
+  async handle(
+    state: Cp1State,
+    channel: string,
+    payload: unknown,
+  ): Promise<{ value: unknown } | null> {
     const res = await handle(state, channel, payload);
     return res;
   },

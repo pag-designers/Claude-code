@@ -64,7 +64,9 @@ function ReframeCard({
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-2.5">
         <div className="min-w-0">
-          <h3 className="line-clamp-2 font-sans text-sm font-semibold leading-[18px]">{clip.title}</h3>
+          <h3 className="line-clamp-2 font-sans text-sm font-semibold leading-[18px]">
+            {clip.title}
+          </h3>
           <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
             <span className="tabular-nums">{formatSpan(clip.durationSec)}</span>
             {clip.score !== null ? <ScoreChip score={clip.score} /> : null}
@@ -73,7 +75,8 @@ function ReframeCard({
         <div className="flex flex-wrap items-center gap-1.5" data-testid="reframe-layout">
           {clip.layout ? (
             <Badge variant="neutral">
-              <LayoutGlyph layout={clip.layout} className="w-2.5" /> Layout: {LAYOUT_LABELS[clip.layout]}
+              <LayoutGlyph layout={clip.layout} className="w-2.5" /> Layout:{' '}
+              {LAYOUT_LABELS[clip.layout]}
             </Badge>
           ) : (
             <Badge variant="outline">Not rendered yet</Badge>
@@ -133,7 +136,11 @@ export function ReframeTool({ video }: { video: VideoView }) {
 
   if (q.isPending)
     return (
-      <ul className="grid grid-cols-2 gap-4 max-[1180px]:grid-cols-1" aria-busy aria-label="Loading clips">
+      <ul
+        className="grid grid-cols-2 gap-4 max-[1180px]:grid-cols-1"
+        aria-busy
+        aria-label="Loading clips"
+      >
         {Array.from({ length: 4 }, (_, i) => (
           <li key={i} className="flex gap-4 rounded-xl border bg-card p-3.5">
             <Skeleton className="aspect-[9/16] w-[88px] rounded-lg" />
@@ -171,7 +178,12 @@ export function ReframeTool({ video }: { video: VideoView }) {
             {eligible.length === 1 ? 'clip' : 'clips'}; each is re-rendered.
           </p>
         </div>
-        <ModeRadio label="Reframe mode for all clips" value={bulkMode} onChange={setBulkMode} size="lg" />
+        <ModeRadio
+          label="Reframe mode for all clips"
+          value={bulkMode}
+          onChange={setBulkMode}
+          size="lg"
+        />
         <Button
           variant="primary"
           disabled={eligible.length === 0 || reframe.isPending}
@@ -200,8 +212,8 @@ export function ReframeTool({ video }: { video: VideoView }) {
               Re-frame {eligible.length} {eligible.length === 1 ? 'clip' : 'clips'}?
             </DialogTitle>
             <DialogDescription className="mt-1 text-sm text-muted-foreground">
-              Every rendered clip of this video is re-cropped with “{REFRAME_MODE_LABELS[bulkMode]}” and
-              rendered again. Captions and hooks are kept.
+              Every rendered clip of this video is re-cropped with “{REFRAME_MODE_LABELS[bulkMode]}”
+              and rendered again. Captions and hooks are kept.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

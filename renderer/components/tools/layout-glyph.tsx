@@ -10,6 +10,14 @@ export const LAYOUT_LABELS: Record<RenderedLayout, string> = {
   'screen-face': 'Screen + face',
 };
 
+export const MODE_SHORT: Record<ReframeMode, string> = {
+  auto: 'Auto',
+  'single-face': 'Face',
+  'multi-face': 'Split',
+  'screen-face': 'Screen',
+  center: 'Centre',
+};
+
 export const MODE_HINTS: Record<ReframeMode, string> = {
   auto: 'Picks the best layout for each clip',
   'single-face': 'Smoothly follows the main speaker',
@@ -103,7 +111,11 @@ export function ModeRadio({
 }) {
   const modes = Object.keys(REFRAME_MODE_LABELS) as ReframeMode[];
   return (
-    <div role="radiogroup" aria-label={label} className={cn('flex gap-1.5', size === 'lg' && 'gap-2')}>
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className={cn('flex gap-1.5', size === 'sm' ? 'flex-wrap' : 'gap-2')}
+    >
       {modes.map((m) => {
         const active = m === value;
         return (
@@ -118,25 +130,20 @@ export function ModeRadio({
             onClick={() => onChange(m)}
             data-mode={m}
             className={cn(
-              'flex flex-col items-center justify-center gap-1.5 rounded-lg border outline-none transition-[background-color,border-color] duration-(--duration-fast)',
+              'flex items-center justify-center rounded-lg border outline-none transition-[background-color,border-color] duration-(--duration-fast)',
               'focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
-              size === 'sm' ? 'h-12 w-9' : 'min-h-[88px] flex-1 px-2 py-2.5',
+              size === 'sm'
+                ? 'h-9 gap-1.5 px-2.5 text-xs font-medium'
+                : 'min-h-[88px] flex-1 flex-col gap-1.5 px-2 py-2.5',
               active
-                ? 'border-primary/70 bg-primary-soft'
-                : 'border-border-strong hover:bg-accent',
+                ? 'border-primary/70 bg-primary-soft text-primary-text'
+                : 'border-border-strong text-muted-foreground hover:bg-accent hover:text-foreground',
             )}
           >
-            <LayoutGlyph layout={MODE_LAYOUT[m]} className={size === 'lg' ? 'w-6' : 'w-4'} />
-            {size === 'lg' ? (
-              <span
-                className={cn(
-                  'text-center text-xs font-medium leading-4',
-                  active ? 'text-primary-text' : 'text-muted-foreground',
-                )}
-              >
-                {REFRAME_MODE_LABELS[m]}
-              </span>
-            ) : null}
+            <LayoutGlyph layout={MODE_LAYOUT[m]} className={size === 'lg' ? 'w-6' : 'w-3.5'} />
+            <span className={cn(size === 'lg' && 'text-center text-xs font-medium leading-4')}>
+              {size === 'lg' ? REFRAME_MODE_LABELS[m] : MODE_SHORT[m]}
+            </span>
           </button>
         );
       })}

@@ -8,6 +8,24 @@ import { cn } from '@/lib/utils';
 import { usePreview } from '@/lib/cp2-captions';
 import { useInView } from '@/lib/use-in-view';
 
+const BAND_ZOOM = 1.6;
+
+/** Positions a zoomed portrait render inside a 16:9 band so the caption (yPct of the frame height) is centred. */
+function bandStyle(yPct: number): React.CSSProperties {
+  const frameH = 16 / 9; // frame height in units of its width
+  const bandH = 9 / 16;
+  // all lengths are in container-width units (cqw), so the band scales with whatever width the caller gives it
+  const top = (bandH / 2 - (yPct / 100) * frameH * BAND_ZOOM) * 100;
+  return {
+    position: 'absolute',
+    maxWidth: 'none',
+    height: 'auto',
+    width: `${BAND_ZOOM * 100}%`,
+    left: `${((1 - BAND_ZOOM) / 2) * 100}%`,
+    top: `${top}cqw`,
+  };
+}
+
 /**
  * A real libass render of a style (`captions:preview`). Fetched lazily once the thumbnail scrolls into view, at most two
  * at a time, and cached by style hash, so the gallery stays cheap even with many custom presets.
@@ -17,11 +35,14 @@ export function StyleThumb({
   clipId,
   className,
   alt,
+  band,
 }: {
   style: CaptionStyle;
   clipId?: string;
   className?: string;
   alt?: string;
+  /** Crop to the strip around the caption instead of the whole portrait frame (compact option rows). */
+  band?: boolean;
 }) {
   const [ref, seen] = useInView<HTMLDivElement>('0px');
   const p = usePreview(seen ? { style, clipId } : null, 'tile');
@@ -30,15 +51,22 @@ export function StyleThumb({
       ref={ref}
       data-testid="style-thumb"
       data-state={p.error ? 'error' : p.image && !p.stale ? 'ready' : 'loading'}
-      className={cn('relative aspect-[9/16] w-full overflow-hidden bg-muted', className)}
+      style={band ? { containerType: 'inline-size' } : undefined}
+      className={cn(
+        'relative w-full overflow-hidden bg-muted',
+        band ? 'aspect-[16/9]' : 'aspect-[9/16]',
+        className,
+      )}
     >
       {p.image ? (
         <img
           src={p.image.dataUrl}
           alt={alt ?? `${style.name} caption preview`}
           draggable={false}
+          style={band ? bandStyle(style.layout.yPct) : undefined}
           className={cn(
-            'size-full object-cover transition-opacity duration-(--duration-base)',
+            'transition-opacity duration-(--duration-base)',
+            !band && 'size-full object-cover',
             p.stale && 'opacity-60',
           )}
         />

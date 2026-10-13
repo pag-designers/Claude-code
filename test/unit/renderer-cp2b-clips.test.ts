@@ -42,7 +42,12 @@ describe('hashtags', () => {
     expect(normalizeHashtag('')).toBeNull();
   });
   it('adds several at once, de-duplicating case-insensitively', () => {
-    expect(addHashtags(['#one'], 'Two, #ONE three  four')).toEqual(['#one', '#Two', '#three', '#four']);
+    expect(addHashtags(['#one'], 'Two, #ONE three  four')).toEqual([
+      '#one',
+      '#Two',
+      '#three',
+      '#four',
+    ]);
     expect(addHashtags([], ' , ,')).toEqual([]);
   });
 });
@@ -67,12 +72,20 @@ describe('platform limits', () => {
     expect(captionLength('shorts', m)).toBe('A description.\n\n#one #two'.length); // title is a separate field
   });
   it('reports over-limit and spam warnings', () => {
-    expect(metaIssues('shorts', meta({ title: 'x'.repeat(101) }))[0]).toMatchObject({ field: 'title', level: 'error' });
-    expect(metaIssues('reels', meta({ hashtags: Array.from({ length: 31 }, (_, i) => `#t${i}`) }))).toEqual([
-      expect.objectContaining({ field: 'hashtags', level: 'error' }),
-    ]);
-    expect(metaIssues('tiktok', meta({ description: 'x'.repeat(2200) }))[0]).toMatchObject({ field: 'caption', level: 'error' });
-    expect(metaIssues('shorts', meta({ hashtags: Array.from({ length: 16 }, (_, i) => `#t${i}`) }))[0]).toMatchObject({
+    expect(metaIssues('shorts', meta({ title: 'x'.repeat(101) }))[0]).toMatchObject({
+      field: 'title',
+      level: 'error',
+    });
+    expect(
+      metaIssues('reels', meta({ hashtags: Array.from({ length: 31 }, (_, i) => `#t${i}`) })),
+    ).toEqual([expect.objectContaining({ field: 'hashtags', level: 'error' })]);
+    expect(metaIssues('tiktok', meta({ description: 'x'.repeat(2200) }))[0]).toMatchObject({
+      field: 'caption',
+      level: 'error',
+    });
+    expect(
+      metaIssues('shorts', meta({ hashtags: Array.from({ length: 16 }, (_, i) => `#t${i}`) }))[0],
+    ).toMatchObject({
       level: 'warning',
     });
     expect(metaIssues('tiktok', meta())).toEqual([]);
@@ -80,7 +93,9 @@ describe('platform limits', () => {
   it('metaEqual is structural', () => {
     expect(metaEqual(meta(), meta())).toBe(true);
     expect(metaEqual(meta(), meta({ hashtags: ['#one'] }))).toBe(false);
-    expect(metaEqual(meta(), meta({ postingTime: { dayOfWeek: null, hour: 19, reason: 'Evenings.' } }))).toBe(false);
+    expect(
+      metaEqual(meta(), meta({ postingTime: { dayOfWeek: null, hour: 19, reason: 'Evenings.' } })),
+    ).toBe(false);
   });
 });
 
@@ -90,7 +105,9 @@ describe('copy all + posting time', () => {
     expect(formatCopyAll('reels', meta({ hashtags: [] }))).toBe('A title\n\nA description.');
   });
   it('Shorts: labelled title and description', () => {
-    expect(formatCopyAll('shorts', meta())).toBe('Title: A title\n\nDescription:\nA description.\n\n#one #two');
+    expect(formatCopyAll('shorts', meta())).toBe(
+      'Title: A title\n\nDescription:\nA description.\n\n#one #two',
+    );
   });
   it('formats hours and days', () => {
     expect(formatHour(0)).toBe('12:00 AM');
@@ -116,8 +133,23 @@ describe('thumbnail helpers', () => {
   });
   it('prefers the vision model rank, then the score', () => {
     expect(bestCandidateIndex(thumbs([]))).toBe(-1);
-    expect(bestCandidateIndex(thumbs([{ rank: null, total: 0.9 }, { rank: 2, total: 0.1 }, { rank: 1, total: 0.2 }]))).toBe(2);
-    expect(bestCandidateIndex(thumbs([{ rank: null, total: 0.2 }, { rank: null, total: 0.7 }]))).toBe(1);
+    expect(
+      bestCandidateIndex(
+        thumbs([
+          { rank: null, total: 0.9 },
+          { rank: 2, total: 0.1 },
+          { rank: 1, total: 0.2 },
+        ]),
+      ),
+    ).toBe(2);
+    expect(
+      bestCandidateIndex(
+        thumbs([
+          { rank: null, total: 0.2 },
+          { rank: null, total: 0.7 },
+        ]),
+      ),
+    ).toBe(1);
   });
   it('limits overlay text to five words', () => {
     expect(countWords('  one  two three ')).toBe(3);
@@ -130,7 +162,10 @@ describe('thumbnail helpers', () => {
 });
 
 describe('reframe', () => {
-  const clip = (reframeMode: ClipView['reframeMode'], layout: ClipView['layout']) => ({ reframeMode, layout });
+  const clip = (reframeMode: ClipView['reframeMode'], layout: ClipView['layout']) => ({
+    reframeMode,
+    layout,
+  });
   it('maps modes to layouts', () => {
     expect(expectedLayout('multi-face')).toBe('split');
     expect(expectedLayout('screen-face')).toBe('screen-face');
@@ -138,7 +173,9 @@ describe('reframe', () => {
     expect(expectedLayout('auto')).toBeNull();
   });
   it('explains a fallback honestly and stays quiet otherwise', () => {
-    expect(layoutFallbackNote(clip('multi-face', 'single'))).toMatch(/asked for “Split screen”.*single crop/);
+    expect(layoutFallbackNote(clip('multi-face', 'single'))).toMatch(
+      /asked for “Split screen”.*single crop/,
+    );
     expect(layoutFallbackNote(clip('multi-face', 'split'))).toBeNull();
     expect(layoutFallbackNote(clip('auto', 'split'))).toBeNull();
     expect(layoutFallbackNote(clip('multi-face', null))).toBeNull();

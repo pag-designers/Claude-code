@@ -31,7 +31,10 @@ function Section({
   hint?: string;
 }) {
   return (
-    <section className="flex flex-col gap-3.5 border-b px-5 py-4 last:border-b-0" aria-label={title}>
+    <section
+      className="flex flex-col gap-3.5 border-b px-5 py-4 last:border-b-0"
+      aria-label={title}
+    >
       <div>
         <h3 className="text-2xs font-semibold uppercase tracking-wider text-subtle">{title}</h3>
         {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
@@ -107,7 +110,9 @@ function NumField({
                 value={finite ? v : ''}
                 aria-describedby={fieldState.error ? `${id}-err` : undefined}
                 invalid={!!fieldState.error}
-                onChange={(e) => field.onChange(e.target.value === '' ? Number.NaN : Number(e.target.value))}
+                onChange={(e) =>
+                  field.onChange(e.target.value === '' ? Number.NaN : Number(e.target.value))
+                }
                 onBlur={field.onBlur}
                 className="h-8 w-full pr-6 text-right tabular-nums"
                 wrapperClassName="w-24"
@@ -203,7 +208,9 @@ function ToggleRow({ name, label, hint }: { name: P; label: string; hint?: strin
         <div className="flex items-center justify-between gap-3">
           <label htmlFor={id} className="min-w-0 text-sm font-medium">
             {label}
-            {hint ? <span className="block text-xs font-normal text-muted-foreground">{hint}</span> : null}
+            {hint ? (
+              <span className="block text-xs font-normal text-muted-foreground">{hint}</span>
+            ) : null}
           </label>
           <Switch id={id} checked={!!field.value} onCheckedChange={field.onChange} />
         </div>
@@ -275,10 +282,14 @@ function FontFields() {
             </div>
             {fonts.isError ? (
               <p role="status" className="text-xs text-warning">
-                Could not list the shipped fonts ({fonts.error.message}); the current font stays selected.
+                Could not list the shipped fonts ({fonts.error.message}); the current font stays
+                selected.
               </p>
             ) : null}
-            <FieldError id="cs-font-family-err" message={fieldState.error ? 'Choose a font.' : undefined} />
+            <FieldError
+              id="cs-font-family-err"
+              message={fieldState.error ? 'Choose a font.' : undefined}
+            />
           </div>
         )}
       />
@@ -295,7 +306,11 @@ function FontFields() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {[...(weights.includes(field.value as number) ? weights : [...weights, field.value as number])]
+                {[
+                  ...(weights.includes(field.value as number)
+                    ? weights
+                    : [...weights, field.value as number]),
+                ]
                   .sort((a, b) => a - b)
                   .map((w) => (
                     <SelectItem key={w} value={String(w)}>
@@ -308,7 +323,14 @@ function FontFields() {
         )}
       />
       <NumField name="font.sizePct" label="Size" min={2} max={14} step={0.1} suffix="%" />
-      <NumField name="font.letterSpacingPct" label="Letter spacing" min={-2} max={6} step={0.1} suffix="%" />
+      <NumField
+        name="font.letterSpacingPct"
+        label="Letter spacing"
+        min={-2}
+        max={6}
+        step={0.1}
+        suffix="%"
+      />
       <ToggleRow name="font.italic" label="Italic" />
       <Controller
         control={control}
@@ -337,8 +359,19 @@ function FontFields() {
 
 function weightName(w: number): string {
   return (
-    ({ 100: 'Thin', 200: 'Extra light', 300: 'Light', 400: 'Regular', 500: 'Medium', 600: 'Semi bold', 700: 'Bold', 800: 'Extra bold', 900: 'Black' } as Record<number, string>)[w] ??
-    'Custom'
+    (
+      {
+        100: 'Thin',
+        200: 'Extra light',
+        300: 'Light',
+        400: 'Regular',
+        500: 'Medium',
+        600: 'Semi bold',
+        700: 'Bold',
+        800: 'Extra bold',
+        900: 'Black',
+      } as Record<number, string>
+    )[w] ?? 'Custom'
   );
 }
 
@@ -355,7 +388,14 @@ export function StyleEditorFields({ className }: { className?: string }) {
       <Section title="Colours">
         <ColorControl name="fill" label="Text fill" />
         <ColorControl name="stroke.color" label="Outline colour" compact />
-        <NumField name="stroke.widthPct" label="Outline width" min={0} max={1.5} step={0.05} suffix="%" />
+        <NumField
+          name="stroke.widthPct"
+          label="Outline width"
+          min={0}
+          max={1.5}
+          step={0.05}
+          suffix="%"
+        />
         <ColorControl name="keywordColor" label="Keyword colour" compact />
       </Section>
       <Section title="Active word" hint="How the word being spoken stands out.">
@@ -363,7 +403,9 @@ export function StyleEditorFields({ className }: { className?: string }) {
         {mode === 'color' || mode === 'color-scale' ? (
           <ColorControl name="highlight.color" label="Highlight colour" compact />
         ) : null}
-        {mode === 'box' ? <ColorControl name="highlight.boxColor" label="Highlight box" compact /> : null}
+        {mode === 'box' ? (
+          <ColorControl name="highlight.boxColor" label="Highlight box" compact />
+        ) : null}
         {mode === 'scale' || mode === 'color-scale' ? (
           <NumField name="highlight.scale" label="Scale" min={1} max={1.5} step={0.01} suffix="×" />
         ) : null}
@@ -386,8 +428,22 @@ export function StyleEditorFields({ className }: { className?: string }) {
         ) : null}
       </Section>
       <Section title="Position">
-        <NumField name="layout.yPct" label="Vertical position" min={5} max={95} step={1} suffix="%" />
-        <NumField name="layout.marginXPct" label="Side margins" min={0} max={20} step={0.5} suffix="%" />
+        <NumField
+          name="layout.yPct"
+          label="Vertical position"
+          min={5}
+          max={95}
+          step={1}
+          suffix="%"
+        />
+        <NumField
+          name="layout.marginXPct"
+          label="Side margins"
+          min={0}
+          max={20}
+          step={0.5}
+          suffix="%"
+        />
         <Controller
           control={control}
           name="layout.align"
@@ -410,7 +466,14 @@ export function StyleEditorFields({ className }: { className?: string }) {
       </Section>
       <Section title="Line breaking" hint="Captions are chunked so no line looks crowded.">
         <NumField name="chunking.maxWords" label="Words per caption" min={1} max={5} step={1} int />
-        <NumField name="chunking.maxChars" label="Characters per line" min={6} max={48} step={1} int />
+        <NumField
+          name="chunking.maxChars"
+          label="Characters per line"
+          min={6}
+          max={48}
+          step={1}
+          int
+        />
         <NumField name="chunking.maxLines" label="Lines" min={1} max={3} step={1} int />
       </Section>
     </div>

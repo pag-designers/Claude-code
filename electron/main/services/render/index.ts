@@ -26,14 +26,7 @@ import {
   type LoudnormMeasure,
 } from './audio';
 import { detectEncoder, encoderArgs, type EncoderName } from './encoder';
-import {
-  lastLines,
-  probeStreams,
-  RenderAbortError,
-  RenderError,
-  runFfmpeg,
-  type StreamInfo,
-} from './ffmpeg';
+import { lastLines, probeStreams, RenderError, runFfmpeg, type StreamInfo } from './ffmpeg';
 import {
   buildCropCommands,
   buildMultiCropCommands,
@@ -55,6 +48,8 @@ import type { ReframePlan } from '@shared/pipeline';
 
 export { extractThumbnail, laplacianVariance } from './thumbnail';
 export { createThumbnailService } from '../thumbnails';
+export { renderCleanFrame, windowPlan } from './still';
+export type { CleanFrameRequest } from './still';
 export { detectEncoder, encoderArgs, canEncode, clearEncoderCache } from './encoder';
 export type { EncoderName } from './encoder';
 export { buildAudioFilter, parseLoudnormJson, measureLoudness } from './audio';
@@ -562,7 +557,7 @@ export function createRenderService(): RenderService {
 
         // ---- audio: join (acrossfade / concat), measure ONCE, normalise ---------------------------
         let audioGraph: string | null = null;
-        let audioOut = 'aout';
+        const audioOut = 'aout';
         if (info.hasAudio) {
           const aLabels = segs.map((_, i) => `a${i}`);
           const aParts = segs.map((_, i) =>

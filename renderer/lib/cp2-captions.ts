@@ -176,7 +176,8 @@ export function clearPreviewCache() {
   inflight.clear();
 }
 
-export const peekPreview = (r: PreviewRequest): PreviewImage | undefined => cache.get(previewKey(r));
+export const peekPreview = (r: PreviewRequest): PreviewImage | undefined =>
+  cache.get(previewKey(r));
 
 /** At most `limit` gallery thumbnails render at once; the live editor preview is never queued behind them. */
 class Limiter {
@@ -290,5 +291,10 @@ export function newCustomStyleId(): string {
 
 /** Copy of a style as a custom preset (new id, never built-in). */
 export function copyAsCustom(style: CaptionStyle, name?: string): CaptionStyle {
-  return { ...style, id: newCustomStyleId(), name: (name ?? `${style.name} copy`).slice(0, 40), builtin: false };
+  return {
+    ...style,
+    id: newCustomStyleId(),
+    name: (name ?? `${style.name} copy`).slice(0, 40),
+    builtin: false,
+  };
 }

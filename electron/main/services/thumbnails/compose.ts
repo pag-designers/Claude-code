@@ -64,7 +64,7 @@ export function layoutThumbText(text: string, width: number, height: number): Te
   const budget = width * (1 - 2 * SAFE_X);
   const portrait = height >= width;
   const maxSize = (portrait ? 0.095 : 0.14) * height;
-  const fontSize = Math.max(16, Math.round(Math.min(maxSize, budget / (longest * ADVANCE_EM))));
+  const fontSize = Math.max(16, Math.floor(Math.min(maxSize, budget / (longest * ADVANCE_EM))));
   const outline = Math.round(fontSize * 0.16);
   const cy = Math.round(
     height * (portrait ? 0.68 : 0.78) - ((lines.length - 1) * fontSize * 1.1) / 2,

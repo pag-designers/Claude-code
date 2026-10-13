@@ -25,7 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DisabledTip, Tip } from '@/components/ui/tooltip';
 import { ChatLauncher } from '@/components/chat/chat-launcher';
 import { DRAWER_VIEWS, isDrawerView, useClipUi, type DrawerView } from '@/lib/cp2-clips';
-import { registerSeeker } from '@/lib/cp2-chat';
+import { registerSeeker, useChatUi } from '@/lib/cp2-chat';
 import { formatClock, formatSpan, timeAgo } from '@/lib/format';
 import {
   useClipMediaUrl,
@@ -194,6 +194,8 @@ export function ClipDrawer({
   const [autoplaySource, setAutoplaySource] = React.useState(false);
   const [sourceAt, setSourceAt] = React.useState<SourceAt | null>(null);
   const [confirmDelete, setConfirmDelete] = React.useState(false);
+  // with the AI Chat panel open, the drawer slides left so the panel never covers its controls
+  const chatOpen = useChatUi((s) => s.open);
   const view = useClipUi((s) => s.drawerView);
   const setView = useClipUi((s) => s.setDrawerView);
   const videos = useVideos();
@@ -247,8 +249,10 @@ export function ClipDrawer({
     <>
       <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
         <DialogContent
-          className="h-[min(88vh,780px)] max-h-none max-w-[940px] flex-row"
+          className="h-[min(88vh,780px)] max-h-none max-w-[940px] flex-row transition-[left] duration-(--duration-slow) ease-(--ease-standard)"
           data-testid="clip-drawer"
+          data-chat-open={chatOpen || undefined}
+          style={chatOpen ? { left: 'max(470px, calc((100vw - 452px) / 2))' } : undefined}
           // the AI Chat panel is a separate, non-modal layer: using it must not dismiss the drawer underneath
           onInteractOutside={(e) => {
             const t = e.target;
@@ -319,8 +323,8 @@ export function ClipDrawer({
                   )}
                 </section>
               </div>
-              <div className="scrollbar-thin flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto px-6 pt-6">
-                <div className="flex items-start gap-4 pr-10">
+              <div className="scrollbar-thin flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto px-6">
+                <div className="flex items-start gap-4 pr-10 pt-6">
                   <ClipScore clip={clip} size={64} showLabel />
                   <div className="min-w-0 flex-1">
                     <DialogTitle className="font-display text-xl font-semibold leading-7">
@@ -375,57 +379,63 @@ export function ClipDrawer({
                   </TabsList>
 
                   <TabsContent value="overview" className="flex flex-col gap-5">
-                {clip.hook ? (
-                  <section>
-                    <h3 className="mb-1.5 text-2xs font-semibold uppercase tracking-wider text-subtle">
-                      Hook
-                    </h3>
-                    <p
-                      className="rounded-lg border-l-2 border-primary bg-primary-soft px-3.5 py-2.5 font-display text-md font-medium leading-snug"
-                      data-testid="drawer-hook"
-                    >
-                      “{clip.hook}”
-                    </p>
-                  </section>
-                ) : null}
-                {clip.whyItWorks ? (
-                  <section>
-                    <h3 className="mb-1.5 text-2xs font-semibold uppercase tracking-wider text-subtle">
-                      Why it works
-                    </h3>
-                    <p className="text-sm leading-6 text-muted-foreground" data-testid="drawer-why">
-                      {clip.whyItWorks}
-                    </p>
-                  </section>
-                ) : null}
+                    {clip.hook ? (
+                      <section>
+                        <h3 className="mb-1.5 text-2xs font-semibold uppercase tracking-wider text-subtle">
+                          Hook
+                        </h3>
+                        <p
+                          className="rounded-lg border-l-2 border-primary bg-primary-soft px-3.5 py-2.5 font-display text-md font-medium leading-snug"
+                          data-testid="drawer-hook"
+                        >
+                          “{clip.hook}”
+                        </p>
+                      </section>
+                    ) : null}
+                    {clip.whyItWorks ? (
+                      <section>
+                        <h3 className="mb-1.5 text-2xs font-semibold uppercase tracking-wider text-subtle">
+                          Why it works
+                        </h3>
+                        <p
+                          className="text-sm leading-6 text-muted-foreground"
+                          data-testid="drawer-why"
+                        >
+                          {clip.whyItWorks}
+                        </p>
+                      </section>
+                    ) : null}
 
-                <section>
-                  <h3 className="mb-3 text-2xs font-semibold uppercase tracking-wider text-subtle">
-                    Virality score breakdown
-                  </h3>
-                  {clip.breakdown ? (
-                    <ScoreBreakdownBars breakdown={clip.breakdown} confidence={clip.confidence} />
-                  ) : (
-                    <p className="rounded-lg border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
-                      The breakdown appears once Claude has scored this moment.
-                    </p>
-                  )}
-                </section>
+                    <section>
+                      <h3 className="mb-3 text-2xs font-semibold uppercase tracking-wider text-subtle">
+                        Virality score breakdown
+                      </h3>
+                      {clip.breakdown ? (
+                        <ScoreBreakdownBars
+                          breakdown={clip.breakdown}
+                          confidence={clip.confidence}
+                        />
+                      ) : (
+                        <p className="rounded-lg border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
+                          The breakdown appears once Claude has scored this moment.
+                        </p>
+                      )}
+                    </section>
 
-                {clip.status === 'rendering' || clip.status === 'queued' ? (
-                  <div className="flex items-center gap-3" data-testid="drawer-render-progress">
-                    <Progress
-                      value={clip.renderProgress === null ? null : clip.renderProgress * 100}
-                      className="h-1.5"
-                      aria-label="Render progress"
-                    />
-                    <span className="w-24 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
-                      {clip.status === 'queued'
-                        ? 'Queued'
-                        : `${Math.round((clip.renderProgress ?? 0) * 100)}%`}
-                    </span>
-                  </div>
-                ) : null}
+                    {clip.status === 'rendering' || clip.status === 'queued' ? (
+                      <div className="flex items-center gap-3" data-testid="drawer-render-progress">
+                        <Progress
+                          value={clip.renderProgress === null ? null : clip.renderProgress * 100}
+                          className="h-1.5"
+                          aria-label="Render progress"
+                        />
+                        <span className="w-24 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                          {clip.status === 'queued'
+                            ? 'Queued'
+                            : `${Math.round((clip.renderProgress ?? 0) * 100)}%`}
+                        </span>
+                      </div>
+                    ) : null}
                   </TabsContent>
                   <TabsContent value="hook">
                     <HookTab key={clip.id} clipId={clip.id} clip={clip} />

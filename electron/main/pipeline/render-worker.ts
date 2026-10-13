@@ -48,7 +48,14 @@ export interface RenderWorkerDeps {
   sidecar: {
     start(): Promise<unknown>;
     faces(
-      req: { video_path: string; fps?: number; start?: number; end?: number },
+      req: {
+        video_path: string;
+        fps?: number;
+        start?: number;
+        end?: number;
+        min_confidence?: number;
+        small_faces?: boolean;
+      },
       opts?: { signal?: AbortSignal },
     ): Promise<unknown>;
   };
@@ -227,11 +234,23 @@ export class RenderWorker {
     aspect: Parameters<ReframeService['plan']>[0]['aspect'];
     reframeMode: ReframeModeLite;
   }): Promise<ReframePlan> {
-    const wire = await this.d.sidecar.faces(
-      { video_path: a.source, fps: 4, start: a.startSec, end: a.endSec },
-      { signal: a.ctx.signal },
-    );
-    const faces: Faces = this.d.toFaceSamples(wire);
+    // Small-face detection is ~5x slower but is what finds a webcam inset; only the modes that need it pay for it.
+    const wantsSmall = a.reframeMode === 'auto' || a.reframeMode === 'screen-face';
+    const wire =
+      a.reframeMode === 'center'
+        ? null
+        : await this.d.sidecar.faces(
+            {
+              video_path: a.source,
+              fps: 4,
+              start: a.startSec,
+              end: a.endSec,
+              min_confidence: 0.3,
+              small_faces: wantsSmall,
+            },
+            { signal: a.ctx.signal },
+          );
+    const faces: Faces = wire ? this.d.toFaceSamples(wire) : [];
     const wantsLayout = a.reframeMode === 'auto' || a.reframeMode === 'screen-face';
     const layoutHint = wantsLayout
       ? await this.d.reframe

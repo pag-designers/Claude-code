@@ -82,7 +82,7 @@ export function ColorField({
             <input
               type="color"
               aria-label={`${label} colour picker`}
-              value={valid ? value.toLowerCase() : swatches[1]?.hex ?? value}
+              value={valid ? value.toLowerCase() : (swatches[1]?.hex ?? value)}
               disabled={disabled}
               onChange={(e) => onChange(e.target.value.toUpperCase())}
               className="absolute inset-0 size-full cursor-pointer opacity-0"

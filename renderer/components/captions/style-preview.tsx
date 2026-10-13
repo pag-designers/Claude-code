@@ -31,7 +31,8 @@ export function StylePreview({
   const [sample, setSample] = React.useState<'default' | 'long'>('default');
   const [guides, setGuides] = React.useState(false);
 
-  const text = sample === 'long' ? 'Nobody told me it would feel this good to finally ship it' : undefined;
+  const text =
+    sample === 'long' ? 'Nobody told me it would feel this good to finally ship it' : undefined;
   const request = React.useMemo(
     () => (style ? { style, text, clipId, activeWord: word } : null),
     [style, text, clipId, word],
@@ -94,7 +95,11 @@ export function StylePreview({
             </div>
           )}
           {guides ? (
-            <div aria-hidden className="pointer-events-none absolute inset-0" data-testid="safe-guide">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              data-testid="safe-guide"
+            >
               <div
                 className="absolute border border-dashed border-primary-text/80"
                 style={{
@@ -110,10 +115,8 @@ export function StylePreview({
                   style={{ top: `${yPct}%` }}
                 />
               ) : null}
-              <span
-                className="absolute bottom-[8%] right-[7%] rounded bg-popover/80 px-1.5 py-0.5 text-2xs font-medium text-muted-foreground"
-              >
-                Platform UI
+              <span className="absolute left-[7%] top-[9%] rounded bg-popover/80 px-1.5 py-0.5 text-2xs font-medium text-muted-foreground">
+                Safe area
               </span>
             </div>
           ) : null}
@@ -138,12 +141,15 @@ export function StylePreview({
         </div>
       </div>
 
-      {invalidMessage ? (
-        <p role="status" className="flex items-center gap-1.5 text-xs text-warning">
-          <TriangleAlert className="size-3.5 shrink-0" aria-hidden />
-          {invalidMessage}
-        </p>
-      ) : null}
+      {/* always reserved, so the preview does not jump when a field becomes invalid */}
+      <p role="status" className="flex min-h-4 items-center gap-1.5 text-xs text-warning">
+        {invalidMessage ? (
+          <>
+            <TriangleAlert className="size-3.5 shrink-0" aria-hidden />
+            {invalidMessage}
+          </>
+        ) : null}
+      </p>
 
       <div className="flex w-full flex-wrap items-center justify-center gap-x-4 gap-y-2">
         <div className="flex items-center gap-2">

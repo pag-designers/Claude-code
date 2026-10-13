@@ -355,13 +355,18 @@ export const ClipRow = React.memo(function ClipRow({
         <button type="button" onClick={() => onOpen(clip)} className="block max-w-full text-left">
           <span className="line-clamp-1 text-sm font-semibold">
             {clip.kind === 'highlight' ? (
-              <Film className="mr-1.5 inline size-3.5 text-primary-text" aria-label="Highlight reel" />
+              <Film
+                className="mr-1.5 inline size-3.5 text-primary-text"
+                aria-label="Highlight reel"
+              />
             ) : null}
             {clip.title}
           </span>
         </button>
         {clip.runPrompt ? (
-          <p className="mt-0.5 line-clamp-1 text-2xs text-primary-text">found by: {clip.runPrompt}</p>
+          <p className="mt-0.5 line-clamp-1 text-2xs text-primary-text">
+            found by: {clip.runPrompt}
+          </p>
         ) : null}
         {clip.hook ? (
           <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">“{clip.hook}”</p>

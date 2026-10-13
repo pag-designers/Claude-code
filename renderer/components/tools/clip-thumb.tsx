@@ -19,10 +19,7 @@ export function ClipThumb({
   const url = useClipMediaUrl(clip.id, 'thumb', seen && clip.hasThumb);
   const [failed, setFailed] = React.useState(false);
   return (
-    <div
-      ref={ref}
-      className={cn('relative aspect-[9/16] overflow-hidden bg-muted', className)}
-    >
+    <div ref={ref} className={cn('relative aspect-[9/16] overflow-hidden bg-muted', className)}>
       {url.data?.url && !failed ? (
         <img
           src={url.data.url}

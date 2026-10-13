@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Play } from 'lucide-react';
 import { invoke } from '@/lib/ipc';
-import { parseMarkdown, type Block, type Inline } from '@/lib/cp2-chat';
+import { closeOpenMarkers, parseMarkdown, type Block, type Inline } from '@/lib/cp2-chat';
 import { formatClock } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -162,14 +162,23 @@ export function ChatMarkdown({
   text,
   onSeek,
   className,
+  streaming,
 }: {
   text: string;
   onSeek: (sec: number) => void;
   className?: string;
+  /** The answer is still arriving: unclosed bold / code at the end is closed for display. */
+  streaming?: boolean;
 }) {
-  const blocks = React.useMemo(() => parseMarkdown(text), [text]);
+  const blocks = React.useMemo(
+    () => parseMarkdown(streaming ? closeOpenMarkers(text) : text),
+    [text, streaming],
+  );
   return (
-    <div className={cn('flex flex-col gap-2.5 text-sm text-foreground', className)} data-testid="chat-markdown">
+    <div
+      className={cn('flex flex-col gap-2.5 text-sm text-foreground', className)}
+      data-testid="chat-markdown"
+    >
       {blocks.map((b, i) => (
         <BlockNode key={i} block={b} onSeek={onSeek} />
       ))}

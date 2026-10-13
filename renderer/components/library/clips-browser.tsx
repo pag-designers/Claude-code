@@ -133,19 +133,28 @@ export function ClipsBrowser({
   );
   const onOpen = React.useCallback((c: ClipView) => setOpenId(c.id), []);
 
-  // CP2: deep links and action cards ask the drawer to open a clip (optionally on a tab)
+  // CP2: deep links and action cards ask the drawer to open a clip (optionally on a tab). State is adjusted while
+  // rendering (like `initial` above); the store clean-up happens in an effect.
   const openRequest = useClipUi((s) => s.openRequest);
+  const [handledAt, setHandledAt] = React.useState(0);
+  if (
+    openRequest &&
+    openRequest.at !== handledAt &&
+    clips.some((c) => c.id === openRequest.clipId) // the clip list may still be loading
+  ) {
+    setHandledAt(openRequest.at);
+    setOpenId(openRequest.clipId);
+  }
   React.useEffect(() => {
     if (!openRequest) return;
-    if (Date.now() - openRequest.at > 20_000) {
-      useClipUi.getState().clearOpenRequest(); // nobody picked it up (different page): do not fire much later
-      return;
+    const ui = useClipUi.getState();
+    if (openRequest.at === handledAt) {
+      if (openRequest.view) ui.setDrawerView(openRequest.view);
+      ui.clearOpenRequest();
+    } else if (Date.now() - openRequest.at > 20_000) {
+      ui.clearOpenRequest(); // nobody picked it up (other page): do not fire much later
     }
-    if (!clips.some((c) => c.id === openRequest.clipId)) return; // the clip list may still be loading
-    setOpenId(openRequest.clipId);
-    if (openRequest.view) useClipUi.getState().setDrawerView(openRequest.view);
-    useClipUi.getState().clearOpenRequest();
-  }, [openRequest, clips]);
+  }, [openRequest, handledAt]);
   const closeDrawer = React.useCallback(() => setOpenId(null), []);
 
   React.useEffect(() => {

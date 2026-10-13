@@ -20,11 +20,20 @@ import { NoClipsYet } from './tool-bodies';
  * Find Moments / One-Click Highlights: the steering panel and highlight builder live with the clips
  * (components/video/clips-extras), so the tool simply hosts them above the video's clip grid.
  */
-export function MomentsTool({ video, tool }: { video: VideoView; tool: 'find-moments' | 'highlights' }) {
+export function MomentsTool({
+  video,
+  tool,
+}: {
+  video: VideoView;
+  tool: 'find-moments' | 'highlights';
+}) {
   return (
     <div className="flex flex-col gap-6" data-testid={`${tool}-tool`}>
       <ClipsExtras videoId={video.id} />
-      <ClipsBrowser scope={{ kind: 'video', videoId: video.id }} processing={video.status !== 'ready'} />
+      <ClipsBrowser
+        scope={{ kind: 'video', videoId: video.id }}
+        processing={video.status !== 'ready'}
+      />
     </div>
   );
 }
@@ -49,7 +58,9 @@ function PickerRow({
         className={cn(
           'flex w-full items-center gap-3 rounded-xl border p-2 text-left outline-none transition-[border-color,background-color] duration-(--duration-fast)',
           'focus-visible:ring-2 focus-visible:ring-ring',
-          selected ? 'border-primary/70 bg-primary-soft' : 'bg-card hover:border-border-strong hover:bg-accent/40',
+          selected
+            ? 'border-primary/70 bg-primary-soft'
+            : 'bg-card hover:border-border-strong hover:bg-accent/40',
         )}
       >
         <div className="w-12 shrink-0 overflow-hidden rounded-md border">
@@ -91,7 +102,11 @@ export function ClipTool({
 
   if (q.isPending)
     return (
-      <div className="grid grid-cols-[300px_minmax(0,1fr)] gap-6" aria-busy aria-label="Loading clips">
+      <div
+        className="grid grid-cols-[300px_minmax(0,1fr)] gap-6"
+        aria-busy
+        aria-label="Loading clips"
+      >
         <div className="space-y-2">
           {Array.from({ length: 5 }, (_, i) => (
             <Skeleton key={i} className="h-16 w-full rounded-xl" />
@@ -110,7 +125,13 @@ export function ClipTool({
         actions={<Button onClick={() => void q.refetch()}>Try again</Button>}
       />
     );
-  if (clips.length === 0) return <NoClipsYet video={video} tool={tool === 'hook' ? 'write hooks for' : 'pick thumbnails for'} />;
+  if (clips.length === 0)
+    return (
+      <NoClipsYet
+        video={video}
+        tool={tool === 'hook' ? 'write hooks for' : 'pick thumbnails for'}
+      />
+    );
 
   return (
     <div
@@ -123,7 +144,12 @@ export function ClipTool({
         </h2>
         <ul className="scrollbar-thin flex max-h-[min(70vh,720px)] flex-col gap-2 overflow-y-auto pr-1">
           {clips.map((c) => (
-            <PickerRow key={c.id} clip={c} selected={c.id === selected?.id} onSelect={onSelectClip} />
+            <PickerRow
+              key={c.id}
+              clip={c}
+              selected={c.id === selected?.id}
+              onSelect={onSelectClip}
+            />
           ))}
         </ul>
       </aside>
@@ -133,8 +159,14 @@ export function ClipTool({
       >
         {selected ? (
           <>
-            <h2 className="mb-4 line-clamp-1 font-display text-md font-semibold">{selected.title}</h2>
-            {tool === 'hook' ? <HookTab clipId={selected.id} /> : <ThumbnailTab clipId={selected.id} />}
+            <h2 className="mb-4 line-clamp-1 font-display text-md font-semibold">
+              {selected.title}
+            </h2>
+            {tool === 'hook' ? (
+              <HookTab clipId={selected.id} />
+            ) : (
+              <ThumbnailTab clipId={selected.id} />
+            )}
           </>
         ) : (
           <p className="text-sm text-muted-foreground">

@@ -163,7 +163,9 @@ function RenderStrip({ clip }: { clip: ClipView | undefined }) {
         aria-label="Re-render progress"
       />
       <span className="w-28 shrink-0 text-right text-xs tabular-nums text-primary-text">
-        {clip.status === 'queued' ? 'Queued' : `Re-rendering ${Math.round((clip.renderProgress ?? 0) * 100)}%`}
+        {clip.status === 'queued'
+          ? 'Queued'
+          : `Re-rendering ${Math.round((clip.renderProgress ?? 0) * 100)}%`}
       </span>
     </div>
   );
@@ -187,7 +189,11 @@ export function HookTab({ clipId, clip: provided }: TabProps) {
     return (
       <div data-testid="hook-tab" className="flex flex-col gap-3">
         {q.isError ? (
-          <ErrorBlock error={q.error} title="Could not load hooks" onRetry={() => void q.refetch()} />
+          <ErrorBlock
+            error={q.error}
+            title="Could not load hooks"
+            onRetry={() => void q.refetch()}
+          />
         ) : null}
         {gen.isError ? (
           <ErrorBlock
@@ -237,7 +243,11 @@ export function HookTab({ clipId, clip: provided }: TabProps) {
             appliedVariant ? 'bg-success text-black' : 'bg-muted text-muted-foreground',
           )}
         >
-          {appliedVariant ? <Check className="size-4" aria-hidden /> : <Captions className="size-4" aria-hidden />}
+          {appliedVariant ? (
+            <Check className="size-4" aria-hidden />
+          ) : (
+            <Captions className="size-4" aria-hidden />
+          )}
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold">
@@ -341,7 +351,11 @@ export function HookTab({ clipId, clip: provided }: TabProps) {
                     size="sm"
                     variant="soft"
                     disabled={busy}
-                    loading={apply.isPending && apply.variables?.platform === platform && apply.variables.index === i}
+                    loading={
+                      apply.isPending &&
+                      apply.variables?.platform === platform &&
+                      apply.variables.index === i
+                    }
                     onClick={() => apply.mutate({ platform, index: i })}
                     data-testid={`hook-use-${i}`}
                   >
@@ -355,8 +369,8 @@ export function HookTab({ clipId, clip: provided }: TabProps) {
         })}
       </ol>
       <p className="text-xs text-subtle">
-        The title card is burned into the video and re-renders the clip. Spoken lines are suggestions for a
-        re-record or voice-over; they are not added to the audio.
+        The title card is burned into the video and re-renders the clip. Spoken lines are
+        suggestions for a re-record or voice-over; they are not added to the audio.
       </p>
     </div>
   );
@@ -485,7 +499,10 @@ function PostingTimeEditor({
             ))}
           </SelectContent>
         </Select>
-        <Select value={String(value.hour)} onValueChange={(v) => onChange({ ...value, hour: Number(v) })}>
+        <Select
+          value={String(value.hour)}
+          onValueChange={(v) => onChange({ ...value, hour: Number(v) })}
+        >
           <SelectTrigger className="w-32" aria-label="Hour of the day" data-testid="meta-hour">
             <span className="tabular-nums">{formatHour(value.hour)}</span>
           </SelectTrigger>
@@ -502,24 +519,25 @@ function PostingTimeEditor({
       <p className="text-xs leading-5 text-muted-foreground" data-testid="meta-time-reason">
         {value.reason}
       </p>
-      <p className="flex items-start gap-1.5 text-xs leading-5 text-subtle" data-testid="meta-time-note">
-        <Clock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-        A general suggestion from typical platform patterns, not from your own audience data. Account
-        analytics arrive with posting in a later version.
+      <p
+        className="flex items-start gap-1.5 text-xs leading-5 text-subtle"
+        data-testid="meta-time-note"
+      >
+        <Clock className="mt-0.5 size-3.5 shrink-0" aria-hidden />A general suggestion from typical
+        platform patterns, not from your own audience data. Account analytics arrive with posting in
+        a later version.
       </p>
     </div>
   );
 }
 
-export function MetaTab({ clipId, clip: provided }: TabProps) {
-  const clip = useClipLookup(clipId, provided);
+export function MetaTab({ clipId }: TabProps) {
   const q = useMeta(clipId);
   const gen = useGenerateMeta(clipId);
   const save = useSaveMeta(clipId);
   const [platform, setPlatform] = React.useState<Platform>('tiktok');
   const [drafts, setDrafts] = React.useState<Partial<Record<Platform, PlatformMeta>>>({});
   const [saveError, setSaveError] = React.useState<string | null>(null);
-  void clip;
 
   if (q.isPending) return <TabSkeleton label="Loading metadata" />;
   const meta: ClipMeta | null = q.data ?? null;
@@ -528,7 +546,11 @@ export function MetaTab({ clipId, clip: provided }: TabProps) {
     return (
       <div data-testid="meta-tab" className="flex flex-col gap-3">
         {q.isError ? (
-          <ErrorBlock error={q.error} title="Could not load metadata" onRetry={() => void q.refetch()} />
+          <ErrorBlock
+            error={q.error}
+            title="Could not load metadata"
+            onRetry={() => void q.refetch()}
+          />
         ) : null}
         {gen.isError ? (
           <ErrorBlock
@@ -600,7 +622,11 @@ export function MetaTab({ clipId, clip: provided }: TabProps) {
           >
             Copy all
           </CopyButton>
-          <Tip content={dirty ? 'Regenerating replaces your unsaved edits' : 'Write new metadata with Claude'}>
+          <Tip
+            content={
+              dirty ? 'Regenerating replaces your unsaved edits' : 'Write new metadata with Claude'
+            }
+          >
             <Button
               variant="outline"
               size="sm"
@@ -636,7 +662,11 @@ export function MetaTab({ clipId, clip: provided }: TabProps) {
             {spec.titleMax === null ? 'Title (first line)' : 'Title'}
           </label>
           <span className="flex items-center gap-2">
-            <CharCounter value={m.title.length} max={spec.titleMax} id={`title-count-${platform}`} />
+            <CharCounter
+              value={m.title.length}
+              max={spec.titleMax}
+              id={`title-count-${platform}`}
+            />
             <CopyButton text={m.title} label="Copy title" testId="meta-copy-title" />
           </span>
         </div>
@@ -657,7 +687,12 @@ export function MetaTab({ clipId, clip: provided }: TabProps) {
             {platform === 'shorts' ? 'Description' : 'Caption'}
           </label>
           <span className="flex items-center gap-2">
-            <CharCounter value={cap} max={spec.captionMax} unit="chars" id={`desc-count-${platform}`} />
+            <CharCounter
+              value={cap}
+              max={spec.captionMax}
+              unit="chars"
+              id={`desc-count-${platform}`}
+            />
             <CopyButton text={m.description} label="Copy description" testId="meta-copy-desc" />
           </span>
         </div>
@@ -673,7 +708,11 @@ export function MetaTab({ clipId, clip: provided }: TabProps) {
         <p className="text-xs text-muted-foreground">{spec.descHint}</p>
       </div>
 
-      <HashtagEditor platform={platform} tags={m.hashtags} onChange={(hashtags) => edit({ hashtags })} />
+      <HashtagEditor
+        platform={platform}
+        tags={m.hashtags}
+        onChange={(hashtags) => edit({ hashtags })}
+      />
       <PostingTimeEditor value={m.postingTime} onChange={(postingTime) => edit({ postingTime })} />
 
       {issues.length > 0 ? (
@@ -693,22 +732,35 @@ export function MetaTab({ clipId, clip: provided }: TabProps) {
         </ul>
       ) : null}
 
-      {saveError ? <ErrorBlock error={saveError} title="Could not save metadata" onRetry={() => void saveAll()} /> : null}
+      {saveError ? (
+        <ErrorBlock
+          error={saveError}
+          title="Could not save metadata"
+          onRetry={() => void saveAll()}
+        />
+      ) : null}
 
       <div
         className={cn(
           'sticky bottom-0 z-[5] -mx-1 flex items-center justify-between gap-3 rounded-xl border bg-popover/95 px-4 py-2.5 shadow-sm backdrop-blur transition-opacity duration-(--duration-base)',
-          dirty ? 'opacity-100' : 'pointer-events-none h-0 overflow-hidden border-transparent py-0 opacity-0',
+          dirty
+            ? 'opacity-100'
+            : 'pointer-events-none h-0 overflow-hidden border-transparent py-0 opacity-0',
         )}
         data-testid="meta-savebar"
         aria-hidden={!dirty}
       >
         <span className="text-sm text-muted-foreground" role="status">
-          {dirtyPlatforms.map((p) => PLATFORM_SHORT[p]).join(', ')} {dirtyPlatforms.length === 1 ? 'has' : 'have'}{' '}
-          unsaved changes
+          {dirtyPlatforms.map((p) => PLATFORM_SHORT[p]).join(', ')}{' '}
+          {dirtyPlatforms.length === 1 ? 'has' : 'have'} unsaved changes
         </span>
         <span className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setDrafts({})} data-testid="meta-discard">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setDrafts({})}
+            data-testid="meta-discard"
+          >
             Discard
           </Button>
           <Button
@@ -723,8 +775,8 @@ export function MetaTab({ clipId, clip: provided }: TabProps) {
         </span>
       </div>
       <p className="text-xs text-subtle">
-        Generated {timeAgo(meta.generatedAt)}. Edits are saved with the clip; Regenerate asks Claude again
-        and replaces all three platforms.
+        Generated {timeAgo(meta.generatedAt)}. Edits are saved with the clip; Regenerate asks Claude
+        again and replaces all three platforms.
       </p>
     </div>
   );
@@ -732,11 +784,29 @@ export function MetaTab({ clipId, clip: provided }: TabProps) {
 
 /* --------------------------------------------------------------------------------------- thumbnail */
 
-const STOP = new Set(['a', 'an', 'the', 'our', 'my', 'your', 'of', 'to', 'in', 'on', 'for', 'and', 'with', 'is']);
+const STOP = new Set([
+  'a',
+  'an',
+  'the',
+  'our',
+  'my',
+  'your',
+  'of',
+  'to',
+  'in',
+  'on',
+  'for',
+  'and',
+  'with',
+  'is',
+]);
 /** First five words of the title, without a dangling article/preposition at the end. */
 export function suggestOverlay(title: string): string {
   const words = title.replace(/[“”"]/g, '').trim().split(/\s+/).slice(0, OVERLAY_MAX_WORDS);
-  while (words.length > 2 && STOP.has(words[words.length - 1]!.toLowerCase().replace(/[^a-z]/g, '')))
+  while (
+    words.length > 2 &&
+    STOP.has(words[words.length - 1]!.toLowerCase().replace(/[^a-z]/g, ''))
+  )
     words.pop();
   return words.join(' ');
 }
@@ -746,7 +816,10 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
     <div className="flex items-center gap-1.5" title={`${label} ${percent(value)}`}>
       <span className="w-7 text-[10px] text-subtle">{label}</span>
       <span className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
-        <span className="block h-full rounded-full bg-primary" style={{ width: `${percent(value)}%` }} />
+        <span
+          className="block h-full rounded-full bg-primary"
+          style={{ width: `${percent(value)}%` }}
+        />
       </span>
     </div>
   );
@@ -861,7 +934,11 @@ export function ThumbnailTab({ clipId, clip: provided }: TabProps) {
   const picked = selIdx >= 0 ? cands[selIdx] : undefined;
   const suggestion = suggestOverlay(clip?.title ?? '');
   const overlayText = overlay ?? data?.overlayText ?? suggestion;
-  const urlA = useThumbCandidateUrl(clipId, ab[0] ?? selIdx, mode === 'ab' ? ab[0] !== null : selIdx >= 0);
+  const urlA = useThumbCandidateUrl(
+    clipId,
+    ab[0] ?? selIdx,
+    mode === 'ab' ? ab[0] !== null : selIdx >= 0,
+  );
   const urlB = useThumbCandidateUrl(clipId, ab[1] ?? 0, mode === 'ab' && ab[1] !== null);
 
   if (q.isPending) return <TabSkeleton label="Loading thumbnail options" />;
@@ -905,10 +982,18 @@ export function ThumbnailTab({ clipId, clip: provided }: TabProps) {
     return (
       <div data-testid="thumb-tab" className="flex flex-col gap-3">
         {q.isError ? (
-          <ErrorBlock error={q.error} title="Could not load thumbnails" onRetry={() => void q.refetch()} />
+          <ErrorBlock
+            error={q.error}
+            title="Could not load thumbnails"
+            onRetry={() => void q.refetch()}
+          />
         ) : null}
         {gen.isError ? (
-          <ErrorBlock error={gen.error} title="Could not generate thumbnails" onRetry={onGenerate} />
+          <ErrorBlock
+            error={gen.error}
+            title="Could not generate thumbnails"
+            onRetry={onGenerate}
+          />
         ) : null}
         <EmptyState
           size="sm"
@@ -955,7 +1040,9 @@ export function ThumbnailTab({ clipId, clip: provided }: TabProps) {
         ? sourceFor(urlA.data?.url, 'Selected frame')
         : { src: current.data?.url ?? null, overlay: null, label: 'Current thumbnail' };
   const testerB: TesterSource | null =
-    mode === 'ab' && ab[0] !== null && ab[1] !== null ? sourceFor(urlB.data?.url, 'Option B') : null;
+    mode === 'ab' && ab[0] !== null && ab[1] !== null
+      ? sourceFor(urlB.data?.url, 'Option B')
+      : null;
 
   return (
     <div data-testid="thumb-tab" className="flex flex-col gap-5">
@@ -1022,7 +1109,11 @@ export function ThumbnailTab({ clipId, clip: provided }: TabProps) {
                 : 'Comparing A and B below. Pick a frame again to swap it out.'}
           </p>
         ) : null}
-        <div role="radiogroup" aria-label="Candidate frames" className="grid grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-3">
+        <div
+          role="radiogroup"
+          aria-label="Candidate frames"
+          className="grid grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-3"
+        >
           {cands.map((c, i) => (
             <CandidateCard
               key={c.key}
@@ -1037,14 +1128,20 @@ export function ThumbnailTab({ clipId, clip: provided }: TabProps) {
           ))}
         </div>
         {picked ? (
-          <div className="rounded-lg border bg-muted/40 px-3.5 py-2.5 text-sm" data-testid="thumb-detail">
+          <div
+            className="rounded-lg border bg-muted/40 px-3.5 py-2.5 text-sm"
+            data-testid="thumb-detail"
+          >
             <p className="font-medium">
               Frame at {formatClock(picked.t)} ·{' '}
               <span className="tabular-nums">score {percent(picked.scores.total)}</span>
               {picked.llmRank !== null ? ` · AI rank #${picked.llmRank}` : ' · not ranked by AI'}
             </p>
             {picked.llmNote ? (
-              <p className="mt-0.5 text-xs leading-5 text-muted-foreground" data-testid="thumb-ai-note">
+              <p
+                className="mt-0.5 text-xs leading-5 text-muted-foreground"
+                data-testid="thumb-ai-note"
+              >
                 {picked.llmNote}
               </p>
             ) : null}
@@ -1078,7 +1175,12 @@ export function ThumbnailTab({ clipId, clip: provided }: TabProps) {
             data-testid="thumb-overlay"
           />
           {suggestion && overlayText !== suggestion ? (
-            <Button variant="ghost" size="md" onClick={() => setOverlay(suggestion)} data-testid="thumb-suggest">
+            <Button
+              variant="ghost"
+              size="md"
+              onClick={() => setOverlay(suggestion)}
+              data-testid="thumb-suggest"
+            >
               <Wand2 /> Suggestion
             </Button>
           ) : null}
@@ -1139,13 +1241,21 @@ export function ThumbnailTab({ clipId, clip: provided }: TabProps) {
         b={testerB}
         clipTitle={clip?.title ?? ''}
         actions={
-          <Button variant="outline" size="sm" onClick={() => setFull(true)} data-testid="tester-expand">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setFull(true)}
+            data-testid="tester-expand"
+          >
             <Maximize2 /> Full size
           </Button>
         }
       />
       <Dialog open={full} onOpenChange={setFull}>
-        <DialogContent className="h-[min(92vh,980px)] max-h-none max-w-[1180px] overflow-y-auto p-6" data-testid="tester-dialog">
+        <DialogContent
+          className="h-[min(92vh,980px)] max-h-none max-w-[1180px] overflow-y-auto p-6"
+          data-testid="tester-dialog"
+        >
           <DialogTitle className="sr-only">Thumbnail Tester, full size</DialogTitle>
           <DialogDescription className="sr-only">
             Your thumbnail in TikTok, Reels and Shorts feed mockups at full size.
@@ -1213,7 +1323,8 @@ export function ReframeTab({ clipId, clip: provided }: TabProps) {
   const chosen = mode ?? clip.reframeMode;
   const changed = chosen !== clip.reframeMode;
   const busy = isClipBusy(clip);
-  const styleName = styles.data?.styles.find((s) => s.id === clip.captionStyleId)?.name ?? clip.captionStyleId;
+  const styleName =
+    styles.data?.styles.find((s) => s.id === clip.captionStyleId)?.name ?? clip.captionStyleId;
   const note = layoutFallbackNote(clip);
   const outdated = captionsOutdated(clip, video?.subtitleRev);
 
@@ -1244,7 +1355,10 @@ export function ReframeTab({ clipId, clip: provided }: TabProps) {
       <section className="flex flex-col gap-3" aria-label="Reframe mode">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <SectionLabel>Reframe mode</SectionLabel>
-          <span className="flex items-center gap-2 text-xs text-muted-foreground" data-testid="reframe-layout">
+          <span
+            className="flex items-center gap-2 text-xs text-muted-foreground"
+            data-testid="reframe-layout"
+          >
             Last render:
             <Badge variant={clip.layout ? 'primary' : 'neutral'}>
               {clip.layout ? LAYOUT_LABELS[clip.layout] : 'not rendered yet'}
@@ -1275,13 +1389,17 @@ export function ReframeTab({ clipId, clip: provided }: TabProps) {
                     {REFRAME_MODE_LABELS[m]}
                     {m === clip.reframeMode ? <Badge variant="neutral">Current</Badge> : null}
                   </span>
-                  <span className="mt-0.5 block text-xs text-muted-foreground">{MODE_BLURB[m]}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    {MODE_BLURB[m]}
+                  </span>
                 </span>
                 <span
                   aria-hidden
                   className={cn(
                     'flex size-4 shrink-0 items-center justify-center rounded-full border',
-                    active ? 'border-primary bg-primary text-primary-foreground' : 'border-border-strong',
+                    active
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border-strong',
                   )}
                 >
                   {active ? <Check className="size-3" /> : null}
@@ -1291,7 +1409,10 @@ export function ReframeTab({ clipId, clip: provided }: TabProps) {
           })}
         </div>
         {note ? (
-          <p className="flex items-start gap-1.5 text-xs leading-5 text-warning" data-testid="reframe-note">
+          <p
+            className="flex items-start gap-1.5 text-xs leading-5 text-warning"
+            data-testid="reframe-note"
+          >
             <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
             {note}
           </p>
@@ -1330,7 +1451,9 @@ export function ReframeTab({ clipId, clip: provided }: TabProps) {
             <p className="truncate text-sm font-semibold" data-testid="caption-style-name">
               {styleName}
             </p>
-            <p className="text-xs text-muted-foreground">Used for this clip’s burned-in captions.</p>
+            <p className="text-xs text-muted-foreground">
+              Used for this clip’s burned-in captions.
+            </p>
           </div>
           <StyleStudioButton clip={clip} />
         </div>
@@ -1345,14 +1468,17 @@ export function ReframeTab({ clipId, clip: provided }: TabProps) {
               variant="outline"
               size="sm"
               loading={exportSubs.isPending && exportSubs.variables?.format === f}
-              onClick={() => exportSubs.mutate({ videoId: clip.videoId, clipId: clip.id, format: f })}
+              onClick={() =>
+                exportSubs.mutate({ videoId: clip.videoId, clipId: clip.id, format: f })
+              }
               data-testid={`subs-${f}`}
             >
               <Download /> Export {f.toUpperCase()}
             </Button>
           ))}
           <span className="inline-flex items-center gap-1.5 text-xs text-subtle">
-            <AudioLines className="size-3.5" aria-hidden /> Timed to this clip, from the edited transcript.
+            <AudioLines className="size-3.5" aria-hidden /> Timed to this clip, from the edited
+            transcript.
           </span>
         </div>
       </section>
@@ -1384,7 +1510,8 @@ function StyleStudioButton({ clip }: { clip: ClipView }) {
         description="Pick a preset or tune every detail. Only this clip is re-rendered."
         applyLabel="Re-render with this style"
         onApply={async (styleId) => {
-          if (styleId !== clip.captionStyleId) await restyle.mutateAsync({ ids: [clip.id], styleId });
+          if (styleId !== clip.captionStyleId)
+            await restyle.mutateAsync({ ids: [clip.id], styleId });
           setOpen(false);
         }}
       />

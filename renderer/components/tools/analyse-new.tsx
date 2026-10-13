@@ -27,11 +27,7 @@ import { parseYoutubeUrl } from '@/lib/urls';
  * "Analyse a new video": paste a YouTube link and run the pipeline in `analysis` mode (download, transcribe, summary,
  * chapters and notes; no clips are cut or rendered). Same URL rules and probe preview as Home.
  */
-export function AnalyseNewVideo({
-  onStarted,
-}: {
-  onStarted: (videoId: string) => void;
-}) {
+export function AnalyseNewVideo({ onStarted }: { onStarted: (videoId: string) => void }) {
   const qc = useQueryClient();
   const readiness = usePipelineReadiness();
   const videos = useVideos();
@@ -111,8 +107,8 @@ export function AnalyseNewVideo({
             Analyse a new video
           </h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Paste a YouTube link to get its transcript, summary and chapters. No clips are rendered, so it
-            is quick and cheap.
+            Paste a YouTube link to get its transcript, summary and chapters. No clips are rendered,
+            so it is quick and cheap.
           </p>
         </div>
       </div>
@@ -166,7 +162,9 @@ export function AnalyseNewVideo({
               Valid YouTube link · ID <span className="selectable font-mono">{videoId}</span>
             </p>
           ) : (
-            <p className="text-subtle">Supports youtube.com/watch, youtu.be, /shorts and /live links.</p>
+            <p className="text-subtle">
+              Supports youtube.com/watch, youtu.be, /shorts and /live links.
+            </p>
           )}
         </div>
       </form>
@@ -194,7 +192,10 @@ export function AnalyseNewVideo({
               }
             >
               Choose it from the list below, or analyse it again to refresh the transcript.{' '}
-              <Link className="font-medium text-primary-text hover:underline" href={videoHref(existing.id)}>
+              <Link
+                className="font-medium text-primary-text hover:underline"
+                href={videoHref(existing.id)}
+              >
                 Open the video
               </Link>
             </Banner>

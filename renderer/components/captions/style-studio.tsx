@@ -82,7 +82,10 @@ function StudioBody({
 
   const [selectedId, setSelectedId] = React.useState<string>(currentStyleId ?? DEFAULT_STYLE_ID);
   const selected = React.useMemo(
-    () => styles?.find((s) => s.id === selectedId) ?? styles?.find((s) => s.id === DEFAULT_STYLE_ID) ?? styles?.[0],
+    () =>
+      styles?.find((s) => s.id === selectedId) ??
+      styles?.find((s) => s.id === DEFAULT_STYLE_ID) ??
+      styles?.[0],
     [styles, selectedId],
   );
 
@@ -133,7 +136,9 @@ function StudioBody({
       loadedKey.current = '';
       setSelectedId(saved.id);
       form.reset(normalise(saved));
-      toast.success(mode === 'copy' || selected.builtin ? `Saved “${saved.name}”` : `Updated “${saved.name}”`);
+      toast.success(
+        mode === 'copy' || selected.builtin ? `Saved “${saved.name}”` : `Updated “${saved.name}”`,
+      );
       return saved;
     } catch {
       return null; // the mutation already toasted the error
@@ -184,7 +189,10 @@ function StudioBody({
       <DialogHeader className="flex-row items-center justify-between gap-6 pr-14">
         <div className="min-w-0">
           <DialogTitle className="font-display text-xl font-semibold">{title}</DialogTitle>
-          <DialogDescription id="style-studio-desc" className="mt-0.5 text-sm text-muted-foreground">
+          <DialogDescription
+            id="style-studio-desc"
+            className="mt-0.5 text-sm text-muted-foreground"
+          >
             {description}
           </DialogDescription>
         </div>
@@ -274,7 +282,11 @@ function StudioBody({
             <Copy /> {dirty && isBuiltin ? 'Save as custom copy' : 'Duplicate'}
           </Button>
           {dirty && !isBuiltin ? (
-            <Button variant="secondary" disabled={!draft || busy} onClick={() => void persist('update')}>
+            <Button
+              variant="secondary"
+              disabled={!draft || busy}
+              onClick={() => void persist('update')}
+            >
               Save
             </Button>
           ) : null}

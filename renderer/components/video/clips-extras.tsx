@@ -3,16 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
-import {
-  Check,
-  ChevronDown,
-  CircleAlert,
-  Film,
-  Loader2,
-  Search,
-  Sparkles,
-  X,
-} from 'lucide-react';
+import { Check, ChevronDown, CircleAlert, Film, Loader2, Search, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { MomentRun } from '@shared/cp2';
 import { Button } from '@/components/ui/button';
@@ -47,7 +38,15 @@ const MAX_PROMPT = 500;
 
 /* ----------------------------------------------------------------------------------------- run rows */
 
-function RunRow({ run, onCancel, canceling }: { run: MomentRun; onCancel: () => void; canceling: boolean }) {
+function RunRow({
+  run,
+  onCancel,
+  canceling,
+}: {
+  run: MomentRun;
+  onCancel: () => void;
+  canceling: boolean;
+}) {
   const rec = run.status === 'failed' ? classifyFailure(run.error) : null;
   const tone =
     run.status === 'running'
@@ -87,9 +86,16 @@ function RunRow({ run, onCancel, canceling }: { run: MomentRun; onCancel: () => 
           {timeAgo(run.createdAt)}
         </p>
         {rec ? (
-          <div className="mt-1.5 rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-xs" data-testid="run-error">
-            <p className="font-semibold text-foreground">{rec.kind === 'other' ? 'The search failed' : rec.title}</p>
-            <p className="mt-0.5 text-muted-foreground">{rec.kind === 'other' ? run.error : rec.hint}</p>
+          <div
+            className="mt-1.5 rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-xs"
+            data-testid="run-error"
+          >
+            <p className="font-semibold text-foreground">
+              {rec.kind === 'other' ? 'The search failed' : rec.title}
+            </p>
+            <p className="mt-0.5 text-muted-foreground">
+              {rec.kind === 'other' ? run.error : rec.hint}
+            </p>
             {rec.action ? (
               <Button asChild size="xs" variant="outline" className="mt-2">
                 <Link href={rec.action.href}>{rec.action.label}</Link>
@@ -139,7 +145,12 @@ function RunFilter({ videoId, runs }: { videoId: string; runs: MomentRun[] }) {
     </button>
   );
   return (
-    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter clips by search" data-testid="run-filters">
+    <div
+      className="flex flex-wrap items-center gap-1.5"
+      role="group"
+      aria-label="Filter clips by search"
+      data-testid="run-filters"
+    >
       <span className="mr-1 text-xs font-medium text-subtle">Found by</span>
       {chip(null, 'Everything')}
       {chip('auto', 'Automatic run')}
@@ -178,7 +189,11 @@ function HighlightProgress({
       transition={{ duration: duration.base, ease: ease.out }}
       className={cn(
         'flex items-center gap-3 rounded-xl border px-4 py-3',
-        failed ? 'border-danger/35 bg-danger-soft' : done ? 'border-success/35 bg-success-soft' : 'border-primary/35 bg-primary-soft',
+        failed
+          ? 'border-danger/35 bg-danger-soft'
+          : done
+            ? 'border-success/35 bg-success-soft'
+            : 'border-primary/35 bg-primary-soft',
       )}
       role="status"
       data-testid="highlight-progress"
@@ -187,10 +202,20 @@ function HighlightProgress({
       <span
         className={cn(
           'flex size-9 shrink-0 items-center justify-center rounded-lg',
-          failed ? 'bg-danger-solid text-white' : done ? 'bg-success text-black' : 'bg-primary text-primary-foreground',
+          failed
+            ? 'bg-danger-solid text-white'
+            : done
+              ? 'bg-success text-black'
+              : 'bg-primary text-primary-foreground',
         )}
       >
-        {failed ? <CircleAlert className="size-4" aria-hidden /> : done ? <Check className="size-4" aria-hidden /> : <Film className="size-4" aria-hidden />}
+        {failed ? (
+          <CircleAlert className="size-4" aria-hidden />
+        ) : done ? (
+          <Check className="size-4" aria-hidden />
+        ) : (
+          <Film className="size-4" aria-hidden />
+        )}
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold">
@@ -201,7 +226,7 @@ function HighlightProgress({
               : creating || !clip
                 ? 'Picking the best beats and ordering the story…'
                 : clip.status === 'rendering'
-                  ? 'Rendering the highlight reel…'
+                  ? `Rendering the highlight reel…${pct !== null ? ` ${Math.round(pct * 100)}%` : ''}`
                   : 'Highlight reel is queued'}
         </p>
         <p className="truncate text-xs text-muted-foreground" data-testid="highlight-detail">
@@ -211,7 +236,9 @@ function HighlightProgress({
               : (failure ?? clip?.error ?? 'Rendering failed.')
             : done
               ? `“${clip.title}”`
-              : 'It appears in the grid as soon as the plan is written.'}
+              : clip
+                ? 'It is already in the grid below. You can keep browsing.'
+                : 'Claude is choosing the beats. The reel appears in the grid below as soon as the plan is written.'}
         </p>
         {!failed && !done ? (
           <Progress
@@ -222,7 +249,12 @@ function HighlightProgress({
         ) : null}
       </div>
       {done && clip ? (
-        <Button size="sm" variant="primary" onClick={() => onOpen(clip.id)} data-testid="highlight-open">
+        <Button
+          size="sm"
+          variant="primary"
+          onClick={() => onOpen(clip.id)}
+          data-testid="highlight-open"
+        >
           Open
         </Button>
       ) : null}
@@ -282,7 +314,9 @@ export function ClipsExtras({ videoId }: { videoId: string }) {
       seen.current.set(r.id, r.status);
       if (was === 'running' && r.status === 'done')
         toast.success(
-          r.found > 0 ? `${r.found} new ${r.found === 1 ? 'clip' : 'clips'} found` : 'No new moments matched',
+          r.found > 0
+            ? `${r.found} new ${r.found === 1 ? 'clip' : 'clips'} found`
+            : 'No new moments matched',
           { description: `“${r.prompt}”` },
         );
     }
@@ -360,7 +394,11 @@ export function ClipsExtras({ videoId }: { videoId: string }) {
             </DisabledTip>
           ) : (
             <PopoverTrigger asChild>
-              <Button variant="outline" loading={highlight.isPending} data-testid="highlight-button">
+              <Button
+                variant="outline"
+                loading={highlight.isPending}
+                data-testid="highlight-button"
+              >
                 <Film /> One-Click Highlights
               </Button>
             </PopoverTrigger>
@@ -391,7 +429,12 @@ export function ClipsExtras({ videoId }: { videoId: string }) {
               <Button variant="ghost" size="sm" onClick={() => setHlOpen(false)}>
                 Cancel
               </Button>
-              <Button variant="primary" size="sm" onClick={() => createHighlight(hlPrompt)} data-testid="highlight-create">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => createHighlight(hlPrompt)}
+                data-testid="highlight-create"
+              >
                 <Film /> Create highlight
               </Button>
             </div>
@@ -466,7 +509,11 @@ export function ClipsExtras({ videoId }: { videoId: string }) {
           </p>
         ) : null}
 
-        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Quick prompts">
+        <div
+          className="flex flex-wrap items-center gap-1.5"
+          role="group"
+          aria-label="Quick prompts"
+        >
           {STEER_CHIPS.map((c) => (
             <button
               key={c}
@@ -491,14 +538,20 @@ export function ClipsExtras({ videoId }: { videoId: string }) {
           >
             Options
             <ChevronDown
-              className={cn('size-3.5 transition-transform duration-(--duration-fast)', showOptions && 'rotate-180')}
+              className={cn(
+                'size-3.5 transition-transform duration-(--duration-fast)',
+                showOptions && 'rotate-180',
+              )}
               aria-hidden
             />
           </button>
         </div>
 
         {showOptions ? (
-          <div className="grid gap-4 rounded-xl border bg-muted/40 p-3.5 sm:grid-cols-2" data-testid="steer-options">
+          <div
+            className="grid gap-4 rounded-xl border bg-muted/40 p-3.5 sm:grid-cols-2"
+            data-testid="steer-options"
+          >
             <ChipGroup<LengthChoice>
               label="Clip length"
               value={length}

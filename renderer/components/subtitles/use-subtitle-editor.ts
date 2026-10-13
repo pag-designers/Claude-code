@@ -73,10 +73,12 @@ export function useSubtitleEditor(videoId: string) {
   const [outdated, setOutdated] = React.useState(0);
   const [savedAt, setSavedAt] = React.useState<number | null>(null);
 
+  const serverRev = React.useRef(query.data?.edits.rev ?? 0);
   // adopt the first fetch (and later server pushes only while nothing is pending)
   const dataRef = React.useRef<SubtitlesData | null>(null);
   if (query.data && dataRef.current !== query.data && stateRef.current === null) {
     dataRef.current = query.data;
+    serverRev.current = query.data.edits.rev;
     stateRef.current = { cues: query.data.cues, edits: query.data.edits };
     setStateRaw(stateRef.current);
     setOutdated(query.data.outdatedClips);
@@ -89,7 +91,6 @@ export function useSubtitleEditor(videoId: string) {
   const inflight = React.useRef<Promise<boolean> | null>(null);
   const again = React.useRef(false);
   const timer = React.useRef<number | null>(null);
-  const serverRev = React.useRef(query.data?.edits.rev ?? 0);
   const alive = React.useRef(true);
 
   const flush = React.useCallback(async (): Promise<boolean> => {

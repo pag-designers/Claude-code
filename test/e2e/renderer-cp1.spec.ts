@@ -839,7 +839,7 @@ test.describe('Library', () => {
 });
 
 test.describe('Video detail', () => {
-  test('header, overview (summary, tone, participants, 5 takeaways, topics), disabled later tabs', async () => {
+  test('header, overview (summary, tone, participants, 5 takeaways, topics), Subtitles tab and Ask AI', async () => {
     const s = await open('/library/video/?id=vid-interview', { scenario: 'library' });
     await expect(s.page.getByTestId('video-title')).toHaveText(
       'Community Conversations: Autism Awareness & Local Art',
@@ -865,14 +865,10 @@ test.describe('Video detail', () => {
     await expect(s.page.getByText('Clipping finished')).toBeVisible();
     await s.page.getByRole('button', { name: 'Details' }).click();
     await expect(stageRow(s.page, 'transcribe')).toContainText('Transcribed 2,986 words');
-    // Chat and Subtitles are CP2
-    for (const name of ['Chat', 'Subtitles']) {
-      const tab = s.page.getByRole('tab', { name });
-      await expect(tab).toBeDisabled();
-      const t = await tip(s.page, s.page.locator('span[tabindex="0"]').filter({ has: tab }));
-      await expect(t).toContainText('Coming in a later version');
-      await s.page.mouse.move(5, 5);
-    }
+    // CP2: Subtitles is a real tab now; Chat moved to the "Ask AI" drawer button in the header
+    await expect(s.page.getByRole('tab', { name: 'Subtitles' })).toBeEnabled();
+    await expect(s.page.getByRole('tab', { name: 'Chat' })).toHaveCount(0);
+    await expect(s.page.getByTestId('chat-launcher')).toBeVisible();
     // favorite + re-run stage menu + source link
     await s.page.getByRole('button', { name: /Remove .* from favorites/ }).click();
     await expect

@@ -371,7 +371,7 @@ test('metadata: per-platform title/description/hashtags/posting time, editable',
     expect(m[p]!.hashtags.length).toBeGreaterThan(0);
     expect(m[p]!.postingTime.reason).toMatch(/not based on your analytics/i);
   }
-  expect(m.shorts!.hashtags.map((x) => x.toLowerCase())).toContain('#shorts');
+  expect(m.shorts!.hashtags.map((x) => x.toLowerCase().replace(/^#/, ''))).toContain('shorts');
   await invoke('meta:save', { clipId: c!.id, platform: 'reels', meta: { ...m.reels, title: 'Edited title' } });
   expect((await invoke<typeof m>('meta:get', { clipId: c!.id }))!.reels!.title).toBe('Edited title');
   expect((await clipById(c!.id))?.hasMeta).toBe(true);

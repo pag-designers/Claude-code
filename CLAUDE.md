@@ -91,6 +91,11 @@ On headless Linux, MediaPipe needs `sudo apt install libegl1 libgles2` (otherwis
 - All Claude calls return strict JSON validated against a schema; prompts live in `prompts/`.
 - Cache everything expensive (downloads, transcripts, AI results) under `data/<video_id>/`.
 - yt-dlp needs a JS runtime for YouTube: always pass `--js-runtimes node`.
+- **How to work (full prompt + tips in `docs/claude-code-playbook.md`)**: read this file and the code you'll touch before editing;
+  ask one batched question only if the answer changes the work; run everything for real (tests, server, Playwright at 1440 and
+  390 px, zero console errors); judge UI like a senior designer (spacing, AA contrast, hover/focus/empty/error states,
+  reduced motion, mutable sound); finish with `/ship-check`; report as What changed / Proof / Not tested / Needs from you;
+  keep "Current status" updated so a `/clear` or `/compact` loses nothing.
 - Research on WayinVideo is observation only. Never copy their code/assets/branding or call their private APIs.
 
 ## Environment notes

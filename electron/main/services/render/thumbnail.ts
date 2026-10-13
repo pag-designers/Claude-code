@@ -32,15 +32,21 @@ export function laplacianVariance(gray: Uint8Array, w: number, h: number): numbe
 /**
  * Writes a JPEG (max 720x1280, aspect preserved) of the sharpest of 8 frames sampled over 1.4 s
  * starting ~1.5 s into the clip (or at one third of the clip when it is shorter than 4.5 s).
+ * Note the hook card is burned into the first seconds; pass `opts.atSec` (e.g. 3.5) to avoid it.
  */
 export async function extractThumbnail(
   ffmpegPath: string,
   clipPath: string,
   outJpg: string,
+  opts: { atSec?: number } = {},
 ): Promise<void> {
   const info = await probeStreams(ffmpegPath, clipPath);
   const dur = info.durationSec ?? 0;
-  const t0 = Math.max(0, Math.min(1.5, dur / 3));
+  const nominal =
+    opts.atSec !== undefined
+      ? Math.min(opts.atSec, Math.max(0, dur - 0.5))
+      : Math.min(1.5, dur / 3);
+  const t0 = Math.max(0, nominal);
   const span = Math.max(0.2, Math.min(1.4, dur - t0 - 0.1));
 
   let best = t0;

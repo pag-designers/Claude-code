@@ -49,10 +49,10 @@ function rank(body: WireBody): unknown {
   const text = userText(body);
   const sents = parseSentences(text);
   const max = Number(/at most (\d+) moment/.exec(text)?.[1] ?? 3);
-  const lines = text.split('\n').filter((l) => /^c\d+ \| S\d+-S\d+ \|/.test(l));
+  const lines = text.split('\n').filter((l) => /^\S+ \| S\d+-S\d+ \|/.test(l));
   const cands = lines.map((l) => {
     const m =
-      /^(c\d+) \| S(\d+)-S(\d+) \| [^|]*\|[^|]*\| hook=([\d.]+) energy=([\d.]+) rate=([\d.-]+) laugh=([\d.]+) selfc=([\d.]+)[^|]*\| "(.*)"$/.exec(
+      /^(\S+) \| S(\d+)-S(\d+) \| [^|]*\| hook=([\d.]+) energy=([\d.]+) rate=([\d.-]+) laugh=([\d.]+) selfc=([\d.]+)[^|]*\| "(.*)"$/.exec(
         l,
       );
     if (!m) return null;

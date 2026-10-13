@@ -61,7 +61,9 @@ const invoke = <T = unknown>(channel: string, payload?: unknown) =>
 
 test.beforeAll(async () => {
   fs.mkdirSync(OUT, { recursive: true });
-  s3dir = fs.mkdtempSync(path.join(os.tmpdir(), 'clipfern-s3-'));
+  // A persistent dir (CLIPFERN_E2E_S3DIR) keeps the cross-run transcript cache between runs: the 2nd run skips ASR.
+  s3dir = process.env.CLIPFERN_E2E_S3DIR ?? fs.mkdtempSync(path.join(os.tmpdir(), 'clipfern-s3-'));
+  fs.mkdirSync(s3dir, { recursive: true });
   const server = new S3rver({
     port: S3_PORT,
     address: '127.0.0.1',
@@ -90,7 +92,9 @@ test.beforeAll(async () => {
       fs.createReadStream(VIDEO!).pipe(res);
     }
   });
-  await new Promise<void>((r) => media.listen(0, '127.0.0.1', r));
+  await new Promise<void>((r) =>
+    media.listen(Number(process.env.CLIPFERN_E2E_MEDIA_PORT ?? 0), '127.0.0.1', r),
+  );
   mediaUrl = `http://127.0.0.1:${(media.address() as AddressInfo).port}/talk.mp4`;
 
   stub = await startSmartAnthropicStub();

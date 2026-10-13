@@ -7,6 +7,7 @@ import {
   CircleAlert,
   Clock,
   Download,
+  Film,
   Loader2,
   MonitorPlay,
   RotateCcw,
@@ -20,7 +21,11 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/compone
 import { Progress } from '@/components/ui/progress';
 import { Segmented } from '@/components/ui/segmented';
 import { StarButton } from '@/components/ui/star-button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DisabledTip } from '@/components/ui/tooltip';
+import { ChatLauncher } from '@/components/chat/chat-launcher';
+import { DRAWER_VIEWS, isDrawerView, useClipUi, type DrawerView } from '@/lib/cp2-clips';
+import { registerSeeker } from '@/lib/cp2-chat';
 import { formatClock, formatSpan, timeAgo } from '@/lib/format';
 import {
   useClipMediaUrl,
@@ -32,24 +37,51 @@ import {
   useVideos,
 } from '@/lib/library';
 import { ClipScore } from './clip-card';
+import { HookTab, MetaTab, ReframeTab, ThumbnailTab } from './drawer-tabs';
 import { ScoreBreakdownBars } from './score-breakdown';
 
 type Mode = 'clip' | 'source';
+/** A request to show the source at a moment (from "Play source at this moment" or a chat citation). */
+interface SourceAt {
+  t: number;
+  n: number;
+}
+
+const TAB_LABELS: Record<DrawerView, string> = {
+  overview: 'Overview',
+  hook: 'Hook',
+  meta: 'Metadata',
+  thumbnail: 'Thumbnail',
+  reframe: 'Reframe & Style',
+};
 
 function ClipPlayer({
   clip,
   mode,
   autoplaySource,
+  sourceAt,
 }: {
   clip: ClipView;
   mode: Mode;
   autoplaySource: boolean;
+  sourceAt: SourceAt | null;
 }) {
   const canPlay = clip.status === 'rendered' && clip.hasRender;
   const render = useClipMediaUrl(clip.id, 'render', canPlay && mode === 'clip');
   const thumb = useClipMediaUrl(clip.id, 'thumb', clip.hasThumb);
   const proxy = useProxyUrl(clip.videoId, mode === 'source');
   const ref = React.useRef<HTMLVideoElement | null>(null);
+  // a citation outside the clip's own range must not be cut off by the clip-end guard below
+  const freeSeek = !!sourceAt && (sourceAt.t < clip.startSec || sourceAt.t > clip.endSec);
+  const seekN = sourceAt?.n;
+  React.useEffect(() => {
+    const v = ref.current;
+    if (mode !== 'source' || !v || !sourceAt || v.readyState < 1) return;
+    v.currentTime = sourceAt.t;
+    void v.play().catch(() => undefined);
+    // re-seek only when a new request arrives
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seekN, mode]);
 
   if (mode === 'source') {
     if (proxy.isPending)
@@ -80,12 +112,12 @@ function ClipPlayer({
         className="size-full object-contain"
         onLoadedMetadata={(e) => {
           const v = e.currentTarget;
-          v.currentTime = clip.startSec;
+          v.currentTime = sourceAt?.t ?? clip.startSec;
           if (autoplaySource) void v.play().catch(() => undefined);
         }}
         onTimeUpdate={(e) => {
           const v = e.currentTarget;
-          if (v.currentTime >= clip.endSec && !v.paused) v.pause();
+          if (!freeSeek && v.currentTime >= clip.endSec && !v.paused) v.pause();
         }}
       />
     );
@@ -160,7 +192,10 @@ export function ClipDrawer({
   const open = !!clip;
   const [mode, setMode] = React.useState<Mode>('clip');
   const [autoplaySource, setAutoplaySource] = React.useState(false);
+  const [sourceAt, setSourceAt] = React.useState<SourceAt | null>(null);
   const [confirmDelete, setConfirmDelete] = React.useState(false);
+  const view = useClipUi((s) => s.drawerView);
+  const setView = useClipUi((s) => s.setDrawerView);
   const videos = useVideos();
   const video = videos.data?.items.find((v) => v.id === clip?.videoId);
   const fav = useSetClipFavorite();
@@ -174,7 +209,27 @@ export function ClipDrawer({
     setLastId(clip.id);
     setMode('clip');
     setAutoplaySource(false);
+    setSourceAt(null);
   }
+
+  // the chat's clickable timestamps ("play source at this moment") land here while the drawer is open
+  const hasProxyNow = !!video?.hasProxy;
+  const clipVideoId = clip?.videoId;
+  React.useEffect(() => {
+    if (!open || !clipVideoId || !hasProxyNow) return;
+    return registerSeeker((videoId, t) => {
+      if (videoId !== clipVideoId) return false;
+      setAutoplaySource(true);
+      setSourceAt((prev) => ({ t, n: (prev?.n ?? 0) + 1 }));
+      setMode('source');
+      return true;
+    });
+  }, [open, clipVideoId, hasProxyNow]);
+
+  // leaving the drawer returns it to Overview next time (a deep link may pick another tab right after)
+  React.useEffect(() => {
+    if (!open) setView('overview');
+  }, [open, setView]);
 
   // a deleted clip (or a filter change) removes it from `clips`: close instead of showing stale data
   React.useEffect(() => {
@@ -194,12 +249,22 @@ export function ClipDrawer({
         <DialogContent
           className="h-[min(88vh,780px)] max-h-none max-w-[940px] flex-row"
           data-testid="clip-drawer"
+          // the AI Chat panel is a separate, non-modal layer: using it must not dismiss the drawer underneath
+          onInteractOutside={(e) => {
+            const t = e.target;
+            if (t instanceof Element && t.closest('[data-chat-panel]')) e.preventDefault();
+          }}
         >
           {clip ? (
             <>
               <div className="flex w-[min(340px,42%)] shrink-0 flex-col gap-3 border-r bg-card/60 p-5">
                 <div className="relative aspect-[9/16] w-full overflow-hidden rounded-xl bg-black shadow-md">
-                  <ClipPlayer clip={clip} mode={mode} autoplaySource={autoplaySource} />
+                  <ClipPlayer
+                    clip={clip}
+                    mode={mode}
+                    autoplaySource={autoplaySource}
+                    sourceAt={sourceAt}
+                  />
                 </div>
                 <Segmented<Mode>
                   label="Player source"
@@ -239,6 +304,7 @@ export function ClipDrawer({
                       size="sm"
                       onClick={() => {
                         setAutoplaySource(true);
+                        setSourceAt(null);
                         setMode('source');
                       }}
                     >
@@ -265,6 +331,11 @@ export function ClipDrawer({
                       found {timeAgo(clip.createdAt)}
                     </DialogDescription>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      {clip.kind === 'highlight' ? (
+                        <Badge variant="primary" data-testid="drawer-highlight-badge">
+                          <Film /> Highlight reel
+                        </Badge>
+                      ) : null}
                       <Badge variant="neutral" className="tabular-nums">
                         {formatSpan(clip.durationSec)}
                       </Badge>

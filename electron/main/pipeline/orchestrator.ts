@@ -23,6 +23,7 @@ import {
   type ClipView,
   type VideoView,
 } from '@shared/pipeline';
+import type { MomentRun } from '@shared/cp2';
 import type { Db } from '../db/client';
 import type { JobContext, JobQueue } from '../services/queue';
 import type { NotificationService } from '../services/notifications';
@@ -53,6 +54,7 @@ import { RenderWorker, type RenderWorkerDeps } from './render-worker';
 
 export const JOB_PROCESS = 'pipeline.process';
 export const JOB_RENDER = 'pipeline.render-clip';
+export const JOB_MOMENTS_RUN = 'pipeline.moments-run';
 
 /** Transcription / ranking window (BRIEF §4.5: first clips after ~10 minutes of transcript). */
 export const WINDOW_SEC = 600;
@@ -86,6 +88,8 @@ export interface PipelineDeps extends Omit<
   RenderWorkerDeps,
   'tracker' | 'ensureSource' | 'onClipChanged' | 'sidecar'
 > {
+  /** Emits when a steered moment run changes state. */
+  emitRun(run: MomentRun): void;
   db: Db;
   queue: JobQueue;
   settings: SettingsService;
@@ -143,6 +147,11 @@ export class PipelineOrchestrator {
         await this.checkCompletion(ctx.payload.videoId);
       },
       { concurrency: 2, maxAttempts: 2 },
+    );
+    this.d.queue.register<{ runId: string; videoId: string }>(
+      JOB_MOMENTS_RUN,
+      async (ctx) => this.momentsRun(ctx),
+      { concurrency: 1, maxAttempts: 1 },
     );
   }
 
@@ -256,6 +265,17 @@ export class PipelineOrchestrator {
 
   /** Called on app start: cleans stale 'processing' state for videos whose jobs no longer exist. */
   async reconcileOnStart(): Promise<void> {
+    const staleRuns = await this.d.db.momentRun.findMany({ where: { status: 'running' } });
+    for (const r of staleRuns) {
+      const jobs = await this.d.db.job.count({
+        where: { kind: JOB_MOMENTS_RUN, status: { in: ['queued', 'running'] }, payload: { contains: r.id } },
+      });
+      if (jobs === 0)
+        await this.d.db.momentRun.update({
+          where: { id: r.id },
+          data: { status: 'failed', error: 'Interrupted by a restart.', finishedAt: new Date() },
+        });
+    }
     const rows = await this.d.db.video.findMany({
       where: { status: { in: ['ingesting', 'processing'] } },
     });
@@ -515,9 +535,10 @@ export class PipelineOrchestrator {
     log: (m: string) => void,
   ): Promise<void> {
     const t = this.tracker;
+    const momentsStatus = await t.status(videoId, 'moments');
     const alreadyDone =
       (await t.status(videoId, 'transcribe')) === 'done' &&
-      (await t.status(videoId, 'moments')) === 'done';
+      (momentsStatus === 'done' || momentsStatus === 'skipped');
     if (alreadyDone) {
       if ((await t.status(videoId, 'understand')) !== 'done')
         await this.stageUnderstand(videoId, signal);
@@ -667,7 +688,7 @@ export class PipelineOrchestrator {
       const snapshotWords = words.length;
       rankChain = rankChain
         .then(async () => {
-          if (rankError || signal.aborted) return;
+          if (rankError || signal.aborted || options.mode === 'analysis') return;
           await t.update(videoId, 'moments', {
             message: `Finding moments in window ${k + 1}/${total}`,
             progress: k / total,
@@ -729,7 +750,13 @@ export class PipelineOrchestrator {
         ? Promise.resolve()
         : storage.put(`${cacheBase}/signals.json`, sJson, { contentType: 'application/json' }),
     ]);
-    await t.update(videoId, 'moments', { status: 'done', progress: 1, message: null });
+    await t.update(
+      videoId,
+      'moments',
+      options.mode === 'analysis'
+        ? { status: 'skipped', progress: 1, message: 'Analysis only' }
+        : { status: 'done', progress: 1, message: null },
+    );
     await this.stageUnderstand(videoId, signal);
   }
 
@@ -826,7 +853,10 @@ export class PipelineOrchestrator {
     maxPerWindow: number;
     signal: AbortSignal;
     log: (m: string) => void;
-  }): Promise<void> {
+    runId?: string | null;
+    analysis?: VideoAnalysis | null;
+    /** Skip candidates overlapping existing clips? (steered runs keep them: the better-scored duplicate check happens in addMoment) */
+  }): Promise<string[]> {
     const video = await this.mustVideo(a.videoId);
     const info = parseJson<VideoMeta>(video.metadata, {}).info;
     const ctxStart = Math.max(0, a.wStart - a.overlapSec);
@@ -849,13 +879,13 @@ export class PipelineOrchestrator {
       const last = sentences[sentences.length - 1];
       if (last && !/[.!?…"”)]$/.test(last.text.trim())) sentences = sentences.slice(0, -1);
     }
-    if (sentences.length === 0) return;
+    if (sentences.length === 0) return [];
     let ranked: RankedMoment[];
     try {
       ranked = await this.d.llm.rankMoments({
         videoId: a.videoId,
         info: { title: info?.title ?? video.title, channel: info?.channel ?? video.channel },
-        analysis: null,
+        analysis: a.analysis ?? null,
         options: a.options,
         window: { startSec: ctxStart, endSec: sentences[sentences.length - 1]?.e ?? a.wEnd },
         sentences,
@@ -867,15 +897,28 @@ export class PipelineOrchestrator {
       // A safety refusal on one window must not sink the whole video: skip that window and carry on.
       if (e instanceof LlmError && e.code === 'refusal') {
         a.log(`window ${a.k + 1}/${a.total}: model declined (refusal) — skipping this window`);
-        return;
+        return [];
       }
       throw e;
     }
     a.log(
       `window ${a.k + 1}/${a.total}: ${candidates.length} candidates → ${ranked.length} ranked`,
     );
-    for (const r of ranked)
-      await this.addMoment(a.videoId, a.options, a.transcript, a.signals, r, a.wStart - 1, a.log);
+    const created: string[] = [];
+    for (const r of ranked) {
+      const id = await this.addMoment(
+        a.videoId,
+        a.options,
+        a.transcript,
+        a.signals,
+        r,
+        a.wStart - 1,
+        a.log,
+        a.runId ?? null,
+      );
+      if (id) created.push(id);
+    }
+    return created;
   }
 
   private async addMoment(
@@ -886,7 +929,8 @@ export class PipelineOrchestrator {
     r: RankedMoment,
     minStart: number,
     log: (m: string) => void,
-  ): Promise<void> {
+    runId: string | null = null,
+  ): Promise<string | null> {
     const snapped = this.d.moments.snap({
       startSec: r.startSec,
       endSec: r.endSec,
@@ -899,16 +943,16 @@ export class PipelineOrchestrator {
     const tag = `"${r.title.slice(0, 40)}" ${fmt(snapped.startSec)}–${fmt(snapped.endSec)}`;
     if (dur < minSec * 0.8 || dur > maxSec * 1.15) {
       log(`skip ${tag}: ${Math.round(dur)} s is outside ${minSec}–${maxSec} s`);
-      return;
+      return null;
     }
     if (snapped.startSec < Math.max(0, minStart)) {
       log(`skip ${tag}: starts before this window (belongs to the previous one)`);
-      return;
+      return null;
     }
     const score = totalScore(r.breakdown);
     if (score < options.minScore) {
       log(`skip ${tag}: score ${score} < minimum ${options.minScore}`);
-      return;
+      return null;
     }
     const existing = await this.d.db.clip.findMany({ where: { videoId } });
     for (const e of existing) {
@@ -919,7 +963,7 @@ export class PipelineOrchestrator {
           log(
             `skip ${tag}: overlaps a better clip (${fmt(e.startSec)}–${fmt(e.endSec)}, score ${e.score})`,
           );
-          return;
+          return null;
         }
         await this.d.db.clip.delete({ where: { id: e.id } }); // replace a weaker un-rendered duplicate
       }
@@ -934,6 +978,9 @@ export class PipelineOrchestrator {
         score,
         scoreDetail: JSON.stringify(r.breakdown),
         aspect: options.aspect,
+        runId,
+        captionStyleId: options.captionStyleId,
+        reframeMode: options.reframeMode,
         metadata: JSON.stringify({
           whyItWorks: r.whyItWorks,
           confidence: r.confidence,
@@ -948,7 +995,10 @@ export class PipelineOrchestrator {
       where: { videoId, status: { in: ['queued', 'rendering', 'rendered'] } },
     });
     const budget = options.clipCount ?? Infinity;
-    if (score >= EAGER_RENDER_SCORE && rendering < budget) await this.queueRender(videoId, row.id);
+    // Steered runs are rendered by the run itself (it knows how many the user asked for).
+    if (!runId && score >= EAGER_RENDER_SCORE && rendering < budget)
+      await this.queueRender(videoId, row.id);
+    return row.id;
   }
 
   /** After every window: keep the best N (or all ≥ minScore), drop the rest, render what's left. */
@@ -959,6 +1009,13 @@ export class PipelineOrchestrator {
   ): Promise<void> {
     const t = this.tracker;
     if ((await t.status(videoId, 'render')) === 'done') return;
+    if (options.mode === 'analysis') {
+      await t.update(videoId, 'render', {
+        status: 'skipped',
+        message: 'Analysis only — no clips requested',
+      });
+      return;
+    }
     await t.update(videoId, 'render', {
       status: 'running',
       progress: 0,
@@ -989,7 +1046,7 @@ export class PipelineOrchestrator {
     await this.emitVideo(videoId);
   }
 
-  private async queueRender(videoId: string, clipId: string): Promise<void> {
+  async queueRender(videoId: string, clipId: string): Promise<void> {
     const clip = await this.d.db.clip.findUnique({ where: { id: clipId } });
     if (!clip || ['queued', 'rendering'].includes(clip.status)) return;
     await this.d.db.clip.update({
@@ -1003,6 +1060,146 @@ export class PipelineOrchestrator {
       groupKey: videoId,
       priority: 1,
     });
+  }
+
+  /* ------------------------------------------------------------- steered moment runs ------- */
+
+  /** "Find more like…" — re-runs moment finding on an already transcribed video with a free-text prompt (BRIEF §4.5). */
+  async startMomentsRun(
+    videoId: string,
+    prompt: string,
+    patch?: Partial<PipelineOptions>,
+  ): Promise<{ runId: string }> {
+    const notReady = await this.d.checkReady();
+    if (notReady) throw new AppError('UNAVAILABLE', notReady);
+    const video = await this.mustVideo(videoId);
+    if (['new', 'ingesting', 'processing'].includes(video.status))
+      throw new AppError('VALIDATION', 'Wait until this video has finished processing.');
+    if (!(await this.loadTranscript(videoId)))
+      throw new AppError('NOT_FOUND', 'This video has no transcript yet.');
+    const clean = Object.fromEntries(Object.entries(patch ?? {}).filter(([, v]) => v !== undefined));
+    const options = pipelineOptionsSchema.parse({
+      ...readOptions(video.options),
+      ...clean,
+      prompt: prompt.trim(),
+    });
+    const row = await this.d.db.momentRun.create({
+      data: { videoId, prompt: prompt.trim(), options: JSON.stringify(options) },
+    });
+    await this.d.queue.enqueue({
+      kind: JOB_MOMENTS_RUN,
+      payload: { runId: row.id, videoId },
+      groupKey: videoId,
+    });
+    this.d.emitRun(toRunView(row));
+    return { runId: row.id };
+  }
+
+  async listRuns(videoId: string): Promise<MomentRun[]> {
+    const rows = await this.d.db.momentRun.findMany({
+      where: { videoId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map(toRunView);
+  }
+
+  async cancelRun(runId: string): Promise<void> {
+    const jobs = await this.d.db.job.findMany({
+      where: { kind: JOB_MOMENTS_RUN, status: { in: ['queued', 'running'] }, payload: { contains: runId } },
+    });
+    for (const j of jobs) await this.d.queue.cancel(j.id);
+    const row = await this.d.db.momentRun.updateMany({
+      where: { id: runId, status: 'running' },
+      data: { status: 'canceled', finishedAt: new Date() },
+    });
+    if (row.count > 0) {
+      const fresh = await this.d.db.momentRun.findUnique({ where: { id: runId } });
+      if (fresh) this.d.emitRun(toRunView(fresh));
+    }
+  }
+
+  private async momentsRun(ctx: JobContext<{ runId: string; videoId: string }>): Promise<void> {
+    const { runId, videoId } = ctx.payload;
+    const run = await this.d.db.momentRun.findUnique({ where: { id: runId } });
+    if (!run || run.status !== 'running') return;
+    const log = (m: string) => this.d.log(`[${videoId.slice(-6)} run ${runId.slice(-5)}] ${m}`);
+    const finish = async (data: { status: string; found?: number; error?: string | null }) => {
+      const row = await this.d.db.momentRun
+        .update({ where: { id: runId }, data: { ...data, finishedAt: new Date() } })
+        .catch(() => null);
+      if (row) this.d.emitRun(toRunView(row));
+    };
+    try {
+      const options = pipelineOptionsSchema.parse(parseJson<unknown>(run.options, {}));
+      const [transcript, signals, analysis, video] = await Promise.all([
+        this.loadTranscript(videoId),
+        this.loadSignals(videoId),
+        this.loadAnalysis(videoId),
+        this.mustVideo(videoId),
+      ]);
+      if (!transcript || !signals) throw new Error('The transcript of this video is not available.');
+      const { maxSec } = durationRange(options);
+      const overlapSec = maxSec + 15;
+      const duration = transcript.durationSec;
+      const total = Math.max(1, Math.ceil(duration / WINDOW_SEC));
+      const wanted = options.clipCount ?? 6;
+      const perWindow = Math.max(3, Math.ceil((wanted * 1.5) / total) + 1);
+      const created: string[] = [];
+      for (let k = 0; k < total; k++) {
+        if (ctx.signal.aborted) throw new Error('canceled');
+        await ctx.progress(k / total, `Window ${k + 1}/${total}`);
+        const wStart = k * WINDOW_SEC;
+        const wEnd = Math.min((k + 1) * WINDOW_SEC, duration);
+        const ids = await this.rankWindow({
+          videoId,
+          options,
+          transcript,
+          signals,
+          k,
+          total,
+          wStart,
+          wEnd,
+          isLast: k === total - 1,
+          overlapSec,
+          maxPerWindow: perWindow,
+          signal: ctx.signal,
+          log,
+          runId,
+          analysis,
+        });
+        created.push(...ids);
+      }
+      // Keep the best N of this run, drop the rest, render what is left.
+      const rows = await this.d.db.clip.findMany({
+        where: { id: { in: created } },
+        orderBy: [{ score: 'desc' }, { startSec: 'asc' }],
+      });
+      const keep = rows.slice(0, wanted);
+      const drop = rows.slice(wanted);
+      if (drop.length) await this.deleteClips(drop.map((c) => c.id));
+      for (const c of keep) await this.queueRender(videoId, c.id);
+      await this.emitVideo(videoId);
+      await finish({ status: 'done', found: keep.length });
+      await this.d.notifications.create({
+        kind: 'clips-ready',
+        level: keep.length ? 'success' : 'warning',
+        title: keep.length
+          ? `${keep.length} new clip${keep.length === 1 ? '' : 's'} for “${run.prompt.slice(0, 40)}”`
+          : 'No new moments found',
+        body: keep.length
+          ? video.title
+          : `Nothing matched “${run.prompt.slice(0, 60)}” beyond the clips you already have.`,
+        href: `/library/video/?id=${videoId}`,
+        os: false,
+      });
+    } catch (err) {
+      if (ctx.signal.aborted) {
+        await finish({ status: 'canceled' });
+        return;
+      }
+      log(`failed: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
+      await finish({ status: 'failed', error: userMessage(err) });
+    }
   }
 
   /* ------------------------------------------------------------ completion / finalize -------- */
@@ -1133,8 +1330,11 @@ export class PipelineOrchestrator {
     await this.d.db.clip.deleteMany({ where: { id: { in: ids } } });
     if (storage) {
       const k: string[] = [];
-      for (const c of rows)
+      for (const c of rows) {
         k.push(keys.clip(c.id), keys.thumb(c.id), keys.ass(c.id), keys.srt(c.id), keys.vtt(c.id));
+        // Candidate thumbnail frames (CP2) live under clips/<id>/thumbs/.
+        for await (const o of storage.list(`clips/${c.id}/thumbs/`)) k.push(o.key);
+      }
       await storage.delete(k).catch((e) => this.d.log(`storage delete failed: ${String(e)}`));
       this.d.invalidateStorage();
     }
@@ -1201,7 +1401,10 @@ export class PipelineOrchestrator {
       where: { id: c.videoId },
       select: { title: true },
     });
-    this.d.emit.clip(toClipView(c as ClipRow, v?.title ?? null));
+    const run = c.runId
+      ? await this.d.db.momentRun.findUnique({ where: { id: c.runId }, select: { prompt: true } })
+      : null;
+    this.d.emit.clip(toClipView(c as ClipRow, v?.title ?? null, run?.prompt ?? null));
     if (c.status === 'rendered') await this.notifyFirstClip(c.videoId, c.title);
   }
 
@@ -1215,6 +1418,21 @@ export class PipelineOrchestrator {
       if (!storage || !(await storage.head(keys.analysis(videoId)))) return null;
       return videoAnalysisSchema.parse(
         JSON.parse((await storage.get(keys.analysis(videoId))).toString('utf8')),
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  async loadSignals(videoId: string): Promise<AudioSignals | null> {
+    const local = path.join(this.d.cacheDir, videoId, 'signals.json');
+    try {
+      if (fs.existsSync(local))
+        return audioSignalsSchema.parse(JSON.parse(fs.readFileSync(local, 'utf8')));
+      const storage = this.d.getStorage();
+      if (!storage || !(await storage.head(keys.signals(videoId)))) return null;
+      return audioSignalsSchema.parse(
+        JSON.parse((await storage.get(keys.signals(videoId))).toString('utf8')),
       );
     } catch {
       return null;
@@ -1241,6 +1459,28 @@ function atomicWrite(file: string, data: string): void {
   const tmp = `${file}.tmp`;
   fs.writeFileSync(tmp, data);
   fs.renameSync(tmp, file);
+}
+
+export function toRunView(r: {
+  id: string;
+  videoId: string;
+  prompt: string;
+  status: string;
+  found: number;
+  error: string | null;
+  createdAt: Date;
+  finishedAt: Date | null;
+}): MomentRun {
+  return {
+    id: r.id,
+    videoId: r.videoId,
+    prompt: r.prompt,
+    status: (['running', 'done', 'failed', 'canceled'] as const).find((x) => x === r.status) ?? 'failed',
+    found: r.found,
+    error: r.error,
+    createdAt: r.createdAt.getTime(),
+    finishedAt: r.finishedAt ? r.finishedAt.getTime() : null,
+  };
 }
 
 const mid = (w: Word): number => (w.s + w.e) / 2;

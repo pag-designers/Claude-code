@@ -11,6 +11,8 @@ import {
   type Word,
 } from '@shared/pipeline';
 import { PipelineOrchestrator, WINDOW_SEC, type PipelineDeps } from '@main/pipeline/orchestrator';
+import { StyleRegistry } from '@main/pipeline/styles';
+import { captionStyleSchema, subtitleEditsSchema, type CaptionStyle, type MomentRun } from '@shared/cp2';
 import { BudgetExceededError, IngestError, type LlmService } from '@main/pipeline/contracts';
 import { MemoryStorageProvider } from '@main/services/storage/memory';
 import { JOB_KINDS } from '@main/services/context';
@@ -56,6 +58,8 @@ interface Env {
   dir: string;
   events: PipelineEvent[];
   clipsSeen: ClipView[];
+  runs: MomentRun[];
+  prompts: string[];
   calls: { transcribe: number; ingest: number; rank: number; render: number; understand: number };
   hooks: {
     failIngestOnce: boolean;
@@ -65,6 +69,21 @@ interface Env {
   };
   cleanup: () => Promise<void>;
 }
+
+export const FAKE_STYLE: CaptionStyle = captionStyleSchema.parse({
+  id: 'clean-pop',
+  name: 'Clean Pop',
+  builtin: true,
+  font: { family: 'Montserrat ExtraBold' },
+  fill: '#FFFFFF',
+  stroke: { color: '#000000' },
+  shadow: { color: '#000000' },
+  box: { color: '#000000' },
+  highlight: { color: '#FFD60A', boxColor: '#FFD60A' },
+  keywordColor: '#FFD60A',
+  layout: {},
+  chunking: {},
+});
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -85,6 +104,8 @@ async function makeEnv(): Promise<Env> {
     renderDelayMs: 0,
   };
   const cacheDir = path.join(dir, 'cache');
+  const runs: MomentRun[] = [];
+  const prompts: string[] = [];
 
   const llm: LlmService = {
     isConfigured: () => true,
@@ -102,6 +123,7 @@ async function makeEnv(): Promise<Env> {
     },
     async rankMoments(input) {
       calls.rank++;
+      if (input.options.prompt) prompts.push(input.options.prompt);
       if (hooks.llmError) throw hooks.llmError;
       // one strong (84) and one OK (66) moment per window, ~35 s long, from the sentences we were given
       const out: RankedMoment[] = [];
@@ -112,7 +134,8 @@ async function makeEnv(): Promise<Env> {
           (x) => x.s >= (input.window.startSec > 0 ? input.window.startSec + 80 : 0),
         ),
       );
-      const picks = [base + 3, base + 14];
+      // A steered run looks somewhere else in the window than the default pass does.
+      const picks = input.options.prompt ? [base + 30] : [base + 3, base + 14];
       picks.forEach((idx, n) => {
         const a = input.sentences[idx];
         const b = input.sentences[Math.min(idx + 8, input.sentences.length - 1)];
@@ -121,7 +144,7 @@ async function makeEnv(): Promise<Env> {
           candidateId: null,
           startSec: a.s,
           endSec: b.e,
-          title: `Moment ${input.window.startSec}-${n}`,
+          title: input.options.prompt ? `Steered ${input.window.startSec}` : `Moment ${input.window.startSec}-${n}`,
           hook: 'Wait for it',
           whyItWorks: 'because',
           captionStyle: 'clean-pop',
@@ -220,6 +243,9 @@ async function makeEnv(): Promise<Env> {
       snap: ({ startSec, endSec }) => ({ startSec, endSec }),
     },
     reframe: {
+      async analyzeLayout() {
+        return { kind: 'none', faceRegion: null, screenRegion: null, confidence: 0 };
+      },
       plan: ({ aspect, srcW, srcH }) => ({
         mode: 'center',
         aspect,
@@ -233,6 +259,11 @@ async function makeEnv(): Promise<Env> {
       }),
     },
     captions: {
+      builtinStyles: () => [FAKE_STYLE],
+      async preview() {
+        return Buffer.from('png');
+      },
+      fonts: () => [],
       buildAss: () => '[Script Info]\n',
       buildSrt: () => '1\n00:00:00,000 --> 00:00:01,000\nhi\n',
       buildVtt: () => 'WEBVTT\n',
@@ -247,10 +278,35 @@ async function makeEnv(): Promise<Env> {
         req.onProgress?.(1);
         return { encoder: 'libx264', durationSec: req.endSec - req.startSec };
       },
+      async renderHighlight(req) {
+        calls.render++;
+        fs.writeFileSync(req.outPath, 'mp4-bytes');
+        return { encoder: 'libx264', durationSec: 40 };
+      },
       async detectEncoder() {
         return 'libx264';
       },
     },
+    subtitles: {
+      applyEdits: (words) => words.map((w, origIndex) => ({ ...w, origIndex })),
+      cues: () => [],
+      editCueText: (_w, e) => e,
+      splitCue: (_w, e) => e,
+      mergeWithNext: (_w, e) => e,
+      shiftCue: (_w, e) => e,
+      toSrt: () => '',
+      toVtt: () => 'WEBVTT\n',
+    },
+    thumbnails: {
+      sample: async () => [],
+      score: async () => [],
+      compose: async (a) => {
+        fs.copyFileSync(a.framePath, a.outJpg);
+      },
+    },
+    styles: new StyleRegistry(svc.dbHandle.prisma, { builtinStyles: () => [FAKE_STYLE] }),
+    loadSubtitleEdits: async () => subtitleEditsSchema.parse({}),
+    emitRun: (r) => runs.push(r),
     sidecar: {
       getStatus: () => ({ installed: true, modelReady: true }),
       async start() {},
@@ -308,7 +364,7 @@ async function makeEnv(): Promise<Env> {
   const orch = new PipelineOrchestrator(deps);
   orch.registerJobs();
   await svc.queue.start();
-  const env: Env = { svc, orch, storage, dir, events, clipsSeen, calls, hooks, cleanup: m.cleanup };
+  const env: Env = { svc, orch, storage, dir, events, clipsSeen, runs, prompts, calls, hooks, cleanup: m.cleanup };
   cleanups.push(m.cleanup);
   return env;
 }
@@ -514,5 +570,72 @@ describe('pipeline options patch', () => {
       clipPreset: string;
     };
     expect(opts).toMatchObject({ clipCount: 3, aspect: '1:1', clipPreset: '15-30' });
+  });
+});
+
+
+describe('CP2: analysis-only mode and steered runs', () => {
+  it('analysis mode transcribes and understands but never ranks or renders', async () => {
+    const e = await makeEnv();
+    const { videoId } = await e.orch.start(URL1, { mode: 'analysis' });
+    await waitFor(async () => (await videoStatus(e, videoId)) === 'ready');
+    expect(e.calls.rank).toBe(0);
+    expect(e.calls.render).toBe(0);
+    expect(e.calls.understand).toBe(1);
+    expect(await e.svc.dbHandle.prisma.clip.count({ where: { videoId } })).toBe(0);
+    const states = await e.svc.dbHandle.prisma.video.findUniqueOrThrow({ where: { id: videoId } });
+    const stages = JSON.parse(states.stages) as { stage: string; status: string }[];
+    expect(stages.find((x) => x.stage === 'moments')?.status).toBe('skipped');
+    expect(stages.find((x) => x.stage === 'render')?.status).toBe('skipped');
+    expect(await e.storage.head(keys.transcript(videoId))).not.toBeNull();
+    expect(await e.storage.head(keys.analysis(videoId))).not.toBeNull();
+  });
+
+  it('a steered run reuses the transcript, finds NEW moments, tags them with the run and renders them', async () => {
+    const e = await makeEnv();
+    const { videoId } = await e.orch.start(URL1, { clipCount: 3, minScore: 60 });
+    await waitFor(async () => (await videoStatus(e, videoId)) === 'ready');
+    const asrCalls = e.calls.transcribe;
+    const before = await e.svc.dbHandle.prisma.clip.count({ where: { videoId } });
+
+    const { runId } = await e.orch.startMomentsRun(videoId, 'only the funny parts', { clipCount: 2 });
+    await waitFor(async () => (await e.orch.listRuns(videoId)).every((r) => r.status !== 'running'));
+    const [run] = await e.orch.listRuns(videoId);
+    expect(run?.id).toBe(runId);
+    expect(run?.status).toBe('done');
+    expect(run?.found).toBe(2);
+    expect(e.calls.transcribe).toBe(asrCalls); // no new ASR
+    expect(e.prompts.every((p) => p === 'only the funny parts')).toBe(true);
+    expect(e.runs.some((r) => r.status === 'running')).toBe(true); // announced when it started
+    expect(e.runs.at(-1)?.status).toBe('done');
+
+    await waitFor(async () => {
+      const cs = await e.svc.dbHandle.prisma.clip.findMany({ where: { runId } });
+      return cs.length === 2 && cs.every((c) => c.status === 'rendered');
+    });
+    const steered = await e.svc.dbHandle.prisma.clip.findMany({ where: { runId } });
+    expect(steered.every((c) => c.title.startsWith('Steered'))).toBe(true);
+    expect(await e.svc.dbHandle.prisma.clip.count({ where: { videoId } })).toBe(before + 2);
+    // the view carries the prompt so the UI can label "found by: …"
+    await e.orch.emitClip(steered[0]!.id);
+    expect(e.clipsSeen.at(-1)?.runPrompt).toBe('only the funny parts');
+  });
+
+  it('refuses a steered run while the video is still processing and on a missing transcript', async () => {
+    const e = await makeEnv();
+    e.hooks.ingestDelayMs = 200;
+    const { videoId } = await e.orch.start(URL1, { clipCount: 2 });
+    await expect(e.orch.startMomentsRun(videoId, 'funny')).rejects.toThrow(/finished processing/);
+    await e.orch.cancel(videoId);
+  });
+
+  it('canceling a queued run marks it canceled', async () => {
+    const e = await makeEnv();
+    const { videoId } = await e.orch.start(URL1, { clipCount: 2 });
+    await waitFor(async () => (await videoStatus(e, videoId)) === 'ready');
+    const { runId } = await e.orch.startMomentsRun(videoId, 'something else');
+    await e.orch.cancelRun(runId);
+    const [run] = await e.orch.listRuns(videoId);
+    expect(['canceled', 'done']).toContain(run?.status);
   });
 });

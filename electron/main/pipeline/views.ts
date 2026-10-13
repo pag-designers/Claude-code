@@ -140,6 +140,7 @@ export function toClipView(
     confidence?: number;
     hooks?: { applied: { platform: string; index: number } | null; [k: string]: unknown } | null;
     appliedHookText?: string | null;
+    hookOff?: boolean;
     meta?: unknown;
     thumbs?: unknown;
   }>(row.metadata, {});
@@ -177,7 +178,7 @@ export function toClipView(
         (m) => m === row.reframeMode,
       ) ?? 'auto',
     layout: (['single', 'split', 'screen-face'] as const).find((l) => l === row.layout) ?? null,
-    hookApplied: meta.appliedHookText ?? row.hook ?? null,
+    hookApplied: meta.hookOff ? null : (meta.appliedHookText ?? row.hook ?? null),
     hasHooks: Boolean(meta.hooks),
     hasMeta: Boolean(meta.meta),
     hasThumbOptions: Boolean(meta.thumbs),

@@ -2,19 +2,29 @@ import path from 'node:path';
 import type { SidecarManager } from '../services/sidecar';
 import type { Services } from '../services/context';
 import { createAnalysisService } from '../services/analysis';
-import { createCaptionService } from '../services/captions';
+import { createCaptionService, createSubtitleService } from '../services/captions';
 import { createLlmService } from '../services/llm';
 import { createMediaService } from '../services/media/ffmpeg';
 import { createIngestService } from '../services/media/ytdlp';
 import { createMomentService } from '../services/moments';
 import { createReframeService, facesFromSidecar } from '../services/reframe';
-import { createRenderService, extractThumbnail } from '../services/render';
+import { createRenderService, createThumbnailService, extractThumbnail } from '../services/render';
 import { logger } from '../logger';
+import type { ChatEvent, MomentRun } from '@shared/cp2';
+import { ChatService } from './chat';
+import { Cp2Service } from './cp2';
 import { LibraryService } from './library';
+import { StyleRegistry } from './styles';
 import { PipelineOrchestrator } from './orchestrator';
 
 export interface PipelineHost {
-  emit: ConstructorParameters<typeof PipelineOrchestrator>[0]['emit'];
+  emit: ConstructorParameters<typeof PipelineOrchestrator>[0]['emit'] & {
+    chat(e: ChatEvent): void;
+    momentRun(r: MomentRun): void;
+    markers(videoId: string): void;
+  };
+  /** Save dialog + write a text file; null = canceled. */
+  saveText(opts: { title: string; defaultName: string; extension: string }, content: string): Promise<string | null>;
   chooseDirectory(): Promise<string | null>;
   /** Directory with fonts for libass (null = system fonts). */
   fontsDir(): string | null;
@@ -63,6 +73,14 @@ export function createPipeline(svc: Services, sidecar: SidecarManager, host: Pip
     },
   });
 
+  const captions = createCaptionService();
+  const subtitles = createSubtitleService();
+  const thumbnails = createThumbnailService();
+  const moments = createMomentService();
+  const styles = new StyleRegistry(svc.dbHandle.prisma, captions);
+  // Late-bound: the subtitle-edit store lives in Cp2Service, which needs the orchestrator.
+  let cp2Ref: Cp2Service | null = null;
+
   const orchestrator = new PipelineOrchestrator({
     db: svc.dbHandle.prisma,
     queue: svc.queue,
@@ -72,9 +90,17 @@ export function createPipeline(svc: Services, sidecar: SidecarManager, host: Pip
     media,
     analysis: createAnalysisService(),
     llm,
-    moments: createMomentService(),
+    moments,
     reframe: createReframeService(),
-    captions: createCaptionService(),
+    captions,
+    subtitles,
+    thumbnails,
+    styles,
+    loadSubtitleEdits: (videoId) => {
+      if (!cp2Ref) throw new Error('CP2 service not ready');
+      return cp2Ref.loadEdits(videoId);
+    },
+    emitRun: (r) => host.emit.momentRun(r),
     render: createRenderService(),
     sidecar,
     toFaceSamples: (wire) => facesFromSidecar(wire as Parameters<typeof facesFromSidecar>[0]),
@@ -111,9 +137,50 @@ export function createPipeline(svc: Services, sidecar: SidecarManager, host: Pip
     log,
   });
 
+  const cp2 = new Cp2Service({
+    db: svc.dbHandle.prisma,
+    queue: svc.queue,
+    orchestrator,
+    styles,
+    captions,
+    subtitles,
+    thumbnails,
+    moments,
+    llm,
+    frameScorer: async (files, signal) => {
+      await sidecar.start();
+      return sidecar.scoreFrames(files, { signal });
+    },
+    getStorage: () => svc.storage.get(),
+    invalidateStorage: () => svc.storageUsage.invalidate(),
+    cacheDir: path.join(svc.userDataDir, 'cache'),
+    ffmpegPath,
+    fontsDir: host.fontsDir,
+    saveText: host.saveText,
+    emit: { markers: host.emit.markers },
+    log,
+  });
+  cp2Ref = cp2;
+  cp2.registerJobs();
+
+  const chat = new ChatService({
+    db: svc.dbHandle.prisma,
+    cp2,
+    orchestrator,
+    moments,
+    llm,
+    emit: host.emit.chat,
+    checkLlmReady: () => (llm.isConfigured() ? null : 'Add your Anthropic API key in Settings → API Keys.'),
+    log,
+  });
+
   return {
     orchestrator,
     library,
+    cp2,
+    chat,
+    styles,
+    captions,
     probeUrl: (url: string) =>
       ingest.probe(url, { cookiesFromBrowser: svc.currentCookies() }),
   };

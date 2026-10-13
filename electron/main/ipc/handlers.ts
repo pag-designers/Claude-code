@@ -4,6 +4,10 @@ import { detectHardware } from '../services/hardware';
 import { logger } from '../logger';
 import type { Services } from '../services/context';
 import type { LibraryService } from '../pipeline/library';
+import type { ChatService } from '../pipeline/chat';
+import type { Cp2Service } from '../pipeline/cp2';
+import type { StyleRegistry } from '../pipeline/styles';
+import type { CaptionService } from '../pipeline/contracts';
 import type { PipelineOrchestrator } from '../pipeline/orchestrator';
 import type { UrlInfo } from '@shared/pipeline';
 import type { Handlers } from './dispatch';
@@ -15,6 +19,11 @@ export interface HostApi {
   exportLogs(text: string): Promise<{ saved: boolean; path: string | null }>;
   pipeline: PipelineOrchestrator;
   library: LibraryService;
+  cp2: Cp2Service;
+  chat: ChatService;
+  styles: StyleRegistry;
+  captions: Pick<CaptionService, 'fonts'>;
+  fontsDir(): string | null;
   probeUrl(url: string): Promise<UrlInfo>;
   sidecar: {
     status(): SidecarStatus;
@@ -139,6 +148,79 @@ export function buildHandlers(svc: Services, host: HostApi): Handlers {
     },
     'clips:mediaUrl': async ({ id, kind }) => ({ url: await host.library.mediaUrl(id, kind) }),
     'clips:download': ({ ids, withCaptions }) => host.library.download(ids, withCaptions),
+
+    /* ---- CP2 ---- */
+    'captions:styles': async () => ({ styles: await host.styles.list() }),
+    'captions:fonts': () => ({ fonts: host.captions.fonts(host.fontsDir()) }),
+    'captions:saveStyle': ({ style }) => host.styles.save(style),
+    'captions:deleteStyle': async ({ id }) => {
+      await host.styles.delete(id);
+      return ok;
+    },
+    'captions:preview': (a) => host.cp2.previewStyle(a),
+    'clips:restyle': async ({ ids, styleId, reframeMode }) => {
+      await host.cp2.restyle(ids, { styleId, reframeMode });
+      return ok;
+    },
+    'clips:reframe': async ({ ids, mode }) => {
+      await host.cp2.restyle(ids, { reframeMode: mode });
+      return ok;
+    },
+    'videos:setCaptionStyle': async ({ id, styleId }) => {
+      await host.cp2.setVideoCaptionStyle(id, styleId);
+      return ok;
+    },
+
+    'subtitles:get': ({ videoId }) => host.cp2.subtitlesGet(videoId),
+    'subtitles:save': ({ videoId, edits }) => host.cp2.subtitlesSave(videoId, edits),
+    'subtitles:export': (a) => host.cp2.subtitlesExport(a),
+
+    'moments:find': ({ videoId, prompt, options }) => host.pipeline.startMomentsRun(videoId, prompt, options),
+    'moments:runs': async ({ videoId }) => ({ items: await host.pipeline.listRuns(videoId) }),
+    'moments:cancel': async ({ runId }) => {
+      await host.pipeline.cancelRun(runId);
+      return ok;
+    },
+    'highlights:create': ({ videoId, prompt }) => host.cp2.createHighlights(videoId, prompt),
+
+    'hooks:get': ({ clipId }) => host.cp2.hooksGet(clipId),
+    'hooks:generate': ({ clipId }) => host.cp2.hooksGenerate(clipId),
+    'hooks:apply': async ({ clipId, choice }) => {
+      await host.cp2.hooksApply(clipId, choice);
+      return ok;
+    },
+    'meta:get': ({ clipId }) => host.cp2.metaGet(clipId),
+    'meta:generate': ({ clipId }) => host.cp2.metaGenerate(clipId),
+    'meta:save': async ({ clipId, platform, meta }) => {
+      await host.cp2.metaSave(clipId, platform, meta);
+      return ok;
+    },
+    'thumbs:get': ({ clipId }) => host.cp2.thumbsGet(clipId),
+    'thumbs:generate': ({ clipId }) => host.cp2.thumbsGenerate(clipId),
+    'thumbs:choose': async ({ clipId, t, overlayText }) => {
+      await host.cp2.thumbsChoose(clipId, t, overlayText);
+      return ok;
+    },
+    'thumbs:url': async ({ clipId, index }) => ({ url: await host.cp2.thumbUrl(clipId, index) }),
+
+    'chat:threads': async ({ videoId, clipId }) => ({ items: await host.chat.threads(videoId, clipId) }),
+    'chat:messages': async ({ threadId }) => ({ items: await host.chat.messages(threadId) }),
+    'chat:send': (a) => host.chat.send(a),
+    'chat:cancel': async ({ threadId }) => {
+      host.chat.cancel(threadId);
+      return ok;
+    },
+    'chat:delete': async ({ threadId }) => {
+      await host.chat.delete(threadId);
+      return ok;
+    },
+
+    'markers:list': async ({ videoId }) => ({ items: await host.cp2.listMarkers(videoId) }),
+    'markers:add': ({ videoId, atSec, label }) => host.cp2.addMarker(videoId, atSec, label),
+    'markers:delete': async ({ id }) => {
+      await host.cp2.deleteMarker(id);
+      return ok;
+    },
 
     'shell:openExternal': async ({ url }) => {
       if (!/^https?:\/\//i.test(url)) throw new Error('Only http(s) links can be opened');

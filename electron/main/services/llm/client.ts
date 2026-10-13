@@ -32,6 +32,13 @@ export interface RunArgs<T> {
   stable: string;
   /** Everything that varies per call; no cache marker. */
   volatile: string;
+  /**
+   * Optional content (images) placed between `stable` and `volatile`: it varies per call, so it sits
+   * AFTER the cache breakpoint and the instructions + stable context stay a cacheable prefix.
+   */
+  media?: readonly Anthropic.ContentBlockParam[];
+  /** Prompt tokens the text estimate cannot see (images), for the budget check. */
+  extraPromptTokens?: number;
   schema: z.ZodType<T>;
   jsonSchema: Record<string, unknown>;
   effort: Effort;
@@ -57,6 +64,31 @@ export interface EngineDeps {
   baseUrl?: string;
   maxRetries?: number;
   log: (m: string) => void;
+}
+
+/** A client tool as the chat layer defines it; the engine adds `strict` / `eager_input_streaming`. */
+export interface ToolDef {
+  name: string;
+  description: string;
+  input_schema: Anthropic.Tool.InputSchema;
+}
+
+export interface ConverseArgs {
+  model: string;
+  /** Recorded in the cost log, e.g. "chat". */
+  purpose: string;
+  /** Frozen system text (cache breakpoint). Rendered after `tools` in the cached prefix. */
+  system: string;
+  messages: Anthropic.MessageParam[];
+  tools?: readonly ToolDef[];
+  effort: Effort;
+  maxTokens: number;
+  /** Rough size of the whole request, only for the pre-call budget check. */
+  promptTokens: number;
+  estimatedOutputTokens: number;
+  signal?: AbortSignal;
+  /** Called for every streamed text delta. */
+  onText?: (delta: string) => void;
 }
 
 const lower = (e: Effort): Effort => (e === 'high' ? 'medium' : 'low');
@@ -91,6 +123,9 @@ export class LlmEngine {
   private clientKey = '';
   /** Models that rejected `output_config.effort` (older generations); we stop sending it to them. */
   private readonly noEffort = new Set<string>();
+  /** Set once the API rejected `eager_input_streaming` / `strict` on tools (see `converse`). */
+  private noEager = false;
+  private noStrict = false;
 
   constructor(private readonly deps: EngineDeps) {}
 
@@ -125,7 +160,8 @@ export class LlmEngine {
     const { signal } = args;
     if (signal?.aborted) throw abortError(signal);
 
-    const promptTokens = estimateTokens(args.system + args.stable + args.volatile);
+    const promptTokens =
+      estimateTokens(args.system + args.stable + args.volatile) + (args.extraPromptTokens ?? 0);
     if (promptTokens > PROMPT_TOKEN_LIMIT) {
       throw new LlmError(
         'too-long',
@@ -231,6 +267,164 @@ export class LlmEngine {
     );
   }
 
+  /**
+   * One streamed, tool-capable request (the building block of the chat loop). Same guarantees as
+   * `run`: budget check before the call, cost recorded from the API's usage (cache tokens included),
+   * typed errors, key only as x-api-key, abort honoured, no sampling params / prefill / tool_choice.
+   * Returns the complete assistant message; the CALLER owns the tool loop and the stop_reason policy
+   * (except `refusal` / context overflow, which are errors here).
+   *
+   * Degradation (remembered per engine): a 400 naming `effort`, `eager_input_streaming` or `strict`
+   * retries once without that field, so a model or gateway that lacks it does not break chat.
+   */
+  async converse(args: ConverseArgs): Promise<Anthropic.Message> {
+    const key = this.deps.getApiKey()?.trim();
+    if (!key) throw new LlmError('no-key', NO_KEY_MESSAGE);
+    const { signal } = args;
+    if (signal?.aborted) throw abortError(signal);
+    if (args.promptTokens > PROMPT_TOKEN_LIMIT) {
+      throw new LlmError(
+        'too-long',
+        `This conversation is too long for one request (about ${Math.round(args.promptTokens / 1000)}K tokens).`,
+      );
+    }
+    let midstream = 0;
+    let jsonRetries = 0;
+    let effortRetried = false;
+    for (let guard = 0; guard < 8; guard++) {
+      if (signal?.aborted) throw abortError(signal);
+      await this.deps.budget.check(args.model, args.promptTokens, args.estimatedOutputTokens);
+      const flags = { started: false, textEmitted: false };
+      try {
+        return await this.converseOnce(this.clientFor(key), args, flags);
+      } catch (e) {
+        if (signal?.aborted) throw abortError(signal);
+        if (e instanceof LlmError) throw e;
+        if (e instanceof Anthropic.BadRequestError) {
+          const msg = e.message;
+          if (/\beffort\b/i.test(msg) && !effortRetried && !this.noEffort.has(args.model)) {
+            effortRetried = true;
+            this.noEffort.add(args.model);
+            this.deps.log(
+              `${args.purpose}: ${args.model} does not accept effort; retrying without it`,
+            );
+            continue;
+          }
+          // The combination strict + eager streaming may be rejected: eager only matters for large
+          // tool inputs (ours are tiny), so it is dropped first.
+          if (/eager_input_streaming/i.test(msg) && !this.noEager) {
+            this.noEager = true;
+            this.deps.log(`${args.purpose}: eager_input_streaming rejected; retrying without it`);
+            continue;
+          }
+          if (/\bstrict\b/i.test(msg) && !this.noStrict) {
+            this.noStrict = true;
+            this.deps.log(`${args.purpose}: strict tools rejected; retrying without them`);
+            continue;
+          }
+        }
+        // With eager input streaming the SDK can fail to parse a tool input at block close.
+        if (isToolJsonError(e) && !flags.textEmitted && jsonRetries < 1) {
+          jsonRetries++;
+          this.deps.log(`${args.purpose}: tool input was not valid JSON; re-issuing the turn once`);
+          continue;
+        }
+        // A retry after text reached the UI would repeat that text, so it is only safe before.
+        if (
+          flags.started &&
+          !flags.textEmitted &&
+          isTransient(e) &&
+          midstream < MAX_MIDSTREAM_RETRIES
+        ) {
+          midstream++;
+          this.deps.log(
+            `${args.purpose}: stream broke mid-response (${errText(e)}); retrying once`,
+          );
+          await sleep(1500, signal);
+          continue;
+        }
+        if (isToolJsonError(e))
+          throw new LlmError(
+            'invalid-output',
+            'Claude produced an unreadable tool call. Please try again.',
+            {
+              cause: e,
+            },
+          );
+        throw mapApiError(e, args.model);
+      }
+    }
+    throw new LlmError(
+      'api',
+      'Anthropic request could not be completed after several adjustments.',
+    );
+  }
+
+  private async converseOnce(
+    client: Anthropic,
+    args: ConverseArgs,
+    flags: { started: boolean; textEmitted: boolean },
+  ): Promise<Anthropic.Message> {
+    const tools: Anthropic.Tool[] | undefined = args.tools?.length
+      ? args.tools.map((t) => ({
+          name: t.name,
+          description: t.description,
+          input_schema: t.input_schema,
+          ...(this.noStrict ? {} : { strict: true }),
+          ...(this.noEager ? {} : { eager_input_streaming: true }),
+        }))
+      : undefined;
+    // No temperature/top_p/top_k, no prefill (the last turn is the user's / a tool result), no
+    // forced tool_choice (400 on Sonnet 5.5 - `auto` is the default), no `thinking` (adaptive).
+    const params: Anthropic.MessageStreamParams = {
+      model: args.model,
+      max_tokens: args.maxTokens,
+      system: [{ type: 'text', text: args.system, cache_control: { type: 'ephemeral' } }],
+      messages: args.messages,
+      ...(tools ? { tools } : {}),
+      output_config: this.noEffort.has(args.model) ? {} : { effort: args.effort },
+    };
+    const stream = client.messages.stream(params, args.signal ? { signal: args.signal } : {});
+    stream.on('streamEvent', () => {
+      flags.started = true;
+    });
+    stream.on('text', (delta) => {
+      if (!delta) return;
+      flags.textEmitted = true;
+      args.onText?.(delta);
+    });
+    let msg: Anthropic.Message;
+    try {
+      msg = await stream.finalMessage();
+    } catch (e) {
+      if (isAbortError(e) && args.signal?.aborted) throw abortError(args.signal);
+      throw e;
+    }
+    const u = msg.usage;
+    await this.record(args.model, args.purpose, msg);
+    this.deps.log(
+      `${args.purpose}: ${args.model} effort=${args.effort} stop=${msg.stop_reason} ` +
+        `in=${u.input_tokens} cacheRead=${u.cache_read_input_tokens ?? 0} ` +
+        `cacheWrite=${u.cache_creation_input_tokens ?? 0} out=${u.output_tokens}` +
+        (stream.request_id ? ` req=${stream.request_id}` : ''),
+    );
+    if (msg.stop_reason === 'refusal') {
+      const d = msg.stop_details;
+      const why = d ? ` (${[d.category, d.explanation].filter(Boolean).join(': ')})` : '';
+      throw new LlmError(
+        'refusal',
+        `Claude declined to answer this${why}. Try rephrasing your message.`,
+      );
+    }
+    if (msg.stop_reason === 'model_context_window_exceeded') {
+      throw new LlmError(
+        'too-long',
+        "This conversation does not fit into the model's context window.",
+      );
+    }
+    return msg;
+  }
+
   /** A single streamed request. Records usage (also for unusable replies). */
   private async once<T>(
     client: Anthropic,
@@ -238,8 +432,9 @@ export class LlmEngine {
     p: { effort: Effort; maxTokens: number; repair: string | null },
     flags: { started: boolean },
   ): Promise<Once> {
-    const content: Anthropic.TextBlockParam[] = [
+    const content: Anthropic.ContentBlockParam[] = [
       { type: 'text', text: args.stable, cache_control: { type: 'ephemeral' } },
+      ...(args.media ?? []),
       { type: 'text', text: args.volatile },
     ];
     if (p.repair) content.push({ type: 'text', text: buildRepairBlock(p.repair) });
@@ -330,6 +525,15 @@ export class LlmEngine {
       this.deps.log(`could not record cost: ${errText(e)}`);
     }
   }
+}
+
+/** The SDK throws a plain AnthropicError (not an APIError) when streamed tool JSON cannot be parsed. */
+function isToolJsonError(e: unknown): boolean {
+  return (
+    e instanceof Anthropic.AnthropicError &&
+    !(e instanceof Anthropic.APIError) &&
+    /json/i.test(e.message)
+  );
 }
 
 function errText(e: unknown): string {

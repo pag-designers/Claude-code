@@ -74,6 +74,22 @@ export function escapeAssText(text: string): string {
   );
 }
 
+/** Applies the style's text case. "title" capitalises each word and lowers shouted (ALL CAPS) words. */
+export function applyCase(text: string, mode: 'none' | 'upper' | 'lower' | 'title'): string {
+  switch (mode) {
+    case 'upper':
+      return text.toUpperCase();
+    case 'lower':
+      return text.toLowerCase();
+    case 'title':
+      return text.replace(/(^|[\s\-"'(\[“‘])(\p{L})(\p{L}*)/gu, (_m, pre: string, first: string, rest: string) =>
+        `${pre}${first.toUpperCase()}${rest === rest.toUpperCase() ? rest.toLowerCase() : rest}`,
+      );
+    default:
+      return text;
+  }
+}
+
 /* ------------------------------------------------ profanity ---------------------------------------- */
 
 const PROFANITY: RegExp[] = [

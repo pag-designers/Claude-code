@@ -43,3 +43,54 @@ export function cropGeometry(aspect: Aspect, srcW: number, srcH: number): CropGe
   }
   return { cropW, cropH, outW, outH };
 }
+
+/* ------------------------------------------- multi-panel layouts ------------------------------------------ */
+
+export interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Width of the line drawn on the seam between two panels (px of the output frame). */
+export const DIVIDER_PX = 4;
+
+export function outputSize(aspect: Aspect): { outW: number; outH: number } {
+  return OUT_SIZE[aspect];
+}
+
+/**
+ * Two equal face panels. 9:16 / 4:5 / 1:1 stack them (top = first face); 16:9 puts them side by side
+ * (left = first face). Panels tile the output frame exactly.
+ */
+export function splitPanels(aspect: Aspect): { a: Rect; b: Rect } {
+  const { outW, outH } = OUT_SIZE[aspect];
+  if (aspect === '16:9') {
+    const w = outW / 2;
+    return { a: { x: 0, y: 0, w, h: outH }, b: { x: w, y: 0, w, h: outH } };
+  }
+  const h = outH / 2;
+  return { a: { x: 0, y: 0, w: outW, h }, b: { x: 0, y: h, w: outW, h } };
+}
+
+/**
+ * Screen on top (or left for 16:9), webcam face below (right): 9:16 -> 1080x1280 + 1080x640, 4:5 ->
+ * 1080x810 + 1080x540, 1:1 -> 1080x648 + 1080x432, 16:9 -> 1280x1080 + 640x1080.
+ */
+export function screenFacePanels(aspect: Aspect): { screen: Rect; face: Rect } {
+  const { outW, outH } = OUT_SIZE[aspect];
+  if (aspect === '16:9') {
+    const faceW = 640;
+    return {
+      screen: { x: 0, y: 0, w: outW - faceW, h: outH },
+      face: { x: outW - faceW, y: 0, w: faceW, h: outH },
+    };
+  }
+  const frac = aspect === '9:16' ? 1 / 3 : aspect === '4:5' ? 0.4 : 0.4;
+  const faceH = 2 * Math.round((outH * frac) / 2);
+  return {
+    screen: { x: 0, y: 0, w: outW, h: outH - faceH },
+    face: { x: 0, y: outH - faceH, w: outW, h: faceH },
+  };
+}

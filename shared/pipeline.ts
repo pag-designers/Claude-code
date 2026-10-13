@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { reframeModeSchema } from './cp2';
 
 /* ------------------------------------------------------------------------------------------------
  * CP1 pipeline domain types (BRIEF §4). Shared by main, preload and renderer.
@@ -74,6 +75,11 @@ export const pipelineOptionsSchema = z.object({
   prompt: z.string().max(500).default(''),
   captions: z.boolean().default(true),
   hookCard: z.boolean().default(true),
+  /** 'analysis' = summary/transcript/chapters only: no moment finding, no rendering (Tools hub). */
+  mode: z.enum(['clips', 'analysis']).default('clips'),
+  /** Caption preset (built-in id or a saved custom preset) for the clips of this run. */
+  captionStyleId: z.string().default('clean-pop'),
+  reframeMode: reframeModeSchema.default('auto'),
   /** Spoken language override; null = auto-detect. */
   language: z.string().nullable().default(null),
   maxResolution: z

@@ -165,6 +165,14 @@ function osNotify(n: AppNotification): void {
   notif.show();
 }
 
+function pipelineFontsDir(): string | null {
+  const candidates = [
+    path.join(process.resourcesPath ?? '', 'fonts'),
+    path.join(app.getAppPath(), 'electron', 'main', 'assets', 'fonts'),
+  ];
+  return candidates.find((c) => fs.existsSync(c)) ?? null;
+}
+
 async function bootstrap(): Promise<void> {
   const userData = app.getPath('userData');
   logger.attachFile(path.join(userData, 'logs', 'main.log'));
@@ -219,6 +227,19 @@ async function bootstrap(): Promise<void> {
       pipeline: (e) => send('pipeline:event', e),
       video: (v) => send('videos:updated', v),
       clip: (c) => send('clips:updated', c),
+      chat: (e) => send('chat:event', e),
+      momentRun: (r) => send('moments:run', r),
+      markers: (videoId) => send('markers:changed', { videoId }),
+    },
+    saveText: async ({ title, defaultName, extension }, content) => {
+      const res = await dialog.showSaveDialog({
+        title,
+        defaultPath: path.join(app.getPath('downloads'), defaultName),
+        filters: [{ name: extension.toUpperCase(), extensions: [extension] }],
+      });
+      if (res.canceled || !res.filePath) return null;
+      fs.writeFileSync(res.filePath, content);
+      return res.filePath;
     },
     chooseDirectory: async () => {
       const res = await dialog.showOpenDialog({
@@ -228,13 +249,7 @@ async function bootstrap(): Promise<void> {
       });
       return res.canceled ? null : (res.filePaths[0] ?? null);
     },
-    fontsDir: () => {
-      const candidates = [
-        path.join(process.resourcesPath ?? '', 'fonts'),
-        path.join(app.getAppPath(), 'electron', 'main', 'assets', 'fonts'),
-      ];
-      return candidates.find((c) => fs.existsSync(c)) ?? null;
-    },
+    fontsDir: pipelineFontsDir,
   });
   pipeline.orchestrator.registerJobs();
 
@@ -242,6 +257,11 @@ async function bootstrap(): Promise<void> {
     buildHandlers(svc, {
       pipeline: pipeline.orchestrator,
       library: pipeline.library,
+      cp2: pipeline.cp2,
+      chat: pipeline.chat,
+      styles: pipeline.styles,
+      captions: pipeline.captions,
+      fontsDir: pipelineFontsDir,
       probeUrl: pipeline.probeUrl,
       appInfo: () => ({
         name: APP_NAME,

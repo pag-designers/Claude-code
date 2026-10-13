@@ -348,7 +348,8 @@ describe('reframe plan: dominant face selection', () => {
       { cx: 0.3, size: 0.3 + (r() - 0.5) * 0.04 },
       { cx: 0.7, size: 0.28 + (r() - 0.5) * 0.04 },
     ]);
-    const p = plan(f);
+    // CP2: in 'auto' two persistent faces become a split screen; this test is about forced single-face
+    const p = plan(f, { mode: 'single-face' });
     const xs = p.keyframes.map((k) => k.x);
     expect(Math.max(...xs) - Math.min(...xs)).toBeLessThan(2);
     expect(Math.abs((xs[0] ?? 0) - xOf(0.3))).toBeLessThan(2);
@@ -360,6 +361,7 @@ describe('reframe plan: dominant face selection', () => {
         { cx: 0.3, size: 0.28 },
         { cx: 0.7, size: t < 6 ? 0.2 : 0.42 },
       ]),
+      { mode: 'single-face' },
     );
     expect(grows.keyframes[2]!.x).toBeCloseTo(xOf(0.3), -1);
     // parked at the edge of the dead-zone (3% of the crop width) of the new face

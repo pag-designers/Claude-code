@@ -10,8 +10,12 @@ import { SOFT_PUNCT, STRONG_PUNCT, WEAK_END, normalizeToken, type CaptionWord } 
 export const PAUSE_BREAK_SEC = 0.25;
 
 export interface ChunkOptions {
+  /** Per on-screen line. */
   maxWords: number;
+  /** Per on-screen line. */
   maxChars: number;
+  /** Lines per caption block (default 1). */
+  maxLines?: number;
 }
 
 /** Splits into phrases (arrays of words). */
@@ -77,6 +81,21 @@ export function partitionPhrase(phrase: CaptionWord[], opt: ChunkOptions): Capti
   return out;
 }
 
+/** Lines (arrays of words) in reading order, ignoring `maxLines`. */
 export function chunkWords(words: CaptionWord[], opt: ChunkOptions): CaptionWord[][] {
   return splitPhrases(words).flatMap((p) => partitionPhrase(p, opt));
+}
+
+/**
+ * Caption blocks: every block is 1..maxLines lines. Lines never cross a phrase boundary (strong
+ * punctuation or a pause), so a block never glues two sentences together.
+ */
+export function chunkBlocks(words: CaptionWord[], opt: ChunkOptions): CaptionWord[][][] {
+  const perBlock = Math.max(1, opt.maxLines ?? 1);
+  const blocks: CaptionWord[][][] = [];
+  for (const phrase of splitPhrases(words)) {
+    const lines = partitionPhrase(phrase, opt);
+    for (let i = 0; i < lines.length; i += perBlock) blocks.push(lines.slice(i, i + perBlock));
+  }
+  return blocks;
 }

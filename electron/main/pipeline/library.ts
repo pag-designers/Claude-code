@@ -65,7 +65,10 @@ export class LibraryService {
     if (deleteFromStorage && storage) {
       const doomed: string[] = [];
       for await (const o of storage.list(`videos/${id}/`)) doomed.push(o.key);
-      for (const c of clips) doomed.push(keys.clip(c.id), keys.thumb(c.id), keys.ass(c.id), keys.srt(c.id), keys.vtt(c.id));
+      for (const c of clips) {
+        doomed.push(keys.clip(c.id), keys.thumb(c.id), keys.ass(c.id), keys.srt(c.id), keys.vtt(c.id));
+        for await (const o of storage.list(`clips/${c.id}/thumbs/`)) doomed.push(o.key);
+      }
       await storage.delete(doomed).catch((e) => this.d.log(`storage delete failed: ${String(e)}`));
       this.d.invalidateStorage();
     }
@@ -94,7 +97,12 @@ export class LibraryService {
     });
     const titles = new Map<string, string>();
     for (const v of await this.d.db.video.findMany({ select: { id: true, title: true } })) titles.set(v.id, v.title);
-    return rows.map((r) => toClipView(r as ClipRow, titles.get(r.videoId) ?? null));
+    const runIds = [...new Set(rows.map((r) => r.runId).filter((x): x is string => Boolean(x)))];
+    const prompts = new Map<string, string>();
+    if (runIds.length)
+      for (const r of await this.d.db.momentRun.findMany({ where: { id: { in: runIds } }, select: { id: true, prompt: true } }))
+        prompts.set(r.id, r.prompt);
+    return rows.map((r) => toClipView(r as ClipRow, titles.get(r.videoId) ?? null, r.runId ? (prompts.get(r.runId) ?? null) : null));
   }
 
   async favoriteClips(ids: string[], value: boolean): Promise<void> {

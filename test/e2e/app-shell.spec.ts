@@ -21,8 +21,11 @@ const shots = process.env.CLIPFERN_SHOTS_DIR;
 
 test.beforeAll(async () => {
   userData = fs.mkdtempSync(path.join(os.tmpdir(), 'clipfern-e2e-'));
+  // CLIPFERN_E2E_EXE points at a packaged binary (release/linux-unpacked/clipfern) to test the installer output.
+  const exe = process.env.CLIPFERN_E2E_EXE;
   app = await electron.launch({
-    args: ['--no-sandbox', '.'],
+    ...(exe ? { executablePath: exe } : {}),
+    args: exe ? ['--no-sandbox'] : ['--no-sandbox', '.'],
     cwd: path.resolve(__dirname, '../..'),
     env: {
       ...process.env,
@@ -231,4 +234,22 @@ test('full-page loads and reloads never log hydration errors (React #418 regress
   page.off('pageerror', onErr);
   page.off('console', onConsole);
   expect(errors).toEqual([]);
+});
+
+test('transcription engine reports an honest not-installed state on a fresh machine', async () => {
+  const s = await invoke<{
+    phase: string;
+    installed: boolean;
+    modelReady: boolean;
+    error: string | null;
+    model: string;
+  }>('sidecar:status');
+  expect(s.installed).toBe(false);
+  expect(s.modelReady).toBe(false);
+  expect(s.phase).toBe('idle');
+  expect(s.error).toBeNull();
+  expect(s.model).toBeTruthy();
+  const hw = await invoke<{ cpuCores: number; encoders: string[] }>('system:hardware');
+  expect(hw.cpuCores).toBeGreaterThan(0);
+  expect(hw.encoders).toContain('libx264');
 });

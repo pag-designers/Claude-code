@@ -100,3 +100,16 @@ Development runs in a headless Linux cloud container (no GPU, no macOS/Windows, 
 ## ADR-014 — Scheduler future-proofing (documented, not built)
 
 Scheduled posts are rows `{ id, platform, accountId, mediaKey (R2), payload JSON, runAt, status }`. A future Cloudflare Worker cron could read the same shape from an R2-hosted `schedule/queue.json` mirror and publish via the same `PublisherProvider` contract. Not built in v1 (brief §9).
+
+## ADR-015 — Packaging rules learned the hard way
+
+- Only native/external modules are real `dependencies` (`@prisma/client`, `@prisma/adapter-libsql`, `@libsql/client`, `ffmpeg-static`, `ffprobe-static`); everything else is a devDependency because esbuild (main) and Next (renderer) bundle it. Installer: 418 MB → 194 MB.
+- The generated Prisma client lives in `node_modules/.prisma` (not a dependency) and must be shipped explicitly: `files: [{from: node_modules/.prisma, to: node_modules/.prisma}]`.
+- `files` must start with a positive pattern; a leading `!pattern` makes electron-builder prepend `**/*` and pack the whole repo. Per-platform `files` lists replace the top-level one, so each repeats the positive patterns.
+- ffprobe-static ships binaries for every OS; each platform's list excludes the others.
+- The `sidecar/` Python sources ship as `extraResources` (real directory, not asar); `.venv` is created in userData at first run, never packaged.
+- Cross-platform installers must be built on their own OS (native optional deps are per-platform). A GitHub Actions matrix is the CP8 plan.
+
+## ADR-016 — Whop API validation endpoint
+
+Whop REST base `https://api.whop.com/api/v1`, `Authorization: Bearer <key>`; `GET /accounts/me` validates an Account API key (docs.whop.com, checked 2026-10-13). Content Rewards endpoints are researched in CP6.

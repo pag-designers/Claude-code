@@ -5,10 +5,15 @@ directories:
   output: release
   buildResources: build
 files:
+  # Positive patterns first: a leading negation makes electron-builder prepend `**/*` (packs all sources).
   - dist-electron/**
   - renderer/out/**
   - package.json
+  - from: node_modules/.prisma
+    to: node_modules/.prisma
   - '!**/*.map'
+  - '!**/*.d.ts'
+  - '!node_modules/@prisma/client/runtime/*{mysql,postgresql,sqlserver,cockroachdb}*'
 extraResources:
   - from: sidecar
     to: sidecar
@@ -24,13 +29,35 @@ asarUnpack:
   - node_modules/.prisma/**
   - node_modules/@prisma/client/**
 mac:
+  files:
+    - dist-electron/**
+    - renderer/out/**
+    - package.json
+    - from: node_modules/.prisma
+      to: node_modules/.prisma
+    - '!node_modules/ffprobe-static/bin/{linux,win32}/**'
   category: public.app-category.video
   target: [dmg, zip]
   hardenedRuntime: true
   gatekeeperAssess: false
 win:
+  files:
+    - dist-electron/**
+    - renderer/out/**
+    - package.json
+    - from: node_modules/.prisma
+      to: node_modules/.prisma
+    - '!node_modules/ffprobe-static/bin/{linux,darwin}/**'
   target: [nsis]
 linux:
+  files:
+    - dist-electron/**
+    - renderer/out/**
+    - package.json
+    - from: node_modules/.prisma
+      to: node_modules/.prisma
+    - '!node_modules/ffprobe-static/bin/{darwin,win32}/**'
+    - '!node_modules/ffprobe-static/bin/linux/ia32/**'
   target: [AppImage, deb]
   category: AudioVideo
   maintainer: Clipfern <noreply@clipfern.app>

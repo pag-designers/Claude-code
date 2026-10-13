@@ -510,6 +510,8 @@ test('AI chat: grounded answer with a [mm:ss] citation and an executed create_cl
 
 test('cost tracker recorded every CP2 call kind', async () => {
   const cost = await invoke<{ calls: number; byPurpose?: Record<string, number> }>('cost:summary');
+  // every request the stub saw was recorded by the cost tracker (nothing is spent without being counted)
+  expect(cost.calls).toBe(stub.requests.length);
   expect(cost.calls).toBeGreaterThan(8);
   for (const r of stub.requests) {
     expect(r.body).not.toHaveProperty('temperature');

@@ -131,11 +131,54 @@ export function ensureCp1Assets(): { dir: string; real: boolean } {
       path.join(ASSETS_DIR, f),
     ]),
   );
-  const vp9 = ['-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '42', '-deadline', 'realtime', '-cpu-used', '8', '-row-mt', '1', '-pix_fmt', 'yuv420p', '-c:a', 'libopus', '-b:a', '48k'];
+  const vp9 = [
+    '-c:v',
+    'libvpx-vp9',
+    '-b:v',
+    '0',
+    '-crf',
+    '42',
+    '-deadline',
+    'realtime',
+    '-cpu-used',
+    '8',
+    '-row-mt',
+    '1',
+    '-pix_fmt',
+    'yuv420p',
+    '-c:a',
+    'libopus',
+    '-b:a',
+    '48k',
+  ];
   CLIP_RENDERS.forEach((f, i) =>
-    run(['-ss', String(12 + i * 40), '-t', '8', '-i', src!, '-vf', 'crop=ih*9/16:ih,scale=360:640', ...vp9, path.join(ASSETS_DIR, f)]),
+    run([
+      '-ss',
+      String(12 + i * 40),
+      '-t',
+      '8',
+      '-i',
+      src!,
+      '-vf',
+      'crop=ih*9/16:ih,scale=360:640',
+      ...vp9,
+      path.join(ASSETS_DIR, f),
+    ]),
   );
-  run(['-ss', '0', '-t', String(Math.min(dur + 4, 180)), '-i', src!, '-vf', 'scale=640:360', ...vp9, '-g', '30', path.join(ASSETS_DIR, PROXY_FILE)]);
+  run([
+    '-ss',
+    '0',
+    '-t',
+    String(Math.min(dur + 4, 180)),
+    '-i',
+    src!,
+    '-vf',
+    'scale=640:360',
+    ...vp9,
+    '-g',
+    '30',
+    path.join(ASSETS_DIR, PROXY_FILE),
+  ]);
   fs.writeFileSync(marker, real ? 'real' : 'synthetic');
   return { dir: ASSETS_DIR, real };
 }

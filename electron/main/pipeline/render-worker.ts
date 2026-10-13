@@ -1,16 +1,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import {
-  keys,
-  transcriptSchema,
-  type Transcript,
-  type Word,
-} from '@shared/pipeline';
+import { keys, transcriptSchema, type Transcript, type Word } from '@shared/pipeline';
 import type { Db } from '../db/client';
 import type { JobContext } from '../services/queue';
 import type { SettingsService } from '../services/settings';
 import type { StorageProvider } from '../services/storage/provider';
-import type { CaptionService, FaceSample, MediaService, ReframeService, RenderService } from './contracts';
+import type {
+  CaptionService,
+  FaceSample,
+  MediaService,
+  ReframeService,
+  RenderService,
+} from './contracts';
 import { parseJson, readOptions } from './views';
 import type { StageTracker } from './state';
 
@@ -32,7 +33,12 @@ export interface RenderWorkerDeps {
   /** Converts the sidecar /faces response to FaceSample[] (reframe module helper). */
   toFaceSamples(wire: unknown): FaceSample[];
   /** One sharp frame from the rendered clip → JPEG (render module helper). */
-  thumbnail(ffmpegPath: string, clipPath: string, outJpg: string): Promise<void>;
+  thumbnail(
+    ffmpegPath: string,
+    clipPath: string,
+    outJpg: string,
+    opts?: { atSec?: number },
+  ): Promise<void>;
   ffmpegPath(): string;
   fontsDir(): string | null;
   getStorage(): StorageProvider | null;
@@ -73,8 +79,12 @@ export class RenderWorker {
       if (!info.width || !info.height) throw new Error('Could not read the source video size.');
 
       const transcript = this.readTranscript(dir);
-      const words: Word[] = transcript.words.filter((w) => w.e > clip.startSec - 0.05 && w.s < clip.endSec + 0.05);
-      const sceneCuts = parseJson<{ cuts: number[] }>(readIfExists(path.join(dir, 'scenes.json')), { cuts: [] }).cuts;
+      const words: Word[] = transcript.words.filter(
+        (w) => w.e > clip.startSec - 0.05 && w.s < clip.endSec + 0.05,
+      );
+      const sceneCuts = parseJson<{ cuts: number[] }>(readIfExists(path.join(dir, 'scenes.json')), {
+        cuts: [],
+      }).cuts;
 
       await this.d.sidecar.start();
       const faces = await this.d.sidecar.faces(
@@ -109,8 +119,14 @@ export class RenderWorker {
           }),
         );
       }
-      fs.writeFileSync(path.join(outDir, 'captions.srt'), this.d.captions.buildSrt(words, clip.startSec, clip.endSec));
-      fs.writeFileSync(path.join(outDir, 'captions.vtt'), this.d.captions.buildVtt(words, clip.startSec, clip.endSec));
+      fs.writeFileSync(
+        path.join(outDir, 'captions.srt'),
+        this.d.captions.buildSrt(words, clip.startSec, clip.endSec),
+      );
+      fs.writeFileSync(
+        path.join(outDir, 'captions.vtt'),
+        this.d.captions.buildVtt(words, clip.startSec, clip.endSec),
+      );
 
       const outPath = path.join(outDir, 'clip.mp4');
       let lastTick = 0;
@@ -136,10 +152,16 @@ export class RenderWorker {
           void set({ renderProgress: f * 0.9 });
         },
       });
-      this.d.log(`rendered clip ${clipId} with ${result.encoder} (${result.durationSec.toFixed(1)}s)`);
+      this.d.log(
+        `rendered clip ${clipId} with ${result.encoder} (${result.durationSec.toFixed(1)}s)`,
+      );
 
       const thumbPath = path.join(outDir, 'thumb.jpg');
-      await this.d.thumbnail(this.d.ffmpegPath(), outPath, thumbPath);
+      // Take the thumbnail after the hook card has faded so it never covers a face.
+      const hookOn = options.hookCard && clip.hook;
+      await this.d.thumbnail(this.d.ffmpegPath(), outPath, thumbPath, {
+        atSec: hookOn && clip.endSec - clip.startSec > 6 ? HOOK_SECONDS + 0.7 : undefined,
+      });
       await set({ renderProgress: 0.93 });
       await storage.putFile(keys.clip(clipId), outPath, { contentType: 'video/mp4' });
       await storage.putFile(keys.thumb(clipId), thumbPath, { contentType: 'image/jpeg' });
@@ -156,7 +178,12 @@ export class RenderWorker {
         status: 'rendered',
         renderProgress: 1,
         error: null,
-        storageKeys: JSON.stringify({ render: keys.clip(clipId), thumb: keys.thumb(clipId), srt: keys.srt(clipId), vtt: keys.vtt(clipId) }),
+        storageKeys: JSON.stringify({
+          render: keys.clip(clipId),
+          thumb: keys.thumb(clipId),
+          srt: keys.srt(clipId),
+          vtt: keys.vtt(clipId),
+        }),
       });
       fs.rmSync(outDir, { recursive: true, force: true });
     } catch (err) {
@@ -165,7 +192,9 @@ export class RenderWorker {
         return;
       }
       const message = err instanceof Error ? err.message : String(err);
-      this.d.log(`render ${clipId} failed: ${err instanceof Error ? (err.stack ?? message) : message}`);
+      this.d.log(
+        `render ${clipId} failed: ${err instanceof Error ? (err.stack ?? message) : message}`,
+      );
       await set({ status: 'failed', error: message.slice(0, 500), renderProgress: null });
     }
   }

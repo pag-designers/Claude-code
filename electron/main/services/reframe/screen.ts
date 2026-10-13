@@ -34,7 +34,6 @@ export const WEBCAM_FACE_Y = 0.46;
 /** Target face height as a share of the strip height (bounded by the webcam rectangle). */
 const WEBCAM_FACE_FRAC = 0.55;
 
-
 /** Webcam rectangle (px) around a face box: wide enough for head + shoulders, clamped to the frame. */
 export function webcamRectFromFace(
   face: { cx: number; cy: number; w: number; h: number },
@@ -89,7 +88,11 @@ export function planScreenFace(
 
   const cam: Rect =
     hintRect ??
-    webcamRectFromFace(track ?? { cx: srcW / 2, cy: srcH / 2, w: srcW / 8, h: srcW / 8 }, srcW, srcH);
+    webcamRectFromFace(
+      track ?? { cx: srcW / 2, cy: srcH / 2, w: srcW / 8, h: srcW / 8 },
+      srcW,
+      srcH,
+    );
   // window: the face fills ~55% of the strip, never larger than the webcam rectangle (so no screen
   // content bleeds into the strip), never smaller than the face itself
   const faceH = track?.h ?? cam.h / 1.8;
@@ -109,8 +112,10 @@ export function planScreenFace(
     minY: clamp(cam.y, 0, srcH - cropH),
     maxY: clamp(cam.y + cam.h - cropH, 0, srcH - cropH),
   };
-  if (bounds.maxX < bounds.minX) bounds.minX = bounds.maxX = clamp(cam.x + (cam.w - cropW) / 2, 0, srcW - cropW);
-  if (bounds.maxY < bounds.minY) bounds.minY = bounds.maxY = clamp(cam.y + (cam.h - cropH) / 2, 0, srcH - cropH);
+  if (bounds.maxX < bounds.minX)
+    bounds.minX = bounds.maxX = clamp(cam.x + (cam.w - cropW) / 2, 0, srcW - cropW);
+  if (bounds.maxY < bounds.minY)
+    bounds.minY = bounds.maxY = clamp(cam.y + (cam.h - cropH) / 2, 0, srcH - cropH);
   const toCrop = (p: { cx: number; cy: number }): Pt => ({
     x: clamp(p.cx - cropW / 2, bounds.minX, bounds.maxX),
     y: clamp(p.cy - WEBCAM_FACE_Y * cropH, bounds.minY, bounds.maxY),
@@ -160,4 +165,3 @@ export function planScreenFace(
     ],
   };
 }
-

@@ -635,6 +635,62 @@ function buildSteps(state: Cp1State, videoId: string, ytId: string): (() => Prom
   const done = async (stage: PipelineStage, message: string) => {
     await stageEvent(state, videoId, { stage, status: 'done', progress: 1, message });
   };
+  if (state.videos.find((x) => x.id === videoId)?.options.mode === 'analysis') {
+    // Analysis mode (CP2 tools): transcript + overview/chapters/notes only; no moments, no clips, no renders.
+    return [
+      guard('ingest', () => running('ingest', 0.15, 'Downloading 1080p', '4.1 MiB/s · 00:41 left')),
+      guard('ingest', () => running('ingest', 0.72, 'Downloading 1080p', '5.0 MiB/s · 00:08 left')),
+      async () => {
+        await done('ingest', 'Downloaded 1080p (212 MB)');
+        await running('prepare', null, 'Extracting audio and building the 480p proxy');
+      },
+      guard(
+        'transcribe',
+        () => running('transcribe', 0.3, 'large-v3-turbo · 11× realtime', 'ETA 01:20'),
+        async () => {
+          await done('prepare', 'Audio extracted · 480p proxy ready');
+          await pushVideo(state, setVideo(state, videoId, { hasProxy: true }));
+        },
+      ),
+      guard('transcribe', () =>
+        running('transcribe', 0.85, 'large-v3-turbo · 11× realtime', 'ETA 00:14'),
+      ),
+      async () => {
+        state.transcripts[videoId] = state.transcripts['__interview__']!;
+        await done('transcribe', 'Transcribed 2,986 words (EN)');
+        state.costSpent += 0.18;
+        await running('understand', null, 'Claude is reading the transcript');
+      },
+      async () => {
+        state.analyses[videoId] = state.analyses['__interview__']!;
+        state.costSpent += 0.42;
+        await done('understand', 'Overview, 6 chapters and notes written');
+        await stageEvent(state, videoId, {
+          stage: 'moments',
+          status: 'skipped',
+          progress: null,
+          message: 'Analysis only: no clips requested',
+        });
+        await stageEvent(state, videoId, {
+          stage: 'render',
+          status: 'skipped',
+          progress: null,
+          message: 'Analysis only: no clips requested',
+        });
+        await running('finalize', null, 'Uploading the proxy to your bucket');
+      },
+      async () => {
+        await done('finalize', 'Uploaded 3 files · cleaned up');
+        const v = setVideo(state, videoId, {
+          status: 'ready',
+          stage: null,
+          progress: null,
+          error: null,
+        });
+        await pushVideo(state, v);
+      },
+    ];
+  }
   return [
     // 0 download 15%
     guard('ingest', () => running('ingest', 0.15, 'Downloading 1080p', '4.1 MiB/s · 00:41 left')),

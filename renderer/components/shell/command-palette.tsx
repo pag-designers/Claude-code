@@ -21,7 +21,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { ALL_NAV, NOTIFICATIONS_ITEM, SETTINGS_SECTIONS, settingsHref } from '@/lib/nav';
-import { TOOLS, toolHint } from '@/lib/tools';
+import { TOOLS, isToolAvailable, toolHint } from '@/lib/tools';
 import { invoke, ipcKey } from '@/lib/ipc';
 import { STORAGE_PAYLOAD } from '@/lib/queries';
 import { useUi } from '@/lib/store';
@@ -231,8 +231,9 @@ export function CommandPalette() {
                     icon={t.icon}
                     label={t.name}
                     hint={toolHint(t)}
-                    disabled
-                    keywords={['tool']}
+                    disabled={!isToolAvailable(t)}
+                    onSelect={t.href ? go(t.href) : undefined}
+                    keywords={['tool', t.group, ...t.description.split(' ').slice(0, 6)]}
                   />
                 ))}
               </Command.Group>

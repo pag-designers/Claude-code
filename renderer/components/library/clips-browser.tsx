@@ -24,6 +24,7 @@ import {
   type ClipFilters,
 } from '@/lib/library-filters';
 import { usePersistedChoice } from '@/lib/persist';
+import { matchesRunFilter, useClipUi } from '@/lib/cp2-clips';
 import { ClipCard, ClipRow } from './clip-card';
 import { ClipDrawer } from './clip-drawer';
 import { ClipFilterBar, ClipSortLayout, type Layout } from './clip-filters';
@@ -84,7 +85,13 @@ export function ClipsBrowser({
   const resetFilters = () =>
     setFilters({ ...DEFAULT_CLIP_FILTERS, favoritesOnly: scope.kind === 'favorites' });
 
-  const visible = React.useMemo(() => filterClips(clips, filters), [clips, filters]);
+  // CP2: steering-run chips (ClipsExtras) narrow the grid to the clips one search found
+  const videoScopeId = scope.kind === 'video' ? scope.videoId : null;
+  const runFilter = useClipUi((s) => (videoScopeId ? (s.runFilter[videoScopeId] ?? null) : null));
+  const visible = React.useMemo(
+    () => filterClips(clips, filters).filter((c) => matchesRunFilter(c, runFilter)),
+    [clips, filters, runFilter],
+  );
 
   // clips that appear after the first load are "new": they get an arrival animation
   const [initial, setInitial] = React.useState<Set<string> | null>(null);
@@ -125,6 +132,20 @@ export function ClipsBrowser({
     [fav],
   );
   const onOpen = React.useCallback((c: ClipView) => setOpenId(c.id), []);
+
+  // CP2: deep links and action cards ask the drawer to open a clip (optionally on a tab)
+  const openRequest = useClipUi((s) => s.openRequest);
+  React.useEffect(() => {
+    if (!openRequest) return;
+    if (Date.now() - openRequest.at > 20_000) {
+      useClipUi.getState().clearOpenRequest(); // nobody picked it up (different page): do not fire much later
+      return;
+    }
+    if (!clips.some((c) => c.id === openRequest.clipId)) return; // the clip list may still be loading
+    setOpenId(openRequest.clipId);
+    if (openRequest.view) useClipUi.getState().setDrawerView(openRequest.view);
+    useClipUi.getState().clearOpenRequest();
+  }, [openRequest, clips]);
   const closeDrawer = React.useCallback(() => setOpenId(null), []);
 
   React.useEffect(() => {

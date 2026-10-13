@@ -35,6 +35,37 @@ export interface StubReply {
   sseErrorAfterText?: boolean;
   /** Start streaming, then never finish (abort tests). */
   hang?: boolean;
+  /** Exact text deltas (e.g. to split a "[12:3" + "0]" citation marker); overrides the 4-way split. */
+  textChunks?: string[];
+  /** tool_use blocks streamed after the text (input_json_delta in pieces). stop_reason defaults to tool_use. */
+  toolUses?: { id?: string; name: string; input: unknown }[];
+  /** Start the first tool_use block, then never finish (abort-mid-tool-stream tests). */
+  hangInToolUse?: boolean;
+  /** Send this exact string as the first tool_use input JSON (to simulate unparseable tool input). */
+  rawToolJson?: string;
+}
+
+/** Loose view of any request content block (text, image, tool_use, tool_result, thinking ...). */
+export interface WireContentBlock {
+  type: string;
+  text?: string;
+  cache_control?: { type: string; ttl?: string };
+  source?: { type: string; media_type?: string; data?: string };
+  id?: string;
+  name?: string;
+  input?: unknown;
+  tool_use_id?: string;
+  is_error?: boolean;
+  content?: unknown;
+  [extra: string]: unknown;
+}
+export interface WireTool {
+  name: string;
+  description?: string;
+  strict?: boolean;
+  eager_input_streaming?: boolean;
+  input_schema: Record<string, unknown>;
+  [extra: string]: unknown;
 }
 
 /** The request body as the SDK sends it (only the parts the tests look at are typed). */
@@ -127,8 +158,13 @@ export class StubAnthropic {
       return;
     }
 
-    const text = reply.text ?? '{}';
-    const stop = reply.stopReason ?? 'end_turn';
+    const toolUses = (reply.toolUses ?? []).map((t, i) => ({
+      id: t.id ?? `toolu_stub_${n}_${i}`,
+      name: t.name,
+      input: t.input,
+    }));
+    const text = reply.text ?? (toolUses.length ? '' : '{}');
+    const stop = reply.stopReason ?? (toolUses.length ? 'tool_use' : 'end_turn');
     const model = String(body.model);
     const message = (content: unknown[], u: Record<string, number>) => ({
       id: `msg_stub_${n}`,
@@ -145,7 +181,17 @@ export class StubAnthropic {
     if (!body.stream) {
       res
         .writeHead(200, { 'content-type': 'application/json' })
-        .end(JSON.stringify(message([{ type: 'text', text }], { ...usage })));
+        .end(
+          JSON.stringify(
+            message(
+              [
+                ...(text ? [{ type: 'text', text }] : []),
+                ...toolUses.map((t) => ({ type: 'tool_use', ...t })),
+              ],
+              { ...usage },
+            ),
+          ),
+        );
       return;
     }
 
@@ -175,30 +221,53 @@ export class StubAnthropic {
       send('content_block_stop', { type: 'content_block_stop', index: idx });
       idx++;
     }
-    send('content_block_start', {
-      type: 'content_block_start',
-      index: idx,
-      content_block: { type: 'text', text: '' },
-    });
-    const parts = splitInto(text, 4);
-    for (let i = 0; i < parts.length; i++) {
-      send('content_block_delta', {
-        type: 'content_block_delta',
+    if (text) {
+      send('content_block_start', {
+        type: 'content_block_start',
         index: idx,
-        delta: { type: 'text_delta', text: parts[i] },
+        content_block: { type: 'text', text: '' },
       });
-      if (reply.hang && i === 0) return; // stall: client must abort
-      if (reply.sseErrorAfterText && i === 1) {
-        send('error', {
-          type: 'error',
-          error: { type: 'overloaded_error', message: 'Overloaded' },
+      const parts = reply.textChunks ?? splitInto(text, 4);
+      for (let i = 0; i < parts.length; i++) {
+        send('content_block_delta', {
+          type: 'content_block_delta',
+          index: idx,
+          delta: { type: 'text_delta', text: parts[i] },
         });
-        res.end();
-        return;
+        if (reply.hang && i === 0) return; // stall: client must abort
+        if (reply.sseErrorAfterText && i === 1) {
+          send('error', {
+            type: 'error',
+            error: { type: 'overloaded_error', message: 'Overloaded' },
+          });
+          res.end();
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 2));
       }
-      await new Promise((r) => setTimeout(r, 2));
+      send('content_block_stop', { type: 'content_block_stop', index: idx });
+      idx++;
     }
-    send('content_block_stop', { type: 'content_block_stop', index: idx });
+    for (const t of toolUses) {
+      send('content_block_start', {
+        type: 'content_block_start',
+        index: idx,
+        content_block: { type: 'tool_use', id: t.id, name: t.name, input: {} },
+      });
+      const json = reply.rawToolJson ?? JSON.stringify(t.input);
+      const pieces = splitInto(json, 3);
+      for (let i = 0; i < pieces.length; i++) {
+        send('content_block_delta', {
+          type: 'content_block_delta',
+          index: idx,
+          delta: { type: 'input_json_delta', partial_json: pieces[i] },
+        });
+        if (reply.hangInToolUse && i === 0) return;
+        await new Promise((r) => setTimeout(r, 2));
+      }
+      send('content_block_stop', { type: 'content_block_stop', index: idx });
+      idx++;
+    }
     send('message_delta', {
       type: 'message_delta',
       delta: { stop_reason: stop, stop_sequence: null, stop_details: reply.stopDetails ?? null },
@@ -222,17 +291,28 @@ export class StubAnthropic {
     }
     // Render order: system blocks, then message content blocks. Breakpoints = blocks with cache_control.
     const blocks: { text: string; cc: boolean }[] = [];
-    const asBlocks = (c: string | WireBlock[] | undefined): Partial<WireBlock>[] =>
-      typeof c === 'string' ? [{ text: c }] : (c ?? []);
-    for (const b of asBlocks(body.system))
-      blocks.push({ text: b.text ?? '', cc: !!b.cache_control });
+    const asBlocks = (c: string | WireContentBlock[] | undefined): WireContentBlock[] =>
+      typeof c === 'string' ? [{ type: 'text', text: c }] : (c ?? []);
+    // text counts as text; any other block (image, tool_use, tool_result, thinking) is rendered as
+    // its JSON, with image bytes replaced by a short digest so they stay cheap but still distinguish
+    // prefixes. Image tokens are therefore NOT emulated (see tests: they assert wire shape only).
+    const render = (b: WireContentBlock): string => {
+      if (typeof b.text === 'string' && b.type === 'text') return b.text;
+      if (b.type === 'image' && b.source?.data)
+        return `[image ${crypto.createHash('sha1').update(b.source.data).digest('hex')}]`;
+      return JSON.stringify(b);
+    };
+    for (const b of asBlocks(body.system as string | WireContentBlock[] | undefined))
+      blocks.push({ text: render(b), cc: !!b.cache_control });
     for (const m of body.messages)
-      for (const b of asBlocks(m.content))
-        blocks.push({ text: b.text ?? '', cc: !!b.cache_control });
+      for (const b of asBlocks(m.content as string | WireContentBlock[]))
+        blocks.push({ text: render(b), cc: !!b.cache_control });
+    // tools are rendered BEFORE system in the real cache order
     const header = JSON.stringify([
       body.model,
       body.output_config?.effort ?? null,
       body.output_config?.format ?? null,
+      (body as { tools?: unknown }).tools ?? null,
     ]);
     let acc = header;
     let covered = 0; // tokens up to the last breakpoint

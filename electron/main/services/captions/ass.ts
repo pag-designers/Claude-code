@@ -1,40 +1,56 @@
-/** ASS (libass) generation for word-level "pop" captions. */
+/**
+ * ASS (libass) generation driven by a `CaptionStyle` (shared/cp2.ts).
+ *
+ * Event model
+ *  - word-state animations (none / pop / bounce / fade / slide-up): ONE event per word whose text is the
+ *    whole caption block with that word emphasised, abutting the next word's event (no flicker gaps);
+ *  - block animations (karaoke `\kf` sweep, typewriter letter reveal): ONE event per block, timing carried
+ *    inside the text (`\kf`, `\t`), so libass keeps the layout stable;
+ *  - layer 0 (style `CaptionBg`): rounded box, highlight box, blurred shadow / glow copies;
+ *    layer 1 (style `Caption`): the text.
+ * Boxes and highlight boxes are drawn vector shapes sized from the font's real advance widths
+ * (fontbook.ts), anchored to the same point as the text, so errors only change the padding by a pixel or two.
+ */
+import type { CaptionStyle } from '@shared/cp2';
 import type { Word } from '@shared/pipeline';
-import { chunkWords, PAUSE_BREAK_SEC } from './chunk';
-import { assColor, assTagColor, resolveStyle, type CaptionStyle } from './styles';
-import { WEAK_END, escapeAssText, normalizeToken, prepareWords, type CaptionWord } from './text';
+import { chunkBlocks, PAUSE_BREAK_SEC } from './chunk';
+import { emPx, isWide, lineHeight, measureText } from './fontbook';
+import { computeLayout, type Layout } from './geometry';
+import { assAlpha, assColor, assTagColor } from './styles';
+import {
+  WEAK_END,
+  applyCase,
+  escapeAssText,
+  normalizeToken,
+  prepareWords,
+  type CaptionWord,
+} from './text';
 
+export type { Layout } from './geometry';
+
+/** CP1-compatible layout summary (kept for callers/tests that inspect the layout). */
 export interface AssLayout {
   width: number;
   height: number;
   fontSize: number;
   marginX: number;
-  /** Centre of the caption block. */
+  /** Centre of the caption block (anchor x for left-aligned styles). */
   cx: number;
   cy: number;
   /** Character budget per on-screen line. */
   maxChars: number;
 }
 
-/** Average advance of a bold uppercase glyph relative to the font size (Montserrat ExtraBold ~0.74). */
-const CHAR_ADVANCE = 0.78;
-
-/** Safe-area aware layout: vertical formats keep the text at 66% of the height, away from platform UI. */
 export function captionLayout(width: number, height: number, style: CaptionStyle): AssLayout {
-  const landscape = width > height;
-  const fontSize = Math.max(16, Math.round((landscape ? height : width) * style.sizeFrac));
-  const marginX = Math.ceil(width * 0.06);
-  const usable = width - 2 * marginX;
-  const maxChars = Math.min(24, Math.max(8, Math.floor(usable / (fontSize * CHAR_ADVANCE))));
-  const yFrac = landscape ? 0.75 : height / width > 1.5 ? 0.69 : height / width > 1.1 ? 0.7 : 0.72;
+  const l = computeLayout(width, height, style);
   return {
     width,
     height,
-    fontSize,
-    marginX,
-    cx: Math.round(width / 2),
-    cy: Math.round(height * yFrac),
-    maxChars,
+    fontSize: l.fontSize,
+    marginX: l.marginX,
+    cx: l.cx,
+    cy: l.cy,
+    maxChars: l.maxChars,
   };
 }
 
@@ -68,38 +84,91 @@ export function assHeader(width: number, height: number, styleLines: string[]): 
   ].join('\n');
 }
 
-export function captionStyleLine(style: CaptionStyle, lay: AssLayout): string {
-  const outline = Math.max(1, Math.round(lay.fontSize * style.outlineRel));
-  const shadow = Math.max(0, Math.round(lay.fontSize * style.shadowRel));
+/** `Style: Caption` (text) and `Style: CaptionBg` (boxes / shadow copies, no native outline or shadow). */
+export function captionStyleLines(style: CaptionStyle, lay: Layout): string[] {
+  const common = (name: string, outline: number, shadow: number, back: string): string =>
+    [
+      `Style: ${name}`,
+      lay.font.assName,
+      lay.fontSize,
+      assColor(style.fill),
+      assColor(style.highlight.color),
+      assColor(style.stroke.color),
+      back,
+      lay.font.bold ? -1 : 0,
+      lay.font.italic ? -1 : 0,
+      0,
+      0,
+      100,
+      100,
+      lay.spacing,
+      0,
+      1,
+      outline,
+      shadow,
+      lay.left ? 4 : 5, // the real anchor is set per event with \an / \pos
+      lay.marginX,
+      lay.marginX,
+      0,
+      1,
+    ].join(',');
   return [
-    'Style: Caption',
-    style.fontName,
-    lay.fontSize,
-    assColor(style.primary),
-    assColor(style.active),
-    assColor(style.outline),
-    assColor(style.shadow, style.shadowOpacity),
-    -1, // bold: matches the ExtraBold face exactly and falls back to a bold system sans without fonts
-    0,
-    0,
-    0,
-    100,
-    100,
-    0,
-    0,
-    1, // outline + shadow
-    outline,
-    shadow,
-    5, // middle-centre; the position is set per event with \pos
-    lay.marginX,
-    lay.marginX,
-    0,
-    1,
-  ].join(',');
+    common('Caption', lay.outline, lay.shadow, assColor(style.shadow.color, style.shadow.opacity)),
+    common('CaptionBg', 0, 0, assColor('#000000', 0)),
+  ];
 }
 
-const cased = (text: string, style: CaptionStyle): string =>
-  style.uppercase ? text.toUpperCase() : text;
+/* --------------------------------------------- drawing --------------------------------------------- */
+
+const KAPPA = 0.5523;
+
+/** Rounded rectangle as an ASS vector path (origin top-left, 1 unit = 1 px at `\p1`). */
+export function roundedRectPath(w: number, h: number, radius: number): string {
+  const r = Math.max(0, Math.min(radius, w / 2, h / 2));
+  const c = r * KAPPA;
+  const f = (n: number): number => Math.round(n * 10) / 10;
+  if (r < 1) return `m 0 0 l ${f(w)} 0 l ${f(w)} ${f(h)} l 0 ${f(h)}`;
+  return [
+    `m ${f(r)} 0`,
+    `l ${f(w - r)} 0`,
+    `b ${f(w - r + c)} 0 ${f(w)} ${f(r - c)} ${f(w)} ${f(r)}`,
+    `l ${f(w)} ${f(h - r)}`,
+    `b ${f(w)} ${f(h - r + c)} ${f(w - r + c)} ${f(h)} ${f(w - r)} ${f(h)}`,
+    `l ${f(r)} ${f(h)}`,
+    `b ${f(r - c)} ${f(h)} 0 ${f(h - r + c)} 0 ${f(h - r)}`,
+    `l 0 ${f(r)}`,
+    `b 0 ${f(r - c)} ${f(r - c)} 0 ${f(r)} 0`,
+  ].join(' ');
+}
+
+/* ------------------------------------------------ blocks -------------------------------------------- */
+
+interface BlockWord {
+  /** Index of the original word in the block (a broken word has several pieces with the same id). */
+  id: number;
+  w: CaptionWord;
+  /** Display text of this piece (cased, unescaped). */
+  text: string;
+  keyword: boolean;
+  /** Time span of this piece (a share of the word's span for broken words). */
+  s: number;
+  e: number;
+}
+
+interface Block {
+  /** Original words in order. */
+  words: CaptionWord[];
+  lines: BlockWord[][];
+  /** < 1 when the block had to shrink to fit the width. */
+  fontScale: number;
+  fs: number;
+  /** Widest line in px at `fs`, including growth of the active word. */
+  maxW: number;
+  /** Distance between the centres of two lines (own line pitch; libass' cell spacing is too loose). */
+  pitch: number;
+  /** Centre y of every line's cell. */
+  centers: number[];
+}
 
 function keywordSet(keywords: string[] | undefined): Set<string> {
   const set = new Set<string>();
@@ -116,34 +185,326 @@ function keywordSet(keywords: string[] | undefined): Set<string> {
   return set;
 }
 
-/** Override tags of the active word: colour pop + a short scale bounce. */
-function activeTags(style: CaptionStyle, keyword: boolean): string {
-  const p = style.pop;
-  const peak = keyword ? p.peakScale + 6 : p.peakScale;
-  return (
-    `\\1c${assTagColor(style.active)}\\fscx${p.fromScale}\\fscy${p.fromScale}` +
-    `\\t(0,${p.peakMs},\\fscx${peak}\\fscy${peak})` +
-    `\\t(${p.peakMs},${p.settleMs},\\fscx${p.settleScale}\\fscy${p.settleScale})`
-  );
+/** Splits a word that cannot fit `maxW` even when shrunk to 60 % into hyphenated pieces. */
+function breakWord(text: string, maxW: number, measure: (s: string) => number): string[] {
+  if (measure(text) * 0.6 <= maxW) return [text];
+  const chars = [...text];
+  const pieces: string[] = [];
+  let cur = '';
+  for (const ch of chars) {
+    if (cur !== '' && measure(cur + ch + '-') > maxW) {
+      pieces.push(cur + '-');
+      cur = ch;
+    } else {
+      cur += ch;
+    }
+  }
+  if (cur) pieces.push(cur);
+  return pieces;
 }
 
-function wordRun(
-  w: CaptionWord,
-  state: 'active' | 'idle',
-  isKeyword: boolean,
+function makeBlock(
+  chunkLines: CaptionWord[][],
   style: CaptionStyle,
-): string {
-  const text = escapeAssText(cased(w.text, style));
-  if (state === 'active') return `{${activeTags(style, isKeyword)}}${text}`;
-  const colour = isKeyword ? style.keyword : style.primary;
-  return `{\\1c${assTagColor(colour)}\\fscx100\\fscy100}${text}`;
+  lay: Layout,
+  kw: Set<string>,
+): Block {
+  const measure = (s: string, size = lay.fontSize): number =>
+    measureText(lay.font.face, s, size, lay.spacing * (size / lay.fontSize));
+  const lines: BlockWord[][] = [];
+  const words: CaptionWord[] = [];
+  for (const cl of chunkLines) {
+    let cur: BlockWord[] = [];
+    for (const w of cl) {
+      const id = words.length;
+      words.push(w);
+      const cased = applyCase(w.text, style.textCase);
+      const pieces = breakWord(cased, lay.usableW, measure);
+      const keyword = kw.has(w.norm);
+      if (pieces.length === 1) {
+        cur.push({ id, w, text: cased, keyword, s: w.s, e: w.e });
+        continue;
+      }
+      // a word wider than the line even when shrunk: one line per piece, time shared by length
+      if (cur.length > 0) lines.push(cur);
+      cur = [];
+      const total = pieces.reduce((n, p) => n + [...p].length, 0);
+      let acc = 0;
+      for (const p of pieces) {
+        const a = w.s + ((w.e - w.s) * acc) / total;
+        acc += [...p].length;
+        lines.push([{ id, w, text: p, keyword, s: a, e: w.s + ((w.e - w.s) * acc) / total }]);
+      }
+    }
+    if (cur.length > 0) lines.push(cur);
+  }
+  // the active word may grow (highlight scale): reserve its growth in the fit and in the box
+  const grow = Math.max(0, animPlan(style).steady / 100 - 1);
+  const widths = lines.map((l) => {
+    const w = measure(l.map((b) => b.text).join(' '));
+    const widest = Math.max(0, ...l.map((b) => measure(b.text)));
+    return w + grow * widest;
+  });
+  const maxW = Math.max(0, ...widths);
+  const fontScale = maxW > lay.usableW ? Math.max(0.5, lay.usableW / maxW) : 1;
+  const fs = fontScale < 1 ? Math.round(lay.fontSize * fontScale) : lay.fontSize;
+  const wide = lines.some((l) =>
+    l.some((b) => [...b.text].some((c) => isWide(c.codePointAt(0) ?? 0))),
+  );
+  let pitch = emPx(lay.font.face, fs) * 1.18 + lay.outline * 1.2 * fontScale;
+  if (wide) pitch = Math.max(pitch, fs * 1.02 + lay.outline * 1.2 * fontScale);
+  const centers = lines.map((_l, i) => lay.cy + (i - (lines.length - 1) / 2) * pitch);
+  return { words, lines, fontScale, fs, maxW: maxW * (fs / lay.fontSize), pitch, centers };
 }
 
-/** Longest single word that would overflow the line gets a proportionally smaller font. */
-function fitScale(chunk: CaptionWord[], lay: AssLayout): number {
-  const chars = chunk.reduce((n, w) => n + [...w.text].length, 0) + Math.max(0, chunk.length - 1);
-  return chars > lay.maxChars ? Math.max(0.55, lay.maxChars / chars) : 1;
+/* ---------------------------------------------- skins ---------------------------------------------- */
+
+/**
+ * A "skin" paints the same event text in a different way: the main text, or a blurred shadow / glow copy
+ * (libass cannot blur a shadow separately from the glyphs, so the copy is drawn on layer 0).
+ */
+interface Skin {
+  main: boolean;
+  layer: number;
+  styleName: string;
+  /** Colour used for any text colour. */
+  col: (hex: string) => string;
+  /** Extra base tags (blur / border / alpha) and the offset of the copy. */
+  base: string;
+  dx: number;
+  dy: number;
+  /** Alpha tags for a visible / hidden glyph (typewriter). */
+  visible: string;
+  hidden: string;
 }
+
+function mainSkin(style: CaptionStyle, lay: Layout): Skin {
+  const backA = lay.shadow > 0 ? assAlpha(style.shadow.opacity) : '&HFF&';
+  return {
+    main: true,
+    layer: 1,
+    styleName: 'Caption',
+    col: (h) => h,
+    base: lay.outline > 0 ? '\\blur1' : '\\blur0.4',
+    dx: 0,
+    dy: 0,
+    visible: `\\1a&H00&\\3a&H00&\\4a${backA}`,
+    hidden: '\\1a&HFF&\\3a&HFF&\\4a&HFF&',
+  };
+}
+
+/** Soft shadow (offset + blur) or glow (no offset): one or two blurred copies below the text. */
+function shadowSkins(style: CaptionStyle, lay: Layout): Skin[] {
+  const { color, opacity, blurPx, offsetPx } = style.shadow;
+  if (blurPx <= 0 || opacity <= 0) return [];
+  const blur = Math.max(1, blurPx * lay.k * 0.5);
+  const make = (alpha: number, b: number, bord: number, dx: number): Skin => {
+    const a = assAlpha(alpha);
+    return {
+      main: false,
+      layer: 0,
+      styleName: 'CaptionBg',
+      col: () => color,
+      base: `\\blur${Math.round(b * 10) / 10}\\bord${Math.round(bord * 10) / 10}\\3c${assTagColor(color)}`,
+      dx,
+      dy: dx,
+      visible: `\\1a${a}\\3a${a}\\4a&HFF&`,
+      hidden: '\\1a&HFF&\\3a&HFF&\\4a&HFF&',
+    };
+  };
+  if (offsetPx > 0) {
+    return [make(opacity, blur, lay.outline, Math.max(1, Math.round(offsetPx * lay.k)))];
+  }
+  // glow: a wide soft halo plus a tighter, brighter one
+  return [
+    make(opacity * 0.55, blur, lay.outline + blur * 0.9, 0),
+    make(opacity * 0.85, blur * 0.45, lay.outline + blur * 0.35, 0),
+  ];
+}
+
+/* ------------------------------------------- tag builders ------------------------------------------- */
+
+interface Entrance {
+  /** `\move` from this many px below the anchor over `ms`. */
+  slidePx: number;
+  slideMs: number;
+  fadeIn: number;
+  fadeOut: number;
+}
+
+const NO_ENTRANCE: Entrance = { slidePx: 0, slideMs: 0, fadeIn: 0, fadeOut: 0 };
+
+function baseTags(lay: Layout, blk: Block, skin: Skin, ent: Entrance, line: number): string {
+  const x = lay.cx + skin.dx;
+  const y = Math.round(blk.centers[line] ?? lay.cy) + skin.dy;
+  const an = lay.left ? '\\an4' : '\\an5';
+  const pos =
+    ent.slidePx > 0
+      ? `\\move(${x},${y + ent.slidePx},${x},${y},0,${ent.slideMs})`
+      : `\\pos(${x},${y})`;
+  const fs = blk.fontScale < 1 ? `\\fs${blk.fs}` : '';
+  const fad = ent.fadeIn > 0 || ent.fadeOut > 0 ? `\\fad(${ent.fadeIn},${ent.fadeOut})` : '';
+  let tags = `${an}${pos}${skin.base}${fs}${fad}`;
+  if (!skin.main && blk.fontScale < 1)
+    tags = tags.replace(
+      /\\bord([\d.]+)/,
+      (_m, n: string) => `\\bord${Math.round(Number(n) * blk.fontScale * 10) / 10}`,
+    );
+  return `{${tags}}`;
+}
+
+interface AnimPlan {
+  /** Steady scale of the active word, percent. */
+  steady: number;
+  /** Peak scale of a pop, percent. */
+  peak: number;
+  hasScale: boolean;
+}
+
+function animPlan(style: CaptionStyle): AnimPlan {
+  const m = style.highlight.mode;
+  const hasScale = m === 'scale' || m === 'color-scale';
+  const steady = hasScale ? Math.round(style.highlight.scale * 100) : 100;
+  const peak = hasScale
+    ? Math.max(steady + 6, Math.round(steady * 1.08))
+    : Math.max(112, Math.round(style.highlight.scale * 100));
+  return { steady, peak, hasScale };
+}
+
+function idleColor(style: CaptionStyle, keyword: boolean): string {
+  return keyword ? style.keywordColor : style.fill;
+}
+
+function activeColor(style: CaptionStyle, keyword: boolean): string {
+  const m = style.highlight.mode;
+  return m === 'color' || m === 'color-scale' || m === 'box'
+    ? style.highlight.color
+    : idleColor(style, keyword);
+}
+
+const sc = (n: number): string => `\\fscx${n}\\fscy${n}`;
+
+/** Override tags of an ACTIVE word run for the style's animation. */
+function activeTags(style: CaptionStyle, skin: Skin, keyword: boolean, lay: Layout): string {
+  const plan = animPlan(style);
+  const target = skin.col(activeColor(style, keyword));
+  const colour = `\\1c${assTagColor(target)}`;
+  const kwBoost = keyword ? 6 : 0;
+  // text inside a highlight box needs no stroke or shadow (they smudge it against the box colour)
+  const flat = style.highlight.mode === 'box' && skin.main ? '\\bord0\\shad0' : '';
+  switch (style.animation) {
+    case 'pop': {
+      const from = Math.round(plan.steady * 0.82);
+      const peak = plan.peak + kwBoost;
+      return `${colour}${flat}${sc(from)}\\t(0,70,${sc(peak)})\\t(70,150,${sc(plan.steady)})`;
+    }
+    case 'bounce': {
+      const s = plan.steady;
+      const pk = Math.round(s * 1.16) + kwBoost;
+      const steps = [
+        `\\t(0,90,${sc(pk)})`,
+        `\\t(90,170,${sc(Math.round(s * 0.93))})`,
+        `\\t(170,240,${sc(Math.round(s * 1.05))})`,
+        `\\t(240,310,${sc(s)})`,
+      ];
+      return `${colour}${flat}${sc(Math.round(s * 0.72))}${steps.join('')}`;
+    }
+    case 'fade':
+    case 'slide-up': {
+      if (!skin.main) return `${colour}${sc(plan.steady)}`;
+      const from = skin.col(idleColor(style, keyword));
+      return `\\1c${assTagColor(from)}${flat}${sc(plan.steady)}\\t(0,120,${colour})`;
+    }
+    default:
+      return `${colour}${flat}${sc(plan.steady)}`;
+  }
+}
+
+function idleTags(style: CaptionStyle, skin: Skin, keyword: boolean, lay: Layout): string {
+  const restore =
+    style.highlight.mode === 'box' && skin.main ? `\\bord${lay.outline}\\shad${lay.shadow}` : '';
+  return `\\1c${assTagColor(skin.col(idleColor(style, keyword)))}${restore}${sc(100)}`;
+}
+
+/* --------------------------------------------- box shapes -------------------------------------------- */
+
+function drawEvent(
+  start: number,
+  end: number,
+  layer: number,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  radius: number,
+  color: string,
+  opacity: number,
+  ent: Entrance,
+): string {
+  const pos =
+    ent.slidePx > 0
+      ? `\\move(${Math.round(x)},${Math.round(y + ent.slidePx)},${Math.round(x)},${Math.round(y)},0,${ent.slideMs})`
+      : `\\pos(${Math.round(x)},${Math.round(y)})`;
+  const fad = ent.fadeIn > 0 || ent.fadeOut > 0 ? `\\fad(${ent.fadeIn},${ent.fadeOut})` : '';
+  const tags = `\\an7${pos}${fad}\\bord0\\shad0\\blur0.6\\1c${assTagColor(color)}\\1a${assAlpha(opacity)}\\p1`;
+  return `Dialogue: ${layer},${assTime(start)},${assTime(end)},CaptionBg,,0,0,0,,{${tags}}${roundedRectPath(Math.round(w), Math.round(h), radius)}{\\p0}`;
+}
+
+interface BoxRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  r: number;
+}
+
+/** Ink extents of a line relative to its cell centre: cap top .. descender bottom. */
+function lineInk(lay: Layout, blk: Block): { top: number; bottom: number } {
+  const face = lay.font.face;
+  const em = emPx(face, blk.fs);
+  const baseline = (face?.ascent ?? 1.0) * em - blk.fs / 2;
+  return { top: baseline - (face?.capHeight ?? 0.7) * em, bottom: baseline + 0.22 * em };
+}
+
+function chunkBox(lay: Layout, blk: Block): BoxRect {
+  const ink = lineInk(lay, blk);
+  const padV = Math.round(lay.pad * 0.8);
+  const first = blk.centers[0] ?? lay.cy;
+  const last = blk.centers[blk.centers.length - 1] ?? lay.cy;
+  const y = first + ink.top - padV;
+  const bottom = last + ink.bottom + padV;
+  const w = blk.maxW + 2 * lay.pad;
+  const x = lay.left ? lay.cx - lay.pad : lay.cx - w / 2;
+  const h = bottom - y;
+  return { x, y, w, h, r: Math.min(h / 2, h * (lay.left ? 0.2 : 0.34)) };
+}
+
+/** Box behind one word (highlight mode "box"); null when the word was broken over several lines. */
+function wordBox(lay: Layout, blk: Block, wi: number): BoxRect | null {
+  const li = blk.lines.findIndex((l) => l.some((x) => x.id === wi));
+  const line = blk.lines[li];
+  if (!line) return null;
+  if (blk.lines.reduce((n, l) => n + l.filter((x) => x.id === wi).length, 0) !== 1) return null;
+  const idx = line.findIndex((x) => x.id === wi);
+  const bw = line[idx];
+  if (!bw) return null;
+  const sz = blk.fs;
+  const sp = lay.spacing * (sz / lay.fontSize);
+  const text = (ws: BlockWord[]): string => ws.map((x) => x.text).join(' ');
+  const lineW = measureText(lay.font.face, text(line), sz, sp);
+  const prefixW = idx > 0 ? measureText(lay.font.face, `${text(line.slice(0, idx))} `, sz, sp) : 0;
+  const wordW = measureText(lay.font.face, bw.text, sz, sp);
+  const lineLeft = lay.left ? lay.cx : lay.cx - lineW / 2;
+  const ink = lineInk(lay, blk);
+  const centre = blk.centers[li] ?? lay.cy;
+  const padH = lay.pad;
+  const padV = Math.round(lay.pad * 0.7);
+  const y = centre + ink.top - padV;
+  const h = centre + ink.bottom + padV - y;
+  return { x: lineLeft + prefixW - padH, y, w: wordW + 2 * padH, h, r: Math.min(h / 2, h * 0.28) };
+}
+
+/* ------------------------------------------------ build ------------------------------------------- */
 
 export interface BuildAssArgs {
   words: Word[];
@@ -151,48 +512,197 @@ export interface BuildAssArgs {
   endSec: number;
   width: number;
   height: number;
-  styleId: string;
+  style: CaptionStyle;
   keywords?: string[];
   maskProfanity?: boolean;
 }
 
+function wordText(bw: BlockWord): string {
+  return escapeAssText(bw.text);
+}
+
+/** Scripts whose letters join or reorder: never split them into single characters. */
+const RTL_OR_COMPLEX = /[֐-ࣿऀ-෿฀-໿יִ-﷿ﹰ-﻿]/;
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+const unitsOf = (text: string): string[] =>
+  RTL_OR_COMPLEX.test(text) ? [text] : [...graphemes.segment(text)].map((g) => g.segment);
+
 export function buildAssDocument(args: BuildAssArgs): string {
-  const style = resolveStyle(args.styleId);
-  const lay = captionLayout(args.width, args.height, style);
-  const header = assHeader(args.width, args.height, [captionStyleLine(style, lay)]);
+  const style = args.style;
+  const lay = computeLayout(args.width, args.height, style);
+  const header = assHeader(args.width, args.height, captionStyleLines(style, lay));
   const words = prepareWords(args.words, args.startSec, args.endSec, args.maskProfanity === true);
   if (words.length === 0) return header;
 
   const kw = keywordSet(args.keywords);
-  const chunks = chunkWords(words, { maxWords: style.maxWords, maxChars: lay.maxChars });
-  const lines: string[] = [];
-  for (let ci = 0; ci < chunks.length; ci++) {
-    const chunk = chunks[ci];
+  const blocks = chunkBlocks(words, {
+    maxWords: style.chunking.maxWords,
+    maxChars: lay.maxChars,
+    maxLines: style.chunking.maxLines,
+  });
+  const skins = [mainSkin(style, lay), ...shadowSkins(style, lay)];
+  const out: string[] = [];
+  const dialogue = (skin: Skin, start: number, end: number, tags: string, body: string): string =>
+    `Dialogue: ${skin.layer},${assTime(start)},${assTime(end)},${skin.styleName},,0,0,0,,${tags}${body}`;
+  const hasBoxHighlight = style.highlight.mode === 'box';
+  let prevEnd = -Infinity;
+
+  for (let bi = 0; bi < blocks.length; bi++) {
+    const chunk = blocks[bi];
     if (!chunk || chunk.length === 0) continue;
-    const nextChunk = chunks[ci + 1];
-    const scale = fitScale(chunk, lay);
-    const sizeTag = scale < 1 ? `\\fs${Math.round(lay.fontSize * scale)}` : '';
-    const pos = `{\\an5\\pos(${lay.cx},${lay.cy})\\blur1${sizeTag}}`;
-    for (let wi = 0; wi < chunk.length; wi++) {
-      const w = chunk[wi];
-      if (!w) continue;
-      const nextWord = chunk[wi + 1];
-      let end: number;
-      if (nextWord) {
-        end = nextWord.s; // inside a line the active word holds until the next one starts
-      } else if (nextChunk && nextChunk[0] && nextChunk[0].s - w.e < PAUSE_BREAK_SEC) {
-        end = nextChunk[0].s; // short gap: the line stays until the next one starts (no flicker)
-      } else {
-        end = w.e;
+    const blk = makeBlock(chunk, style, lay, kw);
+    const flat = blk.words;
+    const first = flat[0];
+    const lastW = flat[flat.length - 1];
+    if (!first || !lastW) continue;
+    const nextFirst = blocks[bi + 1]?.[0]?.[0];
+    const bridgedNext = nextFirst ? nextFirst.s - lastW.e < PAUSE_BREAK_SEC : false;
+    const bridgedPrev = first.s - prevEnd < PAUSE_BREAK_SEC;
+    const blockEnd = bridgedNext && nextFirst ? nextFirst.s : lastW.e;
+    prevEnd = lastW.e;
+
+    const bg: string[] = [];
+    const fg: string[] = [];
+    /** Emits one event per line (and per skin): lines are positioned individually. */
+    const emitLines = (
+      start: number,
+      end: number,
+      ent: Entrance,
+      body: (skin: Skin, line: BlockWord[], li: number) => string,
+    ): void => {
+      for (const skin of skins) {
+        blk.lines.forEach((line, li) => {
+          const text = body(skin, line, li);
+          (skin.main ? fg : bg).push(
+            dialogue(skin, start, end, baseTags(lay, blk, skin, ent, li), text),
+          );
+        });
       }
-      if (assTime(end) === assTime(w.s)) continue; // below ASS resolution (10 ms)
-      const runs = chunk.map((cw, k) =>
-        wordRun(cw, k === wi ? 'active' : 'idle', kw.has(cw.norm), style),
+    };
+    const boxEvent = (start: number, end: number, ent: Entrance): void => {
+      if (!style.box.enabled) return;
+      const b = chunkBox(lay, blk);
+      bg.unshift(
+        drawEvent(start, end, 0, b.x, b.y, b.w, b.h, b.r, style.box.color, style.box.opacity, ent),
       );
-      lines.push(
-        `Dialogue: 1,${assTime(w.s)},${assTime(end)},Caption,,0,0,0,,${pos}${runs.join(' ')}`,
-      );
+    };
+
+    /* ---- block-level animations ---- */
+    if (style.animation === 'karaoke' || style.animation === 'typewriter') {
+      const t0 = first.s;
+      if (assTime(blockEnd) === assTime(t0)) continue;
+      const t0cs = Math.round(t0 * 100);
+      const cs = (t: number): number => Math.max(0, Math.round(t * 100) - t0cs);
+      emitLines(t0, blockEnd, NO_ENTRANCE, (skin, line) => {
+        if (style.animation === 'karaoke') {
+          let cursor = 0;
+          return line
+            .map((bw) => {
+              const so = cs(bw.s);
+              const eo = Math.max(so, cs(Math.max(bw.e, bw.s)));
+              const gap = Math.max(0, so - cursor);
+              cursor = Math.max(cursor, eo);
+              const swept = skin.col(activeColor(style, bw.keyword));
+              const unswept = skin.col(idleColor(style, bw.keyword));
+              return `{\\k${gap}\\kf${eo - so}\\1c${assTagColor(swept)}\\2c${assTagColor(unswept)}}${wordText(bw)}`;
+            })
+            .join(' ');
+        }
+        return line
+          .map((bw) => {
+            const base = skin.col(idleColor(style, bw.keyword));
+            const act = skin.col(activeColor(style, bw.keyword));
+            const so = cs(bw.s) * 10;
+            const eo = Math.max(so + 10, cs(Math.max(bw.e, bw.s)) * 10);
+            const colour =
+              style.highlight.mode === 'none' || !skin.main
+                ? `\\1c${assTagColor(base)}`
+                : `\\1c${assTagColor(base)}\\t(${so},${so + 1},\\1c${assTagColor(act)})\\t(${eo},${eo + 1},\\1c${assTagColor(base)})`;
+            const chars = unitsOf(bw.text);
+            const real = chars.length;
+            const dur = Math.max(10, eo - so);
+            const step = Math.max(12, Math.min(60, Math.floor((dur * 0.85) / Math.max(1, real))));
+            let k = 0;
+            const runs = chars.map((ch) => {
+              const at = so + k * step;
+              k++;
+              return `{${skin.hidden}\\t(${at},${at + 1},${skin.visible})}${escapeAssText(ch)}`;
+            });
+            return `{${colour}}${runs.join('')}`;
+          })
+          .join(' ');
+      });
+      boxEvent(t0, blockEnd, NO_ENTRANCE);
+      out.push(...bg, ...fg);
+      continue;
     }
+
+    /* ---- word-state animations ---- */
+    const events: { start: number; end: number; wi: number }[] = [];
+    for (let wi = 0; wi < flat.length; wi++) {
+      const bw = flat[wi];
+      if (!bw) continue;
+      const nextWord = flat[wi + 1];
+      const end = nextWord ? nextWord.s : blockEnd;
+      if (assTime(end) === assTime(bw.s)) continue; // below ASS resolution (10 ms)
+      events.push({ start: bw.s, end, wi });
+    }
+    if (events.length === 0) continue;
+    const blockStart = events[0]?.start ?? first.s;
+    const blockStop = events[events.length - 1]?.end ?? blockEnd;
+
+    const isFade = style.animation === 'fade';
+    const isSlide = style.animation === 'slide-up';
+    const slidePx = isSlide ? Math.max(8, Math.round(lay.height * 0.022)) : 0;
+    const entranceFor = (idx: number): Entrance => {
+      if (!isFade && !isSlide) return NO_ENTRANCE;
+      const firstEv = idx === 0;
+      const lastEv = idx === events.length - 1;
+      return {
+        slidePx: firstEv ? slidePx : 0,
+        slideMs: 180,
+        fadeIn: firstEv && (isSlide || !bridgedPrev) ? (isSlide ? 90 : 140) : 0,
+        fadeOut: lastEv && !bridgedNext ? 110 : 0,
+      };
+    };
+
+    boxEvent(blockStart, blockStop, { ...entranceFor(0), fadeOut: 0 });
+    // the box event must stay first in `bg`; per-word extras and shadows follow it
+    events.forEach((ev, idx) => {
+      const ent = entranceFor(idx);
+      if (hasBoxHighlight) {
+        const wb = wordBox(lay, blk, ev.wi);
+        if (wb) {
+          bg.push(
+            drawEvent(
+              ev.start,
+              ev.end,
+              0,
+              wb.x,
+              wb.y,
+              wb.w,
+              wb.h,
+              wb.r,
+              style.highlight.boxColor,
+              1,
+              ent,
+            ),
+          );
+        }
+      }
+      emitLines(ev.start, ev.end, ent, (skin, line) =>
+        line
+          .map((bw) => {
+            const tg =
+              bw.id === ev.wi
+                ? activeTags(style, skin, bw.keyword, lay)
+                : idleTags(style, skin, bw.keyword, lay);
+            return `{${tg}}${wordText(bw)}`;
+          })
+          .join(' '),
+      );
+    });
+    out.push(...bg, ...fg);
   }
-  return `${header}${lines.join('\n')}\n`;
+  return `${header}${out.join('\n')}\n`;
 }

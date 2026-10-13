@@ -22,6 +22,7 @@ import {
   type Cp1State,
   type Sim,
 } from './cp1-sim';
+import { handleCp2a } from './cp2-stub-a';
 import { DEFAULT_SETTINGS, type Settings } from '../../../shared/settings';
 import { SECRET_KEYS, maskSecret, type SecretKey } from '../../../shared/secrets';
 import type { AppNotification, JobView, SidecarStatus, StorageUsage } from '../../../shared/domain';
@@ -236,6 +237,8 @@ async function handle(
 ): Promise<unknown> {
   const cp1 = await handleCp1(state, channel, payload);
   if (cp1) return cp1.value;
+  const cp2a = await handleCp2a(state, channel, payload); // UI-A: captions + subtitles
+  if (cp2a) return cp2a.value;
   switch (channel) {
     case 'app:info':
       return {

@@ -27,6 +27,8 @@ export interface Tool {
   group: ToolGroup;
   /** Checkpoint in which it lands (BRIEF §11). `null` = LATER (post v1). */
   checkpoint: number | null;
+  /** Where the tool lives. Absent = not available yet (card disabled with "Coming in a later version"). */
+  href?: string;
 }
 
 export const TOOLS: Tool[] = [
@@ -37,6 +39,7 @@ export const TOOLS: Tool[] = [
     icon: Scissors,
     group: 'Clip',
     checkpoint: 1,
+    href: '/',
   },
   {
     id: 'find-moments',
@@ -45,6 +48,7 @@ export const TOOLS: Tool[] = [
     icon: Sparkles,
     group: 'Clip',
     checkpoint: 2,
+    href: '/tools/find-moments/',
   },
   {
     id: 'highlights',
@@ -53,6 +57,7 @@ export const TOOLS: Tool[] = [
     icon: Film,
     group: 'Clip',
     checkpoint: 2,
+    href: '/tools/highlights/',
   },
   {
     id: 'live-clipping',
@@ -77,6 +82,7 @@ export const TOOLS: Tool[] = [
     icon: Captions,
     group: 'Polish',
     checkpoint: 2,
+    href: '/tools/subtitles/',
   },
   {
     id: 'reframe',
@@ -85,6 +91,7 @@ export const TOOLS: Tool[] = [
     icon: Crop,
     group: 'Polish',
     checkpoint: 1,
+    href: '/tools/reframe/',
   },
   {
     id: 'hook',
@@ -93,6 +100,7 @@ export const TOOLS: Tool[] = [
     icon: MessageSquareQuote,
     group: 'Polish',
     checkpoint: 2,
+    href: '/tools/hook/',
   },
   {
     id: 'thumbnail',
@@ -101,6 +109,7 @@ export const TOOLS: Tool[] = [
     icon: ImageIcon,
     group: 'Polish',
     checkpoint: 2,
+    href: '/tools/thumbnail/',
   },
   {
     id: 'broll',
@@ -117,6 +126,7 @@ export const TOOLS: Tool[] = [
     icon: FileText,
     group: 'Understand',
     checkpoint: 2,
+    href: '/tools/summary/',
   },
   {
     id: 'transcripts',
@@ -125,6 +135,7 @@ export const TOOLS: Tool[] = [
     icon: ScrollText,
     group: 'Understand',
     checkpoint: 2,
+    href: '/tools/transcripts/',
   },
   {
     id: 'game-clipping',
@@ -152,5 +163,6 @@ export const TOOLS: Tool[] = [
   },
 ];
 
-export const toolHint = (t: Tool) =>
-  t.checkpoint === null ? 'Coming in a later version' : `Arrives in checkpoint ${t.checkpoint}`;
+export const LATER_HINT = 'Coming in a later version';
+export const isToolAvailable = (t: Tool): boolean => !!t.href;
+export const toolHint = (t: Tool) => (t.href ? t.description : LATER_HINT);

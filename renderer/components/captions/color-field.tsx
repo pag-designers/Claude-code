@@ -18,17 +18,18 @@ const SWATCH_TOKENS = [
   'green',
 ] as const;
 
+function readSwatches(): { name: string; hex: string }[] {
+  if (typeof document === 'undefined') return [];
+  const cs = getComputedStyle(document.documentElement);
+  return SWATCH_TOKENS.map((name) => ({
+    name,
+    hex: cs.getPropertyValue(`--swatch-${name}`).trim().toLowerCase(),
+  })).filter((s) => /^#[0-9a-f]{6}$/.test(s.hex));
+}
+
+/** The studio only mounts after a user action (never during SSR), so tokens can be read on first render. */
 export function useSwatches(): { name: string; hex: string }[] {
-  const [list, setList] = React.useState<{ name: string; hex: string }[]>([]);
-  React.useEffect(() => {
-    const cs = getComputedStyle(document.documentElement);
-    setList(
-      SWATCH_TOKENS.map((name) => ({
-        name,
-        hex: cs.getPropertyValue(`--swatch-${name}`).trim().toLowerCase(),
-      })).filter((s) => /^#[0-9a-f]{6}$/.test(s.hex)),
-    );
-  }, []);
+  const [list] = React.useState(readSwatches);
   return list;
 }
 

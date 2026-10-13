@@ -106,3 +106,42 @@ export function buildAudioFilter(
   parts.push(`afade=t=out:st=${Math.max(0, durSec - fadeOut).toFixed(3)}:d=${fadeOut.toFixed(3)}`);
   return parts.join(',');
 }
+
+/**
+ * Measures the loudness of an arbitrary audio filter graph (e.g. several segments joined with
+ * crossfades). `inputArgs` are the `-ss/-t/-i` groups, `graph` ends in the pad `[outLabel]`.
+ * Returns null for silent audio.
+ */
+export async function measureLoudnessGraph(
+  ffmpegPath: string,
+  inputArgs: string[],
+  graph: string,
+  outLabel: string,
+  targetLufs: number,
+  signal?: AbortSignal,
+): Promise<LoudnormMeasure | null> {
+  const r = await runFfmpeg(
+    ffmpegPath,
+    [
+      '-hide_banner',
+      '-nostdin',
+      '-loglevel',
+      'info',
+      ...inputArgs,
+      '-filter_complex',
+      `${graph};[${outLabel}]loudnorm=I=${targetLufs}:TP=${TRUE_PEAK_LIMIT}:LRA=11:print_format=json[lnm]`,
+      '-map',
+      '[lnm]',
+      '-vn',
+      '-sn',
+      '-f',
+      'null',
+      '-',
+    ],
+    { signal, timeoutMs: 300_000 },
+  );
+  if (r.code !== 0) {
+    throw new RenderError('Loudness measurement failed', lastLines(r.stderr));
+  }
+  return parseLoudnormJson(r.stderr);
+}

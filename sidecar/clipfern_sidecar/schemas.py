@@ -103,6 +103,9 @@ class FacesRequest(BaseModel):
     end: float | None = Field(default=None, gt=0)
     min_confidence: float = Field(default=0.5, ge=0, le=1)
     max_frames: int = Field(default=20000, ge=1, le=200000)
+    #: Also search overlapping zoomed tiles (3x3 grid of half-frame crops) for SMALL faces such as a
+    #: webcam overlay or video-call tiles. ~9x more detector calls; off by default.
+    small_faces: bool = False
 
 
 class FaceBox(BaseModel):
@@ -129,4 +132,34 @@ class FacesResponse(BaseModel):
     frames_sampled: int
     frames_with_faces: int
     frames: list[FaceFrame]
+    elapsed_s: float
+
+
+# ---------------------------------------------------------------- frames/score
+
+
+class FramesScoreRequest(BaseModel):
+    #: Image files (JPEG/PNG...) to score; at most 64 per call.
+    files: list[str] = Field(min_length=1, max_length=64)
+    min_confidence: float = Field(default=0.4, ge=0, le=1)
+    #: Also look for small faces in zoomed tiles (slower).
+    small_faces: bool = False
+
+
+class FrameScore(BaseModel):
+    file: str
+    width: int
+    height: int
+    #: Variance of the Laplacian of the 640 px-wide gray image (higher = sharper; ~20 blurry, 500+ crisp).
+    sharpness: float
+    #: Mean gray level, 0..1.
+    brightness: float
+    #: Standard deviation of the gray level, 0..1 (about 0.25 for a well exposed photo).
+    contrast: float
+    #: Faces, boxes normalised to the image, best first.
+    faces: list[FaceBox]
+
+
+class FramesScoreResponse(BaseModel):
+    frames: list[FrameScore]
     elapsed_s: float

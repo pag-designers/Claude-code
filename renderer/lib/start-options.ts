@@ -1,4 +1,5 @@
 /** Builds the explicit `pipeline:start` options from the Home form (always complete: see report on zod partial defaults). */
+import { DEFAULT_STYLE_ID, type ReframeMode } from '@shared/cp2';
 import type { PipelineOptionsInput } from '@shared/pipeline';
 import type { Settings } from '@shared/settings';
 
@@ -15,6 +16,9 @@ export interface StartForm {
   captions: boolean;
   hookCard: boolean;
   prompt: string;
+  /** Caption style preset id (CP2). */
+  captionStyleId: string;
+  reframeMode: ReframeMode;
 }
 
 export function formFromSettings(
@@ -31,6 +35,8 @@ export function formFromSettings(
     captions: true,
     hookCard: true,
     prompt: '',
+    captionStyleId: DEFAULT_STYLE_ID,
+    reframeMode: 'auto',
   };
 }
 
@@ -60,6 +66,9 @@ export function buildStartOptions(
     prompt: f.prompt.trim().slice(0, 500),
     language: null,
     maxResolution,
+    mode: 'clips',
+    captionStyleId: f.captionStyleId,
+    reframeMode: f.reframeMode,
   };
   if (f.clipPreset === 'custom') {
     o.minSec = Math.round(f.minSec);

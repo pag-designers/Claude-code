@@ -13,10 +13,13 @@ from . import __version__, paths
 from .auth import make_token_dependency
 from .device import DeviceInfo, detect, machine_summary
 from .faces import detect_faces
+from .frames import score_frames
 from .scenes import detect_scenes
 from .schemas import (
     FacesRequest,
     FacesResponse,
+    FramesScoreRequest,
+    FramesScoreResponse,
     HealthResponse,
     ScenesRequest,
     ScenesResponse,
@@ -127,5 +130,9 @@ def create_app(token: str, device: DeviceInfo | None = None) -> FastAPI:
     @app.post("/faces", response_model=FacesResponse)
     def post_faces(req: FacesRequest) -> FacesResponse:
         return detect_faces(req)
+
+    @app.post("/frames/score", response_model=FramesScoreResponse)
+    def post_frames_score(req: FramesScoreRequest) -> FramesScoreResponse:
+        return score_frames(req)
 
     return app

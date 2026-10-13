@@ -150,7 +150,8 @@ export class FontBook {
     for (const d of systemFontDirs()) scanDir(d, 3, files);
     const out: FontFace[] = [];
     for (const file of files) {
-      for (const parsed of readFaces(file)) out.push(lazyFace(parsed.names, parsed.loadMetrics, false));
+      for (const parsed of readFaces(file))
+        out.push(lazyFace(parsed.names, parsed.loadMetrics, false));
     }
     this.system = out;
     return out;
@@ -208,7 +209,7 @@ export const fontBook = new FontBook();
 const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
 /** Characters a font usually lacks and the system falls back for: CJK, Hangul, kana, emoji. */
-const isWide = (cp: number): boolean =>
+export const isWide = (cp: number): boolean =>
   (cp >= 0x1100 && cp <= 0x11ff) ||
   (cp >= 0x2e80 && cp <= 0xa4cf) ||
   (cp >= 0xac00 && cp <= 0xd7a3) ||
@@ -225,30 +226,41 @@ const FALLBACK_ADVANCE = 0.6;
 function clusterAdvance(face: FontFace | null, cluster: string): number {
   const cp = cluster.codePointAt(0) ?? 0;
   if (cp < 0x20 || cp === 0x200b || cp === 0x200d) return 0;
-  if (isWide(cp)) return 1.05;
   const generic = face ?? fontBook.resolve('Poppins', 600, false);
   const a = generic?.advance(cp);
   return a ?? FALLBACK_ADVANCE;
 }
 
-/** Text width in px for `face` at `sizePx` with `spacingPx` between glyphs (libass adds it after each). */
+/**
+ * libass (like VSFilter) treats the ASS font size as the height of the line cell (ascent + descent), not
+ * the em: the em in px is `size / (ascent + descent)`.
+ */
+export function emPx(face: FontFace | null, sizePx: number): number {
+  const f = face ?? fontBook.resolve('Poppins', 600, false);
+  const cell = f ? f.ascent + f.descent : 1.4;
+  return sizePx / (cell > 0.1 ? cell : 1.4);
+}
+
+/** Text width in px for `face` at ASS font size `sizePx` with `spacingPx` between glyphs (libass adds it after each). */
 export function measureText(
   face: FontFace | null,
   text: string,
   sizePx: number,
   spacingPx = 0,
 ): number {
+  const em = emPx(face, sizePx);
   let w = 0;
   let n = 0;
   for (const { segment } of segmenter.segment(text)) {
-    w += clusterAdvance(face, segment) * sizePx;
+    const cp = segment.codePointAt(0) ?? 0;
+    // CJK / emoji come from a fallback font whose cell is ~ the ASS size: about 0.95 of it per glyph
+    w += isWide(cp) ? 0.95 * sizePx : clusterAdvance(face, segment) * em;
     n++;
   }
   return w + n * spacingPx;
 }
 
-/** Line height libass uses for a face: ascent + descent of the font at `sizePx`. */
-export function lineHeight(face: FontFace | null, sizePx: number): number {
-  const f = face ?? fontBook.resolve('Poppins', 600, false);
-  return ((f?.ascent ?? 1.05) + (f?.descent ?? 0.35)) * sizePx;
+/** Line height libass uses: the ASS font size itself (it is the ascent + descent cell). */
+export function lineHeight(_face: FontFace | null, sizePx: number): number {
+  return sizePx;
 }

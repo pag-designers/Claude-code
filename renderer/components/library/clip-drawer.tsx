@@ -22,7 +22,7 @@ import { Progress } from '@/components/ui/progress';
 import { Segmented } from '@/components/ui/segmented';
 import { StarButton } from '@/components/ui/star-button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DisabledTip } from '@/components/ui/tooltip';
+import { DisabledTip, Tip } from '@/components/ui/tooltip';
 import { ChatLauncher } from '@/components/chat/chat-launcher';
 import { DRAWER_VIEWS, isDrawerView, useClipUi, type DrawerView } from '@/lib/cp2-clips';
 import { registerSeeker } from '@/lib/cp2-chat';
@@ -356,7 +356,7 @@ export function ClipDrawer({
                 >
                   <TabsList
                     aria-label="Clip sections"
-                    className="scrollbar-thin -mb-1 w-full overflow-x-auto"
+                    className="scrollbar-thin sticky top-0 z-10 -mx-6 -mt-1 w-[calc(100%+3rem)] overflow-x-auto bg-popover px-6"
                   >
                     {DRAWER_VIEWS.map((v) => (
                       <TabsTrigger key={v} value={v} data-testid={`drawer-tab-${v}`}>
@@ -464,9 +464,16 @@ export function ClipDrawer({
                     onToggle={() => fav.mutate({ ids: [clip.id], value: !clip.favorite })}
                     className="size-9 border border-border-strong"
                   />
-                  <Button variant="danger-ghost" onClick={() => setConfirmDelete(true)}>
-                    <Trash2 /> Delete
-                  </Button>
+                  <Tip content="Delete clip">
+                    <Button
+                      variant="danger-ghost"
+                      size="icon"
+                      aria-label="Delete"
+                      onClick={() => setConfirmDelete(true)}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </Tip>
                   <ChatLauncher videoId={clip.videoId} clipId={clip.id} />
                   <span className="ml-auto flex items-center gap-1 text-xs text-subtle">
                     <Button

@@ -8,6 +8,7 @@ import {
   ArrowRight,
   AudioLines,
   CircleCheck,
+  ChevronDown,
   Crop,
   Download,
   Film,
@@ -18,21 +19,33 @@ import {
   Wand2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { REFRAME_MODE_LABELS, reframeModeSchema } from '@shared/cp2';
 import { parseYouTubeId } from '@shared/pipeline';
 import { Banner } from '@/components/ui/banner';
 import { Button } from '@/components/ui/button';
 import { ChipGroup } from '@/components/ui/chip-group';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { DisabledTip } from '@/components/ui/tooltip';
+import { StyleStudio } from '@/components/captions/style-studio';
+import { StyleThumb } from '@/components/captions/style-thumb';
 import {
   LiveRejected,
   PreviewSkeleton,
   ProbeError,
   UrlPreviewCard,
 } from '@/components/home/url-preview';
+import { useCaptionStyle } from '@/lib/cp2-captions';
 import { videoHref } from '@/lib/hrefs';
 import { useIpcQuery } from '@/lib/ipc';
 import { useStartPipeline, useVideos } from '@/lib/library';
@@ -92,6 +105,55 @@ function NumberField({
         wrapperClassName="w-28"
       />
     </div>
+  );
+}
+
+/** Home option: opens the Caption Style Studio; shows the chosen preset with a real libass thumbnail. */
+function CaptionStyleOption({
+  styleId,
+  disabled,
+  onChange,
+}: {
+  styleId: string;
+  disabled: boolean;
+  onChange: (id: string) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const style = useCaptionStyle(styleId);
+  const button = (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => setOpen(true)}
+      aria-label={`Caption style: ${style?.name ?? 'loading'}`}
+      data-testid="home-caption-style"
+      className="flex h-11 items-center gap-2.5 rounded-lg border border-border-strong bg-transparent py-1 pl-1 pr-3 text-left transition-colors duration-(--duration-fast) hover:bg-accent disabled:pointer-events-none disabled:opacity-45"
+    >
+      <span className="w-6 shrink-0 overflow-hidden rounded-xs border border-border-strong">
+        {style ? <StyleThumb style={style} alt="" /> : <Skeleton className="aspect-[9/16] w-full rounded-none" />}
+      </span>
+      <span className="min-w-0">
+        <span className="block max-w-36 truncate text-sm font-medium leading-4">
+          {style?.name ?? 'Loading…'}
+        </span>
+        <span className="block text-2xs leading-3 text-subtle">Change style</span>
+      </span>
+      <ChevronDown className="size-4 shrink-0 text-subtle" aria-hidden />
+    </button>
+  );
+  return (
+    <>
+      {disabled ? <DisabledTip reason="Captions are switched off">{button}</DisabledTip> : button}
+      <StyleStudio
+        open={open}
+        onOpenChange={setOpen}
+        currentStyleId={styleId}
+        onApply={onChange}
+        title="Caption style for new clips"
+        description="Pick a preset or tune every detail. Your choice is used for the next run; change it per video any time."
+        applyLabel="Use this style"
+      />
+    </>
   );
 }
 
@@ -371,6 +433,42 @@ export function HomeHero() {
                 onValueChange={(v) => set('aspect', v)}
                 options={ASPECTS.map((a) => ({ value: a, label: a }))}
               />
+            </div>
+
+            <div className="flex flex-wrap items-end gap-x-10 gap-y-5">
+              <div className="flex flex-col gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-subtle">
+                  Caption style
+                </span>
+                <CaptionStyleOption
+                  styleId={form.captionStyleId}
+                  disabled={!form.captions}
+                  onChange={(id) => set('captionStyleId', id)}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label
+                  htmlFor="reframe-mode"
+                  className="text-xs font-semibold uppercase tracking-wider text-subtle"
+                >
+                  Reframe
+                </Label>
+                <Select
+                  value={form.reframeMode}
+                  onValueChange={(v) => set('reframeMode', reframeModeSchema.parse(v))}
+                >
+                  <SelectTrigger id="reframe-mode" className="h-11 w-56" data-testid="home-reframe">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {reframeModeSchema.options.map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {REFRAME_MODE_LABELS[m]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {form.clipPreset === 'custom' ? (

@@ -370,6 +370,8 @@ export interface FacesRequest {
   end?: number;
   min_confidence?: number;
   max_frames?: number;
+  /** Also search zoomed tiles for small faces (webcam overlays, video-call tiles); ~9x slower. */
+  small_faces?: boolean;
 }
 export interface FaceBox {
   /** Normalised 0..1 relative to the source frame, top-left origin. */
@@ -388,6 +390,29 @@ export interface FacesResult {
   frames_sampled: number;
   frames_with_faces: number;
   frames: { t: number; faces: FaceBox[] }[];
+  elapsed_s: number;
+}
+
+export interface FramesScoreRequest {
+  /** Image files (at most 64 per call). */
+  files: string[];
+  min_confidence?: number;
+  small_faces?: boolean;
+}
+export interface FrameScoreWire {
+  file: string;
+  width: number;
+  height: number;
+  /** Variance of the Laplacian at 640 px width (higher = sharper). */
+  sharpness: number;
+  /** Mean gray level 0..1. */
+  brightness: number;
+  /** Standard deviation of the gray level 0..1. */
+  contrast: number;
+  faces: FaceBox[];
+}
+export interface FramesScoreResult {
+  frames: FrameScoreWire[];
   elapsed_s: number;
 }
 
@@ -557,6 +582,33 @@ export class SidecarManager {
   async faces(req: FacesRequest, opts: { signal?: AbortSignal } = {}): Promise<FacesResult> {
     await this.whenReady();
     return this.request<FacesResult>('POST', '/faces', req, opts);
+  }
+
+  /**
+   * Scores still images (sharpness, brightness, contrast, faces) for the thumbnail picker. Matches the
+   * `FrameScorer` signature of contracts2.ts: `(files, signal) => manager.scoreFrames(files, { signal })`.
+   * Batches of more than 64 files are split into several requests.
+   */
+  async scoreFrames(
+    files: string[],
+    opts: { signal?: AbortSignal; minConfidence?: number; smallFaces?: boolean } = {},
+  ): Promise<FrameScoreWire[]> {
+    await this.whenReady();
+    const out: FrameScoreWire[] = [];
+    for (let i = 0; i < files.length; i += 64) {
+      const res = await this.request<FramesScoreResult>(
+        'POST',
+        '/frames/score',
+        {
+          files: files.slice(i, i + 64),
+          min_confidence: opts.minConfidence ?? 0.4,
+          small_faces: opts.smallFaces ?? false,
+        } satisfies FramesScoreRequest,
+        { signal: opts.signal },
+      );
+      out.push(...res.frames);
+    }
+    return out;
   }
 
   // -- logging / status helpers -----------------------------------------------------------

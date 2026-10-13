@@ -188,9 +188,7 @@ export function planSingle(args: PlanArgs, o: SingleOptions = {}): ReframePlan {
       const spread = q(cxs, 0.9) - q(cxs, 0.1);
       fixed = spread <= FLAKY_SPREAD * srcW ? toCrop({ cx: q(cxs, 0.5), cy: q(cys, 0.5) }) : centre;
     }
-    const targetAt = fixed
-      ? (): Pt => fixed as Pt
-      : targetFromObs(d.obs, toCrop, centre);
+    const targetAt = fixed ? (): Pt => fixed as Pt : targetFromObs(d.obs, toCrop, centre);
     emitShotPath(d.shot, si === data.length - 1, dur, targetAt, {
       cropW: g.cropW,
       cropH: g.cropH,

@@ -43,7 +43,8 @@ import { Progress } from '@/components/ui/progress';
 import { Segmented } from '@/components/ui/segmented';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DisabledTip, Tip } from '@/components/ui/tooltip';
+import { Tip } from '@/components/ui/tooltip';
+import { StyleStudio } from '@/components/captions/style-studio';
 import {
   DAY_NAMES,
   LAYOUT_LABELS,
@@ -77,6 +78,7 @@ import {
   useHooks,
   useMeta,
   useReframeClips,
+  useRestyleClips,
   useSaveMeta,
   useThumbCandidateUrl,
   useThumbs,
@@ -520,7 +522,7 @@ export function MetaTab({ clipId, clip: provided }: TabProps) {
   void clip;
 
   if (q.isPending) return <TabSkeleton label="Loading metadata" />;
-  const meta: ClipMeta | null = q.data;
+  const meta: ClipMeta | null = q.data ?? null;
 
   if (!meta)
     return (
@@ -1358,17 +1360,34 @@ export function ReframeTab({ clipId, clip: provided }: TabProps) {
   );
 }
 
-/**
- * The caption style studio is built by another engineer; until it lands the entry point is visible but disabled
- * with an honest reason, so the layout of this tab never changes when it is wired in.
- */
+/** Opens the Caption Style Studio on this clip's frames; applying a style re-renders just this clip. */
 function StyleStudioButton({ clip }: { clip: ClipView }) {
-  void clip;
+  const [open, setOpen] = React.useState(false);
+  const restyle = useRestyleClips();
   return (
-    <DisabledTip reason="The style studio is still being wired in. Change the style from the Subtitles tab for now.">
-      <Button variant="outline" size="sm" disabled data-testid="caption-style-change">
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={isClipBusy(clip)}
+        onClick={() => setOpen(true)}
+        data-testid="caption-style-change"
+      >
         <Palette /> Change style…
       </Button>
-    </DisabledTip>
+      <StyleStudio
+        open={open}
+        onOpenChange={setOpen}
+        currentStyleId={clip.captionStyleId}
+        clipId={clip.id}
+        title="Caption style for this clip"
+        description="Pick a preset or tune every detail. Only this clip is re-rendered."
+        applyLabel="Re-render with this style"
+        onApply={async (styleId) => {
+          if (styleId !== clip.captionStyleId) await restyle.mutateAsync({ ids: [clip.id], styleId });
+          setOpen(false);
+        }}
+      />
+    </>
   );
 }

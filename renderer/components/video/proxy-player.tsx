@@ -9,6 +9,7 @@ import { useProxyUrl } from '@/lib/library';
 import { usePlayer, usePlayerSelector } from '@/lib/player';
 import { activeRangeIndex } from '@/lib/transcript';
 import { isActiveVideo } from '@/lib/pipeline-ui';
+import { MarkerStrip } from '@/components/chat/marker-strip';
 
 function PlayerClock() {
   const t = usePlayerSelector((s) => Math.floor(s.time));
@@ -109,6 +110,7 @@ export function ProxyPlayer({
           </div>
         )}
       </div>
+      <MarkerStrip videoId={video.id} />
       <div className="flex items-center justify-between gap-3 border-t px-3.5 py-2.5 text-xs text-muted-foreground">
         <CurrentChapter chapters={chapters} />
         <PlayerClock />

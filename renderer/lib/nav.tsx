@@ -1,3 +1,4 @@
+import { TOOL_ROUTE_META, isToolRouteId } from './cp2-tools';
 import {
   CalendarClock,
   Clapperboard,
@@ -154,6 +155,10 @@ export function titleForPath(pathname: string): { title: string; parent?: string
     return { title: s?.label ?? 'Settings', parent: 'Settings' };
   }
   if (p.startsWith('/library/video/')) return { title: 'Video', parent: 'Library' };
+  if (p.startsWith('/tools/')) {
+    const id = p.split('/')[2];
+    if (isToolRouteId(id)) return { title: TOOL_ROUTE_META[id].title, parent: 'Tools' };
+  }
   if (p.startsWith('/notifications')) return { title: 'Notifications' };
   if (p.startsWith('/design')) return { title: 'Design system' };
   const item = NAV_ITEMS.find((n) => n.href !== '/' && p.startsWith(n.href));

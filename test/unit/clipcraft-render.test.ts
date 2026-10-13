@@ -295,7 +295,7 @@ describe.skipIf(!haveFfmpeg)('render with the real ffmpeg (synthetic source)', (
         endSec: 3.5,
         width: 1080,
         height: 1920,
-        styleId: 'clean-pop',
+        style: caps.builtinStyles().find((x) => x.id === 'clean-pop')!,
       }),
     );
     const out = path.join(dir, 'out.mp4');

@@ -117,7 +117,10 @@ export function targetFromObs(
     const next = obs[lo];
     if (prev && next && next.t - prev.t <= INTERP_GAP_SEC) {
       const f = (t - prev.t) / Math.max(1e-6, next.t - prev.t);
-      return toCrop({ cx: prev.cx + (next.cx - prev.cx) * f, cy: prev.cy + (next.cy - prev.cy) * f });
+      return toCrop({
+        cx: prev.cx + (next.cx - prev.cx) * f,
+        cy: prev.cy + (next.cy - prev.cy) * f,
+      });
     }
     if (prev) {
       // short gap: hold; long gap: head for home (the smoother makes it an ease)
@@ -176,28 +179,14 @@ export function emitShotPath(
     if (canPanX) {
       if (tg.x - cx > dzX) cx = tg.x - dzX;
       else if (cx - tg.x > dzX) cx = tg.x + dzX;
-      const r = smoothDamp(
-        px,
-        clamp(cx, bounds.minX, bounds.maxX),
-        vx,
-        SMOOTH_TIME,
-        maxSpeedX,
-        dt,
-      );
+      const r = smoothDamp(px, clamp(cx, bounds.minX, bounds.maxX), vx, SMOOTH_TIME, maxSpeedX, dt);
       px = r.value;
       vx = r.vel;
     }
     if (canPanY) {
       if (tg.y - cy > dzY) cy = tg.y - dzY;
       else if (cy - tg.y > dzY) cy = tg.y + dzY;
-      const r = smoothDamp(
-        py,
-        clamp(cy, bounds.minY, bounds.maxY),
-        vy,
-        SMOOTH_TIME,
-        maxSpeedY,
-        dt,
-      );
+      const r = smoothDamp(py, clamp(cy, bounds.minY, bounds.maxY), vy, SMOOTH_TIME, maxSpeedY, dt);
       py = r.value;
       vy = r.vel;
     }

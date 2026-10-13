@@ -433,16 +433,12 @@ function flushDeltas(qc: QueryClient) {
   const batch = pendingDeltas;
   pendingDeltas = [];
   // coalesce consecutive deltas of the same thread into one store write
-  let acc: ChatEvent | null = null;
   const out: ChatEvent[] = [];
   for (const e of batch) {
-    if (e.type === 'delta' && acc?.type === 'delta' && acc.threadId === e.threadId) {
-      acc = { ...acc, text: acc.text + e.text };
-      out[out.length - 1] = acc;
-    } else {
-      acc = e;
-      out.push(e);
-    }
+    const prev = out[out.length - 1];
+    if (e.type === 'delta' && prev?.type === 'delta' && prev.threadId === e.threadId)
+      out[out.length - 1] = { ...prev, text: prev.text + e.text };
+    else out.push(e);
   }
   for (const e of out) applyChatEvent(qc, e);
 }

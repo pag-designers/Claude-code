@@ -197,8 +197,28 @@ interface RowProps {
   onDelete: (cue: Cue) => void;
 }
 
-const CueRow = React.memo(function CueRow(p: RowProps) {
-  const { cue, editing } = p;
+const CueRow = React.memo(function CueRow(props: RowProps) {
+  const {
+    cue,
+    editing,
+    measure,
+    index,
+    top,
+    isLast,
+    active,
+    match,
+    currentMatch,
+    onPlay,
+    onBeginEdit,
+    onChangeText,
+    onCommit,
+    onCancel,
+    onSplit,
+    onMerge,
+    onNudge,
+    onRetime,
+    onDelete,
+  } = props;
   const isEditing = editing?.id === cue.id;
   const area = React.useRef<HTMLTextAreaElement | null>(null);
   const skipBlur = React.useRef(false);
@@ -216,7 +236,7 @@ const CueRow = React.memo(function CueRow(p: RowProps) {
     <div
       className={cn(
         'flex shrink-0 items-center gap-0.5 self-start transition-opacity duration-(--duration-fast)',
-        isEditing || p.active
+        isEditing || active
           ? 'opacity-100'
           : 'opacity-0 focus-within:opacity-100 group-hover:opacity-100',
       )}
@@ -232,9 +252,9 @@ const CueRow = React.memo(function CueRow(p: RowProps) {
           aria-label="Split at caret"
           onClick={() => {
             if (isEditing) {
-              p.onSplit(cue, editing!.text, caretNow());
+              onSplit(cue, editing!.text, caretNow());
             } else {
-              p.onBeginEdit(cue, 'middle');
+              onBeginEdit(cue, 'middle');
               toast.info('Move the caret between two words, then press Split again');
             }
           }}
@@ -242,13 +262,13 @@ const CueRow = React.memo(function CueRow(p: RowProps) {
           <Scissors />
         </Button>
       </Tip>
-      <Tip content={p.isLast ? 'This is the last caption' : 'Merge with the next caption'}>
+      <Tip content={isLast ? 'This is the last caption' : 'Merge with the next caption'}>
         <Button
           variant="ghost"
           size="icon-xs"
           aria-label="Merge with next"
-          disabled={p.isLast}
-          onClick={() => p.onMerge(cue)}
+          disabled={isLast}
+          onClick={() => onMerge(cue)}
         >
           <Merge />
         </Button>
@@ -258,7 +278,7 @@ const CueRow = React.memo(function CueRow(p: RowProps) {
           variant="ghost"
           size="icon-xs"
           aria-label="Nudge 0.1 seconds earlier"
-          onClick={() => p.onNudge(cue, -NUDGE_STEP)}
+          onClick={() => onNudge(cue, -NUDGE_STEP)}
         >
           <Minus />
         </Button>
@@ -268,7 +288,7 @@ const CueRow = React.memo(function CueRow(p: RowProps) {
           variant="ghost"
           size="icon-xs"
           aria-label="Nudge 0.1 seconds later"
-          onClick={() => p.onNudge(cue, NUDGE_STEP)}
+          onClick={() => onNudge(cue, NUDGE_STEP)}
         >
           <Plus />
         </Button>
@@ -278,7 +298,7 @@ const CueRow = React.memo(function CueRow(p: RowProps) {
           variant="danger-ghost"
           size="icon-xs"
           aria-label="Delete caption"
-          onClick={() => p.onDelete(cue)}
+          onClick={() => onDelete(cue)}
         >
           <Trash2 />
         </Button>
@@ -288,24 +308,24 @@ const CueRow = React.memo(function CueRow(p: RowProps) {
 
   return (
     <div
-      ref={p.measure}
+      ref={measure}
       data-row-key={String(cue.id)}
-      data-index={p.index}
+      data-index={index}
       data-testid="cue-row"
-      data-active={p.active || undefined}
+      data-active={active || undefined}
       data-editing={isEditing || undefined}
       className="absolute inset-x-0"
-      style={{ transform: `translateY(${p.top}px)` }}
+      style={{ transform: `translateY(${top}px)` }}
     >
       <div
         className={cn(
           'group flex items-start gap-3 border-l-2 px-3 py-2 transition-colors duration-(--duration-fast)',
-          p.active ? 'border-primary bg-primary-soft' : 'border-transparent hover:bg-accent/50',
+          active ? 'border-primary bg-primary-soft' : 'border-transparent hover:bg-accent/50',
           isEditing && 'bg-accent/70',
         )}
       >
         <div className="flex w-[84px] shrink-0 flex-col items-start gap-0.5 pt-0.5">
-          <RetimePopover cue={cue} onApply={(s) => p.onRetime(cue, s)}>
+          <RetimePopover cue={cue} onApply={(s) => onRetime(cue, s)}>
             <button
               type="button"
               aria-label={`Retime caption starting at ${formatCueTime(cue.s)}`}
@@ -317,7 +337,7 @@ const CueRow = React.memo(function CueRow(p: RowProps) {
           </RetimePopover>
           <button
             type="button"
-            onClick={() => p.onPlay(cue)}
+            onClick={() => onPlay(cue)}
             aria-label={`Play from ${formatCueTime(cue.s)}`}
             className="inline-flex items-center gap-1 rounded-xs text-2xs tabular-nums text-subtle hover:text-primary-text"
           >
@@ -335,22 +355,22 @@ const CueRow = React.memo(function CueRow(p: RowProps) {
               aria-label={`Edit caption at ${formatCueTime(cue.s)}`}
               data-testid="cue-input"
               spellCheck
-              onChange={(e) => p.onChangeText(e.target.value.replace(/\n/g, ' '))}
+              onChange={(e) => onChangeText(e.target.value.replace(/\n/g, ' '))}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && e.altKey) {
                   e.preventDefault();
-                  p.onSplit(cue, editing.text, e.currentTarget.selectionStart);
+                  onSplit(cue, editing.text, e.currentTarget.selectionStart);
                 } else if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
                   skipBlur.current = true;
-                  p.onCommit();
+                  onCommit();
                 } else if (e.key === 'Enter') {
                   e.preventDefault();
                 } else if (e.key === 'Escape') {
                   e.preventDefault();
                   e.stopPropagation();
                   skipBlur.current = true;
-                  p.onCancel();
+                  onCancel();
                 }
               }}
               onBlur={() => {
@@ -358,7 +378,7 @@ const CueRow = React.memo(function CueRow(p: RowProps) {
                   skipBlur.current = false;
                   return;
                 }
-                p.onCommit();
+                onCommit();
               }}
               className="selectable block w-full resize-none rounded-md border border-ring bg-field px-2 py-1 text-base leading-6 text-foreground outline-none ring-3 ring-ring/25 [field-sizing:content]"
             />
@@ -367,17 +387,17 @@ const CueRow = React.memo(function CueRow(p: RowProps) {
               type="button"
               data-testid="cue-text"
               aria-label={`Edit caption: ${cue.text}`}
-              onClick={() => p.onBeginEdit(cue, 'end')}
+              onClick={() => onBeginEdit(cue, 'end')}
               className={cn(
                 'block w-full cursor-text rounded-md border border-transparent px-2 py-1 text-left text-base leading-6',
-                p.active ? 'text-foreground' : 'text-foreground/90',
+                active ? 'text-foreground' : 'text-foreground/90',
                 'hover:border-border-strong',
               )}
             >
               <Highlighted
                 text={cue.text}
-                ranges={p.match?.ranges ?? []}
-                current={p.currentMatch}
+                ranges={match?.ranges ?? []}
+                current={currentMatch}
               />
             </button>
           )}
@@ -475,8 +495,8 @@ function SubtitlesPanel({ video }: { video: VideoView }) {
   const [follow, setFollow] = React.useState(true);
 
   const keyOf = React.useCallback((i: number) => String(cues[i]?.id ?? i), [cues]);
-  const vr = useVirtualRows(n, keyOf, ESTIMATE);
-  const { scrollToIndex } = vr;
+  const { scrollerRef, onScroll, total, range, offsets, scrollTop, viewport, measure, scrollToIndex } =
+    useVirtualRows(n, keyOf, ESTIMATE);
 
   const lastFollowed = React.useRef(-2);
   React.useEffect(() => {
@@ -623,9 +643,9 @@ function SubtitlesPanel({ video }: { video: VideoView }) {
   };
 
   const activeOffscreen =
-    activeIdx >= 0 && (vr.offsets[activeIdx + 1] ?? 0) < vr.scrollTop - 40
+    activeIdx >= 0 && (offsets[activeIdx + 1] ?? 0) < scrollTop - 40
       ? 'above'
-      : activeIdx >= 0 && (vr.offsets[activeIdx] ?? 0) > vr.scrollTop + vr.viewport + 40
+      : activeIdx >= 0 && (offsets[activeIdx] ?? 0) > scrollTop + viewport + 40
         ? 'below'
         : null;
 
@@ -660,6 +680,21 @@ function SubtitlesPanel({ video }: { video: VideoView }) {
         actions={<Button onClick={() => void ed.transcriptQuery.refetch()}>Try again</Button>}
       />
     );
+  if (ed.transcriptQuery.isSuccess && ed.transcriptQuery.data === null)
+    return (
+      <EmptyState
+        size="md"
+        icon={isActiveVideo(video) ? Loader2 : SubtitlesIcon}
+        title={isActiveVideo(video) ? 'Transcribing…' : 'No transcript for this video'}
+        description={
+          isActiveVideo(video)
+            ? 'Captions appear here as soon as the Transcribe stage finishes.'
+            : video.status === 'failed'
+              ? 'The run stopped before transcription finished. Retry the failed stage from the pipeline card.'
+              : 'Re-run the Transcribe stage to generate it.'
+        }
+      />
+    );
   if (n === 0 && ed.ready)
     return (
       <EmptyState
@@ -682,7 +717,7 @@ function SubtitlesPanel({ video }: { video: VideoView }) {
     );
 
   const rows: React.ReactNode[] = [];
-  for (let i = vr.range.start; i <= vr.range.end; i++) {
+  for (let i = range.start; i <= range.end; i++) {
     const cue = cues[i];
     if (!cue) continue;
     rows.push(
@@ -690,13 +725,13 @@ function SubtitlesPanel({ video }: { video: VideoView }) {
         key={cue.id}
         cue={cue}
         index={i}
-        top={vr.offsets[i] ?? 0}
+        top={offsets[i] ?? 0}
         isLast={i === n - 1}
         active={i === activeIdx}
         match={matchByCue.get(i)}
         currentMatch={i === currentCue}
         editing={editing}
-        measure={vr.measure}
+        measure={measure}
         onPlay={onPlay}
         onBeginEdit={beginEdit}
         onChangeText={(text) => setEditing((e) => (e ? { ...e, text } : e))}
@@ -814,17 +849,17 @@ function SubtitlesPanel({ video }: { video: VideoView }) {
 
       <div className="relative overflow-hidden rounded-xl border bg-card">
         <div
-          ref={vr.scroller}
+          ref={scrollerRef}
           data-testid="cue-scroller"
           className="scrollbar-thin h-[clamp(380px,calc(100dvh-400px),720px)] overflow-y-auto"
-          onScroll={vr.onScroll}
+          onScroll={onScroll}
           onWheel={() => setFollow(false)}
           onTouchMove={() => setFollow(false)}
           onPointerDown={(e) => {
             if (e.target === e.currentTarget) setFollow(false);
           }}
         >
-          <div className="relative" style={{ height: vr.total }}>
+          <div className="relative" style={{ height: total }}>
             {rows}
           </div>
         </div>

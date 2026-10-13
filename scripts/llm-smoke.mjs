@@ -3,6 +3,10 @@
 //   ANTHROPIC_API_KEY=sk-ant-... node scripts/llm-smoke.mjs <transcript.json> [--windows=2]
 //       [--window-sec=600] [--preset=30-60] [--clips=10] [--prompt="only funny moments"] [--dry-run]
 //
+//   CP2 mode (hooks, metadata, highlights, 3-turn chat with a tool call, optional thumbnails):
+//   ANTHROPIC_API_KEY=sk-ant-... node scripts/llm-smoke.mjs <transcript.json> --cp2 [--frames=<dir of jpgs>]
+//       [--prompt="steer the highlight reel"]      (--cp2 --dry-run: prompt sizes + cost per call kind, no key)
+//
 // Bundles electron/main/services/llm/smoke.ts with esbuild (same aliases as build-electron.mjs) into a
 // temp file and runs it. Full option docs: the header of electron/main/services/llm/smoke.ts.
 import { build } from 'esbuild';
@@ -25,7 +29,7 @@ const flags = new Map(
 const file = args.find((a) => !a.startsWith('--'));
 if (!file || flags.has('help')) {
   console.error(
-    'usage: ANTHROPIC_API_KEY=... node scripts/llm-smoke.mjs <transcript.json> [--windows=2] [--window-sec=600] [--preset=30-60] [--clips=10] [--prompt="..."] [--dry-run]',
+    'usage: ANTHROPIC_API_KEY=... node scripts/llm-smoke.mjs <transcript.json> [--windows=2] [--window-sec=600] [--preset=30-60] [--clips=10] [--prompt="..."] [--dry-run] [--cp2 [--frames=DIR] [--long-hours=6]]',
   );
   process.exit(file ? 0 : 2);
 }
@@ -55,9 +59,12 @@ try {
     absWorkingDir: root,
     alias: { '@shared': './shared', '@main': './electron/main' },
   });
-  const { runSmoke } = createRequire(import.meta.url)(out);
+  const { runSmoke, runSmokeCp2 } = createRequire(import.meta.url)(out);
   const num = (k) => (flags.has(k) ? Number(flags.get(k)) : undefined);
-  await runSmoke(apiKey, path.resolve(file), {
+  const run = flags.has('cp2') ? runSmokeCp2 : runSmoke;
+  await run(apiKey, path.resolve(file), {
+    frames: flags.get('frames') ? path.resolve(flags.get('frames')) : undefined,
+    longHours: num('long-hours'),
     windows: num('windows'),
     windowSec: num('window-sec'),
     preset: flags.get('preset'),

@@ -32,6 +32,8 @@ export interface FaceTrack {
   h: number;
   /** Sum of area x score^2 over detections (saliency mass). */
   evidence: number;
+  /** Mean detector confidence. */
+  score: number;
 }
 
 export interface TrackOptions {
@@ -92,7 +94,7 @@ export function buildTracks(
       best.last = f;
       best.lastT = sm.t;
       best.evidence += f.sal;
-      best.obs.push({ t: f.t, cx: f.cx, cy: f.cy, w: f.w, h: f.h });
+      best.obs.push({ t: f.t, cx: f.cx, cy: f.cy, w: f.w, h: f.h, score: f.score });
     }
   }
   const n = Math.max(1, samples.length);
@@ -109,6 +111,7 @@ export function buildTracks(
         w: median(obs.map((o) => o.w)),
         h: median(obs.map((o) => o.h)),
         evidence: t.evidence,
+        score: t.obs.reduce((s, o) => s + (o.score ?? 0), 0) / Math.max(1, t.obs.length),
       };
     })
     .sort((a, b) => b.evidence - a.evidence);
@@ -143,9 +146,7 @@ export function pickPair(tracks: FaceTrack[]): FacePair | null {
     if (other.evidence < 0.3 * first.evidence) continue;
     const horizontal = Math.abs(first.cx - other.cx) >= Math.abs(first.cy - other.cy);
     const firstIsA = horizontal ? first.cx <= other.cx : first.cy <= other.cy;
-    return firstIsA
-      ? { a: first, b: other, horizontal }
-      : { a: other, b: first, horizontal };
+    return firstIsA ? { a: first, b: other, horizontal } : { a: other, b: first, horizontal };
   }
   return null;
 }

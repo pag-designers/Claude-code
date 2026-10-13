@@ -174,6 +174,10 @@ test.describe('Home: URL box, preview, options, start', () => {
         prompt: 'moments about focus and attention',
         language: null,
         maxResolution: 720,
+        // CP2 options: caption style + reframe mode default to Clean Pop / Auto; mode = full clipping run
+        mode: 'clips',
+        captionStyleId: 'clean-pop',
+        reframeMode: 'auto',
       },
     });
     await expect(s.page.getByTestId('video-title')).toHaveText(

@@ -14,6 +14,8 @@ export interface Obs {
   cy: number;
   w: number;
   h: number;
+  /** Detector confidence 0..1 (absent in hand-made observations). */
+  score?: number;
 }
 
 export interface TrackerConfig {
@@ -74,6 +76,7 @@ export function usableFaces(
       w: b.w * srcW,
       h: b.h * srcH,
       sal: b.w * b.h * b.score * b.score,
+      score: b.score,
     });
   }
   return out;

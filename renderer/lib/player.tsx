@@ -96,6 +96,11 @@ export function usePlayer(): PlayerApi {
   return c;
 }
 
+/** Like `usePlayer`, but returns null outside a <PlayerProvider> (e.g. the Library's clip drawer, standalone tools). */
+export function useOptionalPlayer(): PlayerApi | null {
+  return React.useContext(Ctx);
+}
+
 /** `selector` must return a primitive (or a stable reference): it runs on every store change. */
 export function usePlayerSelector<T>(selector: (s: PlayerSnapshot) => T): T {
   const { store } = usePlayer();

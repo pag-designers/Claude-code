@@ -374,6 +374,9 @@ describe('start options', () => {
       prompt: 'funny moments',
       language: null,
       maxResolution: 720,
+      mode: 'clips',
+      captionStyleId: 'clean-pop',
+      reframeMode: 'auto',
     });
     // it must satisfy the real contract schema
     expect(pipelineOptionsSchema.parse(o).clipCount).toBe(7);

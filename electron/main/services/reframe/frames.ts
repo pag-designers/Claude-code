@@ -83,7 +83,8 @@ export function screenStats(f: GrayFrame, skip?: Rect01 | null): ScreenStats {
   const sx1 = skip ? Math.ceil((skip.x + skip.w) * w) : 0;
   const sy0 = skip ? Math.floor(skip.y * h) : 0;
   const sy1 = skip ? Math.ceil((skip.y + skip.h) * h) : 0;
-  const inSkip = (x: number, y: number): boolean => !!skip && x >= sx0 && x < sx1 && y >= sy0 && y < sy1;
+  const inSkip = (x: number, y: number): boolean =>
+    !!skip && x >= sx0 && x < sx1 && y >= sy0 && y < sy1;
   let n = 0;
   let edges = 0;
   let dark = 0;
@@ -153,8 +154,8 @@ export function frameDiff(a: GrayFrame, b: GrayFrame, skip?: Rect01 | null): num
 /* ------------------------------------------------- tiles ----------------------------------------------------- */
 
 const DARK = 30;
-/** Mean luma step across a strip that marks a hard tile edge. */
-const TILE_EDGE_STEP = 26;
+/** Mean row-to-row luma difference (levels) that marks a hard tile boundary. */
+const TILE_EDGE_DIFF = 26;
 
 /**
  * Finds the rectangle (video-call tile / camera pane) around a face by growing a window from the face
@@ -162,6 +163,15 @@ const TILE_EDGE_STEP = 26;
  * Returns null when the result is implausibly small (< 1.4x the face).
  */
 export function detectTile(f: GrayFrame, face: Rect01): Rect01 | null {
+  const r = growTile(f, face);
+  const fw = face.w * f.w;
+  const fh = face.h * f.h;
+  if (r.w * f.w < 1.4 * fw || r.h * f.h < 1.4 * fh) return null;
+  return r;
+}
+
+/** The raw grown rectangle (no plausibility check). */
+export function growTile(f: GrayFrame, face: Rect01): Rect01 {
   const { w, h, data } = f;
   const fx0 = Math.max(0, Math.floor(face.x * w));
   const fx1 = Math.min(w, Math.ceil((face.x + face.w) * w));
@@ -197,38 +207,59 @@ export function detectTile(f: GrayFrame, face: Rect01): Rect01 | null {
     return { dark: dark / n, mean: sum / n };
   };
 
-  /** Grows from `start` by `step` (+1/-1) until `stat` says the next strip is a margin or a hard edge. */
+  /** Mean absolute difference between row y and row y-1 (a sharp tile boundary is one pixel thick). */
+  const rowStep = (y: number, x0: number, x1: number): number => {
+    let sum = 0;
+    for (let x = x0; x < x1; x++) {
+      sum += Math.abs((data[y * w + x] ?? 0) - (data[(y - 1) * w + x] ?? 0));
+    }
+    return sum / Math.max(1, x1 - x0);
+  };
+
+  /**
+   * Grows from `start` by `step` (+1/-1) until the next strips are a near-black margin or (when
+   * `edgeAt` is given) a hard one-pixel boundary between two images.
+   */
   const grow = (
     start: number,
     step: 1 | -1,
     limit: number,
     stat: (i: number) => { dark: number; mean: number },
+    edgeAt: ((i: number) => number) | null,
   ): number => {
     let edge = start;
     let darkRun = 0;
-    const recent: number[] = [];
     for (let i = start + step; step > 0 ? i < limit : i >= limit; i += step) {
       const s = stat(i);
       if (s.dark >= 0.97) {
         darkRun++;
         if (darkRun >= 2) break;
       } else darkRun = 0;
-      const base = recent.length >= 6 ? (recent.slice(-6).reduce((a, b) => a + b, 0) / 6) : null;
-      if (base !== null && Math.abs(s.mean - base) > TILE_EDGE_STEP) break;
-      recent.push(s.mean);
+      // moving down the boundary between row i-1 and i is at i; moving up it is at i+1
+      if (edgeAt && edgeAt(step > 0 ? i : i + 1) > TILE_EDGE_DIFF) break;
       edge = i;
     }
     return edge;
   };
 
-  const left = grow(fx0, -1, 0, (x) => colStat(x, by0, by1));
-  const right = grow(fx1 - 1, 1, w, (x) => colStat(x, by0, by1)) + 1;
-  const top = grow(fy0, -1, 0, (y) => rowStat(y, bx0, bx1));
-  const bottom = grow(fy1 - 1, 1, h, (y) => rowStat(y, bx0, bx1)) + 1;
-  const tw = right - left;
-  const th = bottom - top;
-  if (tw < 1.4 * (fx1 - fx0) || th < 1.4 * (fy1 - fy0)) return null;
-  return { x: left / w, y: top / h, w: tw / w, h: th / h };
+  const left = grow(fx0, -1, 0, (x) => colStat(x, by0, by1), null);
+  const right = grow(fx1 - 1, 1, w, (x) => colStat(x, by0, by1), null) + 1;
+  const top = grow(
+    fy0,
+    -1,
+    0,
+    (y) => rowStat(y, bx0, bx1),
+    (y) => rowStep(y, bx0, bx1),
+  );
+  const bottom =
+    grow(
+      fy1 - 1,
+      1,
+      h,
+      (y) => rowStat(y, bx0, bx1),
+      (y) => rowStep(y, bx0, bx1),
+    ) + 1;
+  return { x: left / w, y: top / h, w: (right - left) / w, h: (bottom - top) / h };
 }
 
 /** IoU of two normalised rects. */
@@ -240,4 +271,35 @@ export function iou(a: Rect01, b: Rect01): number {
   const inter = Math.max(0, x1 - x0) * Math.max(0, y1 - y0);
   const uni = a.w * a.h + b.w * b.h - inter;
   return uni > 0 ? inter / uni : 0;
+}
+
+/**
+ * "Liveness" of a rectangle: the median over consecutive sample frames of the mean absolute difference
+ * inside it (0..255). A real face moves (talking, blinking, shifting); a false detection on a static
+ * background pattern does not. Returns null with fewer than 2 frames.
+ */
+export function regionMotion(frames: GrayFrame[], r: Rect01): number | null {
+  if (frames.length < 2) return null;
+  const diffs: number[] = [];
+  for (let i = 1; i < frames.length; i++) {
+    const a = frames[i - 1];
+    const b = frames[i];
+    if (!a || !b || a.w !== b.w || a.h !== b.h) continue;
+    const x0 = Math.max(0, Math.floor(r.x * a.w));
+    const x1 = Math.min(a.w, Math.ceil((r.x + r.w) * a.w));
+    const y0 = Math.max(0, Math.floor(r.y * a.h));
+    const y1 = Math.min(a.h, Math.ceil((r.y + r.h) * a.h));
+    let sum = 0;
+    let n = 0;
+    for (let y = y0; y < y1; y++) {
+      for (let x = x0; x < x1; x++) {
+        sum += Math.abs((a.data[y * a.w + x] ?? 0) - (b.data[y * a.w + x] ?? 0));
+        n++;
+      }
+    }
+    if (n > 0) diffs.push(sum / n);
+  }
+  if (diffs.length === 0) return null;
+  diffs.sort((x, y) => x - y);
+  return diffs[diffs.length >> 1] ?? null;
 }

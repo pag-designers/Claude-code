@@ -13,7 +13,6 @@ import {
   FileText,
   Film,
   ListTree,
-  MessageSquare,
   MoreHorizontal,
   NotebookPen,
   RotateCcw,
@@ -41,11 +40,15 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { StarButton } from '@/components/ui/star-button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DisabledTip, Tip } from '@/components/ui/tooltip';
+import { ChatLauncher } from '@/components/chat/chat-launcher';
+import { VideoCaptionStyleControl } from '@/components/captions/video-caption-style';
 import { ClipsBrowser } from '@/components/library/clips-browser';
 import { DeleteVideoDialog, StatusBadge, VideoThumb } from '@/components/library/video-card';
 import { PipelineProgress } from '@/components/pipeline/pipeline-progress';
 import { ChaptersTab } from '@/components/video/chapters-tab';
 import { NotesTab } from '@/components/video/notes-tab';
+import { SubtitlesTab } from '@/components/subtitles/subtitles-tab';
+import { ClipsExtras } from '@/components/video/clips-extras';
 import { OverviewTab } from '@/components/video/overview-tab';
 import { ProxyPlayer } from '@/components/video/proxy-player';
 import { TranscriptTab } from '@/components/video/transcript-tab';
@@ -58,10 +61,9 @@ import { PlayerProvider, usePlayer } from '@/lib/player';
 import { duration, ease } from '@/lib/motion';
 import type { ClipView } from '@shared/pipeline';
 
-const TABS = ['overview', 'transcript', 'chapters', 'clips', 'notes'] as const;
+const TABS = ['overview', 'transcript', 'chapters', 'clips', 'notes', 'subtitles'] as const;
 type Tab = (typeof TABS)[number];
 const isTab = (v: string | null): v is Tab => !!v && (TABS as readonly string[]).includes(v);
-const LATER = 'Coming in a later version';
 
 /** Announces the first clip of a live run: it appears the moment moment-finding produces it. */
 function FirstClipMoment({
@@ -241,6 +243,8 @@ function Header({
           onToggle={() => fav.mutate({ id: video.id, value: !video.favorite })}
           className="size-9 border border-border-strong"
         />
+        <ChatLauncher videoId={video.id} />
+        <VideoCaptionStyleControl video={video} />
         <RerunMenu video={video} stages={stages} />
         <DropdownMenu>
           <Tip content="More">
@@ -292,6 +296,10 @@ function Loaded({ id, data }: { id: string; data: Detail }) {
     window.history.replaceState(null, '', `${url.pathname}${url.search}`);
   };
   const showPlayer = activeTab !== 'clips';
+  // The URL is the source of truth once the page is open: the AI Chat (and other deep links) switch tabs through it.
+  React.useEffect(() => {
+    if (isTab(urlTab)) setTab((cur) => (cur === urlTab ? cur : urlTab));
+  }, [urlTab]);
 
   return (
     <>
@@ -328,16 +336,9 @@ function Loaded({ id, data }: { id: string; data: Detail }) {
             <TabsTrigger value="notes">
               <NotebookPen /> Notes
             </TabsTrigger>
-            <DisabledTip reason={LATER}>
-              <TabsTrigger value="chat" disabled>
-                <MessageSquare /> Chat
-              </TabsTrigger>
-            </DisabledTip>
-            <DisabledTip reason={LATER}>
-              <TabsTrigger value="subtitles" disabled>
-                <Subtitles /> Subtitles
-              </TabsTrigger>
-            </DisabledTip>
+            <TabsTrigger value="subtitles">
+              <Subtitles /> Subtitles
+            </TabsTrigger>
           </TabsList>
 
           <div
@@ -357,11 +358,15 @@ function Loaded({ id, data }: { id: string; data: Detail }) {
               <TabsContent value="chapters">
                 <ChaptersTab video={video} analysis={analysis} clips={clipItems} />
               </TabsContent>
-              <TabsContent value="clips">
+              <TabsContent value="clips" className="flex flex-col gap-6">
+                <ClipsExtras videoId={id} />
                 <ClipsBrowser scope={{ kind: 'video', videoId: id }} processing={active} />
               </TabsContent>
               <TabsContent value="notes">
                 <NotesTab video={video} analysis={analysis} />
+              </TabsContent>
+              <TabsContent value="subtitles">
+                <SubtitlesTab video={video} />
               </TabsContent>
             </div>
             {/* stays mounted on the Clips tab (hidden) so the playhead survives tab switches */}

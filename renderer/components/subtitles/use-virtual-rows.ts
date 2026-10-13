@@ -14,18 +14,15 @@ export function useVirtualRows(
   estimate: number,
   overscanPx = 480,
 ) {
-  const scroller = React.useRef<HTMLDivElement | null>(null);
+  // a state-backed callback ref: the scroller element is needed by effects and handlers, never read during render
+  const [scroller, setScroller] = React.useState<HTMLDivElement | null>(null);
   const [heights, setHeights] = React.useState<Map<string, number>>(() => new Map());
   const [scrollTop, setScrollTop] = React.useState(0);
   const [viewport, setViewport] = React.useState(520);
 
   // heights are keyed by a stable row key (cue id), so splits and merges do not shift measurements onto the wrong rows
-  const keyRef = React.useRef(keyOf);
-  keyRef.current = keyOf;
   const offsets = React.useMemo(
-    () => computeOffsets(count, (i) => heights.get(keyRef.current(i)), estimate),
-    // keyOf changes identity with the list; `count` + `heights` drive recomputation
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    () => computeOffsets(count, (i) => heights.get(keyOf(i)), estimate),
     [count, heights, estimate, keyOf],
   );
   const range = React.useMemo(
@@ -85,18 +82,18 @@ export function useVirtualRows(
   );
 
   React.useEffect(() => {
-    const el = scroller.current;
+    const el = scroller;
     if (!el) return;
     const sync = () => setViewport(el.clientHeight);
     sync();
     const o = new ResizeObserver(sync);
     o.observe(el);
     return () => o.disconnect();
-  }, []);
+  }, [scroller]);
 
   const scrollToIndex = React.useCallback(
     (i: number, opts?: { mode?: 'center' | 'nearest'; smooth?: boolean }) => {
-      const el = scroller.current;
+      const el = scroller;
       if (!el) return;
       const top = offsets[i] ?? 0;
       const bottom = offsets[i + 1] ?? top;
@@ -112,11 +109,11 @@ export function useVirtualRows(
       );
       el.scrollTo({ top: target, behavior: opts?.smooth ? 'smooth' : 'auto' });
     },
-    [offsets, viewport, count],
+    [scroller, offsets, viewport, count],
   );
 
   return {
-    scroller,
+    scrollerRef: setScroller,
     offsets,
     range,
     total: offsets[count] ?? 0,

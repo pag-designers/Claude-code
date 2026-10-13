@@ -251,14 +251,8 @@ export function usePreview(request: PreviewRequest | null, lane: 'tile' | 'live'
   React.useEffect(() => {
     const r = reqRef.current;
     if (!r || !key) return;
-    const hit = cache.get(key);
-    if (hit) {
-      setLast({ key, image: hit });
-      setFailed(null);
-      return;
-    }
+    if (cache.has(key)) return; // rendered from the cache during render
     let alive = true;
-    setFailed((f) => (f?.key === key ? null : f));
     fetchPreview(r, lane)
       .then((image) => {
         if (alive) setLast({ key, image });
@@ -280,7 +274,10 @@ export function usePreview(request: PreviewRequest | null, lane: 'tile' | 'live'
     stale: !!key && !fromCache && !current,
     loading: !!key && !fromCache && !current && failed?.key !== key,
     error: key && failed?.key === key ? failed.message : null,
-    retry: () => setAttempt((n) => n + 1),
+    retry: () => {
+      setFailed(null);
+      setAttempt((n) => n + 1);
+    },
   };
 }
 

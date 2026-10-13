@@ -61,11 +61,15 @@ export function useSubtitleEditor(videoId: string) {
   });
 
   const [state, setStateRaw] = React.useState<SubState | null>(null);
+  // mirrors `state` for event handlers and timers (state is the source of truth; see the sync effect below)
   const stateRef = React.useRef<SubState | null>(null);
   const setState = React.useCallback((s: SubState | null) => {
     stateRef.current = s;
     setStateRaw(s);
   }, []);
+  React.useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
   const [history, setHistory] = React.useState<History<SubState>>(emptyHistory);
   const historyRef = React.useRef(history);
   const [status, setStatus] = React.useState<SaveStatus>('idle');
@@ -73,17 +77,21 @@ export function useSubtitleEditor(videoId: string) {
   const [outdated, setOutdated] = React.useState(0);
   const [savedAt, setSavedAt] = React.useState<number | null>(null);
 
-  const serverRev = React.useRef(query.data?.edits.rev ?? 0);
-  // adopt the first fetch (and later server pushes only while nothing is pending)
-  const dataRef = React.useRef<SubtitlesData | null>(null);
-  if (query.data && dataRef.current !== query.data && stateRef.current === null) {
-    dataRef.current = query.data;
-    serverRev.current = query.data.edits.rev;
-    stateRef.current = { cues: query.data.cues, edits: query.data.edits };
-    setStateRaw(stateRef.current);
+  // adopt the first fetch (later server answers arrive through `flush`, which updates the state directly)
+  const [adopted, setAdopted] = React.useState<SubtitlesData | null>(null);
+  if (query.data && adopted === null) {
+    setAdopted(query.data);
+    setStateRaw({ cues: query.data.cues, edits: query.data.edits });
     setOutdated(query.data.outdatedClips);
   }
   const language = query.data?.language ?? '';
+  const dataRef = React.useRef<SubtitlesData | null>(null);
+  const serverRev = React.useRef(0);
+  React.useEffect(() => {
+    if (!adopted) return;
+    dataRef.current = adopted;
+    serverRev.current = adopted.edits.rev;
+  }, [adopted]);
 
   /* ---- saving ---- */
   const version = React.useRef(0); // bumped on every local change
@@ -92,6 +100,7 @@ export function useSubtitleEditor(videoId: string) {
   const again = React.useRef(false);
   const timer = React.useRef<number | null>(null);
   const alive = React.useRef(true);
+  const flushRef = React.useRef<() => Promise<boolean>>(async () => true);
 
   const flush = React.useCallback(async (): Promise<boolean> => {
     if (timer.current !== null) {
@@ -162,10 +171,9 @@ export function useSubtitleEditor(videoId: string) {
     inflight.current = run;
     return run;
   }, [videoId, qc, language, setState]);
-  const flushRef = React.useRef(flush);
   React.useEffect(() => {
     flushRef.current = flush;
-  });
+  }, [flush]);
 
   const scheduleSave = React.useCallback(() => {
     version.current += 1;

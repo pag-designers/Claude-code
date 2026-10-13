@@ -146,16 +146,27 @@ export interface CropStages {
 }
 
 export function planStages(plan: ReframePlan, srcW: number, srcH: number): CropStages {
-  const first = plan.keyframes[0];
+  return stagesFor(plan.keyframes, plan.outW, plan.outH, srcW, srcH);
+}
+
+/** Crop geometry for ANY crop path (a whole plan or one panel) feeding an `outW` x `outH` rectangle. */
+export function stagesFor(
+  keyframes: CropKeyframe[],
+  outW: number,
+  outH: number,
+  srcW: number,
+  srcH: number,
+): CropStages {
+  const first = keyframes[0];
   const cropW = Math.min(srcW, first?.w ?? srcW);
   const cropH = Math.min(srcH, first?.h ?? srcH);
-  const f = Math.max(plan.outW / cropW, plan.outH / cropH);
+  const f = Math.max(outW / cropW, outH / cropH);
   const w1 = Math.min(srcW, evenCeil(cropW + 4));
   const h1 = Math.min(srcH, evenCeil(cropH + 4));
-  const sw = Math.max(plan.outW, evenCeil(w1 * f));
-  const sh = Math.max(plan.outH, evenCeil(h1 * f));
-  const xs = plan.keyframes.map((k) => k.x);
-  const ys = plan.keyframes.map((k) => k.y);
+  const sw = Math.max(outW, evenCeil(w1 * f));
+  const sh = Math.max(outH, evenCeil(h1 * f));
+  const xs = keyframes.map((k) => k.x);
+  const ys = keyframes.map((k) => k.y);
   const spread = (a: number[]): number => (a.length > 1 ? Math.max(...a) - Math.min(...a) : 0);
   const moves = spread(xs) > 0.25 || spread(ys) > 0.25;
   return {
@@ -165,8 +176,8 @@ export function planStages(plan: ReframePlan, srcW: number, srcH: number): CropS
     f,
     sw,
     sh,
-    outW: plan.outW,
-    outH: plan.outH,
+    outW,
+    outH,
     cropW,
     cropH,
   };
@@ -211,23 +222,54 @@ export function buildCropCommands(
   srcH: number,
   durationSec: number,
   fps: number,
+  tag = 'c',
+): string {
+  return buildMultiCropCommands([{ path, st, tag }], srcW, srcH, durationSec, fps);
+}
+
+export interface PanelCommandInput {
+  path: CropPath;
+  st: CropStages;
+  /** Instance-name prefix of the panel's two crop filters: `crop@<tag>1` and `crop@<tag>2`. */
+  tag: string;
+}
+
+/**
+ * One `sendcmd` file driving several crop pipelines (panels) at once: at every command time the lines of
+ * all panels whose values changed are merged, so a single `sendcmd` filter (placed before the panels
+ * split) updates them all. All panels share the plan's cut list, so the jump times coincide.
+ */
+export function buildMultiCropCommands(
+  panels: PanelCommandInput[],
+  srcW: number,
+  srcH: number,
+  durationSec: number,
+  fps: number,
 ): string {
   const step = 1 / (2 * fps);
   const lines: string[] = [];
-  let prev: StageValues | null = null;
-  const issue = (t: number, v: StageValues): void => {
+  const prev: (StageValues | null)[] = panels.map(() => null);
+  const issue = (t: number, evalAt = t): void => {
     const parts: string[] = [];
-    if (!prev || prev.x0 !== v.x0) parts.push(`crop@c1 x ${v.x0}`);
-    if (!prev || prev.y0 !== v.y0) parts.push(`crop@c1 y ${v.y0}`);
-    if (!prev || prev.ox !== v.ox) parts.push(`crop@c2 x ${v.ox}`);
-    if (!prev || prev.oy !== v.oy) parts.push(`crop@c2 y ${v.oy}`);
+    panels.forEach((p, i) => {
+      const v = stageValues(p.path.at(evalAt), p.st, srcW, srcH);
+      const pv = prev[i] ?? null;
+      const n = parts.length;
+      if (!pv || pv.x0 !== v.x0) parts.push(`crop@${p.tag}1 x ${v.x0}`);
+      if (!pv || pv.y0 !== v.y0) parts.push(`crop@${p.tag}1 y ${v.y0}`);
+      if (!pv || pv.ox !== v.ox) parts.push(`crop@${p.tag}2 x ${v.ox}`);
+      if (!pv || pv.oy !== v.oy) parts.push(`crop@${p.tag}2 y ${v.oy}`);
+      if (parts.length > n) prev[i] = v;
+    });
     if (parts.length === 0) return;
     lines.push(`${fmtT(t)} ${parts.join(', ')};`);
-    prev = v;
   };
-  const jumps = Array.from({ length: path.cutCount }, (_, i) => path.jumpTime(i)).filter(
-    (t) => t > 0 && t < durationSec,
-  );
+  const first = panels[0];
+  const jumps = first
+    ? Array.from({ length: first.path.cutCount }, (_, i) => first.path.jumpTime(i)).filter(
+        (t) => t > 0 && t < durationSec,
+      )
+    : [];
   let ji = 0;
   const n = Math.ceil(durationSec / step);
   for (let k = 0; k <= n; k++) {
@@ -235,10 +277,10 @@ export function buildCropCommands(
     while (ji < jumps.length && (jumps[ji] ?? Infinity) <= t) {
       // exact jump command: the path value just after the jump
       const jt = jumps[ji] ?? 0;
-      issue(jt, stageValues(path.at(jt + 1e-6), st, srcW, srcH));
+      issue(jt, jt + 1e-6);
       ji++;
     }
-    issue(t, stageValues(path.at(t), st, srcW, srcH));
+    issue(t);
   }
   return `${lines.join('\n')}\n`;
 }
@@ -257,6 +299,8 @@ export interface VideoFilterOptions {
   fps: string | null;
   assFile: string | null;
   fontsDir: string | null;
+  /** Instance-name prefix for the crop filters (`crop@<tag>1`); default 'c'. */
+  tag?: string;
 }
 
 /** Builds the video filter chain (without labels); input/output pads are added by the caller. */
@@ -277,9 +321,10 @@ export function buildVideoFilter(o: VideoFilterOptions): string {
     parts.push(`scale=${o.plan.outW}:${o.plan.outH}:flags=lanczos`);
   } else {
     parts.push(`sendcmd=f=${escapeFilterPath(o.cmdFile)}`);
-    parts.push(`crop@c1=w=${st.w1}:h=${st.h1}:x=${o.initial.x0}:y=${o.initial.y0}`);
+    const tag = o.tag ?? 'c';
+    parts.push(`crop@${tag}1=w=${st.w1}:h=${st.h1}:x=${o.initial.x0}:y=${o.initial.y0}`);
     parts.push(`scale=${st.sw}:${st.sh}:flags=lanczos`);
-    parts.push(`crop@c2=w=${st.outW}:h=${st.outH}:x=${o.initial.ox}:y=${o.initial.oy}`);
+    parts.push(`crop@${tag}2=w=${st.outW}:h=${st.outH}:x=${o.initial.ox}:y=${o.initial.oy}`);
   }
   parts.push('setsar=1');
   if (o.assFile) {

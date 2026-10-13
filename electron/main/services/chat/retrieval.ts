@@ -97,7 +97,7 @@ export async function retrieveExcerpts(
   const indexById = new Map<number, number>();
   a.sentences.forEach((s, i) => indexById.set(s.id, i));
 
-  let windows: Window[] = [];
+  let windows: Window[];
   let fallback = false;
   try {
     const results = await Promise.all(

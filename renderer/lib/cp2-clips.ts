@@ -503,6 +503,21 @@ export function useReframeClips() {
   });
 }
 
+export function useRestyleClips() {
+  const qc = useQueryClient();
+  return useMutation<unknown, IpcCallError, { ids: string[]; styleId: string }>({
+    mutationFn: (p) => invoke('clips:restyle', p),
+    onMutate: ({ ids, styleId }) =>
+      patchClipsInCache(qc, ids, {
+        captionStyleId: styleId,
+        status: 'queued',
+        renderProgress: null,
+        error: null,
+      }),
+    onError: fail('Could not re-render with that style'),
+  });
+}
+
 export function useExportClipSubtitles() {
   return useMutation<
     { saved: boolean; path: string | null },

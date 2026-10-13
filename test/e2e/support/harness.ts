@@ -10,7 +10,8 @@ import { serveApp } from './static-server';
  * and opens pages with the contract-validated `window.clipfern` stub installed. Every session records console
  * errors/warnings, page errors, non-same-origin requests and HTTP >= 400 into `problems`.
  */
-export const OUT = path.resolve(__dirname, '../../../renderer/out');
+/** Override with CLIPFERN_E2E_OUT to test a private snapshot of the export (several agents build renderer/out). */
+export const OUT = process.env.CLIPFERN_E2E_OUT ?? path.resolve(__dirname, '../../../renderer/out');
 
 export function findChrome(): string | undefined {
   if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH))

@@ -21,7 +21,7 @@ export interface FaceNames {
 
 export interface FaceMetrics {
   unitsPerEm: number;
-  /** Positive, em fractions. */
+  /** Positive, em fractions: the Windows cell libass uses (usWinAscent / usWinDescent). */
   ascent: number;
   descent: number;
   capHeight: number;
@@ -118,13 +118,21 @@ function readNames(r: Reader, tables: Map<string, Table>): Map<number, string> {
     if (s <= (score.get(id) ?? 0)) continue;
     const raw = buf.subarray(strOff + off, strOff + off + len);
     if (raw.length !== len) continue;
-    names.set(id, decodeName(raw, platform).replace(/\u0000/g, '').trim());
+    names.set(
+      id,
+      decodeName(raw, platform)
+        .replace(/\u0000/g, '')
+        .trim(),
+    );
     score.set(id, s);
   }
   return names;
 }
 
-function readOs2(r: Reader, tables: Map<string, Table>): { weight: number; italic: boolean } | null {
+function readOs2(
+  r: Reader,
+  tables: Map<string, Table>,
+): { weight: number; italic: boolean } | null {
   const t = tables.get('OS/2');
   if (!t || t.length < 64) return null;
   const b = r.slice(t.offset, Math.min(t.length, 96));
@@ -182,7 +190,8 @@ function parseCmap(buf: Buffer): (cp: number) => number {
     const platform = buf.readUInt16BE(o);
     const enc = buf.readUInt16BE(o + 2);
     const off = buf.readUInt32BE(o + 4);
-    const prio = platform === 3 && enc === 10 ? 4 : platform === 3 && enc === 1 ? 3 : platform === 0 ? 2 : 0;
+    const prio =
+      platform === 3 && enc === 10 ? 4 : platform === 3 && enc === 1 ? 3 : platform === 0 ? 2 : 0;
     if (prio > 0 && (!best || prio > best.prio)) best = { off, prio };
   }
   if (!best) return () => 0;
@@ -259,11 +268,16 @@ function loadMetrics(file: string, base: number): FaceMetrics | null {
     const os2 = get('OS/2');
     let capHeight = 0.7 * upm;
     if (os2 && os2.length >= 78) {
-      if (ascent === 0 && descent === 0) {
-        ascent = os2.readUInt16BE(74);
-        descent = os2.readUInt16BE(76);
+      // libass sizes text by the Windows cell (usWinAscent + usWinDescent), not hhea: measured on
+      // Poppins/Montserrat/Anton, where the two differ by up to 25 %.
+      const winA = os2.readUInt16BE(74);
+      const winD = os2.readUInt16BE(76);
+      if (winA + winD > 0) {
+        ascent = winA;
+        descent = winD;
       }
-      if (os2.length >= 90 && os2.readUInt16BE(0) >= 2) capHeight = os2.readInt16BE(88) || capHeight;
+      if (os2.length >= 90 && os2.readUInt16BE(0) >= 2)
+        capHeight = os2.readInt16BE(88) || capHeight;
     }
     const glyphOf = parseCmap(cmap);
     const advanceOfGlyph = (g: number): number => {

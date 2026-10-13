@@ -63,11 +63,14 @@ export function computeLayout(width: number, height: number, style: CaptionStyle
   const k = short / 1080;
   const font = resolveFont(style);
   const fontSize = Math.max(16, Math.round((short * style.font.sizePct) / 100));
-  const spacing = Math.round(((style.font.letterSpacingPct / 100) * fontSize) * 100) / 100;
-  const outline = style.stroke.widthPct > 0 ? Math.max(1, Math.round((short * style.stroke.widthPct) / 100)) : 0;
+  const spacing = Math.round((style.font.letterSpacingPct / 100) * fontSize * 100) / 100;
+  const outline =
+    style.stroke.widthPct > 0 ? Math.max(1, Math.round((short * style.stroke.widthPct) / 100)) : 0;
   const hasShadowOffset = style.shadow.opacity > 0 && style.shadow.offsetPx > 0;
   const shadow =
-    style.shadow.blurPx > 0 || !hasShadowOffset ? 0 : Math.max(1, Math.round(style.shadow.offsetPx * k));
+    style.shadow.blurPx > 0 || !hasShadowOffset
+      ? 0
+      : Math.max(1, Math.round(style.shadow.offsetPx * k));
   const boxish = style.box.enabled || style.highlight.mode === 'box';
   const pad = boxish ? Math.max(2, Math.round((short * style.box.paddingPct) / 100)) : 0;
   const marginX = Math.ceil((width * style.layout.marginXPct) / 100);
@@ -84,7 +87,8 @@ export function computeLayout(width: number, height: number, style: CaptionStyle
   cy = Math.min(cy, Math.round(bottomLimit - blockH / 2));
   cy = Math.max(cy, Math.round(height * 0.05 + blockH / 2));
 
-  const avg = measureText(font.face, applyCase(SAMPLE, style.textCase), fontSize, spacing) / SAMPLE.length;
+  const avg =
+    measureText(font.face, applyCase(SAMPLE, style.textCase), fontSize, spacing) / SAMPLE.length;
   const fits = Math.max(4, Math.floor(usableW / Math.max(1, avg)));
   return {
     width,
@@ -102,7 +106,11 @@ export function computeLayout(width: number, height: number, style: CaptionStyle
     cy,
     left,
     usableW,
-    maxChars: Math.min(style.chunking.maxChars, fits),
+    // the style's budget is designed for portrait; wide frames fit proportionally longer lines (CP1: 14 -> 24)
+    maxChars: Math.min(
+      width > height ? Math.ceil((style.chunking.maxChars * 24) / 14) : style.chunking.maxChars,
+      fits,
+    ),
     portrait,
   };
 }

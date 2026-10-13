@@ -123,9 +123,15 @@ export function planMulti(args: PlanArgs, opts: MultiOptions): ReframePlan | nul
   const picked: { track: FaceTrack; side: 'a' | 'b'; pair: FacePair | null }[] = [];
   for (const s of shots) {
     if (s.pair) {
-      picked.push({ track: s.pair.a, side: 'a', pair: s.pair }, { track: s.pair.b, side: 'b', pair: s.pair });
+      picked.push(
+        { track: s.pair.a, side: 'a', pair: s.pair },
+        { track: s.pair.b, side: 'b', pair: s.pair },
+      );
     } else if (s.tracks[0]) {
-      picked.push({ track: s.tracks[0], side: 'a', pair: null }, { track: s.tracks[0], side: 'b', pair: null });
+      picked.push(
+        { track: s.tracks[0], side: 'a', pair: null },
+        { track: s.tracks[0], side: 'b', pair: null },
+      );
     }
   }
   const medH = median(picked.map((p) => p.track.h));
@@ -204,11 +210,13 @@ export function planMulti(args: PlanArgs, opts: MultiOptions): ReframePlan | nul
           // stay on this face's side of the midpoint between the two faces
           if (s.pair.horizontal) {
             const mid = (track.cx + other.cx) / 2;
-            if (track.cx < other.cx) bounds.maxX = Math.min(bounds.maxX, Math.max(bounds.minX, mid - cropW));
+            if (track.cx < other.cx)
+              bounds.maxX = Math.min(bounds.maxX, Math.max(bounds.minX, mid - cropW));
             else bounds.minX = Math.max(bounds.minX, Math.min(bounds.maxX, mid));
           } else {
             const mid = (track.cy + other.cy) / 2;
-            if (track.cy < other.cy) bounds.maxY = Math.min(bounds.maxY, Math.max(bounds.minY, mid - cropH));
+            if (track.cy < other.cy)
+              bounds.maxY = Math.min(bounds.maxY, Math.max(bounds.minY, mid - cropH));
             else bounds.minY = Math.max(bounds.minY, Math.min(bounds.maxY, mid));
           }
         }

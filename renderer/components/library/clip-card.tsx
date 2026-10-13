@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { motion } from 'framer-motion';
-import { CircleAlert, Clock, Film, Loader2, Play, Sparkles } from 'lucide-react';
+import { CircleAlert, Clock, Film, Loader2, Play, Search, Sparkles } from 'lucide-react';
 import type { ClipView } from '@shared/pipeline';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ProgressRing } from '@/components/ui/progress-ring';
@@ -149,6 +149,7 @@ export const ClipCard = React.memo(function ClipCard({
         'group relative flex flex-col overflow-hidden rounded-xl border bg-card shadow-xs transition-[border-color,box-shadow,transform] duration-(--duration-base) ease-(--ease-standard)',
         'hover:-translate-y-px hover:border-border-strong hover:shadow-sm',
         selected && 'border-primary ring-2 ring-primary/40 hover:border-primary',
+        clip.kind === 'highlight' && 'border-primary/50 shadow-glow',
         isNew && 'animate-arrive',
       )}
     >
@@ -234,6 +235,14 @@ export const ClipCard = React.memo(function ClipCard({
             className="size-5 border-white/70 bg-black/40 backdrop-blur-sm"
           />
         </div>
+        {clip.kind === 'highlight' ? (
+          <span
+            className="absolute left-9 top-2 inline-flex h-5 items-center gap-1 rounded-full bg-primary px-2 text-2xs font-semibold text-primary-foreground shadow-sm"
+            data-testid="clip-highlight-badge"
+          >
+            <Film className="size-3" aria-hidden /> Highlight reel
+          </span>
+        ) : null}
         <StarButton
           overlay
           label={clip.title}
@@ -258,6 +267,16 @@ export const ClipCard = React.memo(function ClipCard({
           {clip.hook ? (
             <p className="mt-1 line-clamp-2 text-xs leading-4 text-muted-foreground">
               “{clip.hook}”
+            </p>
+          ) : null}
+          {clip.runPrompt ? (
+            <p
+              className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full bg-primary-soft px-2 py-0.5 text-2xs font-medium text-primary-text"
+              data-testid="clip-found-by"
+              title={`Found by your search: ${clip.runPrompt}`}
+            >
+              <Search className="size-3 shrink-0" aria-hidden />
+              <span className="truncate">found by: {clip.runPrompt}</span>
             </p>
           ) : null}
           <p className="mt-1.5 truncate text-2xs text-subtle">
@@ -334,8 +353,16 @@ export const ClipRow = React.memo(function ClipRow({
       </button>
       <div className="min-w-0 flex-1">
         <button type="button" onClick={() => onOpen(clip)} className="block max-w-full text-left">
-          <span className="line-clamp-1 text-sm font-semibold">{clip.title}</span>
+          <span className="line-clamp-1 text-sm font-semibold">
+            {clip.kind === 'highlight' ? (
+              <Film className="mr-1.5 inline size-3.5 text-primary-text" aria-label="Highlight reel" />
+            ) : null}
+            {clip.title}
+          </span>
         </button>
+        {clip.runPrompt ? (
+          <p className="mt-0.5 line-clamp-1 text-2xs text-primary-text">found by: {clip.runPrompt}</p>
+        ) : null}
         {clip.hook ? (
           <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">“{clip.hook}”</p>
         ) : null}

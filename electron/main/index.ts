@@ -193,6 +193,11 @@ async function bootstrap(): Promise<void> {
     nativeTheme.themeSource = s.theme;
   });
 
+  let currentSettings = settings;
+  svc.settings.onChange((s) => {
+    currentSettings = s;
+  });
+
   sidecar = new SidecarManager({
     userDataDir: userData,
     sidecarSrcDir: app.isPackaged
@@ -203,11 +208,6 @@ async function bootstrap(): Promise<void> {
     log: (line) => logger.scoped('sidecar').info(line),
     onStatus: (s: SidecarStatus) => send('sidecar:progress', s),
   });
-  let currentSettings = settings;
-  svc.settings.onChange((s) => {
-    currentSettings = s;
-  });
-
   registerHandlers(
     buildHandlers(svc, {
       appInfo: () => ({

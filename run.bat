@@ -5,30 +5,8 @@ cd /d "%~dp0"
 set "SELF=%~f0"
 
 REM run.bat must sit inside the full Clipper folder (next to requirements.txt and the backend folder).
-if not exist requirements.txt goto :badpath
-REM Kept outside any ( ) block: the folder path itself may contain parentheses.
-echo.
-echo This folder's path has accents or special letters:
-echo %CD%
-echo Some of Clipper's video tools can't work there. Move the whole Clipper folder to C:\Clipper
-echo (or another path with only plain letters), then double-click run.bat there.
-echo.
-pause
-exit /b 1
-
-:notinfolder
-if not exist backend\app\main.py goto :badpath
-REM Kept outside any ( ) block: the folder path itself may contain parentheses.
-echo.
-echo This folder's path has accents or special letters:
-echo %CD%
-echo Some of Clipper's video tools can't work there. Move the whole Clipper folder to C:\Clipper
-echo (or another path with only plain letters), then double-click run.bat there.
-echo.
-pause
-exit /b 1
-
-:notinfolder
+if not exist requirements.txt goto :notinfolder
+if not exist backend\app\main.py goto :notinfolder
 
 REM Already running (maybe an older copy in another black window)? Starting a second one would fail.
 netstat -ano | findstr /r /c:":8000 .*LISTENING" >nul && goto :alreadyrunning

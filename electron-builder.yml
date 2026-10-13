@@ -1,0 +1,42 @@
+appId: app.clipfern.desktop
+productName: Clipfern
+copyright: Copyright © Clipfern
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist-electron/**
+  - renderer/out/**
+  - package.json
+  - '!**/*.map'
+extraResources:
+  - from: sidecar
+    to: sidecar
+    filter:
+      - '**/*'
+      - '!.venv/**'
+      - '!**/__pycache__/**'
+asarUnpack:
+  - node_modules/ffmpeg-static/**
+  - node_modules/ffprobe-static/**
+  - node_modules/@libsql/**
+  - node_modules/libsql/**
+  - node_modules/.prisma/**
+  - node_modules/@prisma/client/**
+mac:
+  category: public.app-category.video
+  target: [dmg, zip]
+  hardenedRuntime: true
+  gatekeeperAssess: false
+win:
+  target: [nsis]
+linux:
+  target: [AppImage, deb]
+  category: AudioVideo
+  maintainer: Clipfern <noreply@clipfern.app>
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+protocols:
+  - name: Clipfern
+    schemes: [clipfern]

@@ -1,0 +1,6 @@
+# Extra NVIDIA runtime libraries for faster-whisper (CTranslate2 4.x needs CUDA 12 + cuDNN 9).
+# Installed by SidecarManager.setup() only when an NVIDIA GPU is detected and the device
+# preference is not "cpu". The sidecar loads them at start-up (clipfern_sidecar/device.py).
+nvidia-cublas-cu12==12.9.2.10 ; sys_platform == 'linux' or sys_platform == 'win32'
+nvidia-cuda-nvrtc-cu12==12.9.86 ; sys_platform == 'linux' or sys_platform == 'win32'
+nvidia-cudnn-cu12==9.27.0.42 ; sys_platform == 'linux' or sys_platform == 'win32'

@@ -277,7 +277,7 @@ export function seedLibrary(state: Cp1State, now = Date.now()): void {
       render: CLIP_RENDERS[i % CLIP_RENDERS.length]!,
     };
     const from = 60 + i * 120;
-    return clipFromTemplate({ ...p, from, to: from + 3, thumb: '', render: '' }, tr2, {
+    return clipFromTemplate({ ...p, from, to: from + 8, thumb: '', render: '' }, tr2, {
       id,
       videoId: v2.id,
       videoTitle: v2Title,

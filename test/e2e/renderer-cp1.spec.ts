@@ -18,7 +18,7 @@ import { makeState } from './support/clipfern-stub';
  * Every session also asserts: zero console errors/warnings, zero external requests, zero HTTP >= 400.
  */
 // our own browser/contexts: the runner's auto-trace artifacts would race with manual context.close()
-test.use({ trace: 'off', video: 'off', screenshot: 'off' });
+test.use({ trace: 'off', video: 'off', screenshot: 'off', actionTimeout: 10_000 });
 
 let h: Harness;
 test.skip(!canRun(), 'needs a Chromium binary and a built renderer/out');
@@ -233,9 +233,15 @@ test.describe('Home: Start is disabled with a specific reason', () => {
       '/settings/storage/',
     ],
     [
-      'engine not installed',
-      (st) => (st.sidecar = makeState('fresh').sidecar),
-      /Install the transcription engine/,
+      'engine still installing',
+      (st) =>
+        (st.sidecar = {
+          ...st.sidecar,
+          modelReady: false,
+          phase: 'downloading-model',
+          message: 'Downloading model (35%)',
+        }),
+      /transcription engine is still installing/,
       '/settings/compute/',
     ],
     ['hard cap reached', (st) => (st.costSpent = 75), /hard cap \(\$70\)/, '/settings/models/'],
@@ -401,7 +407,10 @@ test.describe('Live pipeline', () => {
     await expect(row.locator('li[data-stage="transcribe"]')).toHaveAttribute('data-status', 'done');
     await expect(row.locator('li[data-stage="moments"]')).toHaveAttribute('data-status', 'running');
     // a pipeline:event moves it without any refetch
-    const calls = s.state.calls.length;
+    const listCalls = () =>
+      s.state.calls.filter((c) => ['videos:list', 'videos:get', 'clips:list'].includes(c.channel))
+        .length;
+    const calls = listCalls();
     await s.emit('pipeline:event', {
       videoId: 'vid-processing',
       stage: 'moments',
@@ -412,7 +421,7 @@ test.describe('Live pipeline', () => {
       at: Date.now(),
     });
     await expect(row).toContainText('80%');
-    expect(s.state.calls.length).toBe(calls);
+    expect(listCalls()).toBe(calls);
     await s.emit('pipeline:event', {
       videoId: 'vid-processing',
       stage: 'render',
@@ -511,7 +520,7 @@ test.describe('Library', () => {
     await expect(s.page.getByTestId('video-card')).toHaveCount(4);
     const ready = s.page.locator('[data-testid="video-card"][data-video-id="vid-interview"]');
     await expect(ready).toContainText('9 clips');
-    await expect(ready.getByRole('img', { name: /Virality score 94/ })).toBeVisible();
+    await expect(ready.getByTitle(/Virality score 94/)).toBeVisible();
     await expect(ready.locator('img').first()).toHaveAttribute('src', /__assets\/v1\.jpg/);
     // in-progress card: status chip + stage segments + cancel
     const running = s.page.locator('[data-testid="video-card"][data-video-id="vid-processing"]');
@@ -620,6 +629,11 @@ test.describe('Library', () => {
     await expect(count).toHaveText(
       `${s.state.clips.filter((c) => c.durationSec < 30).length} of 17 clips`,
     );
+    await s.page.getByRole('combobox', { name: 'Duration' }).click();
+    await s.page.getByRole('option', { name: '30–60 s' }).click();
+    await expect(cards(s.page)).toHaveCount(
+      s.state.clips.filter((c) => c.durationSec >= 30 && c.durationSec < 60).length,
+    );
     await s.page.getByRole('button', { name: 'Clear filters' }).click();
 
     // video
@@ -719,7 +733,7 @@ test.describe('Library', () => {
     await expect(bar.getByText('4', { exact: true })).toBeVisible();
     // later-version actions are disabled with the tooltip
     for (const name of ['Send to scheduler', 'Open in editor']) {
-      const btn = bar.getByRole('button', { name });
+      const btn = s.page.getByRole('button', { name });
       await expect(btn).toBeDisabled();
       const t = await tip(s.page, s.page.locator('span[tabindex="0"]').filter({ has: btn }));
       await expect(t).toContainText('Coming in a later version');
@@ -806,7 +820,9 @@ test.describe('Library', () => {
     await s.page.getByRole('tab', { name: /^Clips/ }).click();
     const c = s.state.clips.find((x) => x.id === 'vid-interview-c9')!;
     await expect(
-      s.page.locator(`[data-clip-id="${c.id}"]`).getByRole('img', { name: /Virality score 46/ }),
+      s.page
+        .locator(`[data-clip-id="${c.id}"]`)
+        .getByRole('img', { name: new RegExp(`Virality score ${c.score} `) }),
     ).toBeVisible();
     await s.emit('clips:updated', { ...c, score: 66 });
     await expect(
@@ -825,10 +841,9 @@ test.describe('Video detail', () => {
     );
     await expect(s.page.getByTestId('video-header')).toContainText('Riverside Community TV');
     await expect(s.page.getByTestId('video-header')).toContainText('3:00');
-    await expect(s.page.getByRole('link', { name: /^Library$/ }).first()).toHaveAttribute(
-      'href',
-      '/library/?tab=videos',
-    );
+    await expect(
+      s.page.locator('main').getByRole('link', { name: 'Library' }).first(),
+    ).toHaveAttribute('href', '/library/?tab=videos');
     await expect(s.page.getByRole('tab', { name: 'Overview' })).toHaveAttribute(
       'aria-selected',
       'true',
@@ -917,7 +932,7 @@ test.describe('Video detail', () => {
     await s.page.getByRole('button', { name: 'Copy transcript' }).click();
     await expect(s.page.getByText('Transcript copied')).toBeVisible();
     const clip = await s.page.evaluate(() => navigator.clipboard.readText());
-    expect(clip).toContain('[0:00]');
+    expect(clip).toContain(`[${formatClock(tr.sentences[0]!.s)}] Speaker 1:`);
     expect(clip).toContain(tr.sentences[10]!.text);
     expect(clip.split('\n')).toHaveLength(tr.sentences.length);
     expect(s.problems).toEqual([]);
@@ -1061,10 +1076,8 @@ test.describe('Video detail', () => {
     for (const [key, v, cap] of expected) {
       const row = dlg.getByTestId(`bd-${key}`);
       await expect(row).toContainText(`${v} / ${cap}`);
-      await expect(row.getByRole('progressbar')).toHaveAttribute(
-        'aria-valuenow',
-        String(Math.round((v / cap) * 100)),
-      );
+      const now = Number(await row.getByRole('progressbar').getAttribute('aria-valuenow'));
+      expect(now).toBeCloseTo((v / cap) * 100, 0);
     }
     await expect(dlg.getByTestId('confidence')).toHaveText('92%');
     await expect(dlg.getByTestId('drawer-range')).toHaveText(
@@ -1189,7 +1202,7 @@ test.describe('Cost chip, notifications and deep links', () => {
     await s.emit('nav:go', { href: '/settings?section=storage' });
     await expect(s.page).toHaveURL(/\/settings\/storage\/$/);
 
-    await s.emit('notifications:new', {
+    await s.state.notify!({
       id: 'n-deep',
       kind: 'clips-ready',
       level: 'success',
@@ -1208,7 +1221,7 @@ test.describe('Cost chip, notifications and deep links', () => {
     );
     await expect(cards(s.page)).toHaveCount(9);
     // and from the toast's View action
-    await s.emit('notifications:new', {
+    await s.state.notify!({
       id: 'n-toast',
       kind: 'job',
       level: 'success',

@@ -156,18 +156,18 @@ export interface Recovery {
  */
 export function classifyFailure(message: string | null | undefined): Recovery {
   const m = (message ?? '').toLowerCase();
-  if (/not a bot|confirm you.re not|sign in to confirm|cookies/.test(m))
-    return {
-      kind: 'bot-check',
-      title: 'YouTube wants to confirm you are not a bot',
-      hint: 'Let Clipfern borrow your browser’s YouTube cookies: choose your browser under Download, then retry.',
-      action: { label: 'Open Ingest settings', href: '/settings/ingest/' },
-    };
   if (/age.restrict|age-gated|confirm your age|inappropriate for some users/.test(m))
     return {
       kind: 'age',
       title: 'This video is age-restricted',
       hint: 'Signed-in cookies are required. Pick the browser you are signed in to YouTube with, then retry.',
+      action: { label: 'Open Ingest settings', href: '/settings/ingest/' },
+    };
+  if (/not a bot|confirm you.re not|--cookies|cookies-from-browser/.test(m))
+    return {
+      kind: 'bot-check',
+      title: 'YouTube wants to confirm you are not a bot',
+      hint: 'Let Clipfern borrow your browser’s YouTube cookies: choose your browser under Download, then retry.',
       action: { label: 'Open Ingest settings', href: '/settings/ingest/' },
     };
   if (/private video|members.only|join this channel|is private/.test(m))

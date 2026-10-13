@@ -35,7 +35,13 @@ export function createPipeline(svc: Services, sidecar: SidecarManager, host: Pip
   };
   const ytdlpPath = () => svc.binaries.ytdlpPath;
 
-  const ingest = createIngestService({ ytdlpPath, ffmpegPath, log });
+  // yt-dlp needs a JS runtime for YouTube; Electron's own binary can act as Node (ELECTRON_RUN_AS_NODE).
+  const ingest = createIngestService({
+    ytdlpPath,
+    ffmpegPath,
+    log,
+    jsRuntime: () => ({ path: process.execPath, name: 'node', electronAsNode: true }),
+  });
   const media = createMediaService({ ffmpegPath, ffprobePath, log });
   const llm = createLlmService({
     getApiKey: () => svc.secrets.get('anthropic.apiKey'),

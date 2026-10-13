@@ -273,12 +273,15 @@ function Loaded({ id, data }: { id: string; data: Detail }) {
   const { videoRef } = usePlayer();
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const urlTab = params.get('tab');
-  const [tab, setTab] = React.useState<Tab | null>(isTab(urlTab) ? urlTab : null);
-
   const { video, analysis } = data;
   const stages = mergeStages(data.stages);
   const active = isActiveVideo(video);
-  const activeTab: Tab = tab ?? (active ? 'clips' : 'overview');
+  // The default tab is decided once, when the page opens: a live run lands on Clips, a finished video on Overview.
+  // It must NOT flip when the run completes, or the content would jump out from under the user.
+  const [tab, setTab] = React.useState<Tab>(() =>
+    isTab(urlTab) ? urlTab : active ? 'clips' : 'overview',
+  );
+  const activeTab = tab;
   const clipItems = clips.data?.items ?? [];
   const changeTab = (v: string) => {
     if (!isTab(v)) return;

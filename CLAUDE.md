@@ -18,6 +18,13 @@ pnpm dist                   # electron-builder installer for the current OS
 
 Headless Linux: `xvfb-run -a pnpm start`.
 
+CP2 real-media e2e (same env vars; 13 tests: presets, restyle, subtitles, hooks, meta, thumbnails, reframe, highlights, steered run, analysis mode, chat):
+
+```bash
+CLIPFERN_E2E_CP1_VIDEO=<mp4> CLIPFERN_E2E_SIDECAR_USERDATA=<ud> CLIPFERN_E2E_OUT=<dir> xvfb-run -a pnpm exec playwright test test/e2e/cp2-features.spec.ts
+node scripts/llm-smoke.mjs <transcript.json> --cp2 [--dry-run]   # real-model check of hooks/meta/highlights/chat
+```
+
 CP1 real-media e2e (real yt-dlp/ffmpeg/faster-whisper/render; only the Claude answers are scripted — no key needed):
 
 ```bash
@@ -32,8 +39,8 @@ Dev/test-only env: `CLIPFERN_S3_ENDPOINT_OVERRIDE`, `CLIPFERN_ALLOW_ANY_URL=1`, 
 
 - `shared/` Zod IPC contract + types (used by main, preload, renderer). **Add a channel here first.**
 - `electron/main/` services: db (Prisma+libsql), queue (durable), secrets (safeStorage), storage (S3Provider R2/B2), notifications, binaries (ffmpeg/yt-dlp), sidecar (uv/venv/faster-whisper), validators, ipc handlers.
-- `electron/main/pipeline/` (CP1): `contracts.ts` (module interfaces), `orchestrator.ts` (windowed streaming pipeline on the queue), `render-worker.ts` (one clip: reframe → captions → hook → ffmpeg → upload), `library.ts` (list/favorite/delete/download), `wiring.ts` (builds all services), `state.ts`, `views.ts`, `signals-merge.ts`.
-- `electron/main/services/{media,analysis,llm,moments,reframe,captions,render}/` (CP1): yt-dlp+ffmpeg, audio signals/sentences, Claude layer, candidate moments, face-tracked crop path, ASS captions (Clean Pop), FFmpeg render.
+- `electron/main/pipeline/` (CP1+CP2): `cp2.ts` (caption-style/subtitle/highlight/hook/meta/thumbnail/marker service), `chat.ts` (AI Chat + tool executors), `styles.ts` (caption style registry), `contracts2.ts` (CP2 module interfaces), `contracts.ts` (module interfaces), `orchestrator.ts` (windowed streaming pipeline on the queue), `render-worker.ts` (one clip: reframe → captions → hook → ffmpeg → upload), `library.ts` (list/favorite/delete/download), `wiring.ts` (builds all services), `state.ts`, `views.ts`, `signals-merge.ts`.
+- `electron/main/services/{media,analysis,llm,moments,reframe,captions,subtitles,thumbnails,chat,render}/` (CP1+CP2): yt-dlp+ffmpeg, audio signals/sentences, Claude layer, candidate moments, face-tracked crop path, ASS captions (Clean Pop), FFmpeg render.
 - `electron/preload/` strict contextBridge: only contract channels.
 - `renderer/` Next 15 static export, Tailwind v4, shadcn/ui, Zustand, TanStack Query. Never sees secrets.
 - `sidecar/` Python FastAPI (faster-whisper, MediaPipe, PySceneDetect).
@@ -55,7 +62,7 @@ Dev/test-only env: `CLIPFERN_S3_ENDPOINT_OVERRIDE`, `CLIPFERN_ALLOW_ANY_URL=1`, 
 | --- | --------------------------- | ----------------------------------------- |
 | 0   | Foundation (runnable shell) | **DONE (Linux-verified) — awaiting "go"** |
 | 1   | YouTube → clips (core)      | **DONE (Linux-verified) — awaiting "go"** |
-| 2   | Clip intelligence depth     | not started                               |
+| 2   | Clip intelligence depth     | **DONE (Linux-verified) — awaiting "go"** |
 | 3   | Full editor                 | not started                               |
 | 4   | Brand Kit                   | not started                               |
 | 5   | Posting + Scheduler         | not started                               |

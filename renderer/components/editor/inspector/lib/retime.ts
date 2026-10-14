@@ -1,4 +1,12 @@
-import type { AudioItem, Item, Keyframe, Project, SubtitleItem, SubtitleWord, VideoItem } from '@shared/editor';
+import type {
+  AudioItem,
+  Item,
+  Keyframe,
+  Project,
+  SubtitleItem,
+  SubtitleWord,
+  VideoItem,
+} from '@shared/editor';
 import { itemEnd, makeSourceTime } from '@shared/editor-eval';
 
 /* ------------------------------------------------------------------------------------------------
@@ -161,7 +169,8 @@ export function thinCropKeys(keys: readonly CropKey[], tol = 0.004, maxKeys = 80
     const kb = keys[b] as CropKey;
     const k = keys[i] as CropKey;
     const p = kb.t === ka.t ? 0 : (k.t - ka.t) / (kb.t - ka.t);
-    const d = (key: 'x' | 'y' | 'w' | 'h') => Math.abs(k[key] - (ka[key] + (kb[key] - ka[key]) * p));
+    const d = (key: 'x' | 'y' | 'w' | 'h') =>
+      Math.abs(k[key] - (ka[key] + (kb[key] - ka[key]) * p));
     return Math.max(d('x'), d('y'), d('w'), d('h'));
   };
   const stack: [number, number][] = [[0, keys.length - 1]];
@@ -218,7 +227,9 @@ export function reframeToCropTracks(
   if (local.length === 0) return null;
   local.sort((a, b) => a.t - b.t);
   // two keys on the same local time (a speed ramp can squash time): keep the last
-  const uniq = local.filter((k, i) => i === local.length - 1 || (local[i + 1] as CropKey).t - k.t > 1e-4);
+  const uniq = local.filter(
+    (k, i) => i === local.length - 1 || (local[i + 1] as CropKey).t - k.t > 1e-4,
+  );
   const thin = thinCropKeys(uniq, opts.tol, opts.maxKeys);
   const mk = (key: 'x' | 'y' | 'w' | 'h'): Keyframe[] =>
     thin.map((k) => ({
@@ -303,4 +314,23 @@ export function beatCutTimes(
     if (out.length >= n) break;
   }
   return out;
+}
+
+/* ------------------------------------------------------------------ keyframe upsert ---------------- */
+
+/**
+ * Sets the value at item-local time `t` of a keyframe list: updates the keyframe within `tol` of `t`, else inserts one
+ * (new keyframes take the easing of the segment they split, else linear). Pure twin of what store.setProp does at the
+ * playhead, used where several channels must change in ONE undo step (the reframe mini-map).
+ */
+export function upsertKeyframe(
+  kf: readonly Keyframe[],
+  t: number,
+  v: number,
+  tol = 1 / 60,
+): Keyframe[] {
+  const idx = kf.findIndex((k) => Math.abs(k.t - t) <= tol);
+  if (idx >= 0) return kf.map((k, i) => (i === idx ? { ...k, v } : k));
+  const before = [...kf].reverse().find((k) => k.t < t);
+  return [...kf, { t, v, ease: before?.ease ?? 'linear' }].sort((a, b) => a.t - b.t);
 }

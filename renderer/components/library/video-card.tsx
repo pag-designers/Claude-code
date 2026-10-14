@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ExternalLink, Film, MoreHorizontal, Star, Trash2 } from 'lucide-react';
+import { ExternalLink, Film, MoreHorizontal, PencilRuler, Star, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { VideoView } from '@shared/pipeline';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,7 @@ import {
 import { ScoreChip } from '@/components/ui/score-badge';
 import { StarButton } from '@/components/ui/star-button';
 import { PipelineProgressCompact } from '@/components/pipeline/pipeline-progress';
+import { useOpenInEditor } from '@/components/editor/panels/open-in-editor';
 import { cn } from '@/lib/utils';
 import { formatClock, timeAgo } from '@/lib/format';
 import { videoHref } from '@/lib/hrefs';
@@ -153,43 +154,54 @@ function VideoMenu({
 }) {
   const router = useRouter();
   const fav = useSetVideoFavorite();
+  const editor = useOpenInEditor();
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={`More actions for ${video.title}`}
-          className={cn(
-            'relative z-10 bg-card/90 shadow-xs backdrop-blur-sm hover:bg-card',
-            className,
-          )}
-        >
-          <MoreHorizontal />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuItem onSelect={() => router.push(videoHref(video.id))}>
-          <Film /> Open video
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => fav.mutate({ id: video.id, value: !video.favorite })}>
-          <Star /> {video.favorite ? 'Remove from favorites' : 'Add to favorites'}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={() =>
-            void invoke('shell:openExternal', { url: video.sourceUrl }).catch((e: Error) =>
-              toast.error('Could not open the link', { description: e.message }),
-            )
-          }
-        >
-          <ExternalLink /> Open on YouTube
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem className="text-danger [&_svg]:text-danger" onSelect={onDelete}>
-          <Trash2 /> Delete…
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`More actions for ${video.title}`}
+            className={cn(
+              'relative z-10 bg-card/90 shadow-xs backdrop-blur-sm hover:bg-card',
+              className,
+            )}
+          >
+            <MoreHorizontal />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem onSelect={() => router.push(videoHref(video.id))}>
+            <Film /> Open video
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={!video.hasProxy || editor.busy}
+            onSelect={() => void editor.open({ videoId: video.id })}
+            data-testid="video-open-editor"
+          >
+            <PencilRuler /> Open in editor
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => fav.mutate({ id: video.id, value: !video.favorite })}>
+            <Star /> {video.favorite ? 'Remove from favorites' : 'Add to favorites'}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() =>
+              void invoke('shell:openExternal', { url: video.sourceUrl }).catch((e: Error) =>
+                toast.error('Could not open the link', { description: e.message }),
+              )
+            }
+          >
+            <ExternalLink /> Open on YouTube
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem className="text-danger [&_svg]:text-danger" onSelect={onDelete}>
+            <Trash2 /> Delete…
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {editor.dialog}
+    </>
   );
 }
 

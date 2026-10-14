@@ -75,8 +75,26 @@ export const PATH_META: Record<AnimatedPath, PathMeta> = {
     step: 1,
     neutral: 1,
   },
-  'crop.x': { label: 'Crop X', min: 0, max: 1, mul: 100, unit: '%', decimals: 1, step: 0.5, neutral: 0 },
-  'crop.y': { label: 'Crop Y', min: 0, max: 1, mul: 100, unit: '%', decimals: 1, step: 0.5, neutral: 0 },
+  'crop.x': {
+    label: 'Crop X',
+    min: 0,
+    max: 1,
+    mul: 100,
+    unit: '%',
+    decimals: 1,
+    step: 0.5,
+    neutral: 0,
+  },
+  'crop.y': {
+    label: 'Crop Y',
+    min: 0,
+    max: 1,
+    mul: 100,
+    unit: '%',
+    decimals: 1,
+    step: 0.5,
+    neutral: 0,
+  },
   'crop.w': {
     label: 'Crop width',
     min: 0.01,
@@ -97,7 +115,16 @@ export const PATH_META: Record<AnimatedPath, PathMeta> = {
     step: 0.5,
     neutral: 1,
   },
-  volume: { label: 'Volume', min: 0, max: 4, mul: 100, unit: '%', decimals: 0, step: 1, neutral: 1 },
+  volume: {
+    label: 'Volume',
+    min: 0,
+    max: 4,
+    mul: 100,
+    unit: '%',
+    decimals: 0,
+    step: 1,
+    neutral: 1,
+  },
   blur: { label: 'Blur', min: 0, max: 200, mul: 1, unit: 'px', decimals: 1, step: 0.5, neutral: 0 },
   'color.exposure': {
     label: 'Exposure',
@@ -180,7 +207,11 @@ export function localTime(
 }
 
 /** The value the playhead sees (animated value when keyframed, else the base value). */
-export function valueAtPlayhead(item: Item, path: AnimatedPath, playheadSec: number): number | null {
+export function valueAtPlayhead(
+  item: Item,
+  path: AnimatedPath,
+  playheadSec: number,
+): number | null {
   const a = getAnimated(item, path);
   if (!a) return null;
   return animatedAt(a, localTime(item, playheadSec).t);
@@ -218,7 +249,8 @@ export function keyframeToggle(
   const a = getAnimated(item, path);
   if (!a) return { type: 'none', reason: 'Not animatable on this clip' };
   const lt = localTime(item, playheadSec);
-  if (!lt.inside) return { type: 'none', reason: 'Move the playhead over the clip to set a keyframe' };
+  if (!lt.inside)
+    return { type: 'none', reason: 'Move the playhead over the clip to set a keyframe' };
   const idx = keyframeIndexAt(a.kf, lt.t, frameTol(fps));
   if (idx >= 0) return { type: 'remove', index: idx };
   return { type: 'add', t: lt.t, v: animatedAt(a, lt.t) };
@@ -256,8 +288,10 @@ export function neighbourKeyframes(
 
 /* ------------------------------------------------------------------ display maths ---------------- */
 
-export const toDisplay = (path: AnimatedPath, stored: number): number => stored * PATH_META[path].mul;
-export const fromDisplay = (path: AnimatedPath, shown: number): number => shown / PATH_META[path].mul;
+export const toDisplay = (path: AnimatedPath, stored: number): number =>
+  stored * PATH_META[path].mul;
+export const fromDisplay = (path: AnimatedPath, shown: number): number =>
+  shown / PATH_META[path].mul;
 
 /** Linear gain → dB (−∞ for silence). */
 export const gainToDb = (g: number): number => (g <= 1e-6 ? -Infinity : 20 * Math.log10(g));
@@ -269,3 +303,25 @@ export function formatDb(g: number): string {
   const r = Math.round(db * 10) / 10;
   return `${r > 0 ? '+' : r < 0 ? '−' : ''}${Math.abs(r).toFixed(1)} dB`;
 }
+
+/** How the keyframe graph frames each property: hard bounds (drag clamps to them) and the smallest vertical span. */
+export const GRAPH_BOUNDS: Record<
+  AnimatedPath,
+  { floor?: number; ceil?: number; minSpan?: number }
+> = {
+  'transform.x': { minSpan: 200 },
+  'transform.y': { minSpan: 200 },
+  'transform.scale': { floor: 0, minSpan: 1 },
+  'transform.rotation': { minSpan: 90 },
+  'transform.opacity': { floor: 0, ceil: 1 },
+  'crop.x': { floor: 0, ceil: 1 },
+  'crop.y': { floor: 0, ceil: 1 },
+  'crop.w': { floor: 0.01, ceil: 1 },
+  'crop.h': { floor: 0.01, ceil: 1 },
+  volume: { floor: 0, minSpan: 1 },
+  blur: { floor: 0, minSpan: 20 },
+  'color.exposure': { floor: -1, ceil: 1 },
+  'color.contrast': { floor: -1, ceil: 1 },
+  'color.saturation': { floor: -1, ceil: 1 },
+  'color.temperature': { floor: -1, ceil: 1 },
+};

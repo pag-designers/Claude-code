@@ -24,6 +24,8 @@ import {
 } from './cp1-sim';
 import { handleCp2a } from './cp2-stub-a';
 import { stubB } from './cp2-stub-b';
+import { handleEditorPanels } from './editor-stub-panels';
+import { handleEditorTimeline } from './editor-stub';
 import { DEFAULT_SETTINGS, type Settings } from '../../../shared/settings';
 import { SECRET_KEYS, maskSecret, type SecretKey } from '../../../shared/secrets';
 import type { AppNotification, JobView, SidecarStatus, StorageUsage } from '../../../shared/domain';
@@ -242,6 +244,10 @@ async function handle(
   if (cp2a) return cp2a.value;
   const cp2b = await stubB.handle(state, channel, payload); // UI-B: hooks, metadata, thumbnails, steering, chat, markers
   if (cp2b) return cp2b.value;
+  const edt = await handleEditorTimeline(state, channel, payload); // CP3 timeline: real filmstrip frames + waveform
+  if (edt) return edt.value;
+  const edp = await handleEditorPanels(state, channel, payload); // CP3 panels: projects, versions, exports
+  if (edp) return edp.value;
   switch (channel) {
     case 'app:info':
       return {

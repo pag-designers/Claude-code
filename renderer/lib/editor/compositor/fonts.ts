@@ -66,9 +66,7 @@ export const EDITOR_FONTS: readonly EditorFont[] = [
     face(800, 'Montserrat-ExtraBold.ttf', 'Montserrat ExtraBold', 1109, 453, 700),
   ]),
   font('Anton', 'display', [face(400, 'Anton-Regular.ttf', 'Anton', 1404, 329, 859)]),
-  font('Bebas Neue', 'display', [
-    face(400, 'BebasNeue-Regular.ttf', 'Bebas Neue', 950, 350, 700),
-  ]),
+  font('Bebas Neue', 'display', [face(400, 'BebasNeue-Regular.ttf', 'Bebas Neue', 950, 350, 700)]),
   font('Poppins', 'sans', [
     face(600, 'Poppins-SemiBold.ttf', 'Poppins SemiBold', 1135, 627, 701),
     face(700, 'Poppins-Bold.ttf', 'Poppins', 1135, 627, 705),
@@ -111,7 +109,10 @@ export function resolveEditorFace(family: string, weight: number): ResolvedFace 
 }
 
 /** ASS `\fs` that makes libass draw an `emPx` em: libass' size is the ascent + descent cell. */
-export function libassFontSize(emPx: number, f: Pick<EditorFontFace, 'ascent' | 'descent'> | null): number {
+export function libassFontSize(
+  emPx: number,
+  f: Pick<EditorFontFace, 'ascent' | 'descent'> | null,
+): number {
   return emPx * (f ? f.ascent + f.descent : 1.4);
 }
 
@@ -163,7 +164,9 @@ export function ensureEditorFonts(opts: EnsureFontsOptions = {}): Promise<void> 
   if (loadPromise) return loadPromise;
   const set: FontFaceSet | undefined =
     opts.fontSet ??
-    (typeof document !== 'undefined' ? document.fonts : (globalThis as { fonts?: FontFaceSet }).fonts);
+    (typeof document !== 'undefined'
+      ? document.fonts
+      : (globalThis as { fonts?: FontFaceSet }).fonts);
   if (!set || typeof FontFace === 'undefined') {
     ready = true;
     loadPromise = Promise.resolve();
@@ -180,7 +183,7 @@ export function ensureEditorFonts(opts: EnsureFontsOptions = {}): Promise<void> 
               style: 'normal',
               display: 'block',
             });
-            set.add(ff);
+            (set as unknown as { add(f: FontFace): void }).add(ff);
             await ff.load();
           } catch (err) {
             console.warn(`editor font ${fc.file} failed to load`, err);

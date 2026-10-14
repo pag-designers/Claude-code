@@ -193,9 +193,10 @@ describe('tool registry and helpers', () => {
       'Game Clipping',
       'Live Clipping',
       'Speech Enhancer',
-      'Video Editor',
     ]);
     expect(TOOLS.find((t) => t.id === 'ai-clipping')!.href).toBe('/');
+    // CP3: the Video Editor card opens Library → Edited (projects, and new ones from a clip / video / blank)
+    expect(TOOLS.find((t) => t.id === 'editor')!.href).toBe('/library/?tab=edited');
   });
 
   it('builds and recognises tool links', () => {

@@ -17,6 +17,8 @@ export function SelectionBar({
   onFavorite,
   onDelete,
   onClear,
+  onOpenEditor,
+  openingEditor,
 }: {
   count: number;
   allFavorite: boolean;
@@ -25,6 +27,9 @@ export function SelectionBar({
   onFavorite: () => void;
   onDelete: () => void;
   onClear: () => void;
+  /** Provided when exactly one clip is selected; otherwise the button explains why it is off. */
+  onOpenEditor?: () => void;
+  openingEditor?: boolean;
 }) {
   return (
     <AnimatePresence>
@@ -59,11 +64,23 @@ export function SelectionBar({
               <CalendarClock /> Send to scheduler
             </Button>
           </DisabledTip>
-          <DisabledTip reason={LATER}>
-            <Button size="sm" variant="ghost" disabled>
+          {onOpenEditor ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              loading={openingEditor}
+              onClick={onOpenEditor}
+              data-testid="selection-open-editor"
+            >
               <PencilRuler /> Open in editor
             </Button>
-          </DisabledTip>
+          ) : (
+            <DisabledTip reason="Select a single clip to open it in the editor">
+              <Button size="sm" variant="ghost" disabled>
+                <PencilRuler /> Open in editor
+              </Button>
+            </DisabledTip>
+          )}
           <Button size="sm" variant="danger-ghost" onClick={onDelete}>
             <Trash2 /> Delete
           </Button>

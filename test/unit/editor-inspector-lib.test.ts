@@ -88,7 +88,14 @@ const video = (over: Partial<VideoItem> = {}): VideoItem =>
     ...over,
   });
 const audio = (over: Partial<AudioItem> = {}): AudioItem =>
-  audioItemSchema.parse({ type: 'audio', id: 'm1', assetId: 'a2', startSec: 0, durationSec: 20, ...over });
+  audioItemSchema.parse({
+    type: 'audio',
+    id: 'm1',
+    assetId: 'a2',
+    startSec: 0,
+    durationSec: 20,
+    ...over,
+  });
 const kf = (t: number, v: number, ease: Keyframe['ease'] = 'linear'): Keyframe => ({ t, v, ease });
 
 describe('animated-value display + keyframe toggle', () => {
@@ -310,11 +317,29 @@ describe('source-time mapping (re-sync, reframe, beats)', () => {
       ],
       assets: [],
     });
-    const c = subtitleItemSchema.parse({ type: 'subtitle', id: 'c', startSec: 12, durationSec: 4, words: [] });
+    const c = subtitleItemSchema.parse({
+      type: 'subtitle',
+      id: 'c',
+      startSec: 12,
+      durationSec: 4,
+      words: [],
+    });
     expect(findCueMedia(project, c)?.id).toBe('v2'); // 3 s overlap vs 1 s
-    const early = subtitleItemSchema.parse({ type: 'subtitle', id: 'c', startSec: 1, durationSec: 2, words: [] });
+    const early = subtitleItemSchema.parse({
+      type: 'subtitle',
+      id: 'c',
+      startSec: 1,
+      durationSec: 2,
+      words: [],
+    });
     expect(findCueMedia(project, early)?.id).toBe('v1'); // not the muted overlay
-    const none = subtitleItemSchema.parse({ type: 'subtitle', id: 'c', startSec: 40, durationSec: 2, words: [] });
+    const none = subtitleItemSchema.parse({
+      type: 'subtitle',
+      id: 'c',
+      startSec: 40,
+      durationSec: 2,
+      words: [],
+    });
     expect(findCueMedia(project, none)).toBeNull();
   });
 
@@ -404,7 +429,9 @@ describe('bezier handle ↔ easing', () => {
     expect(easingToBezier('ease-in')).toEqual([0.42, 0, 1, 1]);
     expect(easingToBezier('ease-in-out')).toEqual([0.42, 0, 0.58, 1]);
     expect(easingToBezier('hold')).toBeNull();
-    expect(easingToBezier({ type: 'bezier', x1: 0.1, y1: 0.2, x2: 0.3, y2: 1.4 })).toEqual([0.1, 0.2, 0.3, 1.4]);
+    expect(easingToBezier({ type: 'bezier', x1: 0.1, y1: 0.2, x2: 0.3, y2: 1.4 })).toEqual([
+      0.1, 0.2, 0.3, 1.4,
+    ]);
     expect(easingChoice('ease-out')).toBe('ease-out');
     expect(easingChoice({ type: 'bezier', x1: 0, y1: 0, x2: 1, y2: 1 })).toBe('bezier');
   });
@@ -489,7 +516,17 @@ describe('keyframe graph maths', () => {
     expect(segmentAt(keys, 1)).toBe(0);
     expect(segmentAt(keys, 3)).toBe(1);
     expect(segmentAt(keys, 4)).toBe(-1);
-    expect(hitKeyframe([{ x: 10, y: 10 }, { x: 50, y: 50 }], 52, 49, 8)).toBe(1);
+    expect(
+      hitKeyframe(
+        [
+          { x: 10, y: 10 },
+          { x: 50, y: 50 },
+        ],
+        52,
+        49,
+        8,
+      ),
+    ).toBe(1);
     expect(hitKeyframe([{ x: 10, y: 10 }], 80, 80, 8)).toBe(-1);
   });
 });
@@ -523,5 +560,75 @@ describe('number field logic', () => {
     expect(formatNumeric(-0.0004, 1)).toBe('0.0');
     expect(formatNumeric(-12.5, 1)).toBe('-12.5');
     expect(formatNumeric(100, 0)).toBe('100');
+  });
+});
+
+describe('axis ticks', () => {
+  it('linear axes use 1-2-5 steps inside the range; log axes use powers of two', async () => {
+    const { axisTicks } = await import('../../renderer/components/editor/inspector/lib/graph');
+    expect(axisTicks({ vMin: 0, vMax: 100 })).toEqual([0, 20, 40, 60, 80, 100]);
+    const t = axisTicks({ vMin: -3, vMax: 7 });
+    expect(t[0]).toBeGreaterThanOrEqual(-3);
+    expect(t[t.length - 1]).toBeLessThanOrEqual(7);
+    expect(axisTicks({ vMin: 0.2, vMax: 6, scale: 'log' })).toEqual([0.25, 0.5, 1, 2, 4]);
+  });
+});
+
+describe('keyframe upsert (reframe drag)', () => {
+  it('updates a keyframe under the playhead, inserts otherwise, inheriting the segment easing', async () => {
+    const { upsertKeyframe } =
+      await import('../../renderer/components/editor/inspector/lib/retime');
+    const base: Keyframe[] = [kf(0, 0.2, 'ease-in'), kf(4, 0.6)];
+    expect(upsertKeyframe(base, 4.005, 0.7)).toEqual([kf(0, 0.2, 'ease-in'), kf(4, 0.7)]);
+    expect(upsertKeyframe(base, 2, 0.4)).toEqual([
+      kf(0, 0.2, 'ease-in'),
+      kf(2, 0.4, 'ease-in'),
+      kf(4, 0.6),
+    ]);
+    expect(upsertKeyframe([], 1, 0.5)).toEqual([kf(1, 0.5)]);
+    expect(upsertKeyframe(base, -0, 0.3)[0]!.v).toBe(0.3);
+  });
+});
+
+describe('subtitle word edits', () => {
+  const w = (t: string, s: number, e: number, color: string | null = null) => ({
+    w: t,
+    s,
+    e,
+    color,
+  });
+  it('replaces, splits on spaces (proportional timing) and deletes on empty', async () => {
+    const m = await import('../../renderer/components/editor/inspector/lib/subtitle-edit');
+    const words = [w('hello', 0, 0.5, '#FFE94D'), w('big', 0.5, 1), w('world', 1, 2)];
+    expect(m.setWordText(words, 1, 'bold').map((x) => x.w)).toEqual(['hello', 'bold', 'world']);
+    const split = m.setWordText(words, 2, 'new world');
+    expect(split.map((x) => x.w)).toEqual(['hello', 'big', 'new', 'world']);
+    expect(split[2]!.s).toBe(1);
+    expect(split[3]!.e).toBe(2);
+    expect(split[2]!.e).toBeCloseTo(1 + (3 / 8) * 1, 2);
+    expect(split[2]!.e).toBe(split[3]!.s);
+    const del = m.setWordText(words, 1, '  ');
+    expect(del.map((x) => x.w)).toEqual(['hello', 'world']);
+    expect(del[0]!.e).toBe(1); // the gap goes to the previous word
+    expect(m.setWordText(words, 0, '').map((x) => x.w)).toEqual(['big', 'world']);
+    expect(m.setWordText(words, 0, '')[0]!.s).toBe(0);
+    expect(words[1]!.w).toBe('big'); // input untouched
+  });
+
+  it('colours, boundary moves and active word', async () => {
+    const m = await import('../../renderer/components/editor/inspector/lib/subtitle-edit');
+    const words = [w('a', 0, 0.5), w('b', 0.5, 1), w('c', 1, 2)];
+    expect(m.setWordColor(words, 1, '#FF4D4D')[1]!.color).toBe('#FF4D4D');
+    expect(m.setWordColor(m.setWordColor(words, 1, '#FF4D4D'), 1, null)[1]!.color).toBeNull();
+    const moved = m.setWordStart(words, 1, 0.7, 2);
+    expect(moved[1]!.s).toBe(0.7);
+    expect(moved[0]!.e).toBe(0.7); // previous word follows the boundary
+    expect(m.setWordStart(words, 1, -5, 2)[1]!.s).toBeCloseTo(0.02); // clamped after the previous start
+    expect(m.setWordStart(words, 1, 9, 2)[1]!.s).toBeCloseTo(0.98); // clamped before its own end
+    expect(m.setLastWordEnd(words, 9, 2)[2]!.e).toBe(2);
+    expect(m.setLastWordEnd(words, 0, 2)[2]!.e).toBeCloseTo(1.02);
+    expect(m.activeWordIndex(words, 0.6)).toBe(1);
+    expect(m.activeWordIndex(words, -1)).toBe(-1);
+    expect(m.activeWordIndex(words, 9)).toBe(-1);
   });
 });

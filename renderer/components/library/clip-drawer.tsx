@@ -24,6 +24,7 @@ import { StarButton } from '@/components/ui/star-button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DisabledTip, Tip } from '@/components/ui/tooltip';
 import { ChatLauncher } from '@/components/chat/chat-launcher';
+import { OpenInEditorButton } from '@/components/editor/panels/open-in-editor';
 import { DRAWER_VIEWS, isDrawerView, useClipUi, type DrawerView } from '@/lib/cp2-clips';
 import { registerSeeker, useChatUi } from '@/lib/cp2-chat';
 import { formatClock, formatSpan, timeAgo } from '@/lib/format';
@@ -484,6 +485,10 @@ export function ClipDrawer({
                       <Trash2 />
                     </Button>
                   </Tip>
+                  <OpenInEditorButton
+                    clipId={clip.id}
+                    disabled={clip.status !== 'rendered' || !clip.hasRender}
+                  />
                   <ChatLauncher videoId={clip.videoId} clipId={clip.id} />
                   <span className="ml-auto flex items-center gap-1 text-xs text-subtle">
                     <Button

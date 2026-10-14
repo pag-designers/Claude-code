@@ -40,7 +40,13 @@ export function graphMapper(box: GraphBox, d: GraphDomain) {
 /** A value range that frames every keyframe (and the base value) with a margin, never narrower than `minSpan`. */
 export function autoDomain(
   values: readonly number[],
-  opts: { floor?: number; ceil?: number; minSpan?: number; scale?: 'linear' | 'log' } = {},
+  opts: {
+    floor?: number;
+    ceil?: number;
+    minSpan?: number;
+    margin?: number;
+    scale?: 'linear' | 'log';
+  } = {},
 ): { vMin: number; vMax: number } {
   const vs = values.length ? values : [0];
   const f = (v: number) => (opts.scale === 'log' ? Math.log2(Math.max(v, 1e-6)) : v);
@@ -53,7 +59,7 @@ export function autoDomain(
     lo = mid - minSpan / 2;
     hi = mid + minSpan / 2;
   }
-  const m = (hi - lo) * 0.12;
+  const m = (hi - lo) * (opts.margin ?? 0.12);
   let vMin = g(lo - m);
   let vMax = g(hi + m);
   if (opts.floor !== undefined) vMin = Math.max(opts.floor, vMin);
@@ -126,4 +132,28 @@ export function segmentAt(kf: readonly Keyframe[], t: number): number {
     if (t >= (kf[i] as Keyframe).t && t < (kf[i + 1] as Keyframe).t) return i;
   }
   return -1;
+}
+
+/** Round grid values for an axis: 1–2–5 steps for linear, powers of two for log. */
+export function axisTicks(d: Pick<GraphDomain, 'vMin' | 'vMax' | 'scale'>, target = 4): number[] {
+  if (d.scale === 'log') {
+    const out: number[] = [];
+    for (
+      let e = Math.ceil(Math.log2(d.vMin) - 1e-9);
+      e <= Math.floor(Math.log2(d.vMax) + 1e-9);
+      e++
+    )
+      out.push(Math.pow(2, e));
+    return out;
+  }
+  const span = d.vMax - d.vMin;
+  if (span <= 0) return [d.vMin];
+  const raw = span / target;
+  const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+  const frac = raw / pow;
+  const step = (frac < 1.5 ? 1 : frac < 3.5 ? 2 : frac < 7.5 ? 5 : 10) * pow;
+  const out: number[] = [];
+  for (let v = Math.ceil(d.vMin / step - 1e-9) * step; v <= d.vMax + 1e-9; v += step)
+    out.push(Math.round(v / step) * step + 0);
+  return out;
 }

@@ -18,7 +18,11 @@ export function sourceTimeFn(item: MediaItem): (tl: number) => number {
 }
 
 /** Source time at TIMELINE time t, clamped to the asset (hold the first/last frame). */
-export function sourceAt(item: MediaItem, asset: Pick<Asset, 'durationSec'> | undefined, t: number): number {
+export function sourceAt(
+  item: MediaItem,
+  asset: Pick<Asset, 'durationSec'> | undefined,
+  t: number,
+): number {
   const s = sourceTimeFn(item)(t - item.startSec);
   return clampToAsset(s, asset?.durationSec ?? null);
 }

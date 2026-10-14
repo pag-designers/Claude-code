@@ -74,6 +74,8 @@ export const TOOLS: Tool[] = [
     icon: Clapperboard,
     group: 'Polish',
     checkpoint: 3,
+    // projects live in Library → Edited (open one, or start from a clip / video / blank canvas)
+    href: '/library/?tab=edited',
   },
   {
     id: 'subtitles',

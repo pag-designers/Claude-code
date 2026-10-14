@@ -98,7 +98,14 @@ export function planVideoSync(
       };
     }
     if (Math.abs(drift) > hard || (needsStart && Math.abs(drift) > want.frameSec)) {
-      return { mode: 'play', seekTo: want.srcSec, deferSeek: null, play: true, rate: wantedRate, drift };
+      return {
+        mode: 'play',
+        seekTo: want.srcSec,
+        deferSeek: null,
+        play: true,
+        rate: wantedRate,
+        drift,
+      };
     }
     let rate = wantedRate;
     if (Math.abs(drift) > cfg.softDriftSec) {
@@ -121,7 +128,12 @@ export function planVideoSync(
   const target = quantizeToFrame(want.srcSec, want.frameSec);
   const tol = want.frameSec * 0.5;
   const settled = !el.seeking && Math.abs(el.currentTime - target) <= tol;
-  const base: Omit<SeekPlan, 'seekTo' | 'deferSeek'> = { mode: 'discrete', play: false, rate: null, drift };
+  const base: Omit<SeekPlan, 'seekTo' | 'deferSeek'> = {
+    mode: 'discrete',
+    play: false,
+    rate: null,
+    drift,
+  };
   if (settled) return { ...base, seekTo: null, deferSeek: null };
   if (el.seeking) {
     const sameTarget = want.inFlight !== null && Math.abs(want.inFlight - target) <= tol;

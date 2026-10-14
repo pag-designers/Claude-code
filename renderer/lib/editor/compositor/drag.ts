@@ -55,7 +55,13 @@ export function computeDrag(i: DragInput): DragResult {
       const thr = i.snapPx / ps;
       const w = i.rectW * i.initial.scale;
       const h = i.rectH * i.initial.scale;
-      const { hx, hy } = geomBounds({ cx: 0, cy: 0, hw: w / 2, hh: h / 2, rot: i.initial.rotation });
+      const { hx, hy } = geomBounds({
+        cx: 0,
+        cy: 0,
+        hw: w / 2,
+        hh: h / 2,
+        rot: i.initial.rotation,
+      });
       // candidates: [value of the item's centre offset, guide line position]
       const xs: [number, number][] = [
         [0, i.canvasW / 2],

@@ -14,20 +14,20 @@ export const MIN_PX_PER_SEC = 1;
 export const MAX_PX_PER_SEC = 600;
 export const RULER_H = 32;
 export const HEADER_W = 200;
-export const SECTION_GAP = 10;
+export const SECTION_GAP = 8;
 /** Empty drop area under the last track ("drop here to create a new track"). */
 export const NEW_TRACK_ZONE_H = 52;
 export const SNAP_PX = 8;
 export const MIN_ITEM_PX = 2;
 
 export const TRACK_HEIGHT: Record<TrackKind, number> = {
-  video: 64,
-  overlay: 54,
-  image: 46,
-  text: 40,
-  subtitle: 40,
+  video: 60,
+  overlay: 42,
+  image: 32,
+  text: 30,
+  subtitle: 32,
   audio: 54,
-  sfx: 42,
+  sfx: 38,
 };
 
 export type Section = 'visual' | 'audio';
@@ -404,7 +404,10 @@ export interface ContentRect {
   y1: number;
 }
 
-export const normRect = (a: { x: number; y: number }, b: { x: number; y: number }): ContentRect => ({
+export const normRect = (
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+): ContentRect => ({
   x0: Math.min(a.x, b.x),
   y0: Math.min(a.y, b.y),
   x1: Math.max(a.x, b.x),
@@ -450,6 +453,31 @@ export function itemAtPoint(
   return null;
 }
 
+/**
+ * Which clip should receive a transition dropped at time `sec`? A transition belongs to the LATER clip of an adjacent
+ * pair: over the left half of a clip it joins the clip to its predecessor, over the right half it joins the successor.
+ * Only picture clips (video / image) can carry one. Returns null when there is no neighbour to blend with.
+ */
+export function resolveTransitionTarget(
+  track: Pick<Track, 'items'>,
+  sec: number,
+  pxPerSec: number,
+): { target: Item; previous: Item } | null {
+  const hit = itemAtPoint(track, sec, pxPerSec, 0);
+  if (!hit) return null;
+  const items = track.items;
+  const i = items.findIndex((x) => x.id === hit.id);
+  const prev = items[i - 1];
+  const next = items[i + 1];
+  const visual = (it: Item | undefined): it is Item =>
+    !!it && (it.type === 'video' || it.type === 'image');
+  const left = sec < hit.startSec + hit.durationSec / 2;
+  if (left && visual(prev) && visual(hit)) return { target: hit, previous: prev };
+  if (visual(next) && visual(hit)) return { target: next, previous: hit };
+  if (visual(prev) && visual(hit)) return { target: hit, previous: prev };
+  return null;
+}
+
 /* ------------------------------------------------------------------ snapping ----------------- */
 
 export type SnapKind = 'item' | 'playhead' | 'marker' | 'beat' | 'start';
@@ -464,9 +492,10 @@ export function collectSnapPoints(
   playheadSec: number,
   opts: { exclude?: ReadonlySet<string>; from?: number; to?: number } = {},
 ): SnapPoint[] {
-  const pts: SnapPoint[] = [{ t: 0, kind: 'start' }];
+  const pts: SnapPoint[] = [];
   const inWin = (t: number) =>
     (opts.from === undefined || t >= opts.from) && (opts.to === undefined || t <= opts.to);
+  if (inWin(0)) pts.push({ t: 0, kind: 'start' });
   if (inWin(playheadSec)) pts.push({ t: playheadSec, kind: 'playhead' });
   for (const m of project.markers) if (inWin(m.atSec)) pts.push({ t: m.atSec, kind: 'marker' });
   const assets = new Map(project.assets.map((a) => [a.id, a]));
@@ -503,7 +532,10 @@ export function snapValue(
   let bd = thresholdSec;
   for (const p of points) {
     const d = Math.abs(p.t - t);
-    if (d < bd - 1e-9 || (best && Math.abs(d - bd) <= 1e-9 && PRIORITY[p.kind] < PRIORITY[best.kind])) {
+    if (
+      d < bd - 1e-9 ||
+      (best && Math.abs(d - bd) <= 1e-9 && PRIORITY[p.kind] < PRIORITY[best.kind])
+    ) {
       best = p;
       bd = d;
     }
@@ -691,4 +723,5 @@ export function groupColorIndex(groupId: string): number {
 }
 
 /** Convenience: item end. */
-export const endOf = (it: Pick<Item, 'startSec' | 'durationSec'>): number => it.startSec + it.durationSec;
+export const endOf = (it: Pick<Item, 'startSec' | 'durationSec'>): number =>
+  it.startSec + it.durationSec;

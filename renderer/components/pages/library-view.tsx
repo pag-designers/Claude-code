@@ -3,16 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import {
-  Clapperboard,
-  Download,
-  Film,
-  Heart,
-  Scissors,
-  Star,
-  SquarePen,
-  Upload,
-} from 'lucide-react';
+import { Download, Film, Heart, Scissors, Star, SquarePen, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Page, PageHeader } from '@/components/ui/page';
@@ -20,7 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DisabledTip } from '@/components/ui/tooltip';
 import { ClipsBrowser } from '@/components/library/clips-browser';
 import { VideosBrowser } from '@/components/library/videos-browser';
+import { EditedTab } from '@/components/library/edited-tab';
+import { ExportedTab } from '@/components/library/exported-tab';
 import { useAllClips, useVideos } from '@/lib/library';
+import { useEditorProjects } from '@/lib/editor-panels/projects';
 
 const TABS = ['videos', 'clips', 'favorites', 'edited', 'exported'] as const;
 type Tab = (typeof TABS)[number];
@@ -102,6 +96,7 @@ function LibraryTabs() {
   };
   const videos = useVideos();
   const clips = useAllClips();
+  const projects = useEditorProjects();
   return (
     <Tabs value={tab} onValueChange={change} className="flex flex-col gap-6">
       <TabsList aria-label="Library sections" className="w-full">
@@ -115,7 +110,7 @@ function LibraryTabs() {
           <Heart /> Favorites
         </TabsTrigger>
         <TabsTrigger value="edited">
-          <SquarePen /> Edited
+          <SquarePen /> Edited <Count n={projects.data?.items.length} />
         </TabsTrigger>
         <TabsTrigger value="exported">
           <Download /> Exported
@@ -131,20 +126,10 @@ function LibraryTabs() {
         <FavoritesTab />
       </TabsContent>
       <TabsContent value="edited">
-        <EmptyState
-          size="lg"
-          icon={Clapperboard}
-          title="Nothing edited yet"
-          description="Clips you refine in the multi-track editor are kept here with their full edit history. The editor arrives in checkpoint 3."
-        />
+        <EditedTab />
       </TabsContent>
       <TabsContent value="exported">
-        <EmptyState
-          size="lg"
-          icon={Download}
-          title="No exports yet"
-          description="Finished renders you export from the editor (1080×1920 MP4 plus optional SRT/VTT) are listed here. Export arrives with the editor in checkpoint 3."
-        />
+        <ExportedTab />
       </TabsContent>
     </Tabs>
   );

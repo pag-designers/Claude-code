@@ -15,7 +15,8 @@ export function parseCube(text: string): { size: number; data: Float32Array } {
     const line = (lines[ln] ?? '').replace(/#.*$/, '').trim();
     if (line === '') continue;
     const first = line.charCodeAt(0);
-    const isNumberLine = (first >= 48 && first <= 57) || first === 45 || first === 43 || first === 46;
+    const isNumberLine =
+      (first >= 48 && first <= 57) || first === 45 || first === 43 || first === 46;
     if (isNumberLine) {
       const parts = line.split(/\s+/);
       if (parts.length < 3) throw new Error(`.cube line ${ln + 1}: expected 3 numbers`);
@@ -59,6 +60,8 @@ export function parseCube(text: string): { size: number; data: Float32Array } {
   if (size === 0) throw new Error('.cube: missing LUT_3D_SIZE');
   const expected = size * size * size * 3;
   if (values.length !== expected)
-    throw new Error(`.cube: expected ${expected / 3} entries for size ${size}, found ${values.length / 3}`);
+    throw new Error(
+      `.cube: expected ${expected / 3} entries for size ${size}, found ${values.length / 3}`,
+    );
   return { size, data: Float32Array.from(values) };
 }

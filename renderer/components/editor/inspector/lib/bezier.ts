@@ -94,11 +94,7 @@ export function bezierMapper(vp: BezierViewport) {
 }
 
 /** Which handle (1 or 2) a drag moves: the one whose control point is nearer the pointer. */
-export function nearestHandle(
-  b: readonly number[],
-  x: number,
-  y: number,
-): 1 | 2 {
+export function nearestHandle(b: readonly number[], x: number, y: number): 1 | 2 {
   const d1 = (b[0]! - x) ** 2 + (b[1]! - y) ** 2;
   const d2 = (b[2]! - x) ** 2 + (b[3]! - y) ** 2;
   return d1 <= d2 ? 1 : 2;

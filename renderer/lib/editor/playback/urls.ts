@@ -53,7 +53,8 @@ export class PreviewUrls {
     }
     const age = this.deps.now() - st.fetchedAt;
     if (st.status === 'ready' && age > this.ttl) this.load(assetId);
-    else if (st.status === 'error' && this.retryAfter > 0 && age > this.retryAfter) this.load(assetId);
+    else if (st.status === 'error' && this.retryAfter > 0 && age > this.retryAfter)
+      this.load(assetId);
     return st;
   }
 

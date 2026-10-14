@@ -272,7 +272,11 @@ export function validateExport(s: ExportSettings, ctx: ExportContext): ExportIss
 
   if (!ctx.hasSubtitles && ctx.durationSec > 0) {
     if (s.sidecarSrt || s.sidecarVtt)
-      add('captions', 'warning', 'There are no subtitles on the timeline, so the SRT/VTT file would be empty.');
+      add(
+        'captions',
+        'warning',
+        'There are no subtitles on the timeline, so the SRT/VTT file would be empty.',
+      );
     else if (s.burnCaptions)
       add('captions', 'info', 'There are no subtitles on the timeline, so nothing is burned in.');
   }
@@ -295,8 +299,15 @@ export function loadSettings(canvas: ExportCanvas, store?: ReadStore | null): Ex
     const s = store ?? (typeof localStorage === 'undefined' ? null : localStorage);
     const raw = s?.getItem(EXPORT_STORAGE_KEY);
     if (raw) {
-      const parsed = exportSettingsSchema.partial().safeParse(JSON.parse(raw));
-      if (parsed.success) return resolveExportSettings(parsed.data, canvas);
+      const stored: unknown = JSON.parse(raw);
+      const parsed = exportSettingsSchema.partial().safeParse(stored);
+      if (parsed.success && stored && typeof stored === 'object') {
+        // `partial()` still fills schema defaults for absent keys; only keys that were stored may override the preset
+        const present = Object.fromEntries(
+          Object.entries(parsed.data).filter(([k]) => k in stored),
+        ) as Partial<ExportSettings>;
+        return resolveExportSettings(present, canvas);
+      }
     }
   } catch {
     /* storage blocked or corrupt: fall through to the defaults */

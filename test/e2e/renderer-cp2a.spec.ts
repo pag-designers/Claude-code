@@ -1032,13 +1032,14 @@ test.describe('Tools hub', () => {
       reframe: '/tools/reframe/',
       thumbnail: '/tools/thumbnail/',
       hook: '/tools/hook/',
+      // CP3: the editor card is live and opens Library → Edited
+      editor: '/library/?tab=edited',
     };
     for (const [id, href] of Object.entries(hrefs)) {
       await expect(card(s.page, id)).toHaveAttribute('data-available', 'true');
       await expect(card(s.page, id).getByRole('link')).toHaveAttribute('href', href);
     }
     for (const id of [
-      'editor',
       'broll',
       'live-clipping',
       'game-clipping',
@@ -1074,7 +1075,6 @@ test.describe('Tools hub', () => {
         palette.getByRole('option', { name: new RegExp(`^${name}`) }).first(),
       ).toBeVisible();
     for (const name of [
-      'Video Editor',
       'B-roll',
       'Live Clipping',
       'Game Clipping',

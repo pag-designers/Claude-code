@@ -15,6 +15,11 @@ export function libraryHref(
   return tab ? `/library/?tab=${tab}` : '/library/';
 }
 
+/** The editor route for a project (`/editor/?id=…`; static export, so the id is a query parameter). */
+export function editorHref(id: string): string {
+  return `/editor/?${new URLSearchParams({ id }).toString()}`;
+}
+
 export function normalizeHref(href: string): string {
   const raw = href.trim();
   if (!raw.startsWith('/')) return raw;

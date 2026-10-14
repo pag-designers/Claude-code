@@ -64,13 +64,25 @@ export const RAMP_PRESETS: RampPreset[] = [
     id: 'bullet',
     label: 'Bullet time',
     hint: 'Fast, slow-motion in the middle, fast',
-    build: (d, b) => [k(0, b * 2), k(d * 0.35, b * 2), k(d * 0.5, b * 0.2), k(d * 0.65, b * 2), k(d, b * 2, 'linear')],
+    build: (d, b) => [
+      k(0, b * 2),
+      k(d * 0.35, b * 2),
+      k(d * 0.5, b * 0.2),
+      k(d * 0.65, b * 2),
+      k(d, b * 2, 'linear'),
+    ],
   },
   {
     id: 'pulse',
     label: 'Pulse',
     hint: 'A quick slow-down on the beat',
-    build: (d, b) => [k(0, b), k(d * 0.4, b), k(d * 0.5, b * 0.3), k(d * 0.6, b), k(d, b, 'linear')],
+    build: (d, b) => [
+      k(0, b),
+      k(d * 0.4, b),
+      k(d * 0.5, b * 0.3),
+      k(d * 0.6, b),
+      k(d, b, 'linear'),
+    ],
   },
 ];
 
@@ -89,7 +101,11 @@ export function sameRamp(a: readonly Keyframe[], b: readonly Keyframe[]): boolea
  * Scales every ramp keyframe's speed so the whole ramp consumes `targetSpan` source seconds (keeps what the clip
  * SHOWS while reshaping the timing). Returns the original keyframes when nothing can be solved.
  */
-export function fitRampToSpan(item: MediaItem, kf: readonly Keyframe[], targetSpan: number): Keyframe[] {
+export function fitRampToSpan(
+  item: MediaItem,
+  kf: readonly Keyframe[],
+  targetSpan: number,
+): Keyframe[] {
   const cur = sourceSpan({ ...item, speedCurve: [...kf] });
   if (cur <= 1e-6 || targetSpan <= 0) return [...kf];
   const f = targetSpan / cur;

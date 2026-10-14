@@ -1,0 +1,293 @@
+/*
+ * Timeline component tokens. Every value is DERIVED from the global design tokens in app/globals.css
+ * (no hex, no rgb): they re-resolve per theme, so dark and light share one definition.
+ */
+.tl-root {
+  --tl-video: var(--info);
+  --tl-overlay: var(--info);
+  --tl-audio: var(--success);
+  --tl-sfx: var(--success);
+  --tl-image: var(--warning);
+  --tl-text: var(--primary-text);
+  --tl-subtitle: var(--viral-text);
+  --tl-shape: var(--muted-foreground);
+
+  --tl-group-0: var(--info);
+  --tl-group-1: var(--success);
+  --tl-group-2: var(--warning);
+  --tl-group-3: var(--primary-text);
+  --tl-group-4: var(--viral-text);
+  --tl-group-5: var(--danger);
+
+  --tl-lane: color-mix(in srgb, var(--background) 82%, var(--card));
+  --tl-lane-alt: var(--card);
+  --tl-header: var(--card);
+  --tl-playhead: var(--foreground);
+  --tl-guide: var(--warning);
+  --tl-hatch: color-mix(in srgb, var(--foreground) 9%, transparent);
+  --tl-ghost: color-mix(in srgb, var(--primary-text) 38%, transparent);
+  --tl-ghost-bad: color-mix(in srgb, var(--danger) 42%, transparent);
+  --tl-marquee: color-mix(in srgb, var(--primary-text) 14%, transparent);
+}
+
+/* Item surface: tinted by the item type, never a raw colour. */
+.tl-item {
+  --tl-c: var(--tl-video);
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--tl-c) 55%, var(--card));
+  background: color-mix(in srgb, var(--tl-c) 24%, var(--card));
+  color: var(--foreground);
+  contain: layout paint style;
+  outline: none;
+  transition:
+    box-shadow var(--duration-fast) var(--ease-standard),
+    opacity var(--duration-fast) var(--ease-standard);
+}
+.tl-item[data-type='video'] {
+  --tl-c: var(--tl-video);
+}
+.tl-item[data-type='video'][data-overlay='true'] {
+  --tl-c: var(--tl-overlay);
+}
+.tl-item[data-type='audio'] {
+  --tl-c: var(--tl-audio);
+}
+.tl-item[data-type='audio'][data-sfx='true'] {
+  --tl-c: var(--tl-sfx);
+}
+.tl-item[data-type='image'] {
+  --tl-c: var(--tl-image);
+}
+.tl-item[data-type='text'] {
+  --tl-c: var(--tl-text);
+}
+.tl-item[data-type='subtitle'] {
+  --tl-c: var(--tl-subtitle);
+}
+.tl-item[data-type='shape'] {
+  --tl-c: var(--tl-shape);
+}
+.tl-item:hover {
+  background: color-mix(in srgb, var(--tl-c) 30%, var(--card));
+  border-color: color-mix(in srgb, var(--tl-c) 75%, var(--card));
+}
+.tl-item[data-selected='true'] {
+  z-index: 2;
+  background: color-mix(in srgb, var(--tl-c) 34%, var(--card));
+  border-color: var(--foreground);
+  box-shadow:
+    0 0 0 1px var(--ring),
+    0 2px 10px color-mix(in srgb, var(--ring) 35%, transparent);
+}
+.tl-item:focus-visible {
+  box-shadow:
+    0 0 0 2px var(--background),
+    0 0 0 4px var(--ring);
+  z-index: 3;
+}
+.tl-item[data-locked='true'] {
+  cursor: not-allowed;
+}
+.tl-root[data-moving='true'] .tl-item[data-selected='true'] {
+  opacity: 0.35;
+}
+.tl-item[data-trimming='true'] {
+  opacity: 0.45;
+}
+
+/* Track lane backgrounds */
+.tl-lane {
+  background: var(--tl-lane);
+  border-bottom: 1px solid var(--border);
+}
+.tl-lane[data-alt='true'] {
+  background: color-mix(in srgb, var(--tl-lane) 70%, var(--tl-lane-alt));
+}
+.tl-lane[data-locked='true'] {
+  background-image: repeating-linear-gradient(135deg, transparent 0 6px, var(--tl-hatch) 6px 7px);
+}
+.tl-lane[data-hidden='true'] > .tl-lane-items {
+  opacity: 0.4;
+}
+.tl-lane[data-drop='true'] {
+  background: color-mix(in srgb, var(--primary-text) 10%, var(--tl-lane));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-text) 55%, transparent);
+}
+
+/* Trim handles */
+.tl-trim {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  z-index: 4;
+  cursor: ew-resize;
+}
+.tl-trim[data-edge='start'] {
+  left: 0;
+}
+.tl-trim[data-edge='end'] {
+  right: 0;
+}
+.tl-trim::after {
+  content: '';
+  position: absolute;
+  top: 25%;
+  bottom: 25%;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--foreground);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+.tl-trim[data-edge='start']::after {
+  left: 2px;
+}
+.tl-trim[data-edge='end']::after {
+  right: 2px;
+}
+.tl-item:hover .tl-trim::after,
+.tl-item[data-selected='true'] .tl-trim::after,
+.tl-trim:hover::after {
+  opacity: 0.85;
+}
+.tl-root[data-tool='razor'] .tl-trim {
+  pointer-events: none;
+}
+.tl-root[data-tool='razor'] .tl-item,
+.tl-root[data-tool='razor'] .tl-lane {
+  cursor: crosshair;
+}
+
+/* Keyframe diamonds */
+.tl-kf {
+  position: absolute;
+  bottom: 3px;
+  width: 9px;
+  height: 9px;
+  margin-left: -4.5px;
+  transform: rotate(45deg);
+  background: var(--warning);
+  border: 1px solid var(--background);
+  border-radius: 1.5px;
+  cursor: ew-resize;
+  z-index: 5;
+}
+.tl-kf[data-selected='true'] {
+  background: var(--foreground);
+  box-shadow: 0 0 0 2px var(--ring);
+}
+.tl-kf:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+/* Playhead */
+.tl-playhead-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background: var(--tl-playhead);
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* Snap guide */
+.tl-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1px dashed var(--tl-guide);
+  pointer-events: none;
+  z-index: 12;
+}
+
+/* Ghost of a dragged / dropped item */
+.tl-ghost {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  border-radius: var(--radius-sm);
+  border: 1.5px dashed var(--primary-text);
+  background: var(--tl-ghost);
+  pointer-events: none;
+  z-index: 11;
+}
+.tl-ghost[data-valid='false'] {
+  border-color: var(--danger);
+  background-color: var(--tl-ghost-bad);
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 5px,
+    color-mix(in srgb, var(--danger) 55%, transparent) 5px 7px
+  );
+}
+
+/* Marquee */
+.tl-marquee {
+  position: absolute;
+  border: 1px solid var(--primary-text);
+  background: var(--tl-marquee);
+  pointer-events: none;
+  z-index: 13;
+}
+
+/* Transition glyph */
+.tl-transition {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background-image: linear-gradient(
+    to bottom right,
+    color-mix(in srgb, var(--background) 62%, transparent) 49.5%,
+    color-mix(in srgb, var(--foreground) 55%, transparent) 50%,
+    color-mix(in srgb, var(--foreground) 14%, transparent) 50.5%
+  );
+  border-left: 1px solid color-mix(in srgb, var(--foreground) 40%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--foreground) 40%, transparent);
+  cursor: pointer;
+}
+.tl-transition:hover,
+.tl-transition:focus-visible {
+  background-color: color-mix(in srgb, var(--primary-text) 25%, transparent);
+}
+
+/* Subtle fade ramps */
+.tl-fade-in,
+.tl-fade-out {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--background) 62%, transparent);
+  pointer-events: none;
+}
+.tl-fade-in {
+  left: 0;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+.tl-fade-out {
+  right: 0;
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+}
+
+.tl-chip {
+  background: color-mix(in srgb, var(--background) 72%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tl-item,
+  .tl-trim::after {
+    transition: none;
+  }
+}

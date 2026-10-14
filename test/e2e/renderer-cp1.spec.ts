@@ -736,12 +736,15 @@ test.describe('Library', () => {
       .getByRole('button', { name: /^Open clip/ })
       .click({ modifiers: ['Shift'] });
     await expect(bar.getByText('4', { exact: true })).toBeVisible();
-    // later-version actions are disabled with the tooltip
-    for (const name of ['Send to scheduler', 'Open in editor']) {
+    // later-version actions are disabled with the tooltip; Open in editor needs a single clip (CP3)
+    for (const [name, reason] of [
+      ['Send to scheduler', 'Coming in a later version'],
+      ['Open in editor', 'Select a single clip to open it in the editor'],
+    ] as const) {
       const btn = s.page.getByRole('button', { name });
       await expect(btn).toBeDisabled();
       const t = await tip(s.page, s.page.locator('span[tabindex="0"]').filter({ has: btn }));
-      await expect(t).toContainText('Coming in a later version');
+      await expect(t).toContainText(reason);
       await s.page.mouse.move(5, 5);
     }
     // download

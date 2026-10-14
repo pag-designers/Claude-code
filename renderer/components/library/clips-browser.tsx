@@ -28,6 +28,7 @@ import { matchesRunFilter, useClipUi } from '@/lib/cp2-clips';
 import { ClipCard, ClipRow } from './clip-card';
 import { ClipDrawer } from './clip-drawer';
 import { ClipFilterBar, ClipSortLayout, type Layout } from './clip-filters';
+import { useOpenInEditor } from '@/components/editor/panels/open-in-editor';
 import { SelectionBar } from './selection-bar';
 
 export type ClipsScope =
@@ -107,6 +108,7 @@ export function ClipsBrowser({
   const fav = useSetClipFavorite();
   const del = useDeleteClips();
   const download = useDownloadClips();
+  const editor = useOpenInEditor();
 
   const onSelect = React.useCallback(
     (clip: ClipView, e: { shiftKey: boolean }) => {
@@ -326,7 +328,10 @@ export function ClipsBrowser({
         }
         onDelete={() => setConfirm(true)}
         onClear={() => setSelected(new Set())}
+        onOpenEditor={sel.length === 1 ? () => void editor.open({ clipId: sel[0]!.id }) : undefined}
+        openingEditor={editor.busy}
       />
+      {editor.dialog}
       <ConfirmDialog
         open={confirm}
         onOpenChange={setConfirm}

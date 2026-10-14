@@ -41,6 +41,7 @@ import { StarButton } from '@/components/ui/star-button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DisabledTip, Tip } from '@/components/ui/tooltip';
 import { ChatLauncher } from '@/components/chat/chat-launcher';
+import { OpenInEditorButton } from '@/components/editor/panels/open-in-editor';
 import { VideoCaptionStyleControl } from '@/components/captions/video-caption-style';
 import { ClipsBrowser } from '@/components/library/clips-browser';
 import { DeleteVideoDialog, StatusBadge, VideoThumb } from '@/components/library/video-card';
@@ -243,6 +244,7 @@ function Header({
           onToggle={() => fav.mutate({ id: video.id, value: !video.favorite })}
           className="size-9 border border-border-strong"
         />
+        <OpenInEditorButton videoId={video.id} disabled={!video.hasProxy} />
         <ChatLauncher videoId={video.id} />
         <VideoCaptionStyleControl video={video} />
         <RerunMenu video={video} stages={stages} />

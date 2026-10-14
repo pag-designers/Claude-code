@@ -19,6 +19,7 @@ import {
   formatTimecode,
   layoutTracks,
   marqueeHits,
+  newTrackKindForItem,
   normRect,
   sectionOf,
   snapToFrame,
@@ -82,6 +83,7 @@ type Gesture = Base &
         meta: Map<string, { type: Item['type']; durationSec: number }>;
         collapseOnClick: boolean;
         preview: MovePreview | null;
+        newTrack: boolean;
         enabled: boolean;
       }
     | {
@@ -241,12 +243,29 @@ export function createGestures(getScroller: () => HTMLDivElement | null): Gestur
         const pt = contentPt(cx, cy);
         const layout = layoutFor(s.project.tracks);
         const row = pt.y >= 0 ? trackAtY(layout, pt.y) : null;
+        // below the last track: a single clip may start a NEW track (created on release)
+        const newZone = g.ids.length === 1 && pt.y >= layout.height;
         const preview = s.previewMove(g.ids, deltaSec, row ? row.trackId : null, {
           pxPerSec: px,
           snap: mods.mod ? false : undefined,
         });
         g.preview = preview;
+        g.newTrack = newZone;
         const mv = g;
+        if (newZone) {
+          const only = preview.moves[0];
+          UI().set({
+            ghosts: null,
+            drop: only ? { sec: only.startSec, trackId: null, newTrack: true } : null,
+            guide:
+              preview.snappedTo !== null ? { t: preview.snappedTo, kind: preview.snapKind } : null,
+            dragLabel: only
+              ? { x: cx, y: cy, text: `New track  ·  ${formatTimecode(only.startSec, fps)}` }
+              : null,
+          });
+          break;
+        }
+        UI().set({ drop: null });
         const ghosts = preview.moves.map((m) => {
           const meta = mv.meta.get(m.itemId);
           return {
@@ -390,7 +409,17 @@ export function createGestures(getScroller: () => HTMLDivElement | null): Gestur
       case 'move': {
         if (gs.moved && gs.enabled) {
           const p = gs.preview;
-          if (p && p.valid && p.moves.length) s.applyMoves(p.moves, { ripple: s.rippleEnabled });
+          const only = p?.moves[0];
+          if (gs.newTrack && only) {
+            // a new track first, then the move onto it (undone together if the move is refused)
+            const type = gs.meta.get(only.itemId)?.type ?? 'video';
+            const trackId = s.addTrack(newTrackKindForItem(type));
+            const before = S().project;
+            S().applyMoves([{ ...only, trackId }], {});
+            if (S().project === before) S().undo();
+          } else if (p && p.valid && p.moves.length) {
+            s.applyMoves(p.moves, { ripple: s.rippleEnabled });
+          }
         } else if (!gs.moved && gs.collapseOnClick) {
           s.select([gs.itemId], 'replace');
         }
@@ -576,6 +605,7 @@ export function createGestures(getScroller: () => HTMLDivElement | null): Gestur
           meta,
           collapseOnClick: selected && !mods.shift && !mods.mod && after.length > 1,
           preview: null,
+          newTrack: false,
           enabled,
         },
       );

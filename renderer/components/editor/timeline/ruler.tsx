@@ -45,7 +45,7 @@ function RulerCanvas({
     for (const tick of rulerTicks(drawPx, win.start, win.end, fps)) {
       const x = Math.round((tick.t - win.start) * drawPx) + 0.5;
       if (tick.kind === 'major') {
-        ctx.fillStyle = tk['--border-strong'] || 'transparent';
+        ctx.fillStyle = tk['--subtle'] || 'transparent';
         ctx.fillRect(x - 0.5, h - 12, 1, 12);
         if (tick.label) {
           ctx.fillStyle = tk['--muted-foreground'] || 'transparent';
@@ -53,7 +53,7 @@ function RulerCanvas({
         }
       } else {
         ctx.fillStyle = tk['--border-strong'] || 'transparent';
-        ctx.globalAlpha = 0.6;
+        ctx.globalAlpha = 0.9;
         ctx.fillRect(x - 0.5, h - 5, 1, 5);
         ctx.globalAlpha = 1;
       }

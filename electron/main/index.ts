@@ -162,6 +162,20 @@ function createWindow(initialDark: boolean): BrowserWindow {
     }
   });
 
+  // The editor blocks unload only while a save has failed/conflicted; give the user the choice instead of a stuck window.
+  win.webContents.on('will-prevent-unload', (e) => {
+    const choice = dialog.showMessageBoxSync(win, {
+      type: 'warning',
+      buttons: ['Stay', 'Leave anyway'],
+      defaultId: 0,
+      cancelId: 0,
+      title: 'Unsaved changes',
+      message: 'Some changes could not be saved.',
+      detail: 'If you leave now they will be lost.',
+    });
+    if (choice === 1) e.preventDefault();
+  });
+
   void win.loadURL(DEV_URL ?? `app://${APP_HOST}/`);
   return win;
 }

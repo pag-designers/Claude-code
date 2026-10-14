@@ -54,7 +54,7 @@ export const ItemBlock = React.memo(function ItemBlock({
       body = (
         <div className="pointer-events-none absolute inset-0 flex items-center gap-1.5 px-2">
           <TypeIcon item={item} className="size-3 shrink-0 text-[color:var(--tl-c)]" />
-          <span className="truncate text-xs font-medium text-foreground">
+          <span className="overflow-hidden whitespace-nowrap text-xs font-medium text-foreground">
             {item.text.replace(/\s+/g, ' ').trim() || 'Text'}
           </span>
         </div>

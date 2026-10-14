@@ -24,7 +24,7 @@
   --tl-header: var(--card);
   --tl-playhead: var(--foreground);
   --tl-guide: var(--warning);
-  --tl-hatch: color-mix(in srgb, var(--foreground) 9%, transparent);
+  --tl-hatch: color-mix(in srgb, var(--foreground) 16%, transparent);
   --tl-ghost: color-mix(in srgb, var(--primary-text) 38%, transparent);
   --tl-ghost-bad: color-mix(in srgb, var(--danger) 42%, transparent);
   --tl-marquee: color-mix(in srgb, var(--primary-text) 14%, transparent);

@@ -452,6 +452,28 @@ test.describe('move / trim / split / delete', () => {
     await s.close();
   });
 
+  test('dragging a clip below the last track creates a new track for it', async () => {
+    const s = await edit();
+    const p = s.page;
+    const before = (await s.store()).project.tracks.map((t) => t.id);
+    const b = await itemBox(p, 'cta');
+    const last = (await p.locator('[data-testid="track-row"]').last().boundingBox())!;
+    await p.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await p.mouse.down();
+    await p.mouse.move(b.x + b.width / 2, last.y + last.height + 24, { steps: 10 });
+    await expect(p.getByTestId('drop-new-track')).toBeVisible();
+    await p.mouse.up();
+    const st = await s.store();
+    expect(st.project.tracks).toHaveLength(before.length + 1);
+    const created = st.project.tracks.find((t) => !before.includes(t.id))!;
+    expect(created.kind).toBe('text');
+    expect(created.items.map((i) => i.id)).toEqual(['cta']);
+    expect(st.project.tracks.find((t) => t.id === 'tr_text')!.items.map((i) => i.id)).toEqual([
+      'hook',
+    ]);
+    await s.close();
+  });
+
   test('trim: dragging the end handle changes the duration; snaps to the playhead; Esc cancels', async () => {
     const s = await edit();
     const p = s.page;
@@ -806,7 +828,7 @@ test.describe('markers', () => {
     expect((await s.store()).project.markers).toHaveLength(2);
     await s.act('setPlayhead', 20);
     await p.keyboard.press('m');
-    let st = await s.store();
+    const st = await s.store();
     expect(st.project.markers).toHaveLength(3);
     const created = st.project.markers.find((m) => m.atSec === 20)!;
     await expect(p.locator(`[data-marker-id="${created.id}"]`)).toBeVisible();
@@ -1387,7 +1409,7 @@ test.describe('performance: a 3,000-item project', () => {
       type: 'perf',
       description: JSON.stringify({ timelineOnly: stats, withPreview }),
     });
-    console.log('PERF 3000 items:', JSON.stringify({ timelineOnly: stats, withPreview }));
+    console.warn('PERF 3000 items:', JSON.stringify({ timelineOnly: stats, withPreview }));
     expect(stats.maxDom).toBeLessThan(700);
     expect(stats.pan.median).toBeLessThan(20);
     expect(stats.pan.p95).toBeLessThan(40);

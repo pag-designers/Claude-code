@@ -395,6 +395,23 @@ export function newTrackKindForAsset(assetKind: Asset['kind']): TrackKind {
   }
 }
 
+/** The kind of track an item type gets when it is dragged into the empty "new track" zone. */
+export function newTrackKindForItem(type: Item['type']): TrackKind {
+  switch (type) {
+    case 'audio':
+      return 'audio';
+    case 'text':
+      return 'text';
+    case 'subtitle':
+      return 'subtitle';
+    case 'image':
+    case 'shape':
+      return 'image';
+    default:
+      return 'overlay';
+  }
+}
+
 /* ------------------------------------------------------------------ hit-testing -------------- */
 
 export interface ContentRect {

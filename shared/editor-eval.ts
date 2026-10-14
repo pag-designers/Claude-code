@@ -273,7 +273,7 @@ export function duckGainAt(
   if (!d.enabled || ranges.length === 0 || d.reductionDb <= 0) return 1;
   let amount = 0;
   for (const r of ranges) {
-    let a = 0;
+    let a: number;
     if (t >= r.s && t <= r.e) a = 1;
     else if (t < r.s) a = d.attackSec > EPS ? clamp(1 - (r.s - t) / d.attackSec, 0, 1) : 0;
     else a = d.releaseSec > EPS ? clamp(1 - (t - r.e) / d.releaseSec, 0, 1) : 0;
@@ -384,7 +384,7 @@ export interface Rect {
   h: number;
 }
 
-export interface ResolvedCrop extends Rect {}
+export type ResolvedCrop = Rect;
 
 export function resolveCrop(c: Crop, tl: number): ResolvedCrop {
   const x = clamp(animatedAt(c.x, tl), 0, 1);

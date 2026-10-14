@@ -39,8 +39,7 @@ import {
 import type { PipelineOrchestrator } from './orchestrator';
 import type { StyleRegistry } from './styles';
 import { parseJson } from './views';
-import type { SubtitleEdits } from '@shared/cp2';
-import { subtitleEditsSchema } from '@shared/cp2';
+import { subtitleEditsSchema, type CaptionStyle, type SubtitleEdits } from '@shared/cp2';
 
 export const JOB_EDITOR_EXPORT = 'editor.export';
 /** Auto snapshots: at most one per this interval, keep the newest N. */
@@ -1267,7 +1266,7 @@ export class EditorService {
   }
 
   /** Caption styles the compiler may need synchronously (`getStyle`) — loaded before each export. */
-  private styleCache = new Map<string, import('@shared/cp2').CaptionStyle>();
+  private styleCache = new Map<string, CaptionStyle>();
   async primeStyles(): Promise<void> {
     for (const s of await this.d.styles.list()) this.styleCache.set(s.id, s);
   }

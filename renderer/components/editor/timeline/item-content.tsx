@@ -122,7 +122,9 @@ export function SubtitleContent({
   if (editing) return <CueEditor itemId={item.id} text={text} pxWidth={pxWidth} />;
   return (
     <div className="pointer-events-none absolute inset-0 flex items-center px-2">
-      <span className="truncate text-xs font-medium leading-4 text-foreground">{text || '…'}</span>
+      <span className="overflow-hidden whitespace-nowrap text-xs font-medium leading-4 text-foreground">
+        {text || '…'}
+      </span>
     </div>
   );
 }

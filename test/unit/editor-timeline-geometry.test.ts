@@ -21,6 +21,7 @@ import {
   majorStep,
   marqueeHits,
   newTrackKindForAsset,
+  newTrackKindForItem,
   normRect,
   parseTimecode,
   pxToSec,
@@ -325,6 +326,13 @@ describe('track layout and drop targets', () => {
     expect(newTrackKindForAsset('audio')).toBe('audio');
     expect(newTrackKindForAsset('video')).toBe('overlay');
     expect(newTrackKindForAsset('image')).toBe('image');
+  });
+  it('chooses a track kind for a dragged item type', () => {
+    expect(newTrackKindForItem('text')).toBe('text');
+    expect(newTrackKindForItem('subtitle')).toBe('subtitle');
+    expect(newTrackKindForItem('audio')).toBe('audio');
+    expect(newTrackKindForItem('video')).toBe('overlay');
+    expect(newTrackKindForItem('shape')).toBe('image');
   });
   it('exposes a header width constant the layout code can rely on', () => {
     expect(HEADER_W).toBeGreaterThan(120);

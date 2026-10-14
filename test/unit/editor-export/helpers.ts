@@ -410,3 +410,115 @@ export function peak(a: { rate: number; data: Float32Array }, t0: number, t1: nu
   for (let i = i0; i < i1; i++) m = Math.max(m, Math.abs(a.data[i] as number));
   return m;
 }
+
+/* ------------------------------------------------------------------ pixel search ---------------- */
+
+export interface Box {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  n: number;
+  w: number;
+  h: number;
+  cx: number;
+  cy: number;
+}
+
+/** Bounding box + count of the pixels matching `pred` (n = 0 → no match). */
+export function bboxWhere(f: Frame, pred: (r: number, g: number, b: number) => boolean, region?: [number, number, number, number]): Box {
+  const [rx0, ry0, rx1, ry1] = region ?? [0, 0, f.w, f.h];
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -1;
+  let y1 = -1;
+  let n = 0;
+  for (let y = ry0; y < ry1; y++) {
+    for (let x = rx0; x < rx1; x++) {
+      const o = (y * f.w + x) * 3;
+      if (pred(f.rgb[o] as number, f.rgb[o + 1] as number, f.rgb[o + 2] as number)) {
+        n++;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+  }
+  if (n === 0) return { x0: 0, y0: 0, x1: 0, y1: 0, n: 0, w: 0, h: 0, cx: 0, cy: 0 };
+  return { x0, y0, x1, y1, n, w: x1 - x0 + 1, h: y1 - y0 + 1, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+}
+
+export const isWhite = (r: number, g: number, b: number): boolean => r > 200 && g > 200 && b > 200;
+export const isRed = (r: number, g: number, b: number): boolean => r > 200 && g < 60 && b < 60;
+export const isGreen = (r: number, g: number, b: number): boolean => g > 200 && r < 60 && b < 60;
+export const isBlue = (r: number, g: number, b: number): boolean => b > 200 && r < 60 && g < 60;
+export const isYellow = (r: number, g: number, b: number): boolean => r > 200 && g > 180 && b < 80;
+export const isMagenta = (r: number, g: number, b: number): boolean => r > 200 && b > 200 && g < 80;
+export const isDark = (r: number, g: number, b: number): boolean => r + g + b < 90;
+
+/** Power (mean square) of the frequency `f` in [t0, t1) (Goertzel, mono). */
+export function tonePower(a: { rate: number; data: Float32Array }, f: number, t0: number, t1: number): number {
+  const i0 = Math.max(0, Math.floor(t0 * a.rate));
+  const i1 = Math.min(a.data.length, Math.floor(t1 * a.rate));
+  const n = i1 - i0;
+  const w = (2 * Math.PI * f) / a.rate;
+  const c = 2 * Math.cos(w);
+  let s1 = 0;
+  let s2 = 0;
+  for (let i = i0; i < i1; i++) {
+    const s = (a.data[i] as number) + c * s1 - s2;
+    s2 = s1;
+    s1 = s;
+  }
+  const p = s1 * s1 + s2 * s2 - c * s1 * s2;
+  return (2 * p) / (n * n) / 1; // amplitude² /2 ... (amp^2)/2 for a pure tone → mean square
+}
+
+/** Integrated loudness (LUFS) and true peak of a file via ffmpeg ebur128. */
+export function loudness(file: string): { lufs: number; peakDb: number } {
+  const r = spawnSync(FFMPEG, ['-hide_banner', '-nostats', '-i', file, '-af', 'ebur128=peak=true', '-f', 'null', '-'], { encoding: 'utf8' });
+  const sum = r.stderr.split('Summary:')[1] ?? '';
+  const i = /I:\s+(-?[\d.]+) LUFS/.exec(sum);
+  const p = /Peak:\s+(-?[\d.]+) dBFS/.exec(sum);
+  return { lufs: i ? Number(i[1]) : NaN, peakDb: p ? Number(p[1]) : NaN };
+}
+
+export function audioStreamInfo(file: string): { codec: string; rate: number; channels: number; dur: number } | null {
+  const out = execFileSync(FFPROBE, ['-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_name,sample_rate,channels,duration', '-of', 'json', file]).toString();
+  const s = (JSON.parse(out) as { streams: { codec_name: string; sample_rate: string; channels: number; duration: string }[] }).streams[0];
+  return s ? { codec: s.codec_name, rate: Number(s.sample_rate), channels: s.channels, dur: Number(s.duration) } : null;
+}
+
+/** A tone whose amplitude ramps linearly 0 → 1 over its duration (for reverse tests). */
+export function rampTone(freq: number, dur: number): string {
+  const key = `ramp-${freq}-${dur}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const out = path.join(tmp('media'), `${key}.wav`);
+  ff(['-f', 'lavfi', '-i', `aevalsrc='sin(2*PI*${freq}*t)*t/${dur}':s=48000:d=${dur}`, '-ac', '1', out]);
+  cache.set(key, out);
+  return out;
+}
+
+/** Two tones back to back: f1 for the first half, f2 for the second. */
+export function twoTone(f1: number, f2: number, dur: number): string {
+  const key = `two-${f1}-${f2}-${dur}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const out = path.join(tmp('media'), `${key}.wav`);
+  ff(['-f', 'lavfi', '-i', `aevalsrc='sin(2*PI*if(lt(t\\,${dur / 2})\\,${f1}\\,${f2})*t)':s=48000:d=${dur}`, '-ac', '1', out]);
+  cache.set(key, out);
+  return out;
+}
+
+/** Loud tone for 1 s, then very quiet noise for 1 s. */
+export function toneThenNoise(): string {
+  const key = 'tone-noise';
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const out = path.join(tmp('media'), `${key}.wav`);
+  ff(['-f', 'lavfi', '-i', `aevalsrc='if(lt(t\\,1)\\,0.5*sin(2*PI*440*t)\\,0.0015*(random(0)-0.5)*2)':s=48000:d=2`, '-ac', '1', out]);
+  cache.set(key, out);
+  return out;
+}

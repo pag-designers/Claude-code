@@ -92,7 +92,23 @@ function installSecurity(): void {
     "frame-ancestors 'none'",
   ].join('; ');
   session.defaultSession.webRequest.onHeadersReceived((details, cb) => {
-    cb({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [csp] } });
+    const headers: Record<string, string[]> = {
+      ...details.responseHeaders,
+      'Content-Security-Policy': [csp],
+    };
+    // The editor reads presigned storage media through WebGL / Web Audio, which needs CORS-enabled responses.
+    // Buckets rarely have a CORS rule, so grant it here, and ONLY for signed (presigned) storage URLs.
+    if (/^https?:/i.test(details.url) && /[?&]X-Amz-Signature=/i.test(details.url)) {
+      for (const k of Object.keys(headers))
+        if (k.toLowerCase().startsWith('access-control-')) delete headers[k];
+      headers['Access-Control-Allow-Origin'] = ['*'];
+      headers['Access-Control-Expose-Headers'] = [
+        'Content-Length',
+        'Content-Range',
+        'Accept-Ranges',
+      ];
+    }
+    cb({ responseHeaders: headers });
   });
   session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false));
 }

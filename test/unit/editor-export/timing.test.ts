@@ -18,14 +18,24 @@ async function levels(over: Record<string, unknown>, start = 0, dur = 1, extra: 
   const f = makeSourceTime(p.tracks[0]!.items[0] as Extract<Item, { type: 'video' }>);
   const r0 = extra.range?.startSec ?? 0;
   const n = lv.length;
+  const near: boolean[] = [];
   const exp = Array.from({ length: n }, (_v, k) => {
     const T = r0 + k / 30;
-    return T < start - 1e-6 || T >= start + dur - 1e-6 ? -1 : Math.floor(f(T - start) * 30 + 1e-6);
+    if (T < start - 1e-6 || T >= start + dur - 1e-6) {
+      near.push(false);
+      return -1;
+    }
+    const x = f(T - start) * 30;
+    const frac = x - Math.floor(x + 1e-6);
+    // within 0.08 frame of a source frame boundary the 0.3 ms slot slack / PL tolerance may pick the neighbour
+    near.push(frac > 0.92 || frac < 0.08);
+    return Math.floor(x + 1e-6);
   });
-  return { lv, exp, out: r.out, p };
+  return { lv, exp, near, out: r.out, p };
 }
 
-const same = (a: number[], b: number[], tol = 0) => a.every((v, i) => Math.abs(v - (b[i] as number)) <= tol);
+const same = (a: number[], b: number[], tol = 0, near?: boolean[]) =>
+  a.every((v, i) => Math.abs(v - (b[i] as number)) <= (near?.[i] ? Math.max(tol, 1) : tol));
 
 describe.skipIf(!haveFfmpeg)('speed / reverse / freeze', () => {
   const cases: [string, Record<string, unknown>, number][] = [
@@ -49,9 +59,9 @@ describe.skipIf(!haveFfmpeg)('speed / reverse / freeze', () => {
   for (const [name, over, tol] of cases) {
     it(name, async () => {
       const start = name.includes('0.41') ? 0.41 : 0;
-      const { lv, exp } = await levels(over, start, 1);
+      const { lv, exp, near } = await levels(over, start, 1);
       expect(lv.length).toBe(exp.length);
-      expect(same(lv, exp, tol), `got ${lv.join(',')}\nexp ${exp.join(',')}`).toBe(true);
+      expect(same(lv, exp, tol, near), `got ${lv.join(',')}\nexp ${exp.join(',')}`).toBe(true);
     });
   }
 

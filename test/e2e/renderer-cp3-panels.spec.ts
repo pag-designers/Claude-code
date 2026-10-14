@@ -78,7 +78,9 @@ const ed = (s: Session) => editorState(s.state);
  * caused by (or fixable in) this code; see the report to the lead. Everything else must be empty.
  */
 const PRELOAD_NOISE = /was preloaded using link preload but not used within a few seconds/;
-const problems = (s: Session) => s.problems.filter((p) => !PRELOAD_NOISE.test(p));
+/** Software-GL performance notice printed by the REAL editor page (compositor) when a test navigates into it. */
+const GL_NOISE = /GL Driver Message .*GPU stall/;
+const problems = (s: Session) => s.problems.filter((p) => !PRELOAD_NOISE.test(p) && !GL_NOISE.test(p));
 
 /** Records the DataTransfer of every dragstart in the page (readable only while the event is dispatched). */
 async function captureDrags(p: Page) {
@@ -714,6 +716,7 @@ test.describe('Export panel', () => {
     await s.page.getByTestId('export-start').click();
     await expect.poll(() => c.state.exports.some((j) => j.status === 'queued')).toBe(true);
     const j = c.lastExport();
+    await expect(s.page.getByTestId('export-message')).toHaveText('Waiting in the queue');
     await c.progress(j.id, 0.2, 'Encoding video');
     await expect(s.page.getByTestId('export-percent')).toHaveText('20%');
     await s.page.getByTestId('export-cancel').click();
@@ -734,6 +737,7 @@ test.describe('Export panel', () => {
     await s.page.getByTestId('export-start').click();
     await expect.poll(() => c.state.exports.some((j) => j.status === 'queued')).toBe(true);
     const j = c.lastExport();
+    await expect(s.page.getByTestId('export-message')).toHaveText('Waiting in the queue');
     await c.progress(j.id, 0.5, 'Encoding video');
     await c.failJob(j.id, 'ffmpeg exited with code 1: Invalid filtergraph');
     const failed = s.page.getByTestId('export-failed');
@@ -1126,7 +1130,7 @@ test.describe('Open in editor', () => {
 
   test('cancel is safe: the project still finishes and a toast offers to open it', async () => {
     const s = await open('/library/?tab=clips', { prepare: seedExports });
-    ed(s).createDelayMs = 900;
+    ed(s).createDelayMs = 5000;
     const clip = firstRendered(s);
     await s.page.locator(`[data-testid="clip-card"][data-clip-id="${clip.id}"]`).getByRole('button', { name: /^Open clip/ }).click();
     await s.page.getByTestId('clip-drawer').getByTestId('open-in-editor-button').click();
@@ -1134,7 +1138,7 @@ test.describe('Open in editor', () => {
     await s.page.getByTestId('open-in-editor-cancel').click();
     await expect(s.page.getByTestId('open-in-editor')).toHaveCount(0);
     // still on the Library; the result arrives as a toast with an Open action
-    await expect(toast(s.page, /is ready/)).toBeVisible();
+    await expect(toast(s.page, /is ready/)).toBeVisible({ timeout: 12_000 });
     expect(s.page.url()).toContain('/library/');
     await toast(s.page, /is ready/).getByRole('button', { name: 'Open' }).click();
     await expect(s.page).toHaveURL(/\/editor\/\?id=ep-new-1$/);
@@ -1212,7 +1216,7 @@ test.describe('Open in editor', () => {
     await s.page.getByTestId('clip-card').nth(1).hover();
     await boxes.nth(1).click();
     await expect(btn).toHaveCount(0);
-    const dis = bar.getByRole('button', { name: 'Open in editor' });
+    const dis = s.page.getByRole('button', { name: 'Open in editor' });
     await expect(dis).toBeDisabled();
     const t = await tip(s.page, s.page.locator('span[tabindex="0"]').filter({ has: dis }));
     await expect(t).toContainText('Select a single clip to open it in the editor');

@@ -149,24 +149,26 @@ export function useEditorKeys(opts: { toggleShortcuts: () => void }) {
       const t = e.target as HTMLElement | null;
       const typing = !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
       if (typing) return;
-      // dialogs / menus own the keyboard while open (Esc is theirs too)
-      if (document.querySelector('[role=dialog][data-state=open], [role=menu]')) return;
+      // dialogs, menus, popovers and selects own the keyboard while open (Esc is theirs too)
+      if (
+        document.querySelector(
+          '[role=dialog][data-state=open], [role=alertdialog], [role=menu], [data-slot=popover-content][data-state=open], [data-radix-select-content]',
+        )
+      )
+        return;
       const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
       if (e.key === '?' && plain) {
         e.preventDefault();
         toggleShortcuts();
         return;
       }
-      const onButton = !!t && (t.tagName === 'BUTTON' || t.getAttribute('role') === 'button');
-      if (onButton && t.matches(':focus-visible') && (e.key === ' ' || e.key === 'Enter')) return;
+      // Space / Enter on a focused control activate THAT control (never play / pause)
+      const control = t?.closest(
+        'button, [role=button], [role=switch], [role=menuitem], [role=checkbox], [role=tab], [role=radio], a[href]',
+      );
+      if (control && (e.key === ' ' || e.key === 'Enter')) return;
       if (handleKey(e, useEditorStore.getState())) {
         e.preventDefault();
-        // a mouse-focused button would otherwise ALSO fire its click on Space key-up
-        if (onButton && e.key === ' ')
-          window.addEventListener('keyup', (ev) => ev.preventDefault(), {
-            once: true,
-            capture: true,
-          });
         return;
       }
       if (plain && !e.shiftKey) {

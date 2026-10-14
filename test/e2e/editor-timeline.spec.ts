@@ -144,7 +144,7 @@ test.describe('open, layout, save state', () => {
         void import('./support/editor-stub').then((m) => m.seedTimeline(st, { big: false })),
     });
     await expect(t.page.getByTestId('project-picker')).toBeVisible();
-    await expect(t.page.getByRole('link', { name: /Morning habits/ })).toBeVisible();
+    await expect(t.page.getByRole('link', { name: /Morning habits/ }).first()).toBeVisible();
     await t.close();
   });
 
@@ -617,7 +617,7 @@ test.describe('selection', () => {
     // marquee across the subtitle + image tracks
     const a = await laneXY(p, 'tr_sub', 0.05, 0.1);
     const row = await laneXY(p, 'tr_image', 7, 0.9);
-    await p.mouse.move(a.x - 20, a.y);
+    await p.mouse.move(a.x, a.y);
     await p.mouse.down();
     await p.mouse.move(row.x, row.y, { steps: 8 });
     await expect(p.getByTestId('marquee')).toBeVisible();
@@ -811,7 +811,7 @@ test.describe('markers', () => {
     const created = st.project.markers.find((m) => m.atSec === 20)!;
     await expect(p.locator(`[data-marker-id="${created.id}"]`)).toBeVisible();
     await s.act('setPlayhead', 25);
-    await p.getByRole('button', { name: 'Add marker' }).click();
+    await p.getByTestId('tool-marker').click();
     expect((await s.store()).project.markers).toHaveLength(4);
     // click seeks
     await p.locator(`[data-marker-id="${created.id}"]`).click();
@@ -1258,7 +1258,7 @@ test.describe('context menus, accessibility, keyframes, transitions, tracks', ()
     await gain.dblclick();
     expect((await track('tr_video')).gain).toBe(1);
     // rename by double-click
-    await p.getByText('Stickers', { exact: true }).dblclick();
+    await p.getByTestId('timeline').getByText('Stickers', { exact: true }).dblclick();
     const nameInput = p.getByRole('textbox', { name: 'Track name' });
     await nameInput.fill('Overlays & logos');
     await nameInput.press('Enter');

@@ -94,11 +94,10 @@ export function Section({
         </span>
         <div className="min-w-0 flex-1">
           <h2
-            id={heading}
             tabIndex={-1}
             className="flex items-center gap-2 font-display text-lg font-semibold outline-none"
           >
-            {title ?? def.label}
+            <span id={heading}>{title ?? def.label}</span>
             {badge}
           </h2>
           <p className="text-sm text-muted-foreground">{description}</p>

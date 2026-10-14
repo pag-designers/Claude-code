@@ -326,7 +326,7 @@ export function HexField({
             />
             <input
               type="color"
-              aria-label={`${label} colour picker`}
+              aria-label={`${label} picker`}
               value={valid ? value.toLowerCase() : '#000000'}
               disabled={disabled}
               onChange={(e) => {

@@ -51,6 +51,10 @@ const imgsLoaded = (l: Locator) =>
     els.every((e) => (e as HTMLImageElement).complete && (e as HTMLImageElement).naturalWidth > 0),
   );
 
+/** An h2 whose name is the section title, optionally followed by the item-count badge. */
+const sectionHeading = (p: Page, title: string) =>
+  p.getByRole('heading', { level: 2, name: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}( \\d+)?$`) });
+
 const SECTION_TITLES = [
   'Logos / Watermarks',
   'Images',
@@ -74,8 +78,7 @@ test.describe('Page', () => {
     const s = await open();
     const p = s.page;
     await expect(p.getByRole('heading', { name: 'Brand Kit', level: 1 })).toBeVisible();
-    for (const t of SECTION_TITLES)
-      await expect(p.getByRole('heading', { name: t, level: 2, exact: true })).toBeAttached();
+    for (const t of SECTION_TITLES) await expect(sectionHeading(p, t)).toBeAttached();
     await expect(p.getByTestId('kit-card')).toHaveCount(2);
     await expect(p.getByLabel('Kit name')).toHaveValue('Acme Podcast');
     await expect(p.getByTestId('default-badge')).toBeVisible();
@@ -113,7 +116,7 @@ test.describe('Page', () => {
     const s = await open({
       prepare: (st) => {
         brand(st).readDelayMs = 1200;
-        brand(st).failures.set('brand:list', { message: 'Disk unavailable', times: 1 });
+        brand(st).failures.set('brand:list', { message: 'Disk unavailable', times: 2 }); // the query client retries once
       },
       settle: 0,
     });
@@ -228,7 +231,7 @@ test.describe('Kits', () => {
     await saved(p);
     expect(updates(s).length - before).toBe(1);
     expect(lastUpdate(s)).toMatchObject({ patch: { name: 'Acme Studio' }, baseRev: 1 });
-    await expect(p.getByRole('button', { name: /^Acme Studio/ })).toBeVisible(); // the card follows
+    await expect(p.getByRole('button', { name: 'Acme Studio (default kit)' })).toBeVisible(); // the card follows
     expect(problems(s)).toEqual([]);
     await s.close();
   });
@@ -315,7 +318,8 @@ test.describe('Kits', () => {
     await expect(p.getByLabel('Kit name')).toHaveValue('Side Hustle Shorts');
     await s.close();
 
-    const t = await open({}, '/brand-kit/?kit=kit_2');
+    const second = [...brand(s.state).kits.keys()][1]!;
+    const t = await open({}, `/brand-kit/?kit=${second}`);
     await expect(t.page.getByLabel('Kit name')).toHaveValue('Side Hustle Shorts');
     await t.close();
   });
@@ -758,7 +762,7 @@ test.describe('Colors', () => {
     await sec(p, 'colors')
       .getByRole('button', { name: /Sunbeam #FFE94D, edit/ })
       .click();
-    const pop = p.getByRole('dialog', { name: 'Edit Sunbeam' });
+    const pop = p.locator('[role=dialog][aria-label^="Edit "]'); // its name follows the swatch name
     await pop.getByLabel('Name').fill('Sun');
     await pop.getByLabel('Color', { exact: true }).fill('#FFD60A');
     await saved(p);
@@ -837,6 +841,7 @@ test.describe('Subtitle styles', () => {
     const card = sec(p, 'subtitle-styles').getByTestId('kit-style-card');
     await expect(card).toHaveCount(1);
     await expect(card).toContainText('Acme Punch');
+    await card.scrollIntoViewIfNeeded(); // thumbnails render lazily once they scroll into view
     await expect(card.getByTestId('style-thumb')).toHaveAttribute('data-state', 'ready', {
       timeout: 20_000,
     });
@@ -1356,7 +1361,7 @@ test.describe('Intro, outro and music bed', () => {
       /fade in 2 seconds, ducks 18 dB/,
     );
     await m.getByRole('switch', { name: 'Duck under speech' }).click();
-    await expect(m.getByLabel('Ducking amount')).toBeDisabled();
+    await expect(m.getByRole('slider', { name: 'Ducking amount' })).toBeDisabled();
     await expect(m.getByTestId('bed-curve').getByRole('img')).toHaveAttribute(
       'aria-label',
       /no ducking/,

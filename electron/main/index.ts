@@ -77,7 +77,8 @@ function registerAppProtocol(): void {
 function installSecurity(): void {
   const s3Override = process.env.CLIPFERN_S3_ENDPOINT_OVERRIDE; // dev/test emulator only
   const extraMedia = s3Override ? ` ${new URL(s3Override).origin}` : '';
-  const connect = DEV_URL ? "'self' https: http://localhost:* ws://localhost:*" : "'self' https:";
+  const connect =
+    (DEV_URL ? "'self' https: http://localhost:* ws://localhost:*" : "'self' https:") + extraMedia;
   const script = DEV_URL ? "'self' 'unsafe-inline' 'unsafe-eval'" : "'self' 'unsafe-inline'";
   const csp = [
     "default-src 'self'",

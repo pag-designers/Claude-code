@@ -29,7 +29,7 @@ async function applyUpTo(url: string, last: string): Promise<void> {
   }
 }
 
-describe('migration 0003 (CP2) on an existing CP1 database', () => {
+describe('migrations 0003 (CP2) and 0004 (CP3) on an existing CP1 database', () => {
   it('keeps every video and clip, and gives them the new column defaults', async () => {
     const dir = tmpDir();
     dirs.push(dir);
@@ -48,7 +48,7 @@ describe('migration 0003 (CP2) on an existing CP1 database', () => {
     c.close();
 
     const applied = await runMigrations(url);
-    expect(applied).toEqual(['0003_cp2']);
+    expect(applied).toEqual(['0003_cp2', '0004_editor']);
 
     const db = await openDatabase(file);
     try {
@@ -76,6 +76,13 @@ describe('migration 0003 (CP2) on an existing CP1 database', () => {
       await db.prisma.momentRun.create({ data: { videoId: 'v1', prompt: 'funny' } });
       await db.prisma.marker.create({ data: { videoId: 'v1', atSec: 3, label: 'm' } });
       await db.prisma.captionStylePreset.create({ data: { name: 'mine', spec: '{}' } });
+      // CP3 tables: versions cascade with their project; exports survive it (no FK)
+      const ep = await db.prisma.editorProject.create({ data: { name: 'p', data: '{}' } });
+      await db.prisma.editorVersion.create({ data: { projectId: ep.id, rev: 1, data: '{}' } });
+      await db.prisma.editorExport.create({ data: { projectId: ep.id, name: 'e' } });
+      await db.prisma.editorProject.delete({ where: { id: ep.id } });
+      expect(await db.prisma.editorVersion.count()).toBe(0);
+      expect(await db.prisma.editorExport.count()).toBe(1);
     } finally {
       await db.close();
     }

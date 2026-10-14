@@ -75,6 +75,12 @@ function EventBridge() {
     if (c.status === 'rendered') refreshCostSoon(qc);
   });
   useIpcEvent('pipeline:event', (e) => applyPipelineEvent(qc, e));
+  // Brand Kits: any change refreshes every cached brand:* query (kits, assets, fonts, default kit).
+  useIpcEvent('brand:changed', () => {
+    void qc.invalidateQueries({
+      predicate: (q) => typeof q.queryKey[0] === 'string' && q.queryKey[0].startsWith('brand:'),
+    });
+  });
   return null;
 }
 

@@ -211,3 +211,54 @@ model Marker {
 
   @@index([videoId])
 }
+
+// ---- CP3: editor ----
+
+model EditorProject {
+  id          String          @id @default(cuid())
+  ownerId     String          @default("local")
+  name        String
+  clipId      String? // library clip it was opened from (informational)
+  videoId     String? // library video it was opened from (informational)
+  data        String // JSON Project (shared/editor.ts)
+  rev         Int             @default(1)
+  durationSec Float           @default(0)
+  aspect      String          @default("9:16")
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  versions    EditorVersion[]
+
+  @@index([updatedAt])
+}
+
+model EditorVersion {
+  id        String        @id @default(cuid())
+  projectId String
+  project   EditorProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  rev       Int
+  label     String?
+  kind      String        @default("auto") // auto | manual | restore
+  data      String // JSON Project snapshot
+  createdAt DateTime      @default(now())
+
+  @@index([projectId])
+}
+
+model EditorExport {
+  id          String    @id @default(cuid())
+  ownerId     String    @default("local")
+  projectId   String? // null once the project is deleted
+  name        String
+  status      String    @default("queued") // queued | rendering | done | failed | canceled
+  progress    Float?
+  message     String?
+  error       String?
+  settings    String    @default("{}") // JSON ExportSettings
+  durationSec Float?
+  sizeBytes   Int?
+  storageKeys String    @default("{}") // JSON { video, thumb, srt, vtt }
+  createdAt   DateTime  @default(now())
+  finishedAt  DateTime?
+
+  @@index([createdAt])
+}

@@ -37,6 +37,16 @@ import {
   reframeModeSchema,
   subtitleEditsSchema,
 } from './cp2';
+import {
+  assetSchema,
+  editorProjectDocSchema,
+  editorProjectSummarySchema,
+  exportJobSchema,
+  exportSettingsSchema,
+  projectSchema,
+  projectVersionSchema,
+  waveformSchema,
+} from './editor';
 import { secretKeySchema, secretsBackendSchema, secretStatusSchema } from './secrets';
 import { settingsPatchSchema, settingsSchema } from './settings';
 
@@ -305,6 +315,125 @@ export const invokeContract = {
   ),
   'markers:delete': ch(z.object({ id: z.string() }), ok),
 
+  /* ---- CP3: editor ---- */
+  'editor:list': ch(none, z.object({ items: z.array(editorProjectSummarySchema) })),
+  /** New project: blank, from a Library clip (captions + hook + reframe path loaded) or from a source video (transcript as subtitle track, clips as markers). */
+  'editor:create': ch(
+    z.object({
+      name: z.string().min(1).max(120).optional(),
+      from: z.union([
+        z.object({ clipId: z.string() }),
+        z.object({ videoId: z.string() }),
+        z.object({
+          blank: z.literal(true),
+          aspect: z.enum(['9:16', '1:1', '16:9', '4:5']).default('9:16'),
+        }),
+      ]),
+    }),
+    editorProjectDocSchema,
+  ),
+  'editor:get': ch(z.object({ id: z.string() }), editorProjectDocSchema),
+  /** Optimistic save: fails with CONFLICT when `baseRev` is not the stored revision (another window saved). */
+  'editor:save': ch(
+    z.object({ id: z.string(), project: projectSchema, baseRev: z.number().int() }),
+    z.object({ rev: z.number().int(), updatedAt: z.number() }),
+  ),
+  'editor:rename': ch(z.object({ id: z.string(), name: z.string().min(1).max(120) }), ok),
+  'editor:duplicate': ch(z.object({ id: z.string() }), editorProjectDocSchema),
+  'editor:delete': ch(z.object({ id: z.string() }), ok),
+  'editor:versions': ch(
+    z.object({ id: z.string() }),
+    z.object({ items: z.array(projectVersionSchema) }),
+  ),
+  'editor:saveVersion': ch(
+    z.object({ id: z.string(), label: z.string().max(80).optional() }),
+    projectVersionSchema,
+  ),
+  /** Restores a snapshot (the current state is snapshotted first, kind 'restore') and returns the new doc. */
+  'editor:restoreVersion': ch(
+    z.object({ id: z.string(), versionId: z.string() }),
+    editorProjectDocSchema,
+  ),
+  /** Presigned URL of the media the PREVIEW should play for an asset (480p proxy for library videos, the clip mp4, the uploaded file). */
+  'editor:previewUrl': ch(
+    z.object({ projectId: z.string(), assetId: z.string() }),
+    z.object({ url: z.string().nullable(), reason: z.string().nullable() }),
+  ),
+  /** File dialog → copies the chosen media into storage, probes it, returns the new assets (add them to the project). */
+  'editor:importAssets': ch(
+    z.object({
+      projectId: z.string(),
+      kinds: z
+        .array(z.enum(['video', 'audio', 'image', 'lut']))
+        .default(['video', 'audio', 'image']),
+    }),
+    z.object({ assets: z.array(assetSchema), canceled: z.boolean() }),
+  ),
+  'editor:waveform': ch(
+    z.object({ projectId: z.string(), assetId: z.string() }),
+    waveformSchema.nullable(),
+  ),
+  /** Beat times of an audio/video asset (seconds in asset time); also stored on the asset when the project is saved. */
+  'editor:beats': ch(
+    z.object({ projectId: z.string(), assetId: z.string() }),
+    z.object({ beats: z.array(z.number()) }),
+  ),
+  /** Sprite sheet of evenly spaced thumbnails of a video asset's [startSec, endSec) (for the timeline strip). */
+  'editor:thumbStrip': ch(
+    z.object({
+      projectId: z.string(),
+      assetId: z.string(),
+      startSec: z.number().min(0),
+      endSec: z.number().min(0),
+      count: z.number().int().min(1).max(60),
+      height: z.number().int().min(24).max(160).default(64),
+    }),
+    z.object({
+      dataUrl: z.string().nullable(),
+      tileW: z.number(),
+      tileH: z.number(),
+      cols: z.number(),
+      times: z.array(z.number()),
+    }),
+  ),
+  /** Re-run face tracking for a video item and return a crop keyframe path (the editor's Reframe tool). */
+  'editor:reframe': ch(
+    z.object({
+      projectId: z.string(),
+      assetId: z.string(),
+      startSec: z.number().min(0),
+      endSec: z.number().min(0),
+      aspect: z.enum(['9:16', '1:1', '16:9', '4:5']),
+      mode: z.enum(['auto', 'single-face', 'center']).default('auto'),
+    }),
+    z.object({
+      /** Local-time crop keyframes: t (s from startSec), x,y,w,h normalised to the source frame. */
+      keyframes: z.array(
+        z.object({ t: z.number(), x: z.number(), y: z.number(), w: z.number(), h: z.number() }),
+      ),
+      faceCoverage: z.number(),
+    }),
+  ),
+  'editor:export': ch(
+    z.object({ projectId: z.string(), settings: exportSettingsSchema.partial() }),
+    z.object({ exportId: z.string() }),
+  ),
+  'editor:exportCancel': ch(z.object({ id: z.string() }), ok),
+  'exports:list': ch(
+    z.object({ limit: z.number().int().min(1).max(500).default(100) }),
+    z.object({ items: z.array(exportJobSchema) }),
+  ),
+  'exports:url': ch(
+    z.object({ id: z.string(), kind: z.enum(['video', 'thumb']) }),
+    z.object({ url: z.string().nullable() }),
+  ),
+  'exports:delete': ch(z.object({ ids: z.array(z.string()).min(1) }), ok),
+  /** Save dialog (folder) → copies the exported files (+ sidecar captions) there. */
+  'exports:download': ch(
+    z.object({ ids: z.array(z.string()).min(1) }),
+    z.object({ saved: z.number(), dir: z.string().nullable(), canceled: z.boolean() }),
+  ),
+
   'shell:openExternal': ch(z.object({ url: z.string().url() }), ok),
   'diagnostics:exportLogs': ch(none, z.object({ saved: z.boolean(), path: z.string().nullable() })),
 } as const;
@@ -324,6 +453,7 @@ export const eventContract = {
   'videos:updated': videoViewSchema,
   'clips:updated': clipViewSchema,
   'chat:event': chatEventSchema,
+  'editor:export': exportJobSchema,
   'moments:run': momentRunSchema,
   'markers:changed': z.object({ videoId: z.string() }),
   /** Main asks the renderer to navigate (tray menu, OS notification click). */

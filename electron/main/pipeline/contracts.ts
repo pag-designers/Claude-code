@@ -6,6 +6,7 @@
  * Conventions: all times are SECONDS (float); all paths are absolute local paths; every long-running
  * function takes an AbortSignal and reports progress through `onProgress(0..1, message?)`.
  */
+import type { HookStyle } from '@shared/brand';
 import type { CaptionStyle, ReframeMode, Transition } from '@shared/cp2';
 import type {
   AudioSignals,
@@ -251,7 +252,8 @@ export interface RenderRequest {
   assPath: string | null;
   /** Directory containing fonts for libass (fontsdir). */
   fontsDir: string | null;
-  hook: { text: string; durationSec: number } | null;
+  /** `style` = the Brand Kit's hook card look (CP4); undefined = the built-in white card. */
+  hook: { text: string; durationSec: number; style?: HookStyle } | null;
   /** -14 LUFS by default. */
   loudnessTarget: number;
   /** 'auto' picks NVENC / VideoToolbox / libx264 by availability. */
@@ -276,7 +278,7 @@ export interface HighlightRenderRequest {
   /** Seconds, default 0.35 (ignored for 'cut'). */
   transitionSec: number;
   fontsDir: string | null;
-  hook: { text: string; durationSec: number } | null;
+  hook: { text: string; durationSec: number; style?: HookStyle } | null;
   loudnessTarget: number;
   encoder: 'auto' | 'libx264' | 'h264_nvenc' | 'h264_videotoolbox';
   fps: number | null;

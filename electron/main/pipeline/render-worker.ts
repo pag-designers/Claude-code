@@ -1,7 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { CaptionStyle, SubtitleEdits, Transition } from '@shared/cp2';
-import { keys, transcriptSchema, type ReframePlan, type Transcript, type Word } from '@shared/pipeline';
+import {
+  keys,
+  transcriptSchema,
+  type ReframePlan,
+  type Transcript,
+  type Word,
+} from '@shared/pipeline';
+import type { BrandAsset, BrandKit } from '@shared/brand';
 import type { Db } from '../db/client';
 import type { JobContext } from '../services/queue';
 import type { SettingsService } from '../services/settings';
@@ -14,6 +21,9 @@ import type {
   RenderService,
 } from './contracts';
 import type { SubtitleService, ThumbnailService } from './contracts2';
+import type { BrandFinisher, FinisherMedia } from './contracts4';
+import type { PreparedBrand } from './brand';
+import { shiftSubtitleText } from './brand-util';
 import type { StyleRegistry } from './styles';
 import { parseJson, readOptions } from './views';
 import type { StageTracker } from './state';
@@ -35,6 +45,17 @@ export interface ClipMetaJson {
     title: string;
     hook: string;
   };
+}
+
+/** What the render worker needs from the Brand Kit service (CP4). */
+export interface BrandRenderPort {
+  kitForClip(
+    clipValue: string | null | undefined,
+    optionsValue: string | null | undefined,
+  ): Promise<BrandKit | null>;
+  prepare(kit: BrandKit): Promise<PreparedBrand>;
+  /** Subtitle style for new clips of a run (kit default unless the run chose its own). */
+  captionStyleForRun?(optionsValue: string | null | undefined, runStyleId: string): Promise<string>;
 }
 
 export interface RenderWorkerDeps {
@@ -86,6 +107,9 @@ export interface RenderWorkerDeps {
   subtitles: SubtitleService;
   styles: StyleRegistry;
   thumbnails: ThumbnailService;
+  /** CP4: Brand Kit resolution + the finishing pass (watermark, intro/outro, music bed). Both optional (tests). */
+  brand?: BrandRenderPort;
+  finisher?: BrandFinisher;
   /** Subtitle edits of a video (defaults when none were saved). */
   loadSubtitleEdits(videoId: string): Promise<SubtitleEdits>;
   ensureSource(videoId: string, signal?: AbortSignal): Promise<string>;
@@ -134,8 +158,11 @@ export class RenderWorker {
       const meta = parseJson<ClipMetaJson>(clip.metadata, {});
       const style = await this.d.styles.get(clip.captionStyleId);
       const hookText = meta.hookOff ? null : (meta.appliedHookText ?? clip.hook ?? null);
+      const kit = (await this.d.brand?.kitForClip(clip.brandKitId, options.brandKitId)) ?? null;
       const hook =
-        options.hookCard && hookText ? { text: hookText, durationSec: HOOK_SECONDS } : null;
+        options.hookCard && hookText
+          ? { text: hookText, durationSec: HOOK_SECONDS, ...(kit ? { style: kit.spec.hook } : {}) }
+          : null;
       const outPath = path.join(outDir, 'clip.mp4');
       let lastTick = 0;
       const tick: Tick = (f) => {
@@ -179,6 +206,7 @@ export class RenderWorker {
       this.d.log(
         `rendered clip ${clipId} with ${built.encoder} (${built.durationSec.toFixed(1)}s, layout ${built.layout})`,
       );
+      const branded = kit ? await this.applyBrand({ ctx, kit, outPath, outDir, set }) : null;
 
       const thumbPath = path.join(outDir, 'thumb.jpg');
       await this.makeThumb({
@@ -211,6 +239,13 @@ export class RenderWorker {
         [keys.ass(clipId), 'captions.ass', 'text/x-ssa'],
       ] as const) {
         const p = path.join(outDir, file);
+        // An intro joined in front of the clip moves every cue: keep the sidecar subtitles in sync with the video.
+        if (
+          branded?.introSec &&
+          (file.endsWith('.srt') || file.endsWith('.vtt')) &&
+          fs.existsSync(p)
+        )
+          fs.writeFileSync(p, shiftSubtitleText(fs.readFileSync(p, 'utf8'), branded.introSec));
         if (fs.existsSync(p)) await storage.putFile(key, p, { contentType: type });
       }
       this.d.invalidateStorage();
@@ -225,7 +260,11 @@ export class RenderWorker {
         error: null,
         layout: built.layout,
         subtitleRev: edits.rev,
-        metadata: JSON.stringify({ ...fresh, appliedHookText: hookText }),
+        metadata: JSON.stringify({
+          ...fresh,
+          appliedHookText: hookText,
+          brandApplied: kit ? { kitId: kit.id, rev: kit.rev } : null,
+        }),
         storageKeys: JSON.stringify({
           render: keys.clip(clipId),
           thumb: keys.thumb(clipId),
@@ -244,6 +283,87 @@ export class RenderWorker {
         `render ${clipId} failed: ${err instanceof Error ? (err.stack ?? message) : message}`,
       );
       await set({ status: 'failed', error: message.slice(0, 500), renderProgress: null });
+    }
+  }
+
+  /**
+   * Brand Kit finishing pass over the rendered clip: watermark, intro/outro, ducked music bed (BRIEF §7).
+   * Replaces `outPath` with the branded file. A kit with nothing switched on costs nothing (no extra pass).
+   */
+  private async applyBrand(a: {
+    ctx: JobContext<{ clipId: string; videoId: string }>;
+    kit: BrandKit;
+    outPath: string;
+    outDir: string;
+    set: (data: Record<string, unknown>) => Promise<void>;
+  }): Promise<{ introSec: number } | null> {
+    if (!this.d.brand || !this.d.finisher) return null;
+    const prep = await this.d.brand.prepare(a.kit);
+    if (!prep.watermark && !prep.intro && !prep.outro && !prep.music) return null;
+    const ffmpegPath = this.d.ffmpegPath();
+    const info = await this.d.media.probe(a.outPath);
+    if (!info.width || !info.height) throw new Error('Could not read the rendered clip.');
+    const media = (m: { asset: BrandAsset; path: string }): FinisherMedia => ({
+      path: m.path,
+      hasAudio: m.asset.hasAudio,
+      durationSec: m.asset.durationSec ?? 0,
+      width: m.asset.width ?? 0,
+      height: m.asset.height ?? 0,
+    });
+    const s = a.kit.spec;
+    const branded = path.join(a.outDir, 'branded.mp4');
+    await a.set({ renderProgress: 0.9 });
+    try {
+      const res = await this.d.finisher.finish(
+        {
+          ffmpegPath,
+          input: {
+            path: a.outPath,
+            hasAudio: info.hasAudio,
+            durationSec: info.durationSec,
+            width: info.width,
+            height: info.height,
+            fps: info.fps ?? 30,
+          },
+          outPath: branded,
+          watermark: prep.watermark
+            ? {
+                media: media(prep.watermark),
+                position: s.watermark.position,
+                sizePct: s.watermark.sizePct,
+                opacity: s.watermark.opacity,
+                marginPct: s.watermark.marginPct,
+                safeArea: s.watermark.safeArea,
+              }
+            : null,
+          intro: prep.intro ? media(prep.intro) : null,
+          outro: prep.outro ? media(prep.outro) : null,
+          music: prep.music
+            ? {
+                media: media(prep.music),
+                gainDb: s.musicBed.gainDb,
+                duckEnabled: s.musicBed.duckEnabled,
+                duckAmountDb: s.musicBed.duckAmountDb,
+                fadeInSec: s.musicBed.fadeInSec,
+                fadeOutSec: s.musicBed.fadeOutSec,
+              }
+            : null,
+          encoder: await this.d.render.detectEncoder(ffmpegPath),
+          loudnessTarget: -14,
+        },
+        { signal: a.ctx.signal },
+      );
+      for (const n of res.notes) this.d.log(`brand finish: ${n}`);
+      fs.renameSync(branded, a.outPath);
+      return {
+        introSec: res.applied.intro && prep.intro ? (prep.intro.asset.durationSec ?? 0) : 0,
+      };
+    } catch (e) {
+      fs.rmSync(branded, { force: true });
+      if (a.ctx.signal.aborted) throw e;
+      throw new Error(
+        `The Brand Kit “${a.kit.name}” could not be applied: ${e instanceof Error ? e.message : String(e)}`,
+      );
     }
   }
 
@@ -393,10 +513,17 @@ export class RenderWorker {
       // Subtitle files for the whole reel live on the stitched timeline (transitions overlap, so this is approximate).
       for (const w of words)
         reelWords.push({ ...w, s: w.s - seg.startSec + offset, e: w.e - seg.startSec + offset });
-      offset += seg.endSec - seg.startSec - (i < a.segments.length - 1 ? HIGHLIGHT_TRANSITION_SEC : 0);
+      offset +=
+        seg.endSec - seg.startSec - (i < a.segments.length - 1 ? HIGHLIGHT_TRANSITION_SEC : 0);
     }
-    fs.writeFileSync(path.join(a.outDir, 'captions.srt'), this.d.captions.buildSrt(reelWords, 0, offset));
-    fs.writeFileSync(path.join(a.outDir, 'captions.vtt'), this.d.captions.buildVtt(reelWords, 0, offset));
+    fs.writeFileSync(
+      path.join(a.outDir, 'captions.srt'),
+      this.d.captions.buildSrt(reelWords, 0, offset),
+    );
+    fs.writeFileSync(
+      path.join(a.outDir, 'captions.vtt'),
+      this.d.captions.buildVtt(reelWords, 0, offset),
+    );
     const result = await this.d.render.renderHighlight({
       ffmpegPath: this.d.ffmpegPath(),
       sourcePath: a.source,
@@ -426,7 +553,8 @@ export class RenderWorker {
   }): Promise<void> {
     const ff = this.d.ffmpegPath();
     const chosen = a.meta.thumbs?.chosenT ?? null;
-    const defaultAt = a.hookOn && a.durationSec > 6 ? HOOK_SECONDS + 0.7 : Math.min(2, a.durationSec / 3);
+    const defaultAt =
+      a.hookOn && a.durationSec > 6 ? HOOK_SECONDS + 0.7 : Math.min(2, a.durationSec / 3);
     const at = Math.min(Math.max(0, chosen ?? defaultAt), Math.max(0, a.durationSec - 0.1));
     const grab = async (out: string) => {
       if (a.clean) {
@@ -437,7 +565,9 @@ export class RenderWorker {
           this.d.log(`caption-free still failed, using the rendered frame: ${String(e)}`);
         }
       }
-      await this.d.thumbnail(ff, a.outPath, out, { atSec: chosen === null && !a.hookOn ? undefined : at });
+      await this.d.thumbnail(ff, a.outPath, out, {
+        atSec: chosen === null && !a.hookOn ? undefined : at,
+      });
     };
     const overlay = chosen === null ? null : (a.meta.thumbs?.overlayText ?? null);
     if (!overlay) {

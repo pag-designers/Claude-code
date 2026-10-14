@@ -8,6 +8,7 @@ import { LlmEngine } from './client';
 import { runHighlights } from './highlights';
 import { runHooks } from './hooks';
 import { electronDownscale, type DownscalePort } from './images';
+import { runBroll } from './broll';
 import { runMeta } from './meta';
 import { runRank } from './moments';
 import { runThumbnails } from './thumbnails';
@@ -72,6 +73,7 @@ export function createLlmService(deps: LlmDeps): LlmService & LlmServiceV2 {
     composeHighlights: (input) => runHighlights(ctx, input),
     writeHooks: (input) => runHooks(ctx, input),
     writeMeta: (input) => runMeta(ctx, input),
+    suggestBroll: (input) => runBroll(ctx, input),
     rankThumbnails: (input) =>
       runThumbnails({ ...ctx, downscale: deps.downscaleImage ?? electronDownscale }, input),
     chat: (input) => runChat(ctx, input),

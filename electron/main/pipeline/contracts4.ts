@@ -54,9 +54,9 @@ export interface BrandMediaService {
       file: string;
       ext: string;
       outDir: string;
-      /** fraction 0..1 within this file, null = indeterminate */
+      /** Stage label + fraction 0..1 within this file (null = indeterminate). Replaces CommonOpts.onProgress. */
       onProgress?: (stage: string, fraction: number | null) => void;
-    } & CommonOpts,
+    } & Omit<CommonOpts, 'onProgress'>,
   ): Promise<ProcessedBrandAsset>;
   /** Dominant colours (#RRGGBB, most prominent first, perceptually distinct, transparent pixels ignored). */
   extractColors(imagePath: string, count: number): Promise<string[]>;
@@ -131,7 +131,7 @@ export interface FinishResult {
 export interface BrandFinisher {
   finish(
     req: FinishRequest,
-    opts?: CommonOpts & { onProgress?: (fraction: number) => void },
+    opts?: Omit<CommonOpts, 'onProgress'> & { onProgress?: (fraction: number) => void },
   ): Promise<FinishResult>;
 }
 

@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Loader2, Scissors, SearchX, Star } from 'lucide-react';
+import { ApplyBrandPopover } from '@/components/brand-apply/apply-popover';
 import type { ClipView } from '@shared/pipeline';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -265,12 +266,23 @@ export function ClipsBrowser({
             <Loader2 className="size-3.5 animate-spin" aria-hidden /> still finding more
           </span>
         ) : null}
-        <ClipSortLayout
-          sort={filters.sort}
-          onSort={(sort) => patchFilters({ sort })}
-          layout={layout}
-          onLayout={setLayout}
-        />
+        <div className="ml-auto flex items-center gap-2.5">
+          {scope.kind === 'video' ? (
+            <ApplyBrandPopover
+              clips={clips}
+              videoId={scope.videoId}
+              label="Apply Brand Kit to all clips"
+              variant="outline"
+              testId="video-apply-brand"
+            />
+          ) : null}
+          <ClipSortLayout
+            sort={filters.sort}
+            onSort={(sort) => patchFilters({ sort })}
+            layout={layout}
+            onLayout={setLayout}
+          />
+        </div>
       </div>
 
       {visible.length === 0 ? (
@@ -330,6 +342,7 @@ export function ClipsBrowser({
         onClear={() => setSelected(new Set())}
         onOpenEditor={sel.length === 1 ? () => void editor.open({ clipId: sel[0]!.id }) : undefined}
         openingEditor={editor.busy}
+        selectedClips={sel}
       />
       {editor.dialog}
       <ConfirmDialog

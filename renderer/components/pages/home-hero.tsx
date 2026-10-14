@@ -37,6 +37,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { DisabledTip } from '@/components/ui/tooltip';
+import { BrandKitStartOption, useStartBrandKit } from '@/components/brand-apply/start-option';
 import { StyleStudio } from '@/components/captions/style-studio';
 import { StyleThumb } from '@/components/captions/style-thumb';
 import {
@@ -171,9 +172,10 @@ export function HomeHero() {
   const [url, setUrl] = React.useState('');
   const [touched, setTouched] = React.useState(false);
   const [overrides, setOverrides] = React.useState<Partial<StartForm>>({});
+  const [brandKitId, setBrandKitId] = useStartBrandKit();
   const form = React.useMemo<StartForm>(
-    () => ({ ...formFromSettings(settings), ...overrides }),
-    [settings, overrides],
+    () => ({ ...formFromSettings(settings), ...overrides, brandKitId }),
+    [settings, overrides, brandKitId],
   );
   const set = <K extends keyof StartForm>(k: K, v: StartForm[K]) =>
     setOverrides((o) => ({ ...o, [k]: v }));
@@ -473,6 +475,7 @@ export function HomeHero() {
                   </SelectContent>
                 </Select>
               </div>
+              <BrandKitStartOption value={form.brandKitId} onChange={setBrandKitId} />
             </div>
 
             {form.clipPreset === 'custom' ? (

@@ -19,6 +19,8 @@ export interface StartForm {
   /** Caption style preset id (CP2). */
   captionStyleId: string;
   reframeMode: ReframeMode;
+  /** Brand Kit of the run (CP4): 'default' (the default kit), 'none' or a kit id. */
+  brandKitId: string;
 }
 
 export function formFromSettings(
@@ -37,6 +39,7 @@ export function formFromSettings(
     prompt: '',
     captionStyleId: DEFAULT_STYLE_ID,
     reframeMode: 'auto',
+    brandKitId: 'default',
   };
 }
 
@@ -69,6 +72,7 @@ export function buildStartOptions(
     mode: 'clips',
     captionStyleId: f.captionStyleId,
     reframeMode: f.reframeMode,
+    brandKitId: f.brandKitId,
   };
   if (f.clipPreset === 'custom') {
     o.minSec = Math.round(f.minSec);

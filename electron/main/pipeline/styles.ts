@@ -70,6 +70,66 @@ export class StyleRegistry {
     return { ...style, id: created.id, builtin: false };
   }
 
+  /** Custom presets that belong to a Brand Kit (CP4). */
+  async listForKit(kitId: string): Promise<CaptionStyle[]> {
+    const rows = await this.db.captionStylePreset.findMany({
+      where: { brandKitId: kitId },
+      orderBy: { createdAt: 'asc' },
+    });
+    const out: CaptionStyle[] = [];
+    for (const r of rows) {
+      const parsed = captionStyleSchema.safeParse({
+        ...parseJson<Record<string, unknown>>(r.spec, {}),
+        id: r.id,
+        name: r.name,
+        builtin: false,
+      });
+      if (parsed.success) out.push(parsed.data);
+    }
+    return out;
+  }
+
+  /** Saves a preset into a kit: an existing preset of THAT kit is updated, anything else becomes a new kit preset. */
+  async saveForKit(kitId: string, input: CaptionStyleInput): Promise<CaptionStyle> {
+    const style = captionStyleSchema.parse(input);
+    const { id: _id, name, builtin: _b, ...spec } = style;
+    void _id;
+    void _b;
+    const existing = await this.db.captionStylePreset.findFirst({
+      where: { id: style.id, brandKitId: kitId },
+    });
+    if (existing) {
+      await this.db.captionStylePreset.update({
+        where: { id: style.id },
+        data: { name, spec: JSON.stringify(spec) },
+      });
+      return { ...style, builtin: false };
+    }
+    const created = await this.db.captionStylePreset.create({
+      data: { name, spec: JSON.stringify(spec), brandKitId: kitId },
+    });
+    return { ...style, id: created.id, builtin: false };
+  }
+
+  /** Copies every preset of a kit to another kit (kit duplication); returns old id → new id. */
+  async copyKitStyles(fromKitId: string, toKitId: string): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    const rows = await this.db.captionStylePreset.findMany({ where: { brandKitId: fromKitId } });
+    for (const r of rows) {
+      const c = await this.db.captionStylePreset.create({
+        data: { name: r.name, spec: r.spec, brandKitId: toKitId },
+      });
+      map.set(r.id, c.id);
+    }
+    return map;
+  }
+
+  /** Deletes a kit's presets; clips/videos that used them fall back to the default. */
+  async deleteKitStyles(kitId: string): Promise<void> {
+    const rows = await this.db.captionStylePreset.findMany({ where: { brandKitId: kitId } });
+    for (const r of rows) await this.delete(r.id);
+  }
+
   async delete(id: string): Promise<void> {
     if (this.builtin.some((b) => b.id === id))
       throw new AppError('VALIDATION', 'Built-in presets cannot be deleted. Duplicate one to customise it.');

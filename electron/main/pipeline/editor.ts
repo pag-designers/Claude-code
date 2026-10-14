@@ -803,65 +803,84 @@ export class EditorService {
     if (files.length === 0) return { assets: [], canceled: true };
     const out: Asset[] = [];
     for (const file of files) {
-      const ext = path.extname(file).slice(1).toLowerCase();
-      const kind = EXT_KIND[ext];
-      if (!kind || !kinds.includes(kind)) continue;
-      const id = newId('as');
-      const key = keysEditor.asset(projectId, id, ext);
-      let meta: {
-        durationSec: number | null;
-        width: number | null;
-        height: number | null;
-        fps: number | null;
-        hasAudio: boolean;
-      } = {
-        durationSec: null,
-        width: null,
-        height: null,
-        fps: null,
-        hasAudio: false,
-      };
-      if (kind !== 'lut') {
-        const p = await this.d.media.probe(file).catch(() => null);
-        if (!p)
-          throw new AppError(
-            'VALIDATION',
-            `Clipfern could not read “${path.basename(file)}”. Is it a valid media file?`,
-          );
-        meta = {
-          durationSec: p.durationSec,
-          width: p.width,
-          height: p.height,
-          fps: p.fps,
-          hasAudio: p.hasAudio,
-        };
-      }
-      await storage.putFile(key, file);
-      if (kind === 'video') {
-        const tmp = path.join(this.d.cacheDir, 'editor', projectId, `${id}.preview.mp4`);
-        fs.mkdirSync(path.dirname(tmp), { recursive: true });
-        try {
-          await this.d.media.makePreview(file, tmp);
-          await storage.putFile(`${key}.preview.mp4`, tmp, { contentType: 'video/mp4' });
-        } catch (e) {
-          this.d.log(`editor: preview copy failed for ${file}: ${String(e)}`);
-        }
-      }
-      out.push({
-        id,
-        kind,
-        name: path.basename(file),
-        source: { kind: 'upload', key, fileName: path.basename(file) },
-        durationSec: meta.durationSec,
-        width: meta.width,
-        height: meta.height,
-        fps: meta.fps,
-        hasAudio: meta.hasAudio,
-        beats: null,
-      });
+      const asset = await this.addFileAsset(storage, projectId, file, kinds);
+      if (asset) out.push(asset);
     }
     this.d.invalidateStorage();
     return { assets: out, canceled: false };
+  }
+
+  /** Uploads one local media file into a project's asset storage (probe + 480p preview copy) and returns the asset. null = kind not wanted. */
+  private async addFileAsset(
+    storage: StorageProvider,
+    projectId: string,
+    file: string,
+    kinds: Asset['kind'][],
+    name?: string,
+  ): Promise<Asset | null> {
+    const ext = path.extname(file).slice(1).toLowerCase();
+    const kind = EXT_KIND[ext];
+    if (!kind || !kinds.includes(kind)) return null;
+    const id = newId('as');
+    const key = keysEditor.asset(projectId, id, ext);
+    let meta: {
+      durationSec: number | null;
+      width: number | null;
+      height: number | null;
+      fps: number | null;
+      hasAudio: boolean;
+    } = { durationSec: null, width: null, height: null, fps: null, hasAudio: false };
+    if (kind !== 'lut') {
+      const p = await this.d.media.probe(file).catch(() => null);
+      if (!p)
+        throw new AppError(
+          'VALIDATION',
+          `Clipfern could not read “${path.basename(file)}”. Is it a valid media file?`,
+        );
+      meta = {
+        durationSec: p.durationSec,
+        width: p.width,
+        height: p.height,
+        fps: p.fps,
+        hasAudio: p.hasAudio,
+      };
+    }
+    await storage.putFile(key, file);
+    if (kind === 'video') {
+      const tmp = path.join(this.d.cacheDir, 'editor', projectId, `${id}.preview.mp4`);
+      fs.mkdirSync(path.dirname(tmp), { recursive: true });
+      try {
+        await this.d.media.makePreview(file, tmp);
+        await storage.putFile(`${key}.preview.mp4`, tmp, { contentType: 'video/mp4' });
+      } catch (e) {
+        this.d.log(`editor: preview copy failed for ${file}: ${String(e)}`);
+      }
+    }
+    const fileName = name ?? path.basename(file);
+    return {
+      id,
+      kind,
+      name: fileName,
+      source: { kind: 'upload', key, fileName },
+      durationSec: meta.durationSec,
+      width: meta.width,
+      height: meta.height,
+      fps: meta.fps,
+      hasAudio: meta.hasAudio,
+      beats: null,
+    };
+  }
+
+  /** A stock clip (or any local video) downloaded by the B-roll flow becomes a project asset. */
+  async importLocalVideo(projectId: string, file: string, name: string): Promise<Asset> {
+    await this.must(projectId);
+    const storage = this.d.getStorage();
+    if (!storage)
+      throw new AppError('UNAVAILABLE', 'Object storage is not connected (Settings → Storage).');
+    const asset = await this.addFileAsset(storage, projectId, file, ['video'], name);
+    if (!asset) throw new AppError('VALIDATION', 'That file is not a video.');
+    this.d.invalidateStorage();
+    return asset;
   }
 
   async waveform(projectId: string, assetId: string): Promise<Waveform | null> {

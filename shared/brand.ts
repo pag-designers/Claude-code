@@ -328,13 +328,13 @@ export type BrollSearchResult = z.infer<typeof brollSearchResultSchema>;
 
 export const keysBrand = {
   original: (kitId: string, assetId: string, ext: string) => `brand/${kitId}/${assetId}.${ext}`,
-  usable: (kitId: string, assetId: string, ext: string) =>
-    `brand/${kitId}/${assetId}.usable.${ext}`,
-  preview: (kitId: string, assetId: string, ext: string) =>
-    `brand/${kitId}/${assetId}.preview.${ext}`,
+  /** Derived files hang off the original's key (so the editor's `${key}.preview.mp4` convention holds for brand videos). */
+  usable: (originalKey: string, ext: string) => `${originalKey}.usable.${ext}`,
+  preview: (originalKey: string, ext: string) => `${originalKey}.preview.${ext}`,
   thumb: (kitId: string, assetId: string) => `brand/${kitId}/${assetId}.thumb.jpg`,
   /** Editor convention: a video upload at `key` has its 480p copy at `${key}.preview.mp4`. */
   editorPreview: (key: string) => `${key}.preview.mp4`,
+  prefix: (kitId: string) => `brand/${kitId}/`,
 } as const;
 
 /* ------------------------------------------------------------------- pure helpers (shared) ------- */

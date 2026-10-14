@@ -23,6 +23,7 @@ import { Segmented } from '@/components/ui/segmented';
 import { StarButton } from '@/components/ui/star-button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DisabledTip, Tip } from '@/components/ui/tooltip';
+import { DrawerBrandChip } from '@/components/brand-apply/drawer-chip';
 import { ChatLauncher } from '@/components/chat/chat-launcher';
 import { OpenInEditorButton } from '@/components/editor/panels/open-in-editor';
 import { DRAWER_VIEWS, isDrawerView, useClipUi, type DrawerView } from '@/lib/cp2-clips';
@@ -350,6 +351,7 @@ export function ClipDrawer({
                           {clip.status}
                         </Badge>
                       ) : null}
+                      <DrawerBrandChip clip={clip} onOpen={() => setView('reframe')} />
                     </div>
                   </div>
                 </div>

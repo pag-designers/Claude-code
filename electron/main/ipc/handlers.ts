@@ -8,6 +8,8 @@ import type { ChatService } from '../pipeline/chat';
 import type { Cp2Service } from '../pipeline/cp2';
 import type { StyleRegistry } from '../pipeline/styles';
 import type { EditorService } from '../pipeline/editor';
+import type { BrandService } from '../pipeline/brand';
+import type { BrollHub } from '../pipeline/broll';
 import type { CaptionService } from '../pipeline/contracts';
 import type { PipelineOrchestrator } from '../pipeline/orchestrator';
 import type { UrlInfo } from '@shared/pipeline';
@@ -23,6 +25,8 @@ export interface HostApi {
   cp2: Cp2Service;
   chat: ChatService;
   editor: EditorService;
+  brand: BrandService;
+  broll: BrollHub;
   styles: StyleRegistry;
   captions: Pick<CaptionService, 'fonts'>;
   fontsDir(): string | null;
@@ -34,10 +38,6 @@ export interface HostApi {
     stop(): Promise<unknown>;
   };
 }
-
-const notWired = (): never => {
-  throw new Error('Brand Kit is not available yet');
-};
 
 export function buildHandlers(svc: Services, host: HostApi): Handlers {
   const ok = { ok: true as const };
@@ -271,29 +271,42 @@ export function buildHandlers(svc: Services, host: HostApi): Handlers {
     },
     'exports:download': ({ ids }) => host.editor.downloadExports(ids),
 
-    // CP4 INTERIM: replaced by the real brand/broll handlers during integration.
-    'brand:list': notWired,
-    'brand:get': notWired,
-    'brand:create': notWired,
-    'brand:update': notWired,
-    'brand:duplicate': notWired,
-    'brand:delete': notWired,
-    'brand:setDefault': notWired,
-    'brand:browse': notWired,
-    'brand:addFiles': notWired,
-    'brand:renameAsset': notWired,
-    'brand:deleteAssets': notWired,
-    'brand:extractColors': notWired,
-    'brand:fonts': notWired,
-    'brand:styles': notWired,
-    'brand:saveStyle': notWired,
-    'brand:apply': notWired,
-    'brand:defaultKit': notWired,
-    'broll:status': notWired,
-    'broll:search': notWired,
-    'broll:importToProject': notWired,
-    'broll:importToKit': notWired,
-    'broll:suggest': notWired,
+    /* ---- CP4: brand kits ---- */
+    'brand:list': async () => ({ items: await host.brand.listKits() }),
+    'brand:get': ({ id }) => host.brand.get(id),
+    'brand:create': ({ name, copyFrom }) => host.brand.create(name, copyFrom),
+    'brand:update': ({ id, patch, baseRev }) => host.brand.update(id, patch, baseRev),
+    'brand:duplicate': ({ id }) => host.brand.duplicate(id),
+    'brand:delete': async ({ id }) => {
+      await host.brand.remove(id);
+      return ok;
+    },
+    'brand:setDefault': async ({ id }) => {
+      await host.brand.setDefault(id);
+      return ok;
+    },
+    'brand:browse': ({ kitId, kind }) => host.brand.browse(kitId, kind),
+    'brand:addFiles': ({ kitId, kind, paths }) => host.brand.addFiles(kitId, kind, paths),
+    'brand:renameAsset': async ({ id, name }) => {
+      await host.brand.renameAsset(id, name);
+      return ok;
+    },
+    'brand:deleteAssets': ({ ids }) => host.brand.deleteAssets(ids),
+    'brand:extractColors': async ({ assetId, count }) => ({
+      colors: await host.brand.extractColors(assetId, count),
+    }),
+    'brand:fonts': () => host.brand.fontList(),
+    'brand:styles': async ({ kitId }) => ({ styles: await host.brand.styles(kitId) }),
+    'brand:saveStyle': ({ kitId, style }) => host.brand.saveStyle(kitId, style),
+    'brand:apply': ({ kitId, clipIds, videoId }) => host.brand.apply({ kitId, clipIds, videoId }),
+    'brand:defaultKit': async () => ({ id: await host.brand.defaultKitId() }),
+
+    /* ---- CP4: stock B-roll ---- */
+    'broll:status': () => host.broll.status(),
+    'broll:search': (a) => host.broll.search(a),
+    'broll:importToProject': ({ projectId, item }) => host.broll.importToProject(projectId, item),
+    'broll:importToKit': ({ kitId, item }) => host.broll.importToKit(kitId, item),
+    'broll:suggest': async ({ text }) => ({ queries: await host.broll.suggest(text) }),
 
     'shell:openExternal': async ({ url }) => {
       if (!/^https?:\/\//i.test(url)) throw new Error('Only http(s) links can be opened');

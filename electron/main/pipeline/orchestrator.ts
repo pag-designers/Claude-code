@@ -268,7 +268,11 @@ export class PipelineOrchestrator {
     const staleRuns = await this.d.db.momentRun.findMany({ where: { status: 'running' } });
     for (const r of staleRuns) {
       const jobs = await this.d.db.job.count({
-        where: { kind: JOB_MOMENTS_RUN, status: { in: ['queued', 'running'] }, payload: { contains: r.id } },
+        where: {
+          kind: JOB_MOMENTS_RUN,
+          status: { in: ['queued', 'running'] },
+          payload: { contains: r.id },
+        },
       });
       if (jobs === 0)
         await this.d.db.momentRun.update({
@@ -979,7 +983,9 @@ export class PipelineOrchestrator {
         scoreDetail: JSON.stringify(r.breakdown),
         aspect: options.aspect,
         runId,
-        captionStyleId: options.captionStyleId,
+        captionStyleId:
+          (await this.d.brand?.captionStyleForRun?.(options.brandKitId, options.captionStyleId)) ??
+          options.captionStyleId,
         reframeMode: options.reframeMode,
         metadata: JSON.stringify({
           whyItWorks: r.whyItWorks,
@@ -1077,7 +1083,9 @@ export class PipelineOrchestrator {
       throw new AppError('VALIDATION', 'Wait until this video has finished processing.');
     if (!(await this.loadTranscript(videoId)))
       throw new AppError('NOT_FOUND', 'This video has no transcript yet.');
-    const clean = Object.fromEntries(Object.entries(patch ?? {}).filter(([, v]) => v !== undefined));
+    const clean = Object.fromEntries(
+      Object.entries(patch ?? {}).filter(([, v]) => v !== undefined),
+    );
     const options = pipelineOptionsSchema.parse({
       ...readOptions(video.options),
       ...clean,
@@ -1105,7 +1113,11 @@ export class PipelineOrchestrator {
 
   async cancelRun(runId: string): Promise<void> {
     const jobs = await this.d.db.job.findMany({
-      where: { kind: JOB_MOMENTS_RUN, status: { in: ['queued', 'running'] }, payload: { contains: runId } },
+      where: {
+        kind: JOB_MOMENTS_RUN,
+        status: { in: ['queued', 'running'] },
+        payload: { contains: runId },
+      },
     });
     for (const j of jobs) await this.d.queue.cancel(j.id);
     const row = await this.d.db.momentRun.updateMany({
@@ -1137,7 +1149,8 @@ export class PipelineOrchestrator {
         this.loadAnalysis(videoId),
         this.mustVideo(videoId),
       ]);
-      if (!transcript || !signals) throw new Error('The transcript of this video is not available.');
+      if (!transcript || !signals)
+        throw new Error('The transcript of this video is not available.');
       const { maxSec } = durationRange(options);
       const overlapSec = maxSec + 15;
       const duration = transcript.durationSec;
@@ -1475,7 +1488,8 @@ export function toRunView(r: {
     id: r.id,
     videoId: r.videoId,
     prompt: r.prompt,
-    status: (['running', 'done', 'failed', 'canceled'] as const).find((x) => x === r.status) ?? 'failed',
+    status:
+      (['running', 'done', 'failed', 'canceled'] as const).find((x) => x === r.status) ?? 'failed',
     found: r.found,
     error: r.error,
     createdAt: r.createdAt.getTime(),

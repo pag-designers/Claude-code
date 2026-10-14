@@ -1,0 +1,103 @@
+{
+ "Nobody tells you this about money|1080x1920": {
+  "style": "Style: Hook,Montserrat ExtraBold,75,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,26,8,5,86,86,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(540,346)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}Nobody\\Ntells you\\Nthis about money"
+ },
+ "Nobody tells you this about money|1920x1080": {
+  "style": "Style: Hook,Montserrat ExtraBold,71,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,24,7,5,154,154,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(960,194)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}Nobody tells you\\Nthis about money"
+ },
+ "Nobody tells you this about money|1080x1080": {
+  "style": "Style: Hook,Montserrat ExtraBold,75,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,26,8,5,86,86,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(540,194)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}Nobody\\Ntells you\\Nthis about money"
+ },
+ "Nobody tells you this about money|720x1280": {
+  "style": "Style: Hook,Montserrat ExtraBold,50,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,17,5,5,58,58,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(360,230)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}Nobody\\Ntells you\\Nthis about money"
+ },
+ "Nobody tells you this about money|360x640": {
+  "style": "Style: Hook,Montserrat ExtraBold,25,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,9,3,5,29,29,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(180,115)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}Nobody\\Ntells you\\Nthis about money"
+ },
+ "x|1080x1920": {
+  "style": "Style: Hook,Montserrat ExtraBold,80,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,27,8,5,86,86,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(540,346)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}x"
+ },
+ "x|1920x1080": {
+  "style": "Style: Hook,Montserrat ExtraBold,71,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,24,7,5,154,154,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(960,194)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}x"
+ },
+ "x|1080x1080": {
+  "style": "Style: Hook,Montserrat ExtraBold,80,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,27,8,5,86,86,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(540,194)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}x"
+ },
+ "x|720x1280": {
+  "style": "Style: Hook,Montserrat ExtraBold,53,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,18,5,5,58,58,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(360,230)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}x"
+ },
+ "x|360x640": {
+  "style": "Style: Hook,Montserrat ExtraBold,27,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,9,3,5,29,29,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(180,115)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}x"
+ },
+ "The one thing every beginner investor gets wrong about compounding interest and why it matters so much|1080x1920": {
+  "style": "Style: Hook,Montserrat ExtraBold,26,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,9,3,5,86,86,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(540,346)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}The one thing every beginner\\Ninvestor gets wrong about\\Ncompounding interest and why it matters so much"
+ },
+ "The one thing every beginner investor gets wrong about compounding interest and why it matters so much|1920x1080": {
+  "style": "Style: Hook,Montserrat ExtraBold,48,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,16,5,5,154,154,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(960,194)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}The one thing every beginner\\Ninvestor gets wrong about\\Ncompounding interest and why it matters so much"
+ },
+ "The one thing every beginner investor gets wrong about compounding interest and why it matters so much|1080x1080": {
+  "style": "Style: Hook,Montserrat ExtraBold,26,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,9,3,5,86,86,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(540,194)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}The one thing every beginner\\Ninvestor gets wrong about\\Ncompounding interest and why it matters so much"
+ },
+ "The one thing every beginner investor gets wrong about compounding interest and why it matters so much|720x1280": {
+  "style": "Style: Hook,Montserrat ExtraBold,18,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,6,2,5,58,58,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(360,230)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}The one thing every beginner\\Ninvestor gets wrong about\\Ncompounding interest and why it matters so much"
+ },
+ "The one thing every beginner investor gets wrong about compounding interest and why it matters so much|360x640": {
+  "style": "Style: Hook,Montserrat ExtraBold,18,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,6,2,5,29,29,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(180,115)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}The one thing every beginner\\Ninvestor gets wrong about\\Ncompounding interest and why it matters so much"
+ },
+ "Use {this} \\ trick|1080x1920": {
+  "style": "Style: Hook,Montserrat ExtraBold,80,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,27,8,5,86,86,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(540,346)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}Use\\N\\{this\\}  trick"
+ },
+ "Use {this} \\ trick|1920x1080": {
+  "style": "Style: Hook,Montserrat ExtraBold,71,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,24,7,5,154,154,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(960,194)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}Use \\{this\\}  trick"
+ },
+ "Use {this} \\ trick|1080x1080": {
+  "style": "Style: Hook,Montserrat ExtraBold,80,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,27,8,5,86,86,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(540,194)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}Use\\N\\{this\\}  trick"
+ },
+ "Use {this} \\ trick|720x1280": {
+  "style": "Style: Hook,Montserrat ExtraBold,53,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,18,5,5,58,58,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(360,230)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}Use\\N\\{this\\}  trick"
+ },
+ "Use {this} \\ trick|360x640": {
+  "style": "Style: Hook,Montserrat ExtraBold,27,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,9,3,5,29,29,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(180,115)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}Use\\N\\{this\\}  trick"
+ },
+ "Supercalifragilisticexpialidocious Pneumonoultramicroscopicsilicovolcanoconiosis|1080x1920": {
+  "style": "Style: Hook,Montserrat ExtraBold,27,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,9,3,5,86,86,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(540,346)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}Supercalifragilisticexpialidocious\\NPneumonoultramicroscopicsilicovolcanoconiosis"
+ },
+ "Supercalifragilisticexpialidocious Pneumonoultramicroscopicsilicovolcanoconiosis|1920x1080": {
+  "style": "Style: Hook,Montserrat ExtraBold,50,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,17,5,5,154,154,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(960,194)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}Supercalifragilisticexpialidocious\\NPneumonoultramicroscopicsilicovolcanoconiosis"
+ },
+ "Supercalifragilisticexpialidocious Pneumonoultramicroscopicsilicovolcanoconiosis|1080x1080": {
+  "style": "Style: Hook,Montserrat ExtraBold,27,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,9,3,5,86,86,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(540,194)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}Supercalifragilisticexpialidocious\\NPneumonoultramicroscopicsilicovolcanoconiosis"
+ },
+ "Supercalifragilisticexpialidocious Pneumonoultramicroscopicsilicovolcanoconiosis|720x1280": {
+  "style": "Style: Hook,Montserrat ExtraBold,18,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,6,2,5,58,58,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(360,230)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}Supercalifragilisticexpialidocious\\NPneumonoultramicroscopicsilicovolcanoconiosis"
+ },
+ "Supercalifragilisticexpialidocious Pneumonoultramicroscopicsilicovolcanoconiosis|360x640": {
+  "style": "Style: Hook,Montserrat ExtraBold,18,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,6,2,5,29,29,0,1",
+  "event": "Dialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(180,115)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}Supercalifragilisticexpialidocious\\NPneumonoultramicroscopicsilicovolcanoconiosis"
+ },
+ "append": "[Script Info]\n; Generated by Clipfern\nScriptType: v4.00+\nPlayResX: 1080\nPlayResY: 1920\nWrapStyle: 2\nScaledBorderAndShadow: yes\nCollisions: Normal\n\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\nStyle: Hook,Montserrat ExtraBold,80,&H00141110,&H00141110,&H00FFFFFF,&H8C000000,-1,0,0,0,100,100,0,0,3,27,8,5,86,86,0,1\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\nDialogue: 3,0:00:00.00,0:00:02.50,Hook,,0,0,0,,{\\an5\\pos(540,346)\\fad(180,220)\\fscx84\\fscy84\\t(0,260,\\fscx100\\fscy100)\\t(2280,2500,\\fscx94\\fscy94)}Big hook\n"
+}

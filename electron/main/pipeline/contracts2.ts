@@ -177,6 +177,8 @@ export interface LlmServiceV2 {
       hook: string | null;
     } & CommonOpts,
   ): Promise<Omit<ClipMeta, 'generatedAt'>>;
+  /** 3-5 stock-footage search queries for a transcript passage (fast model). */
+  suggestBroll(input: { text: string } & CommonOpts): Promise<string[]>;
   /** Vision: rank candidate thumbnail frames (images) and suggest ≤ 5-word overlay text. */
   rankThumbnails(
     input: {

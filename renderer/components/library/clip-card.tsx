@@ -4,6 +4,7 @@ import * as React from 'react';
 import { motion } from 'framer-motion';
 import { CircleAlert, Clock, Film, Loader2, Play, Search, Sparkles } from 'lucide-react';
 import type { ClipView } from '@shared/pipeline';
+import { BrandedBadge } from '@/components/brand-apply/brand-badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ProgressRing } from '@/components/ui/progress-ring';
 import { ScoreBadge, ScoreChip } from '@/components/ui/score-badge';
@@ -254,6 +255,9 @@ export const ClipCard = React.memo(function ClipCard({
           )}
         />
         <ClipStatusPill clip={clip} className="absolute bottom-2 left-2" />
+        {clip.brandApplied && clip.status === 'rendered' ? (
+          <BrandedBadge applied={clip.brandApplied} className="absolute bottom-2 left-2" />
+        ) : null}
         <span className="absolute bottom-2 right-2 rounded-md bg-black/60 px-1.5 py-0.5 text-2xs font-semibold tabular-nums text-white backdrop-blur-sm">
           {formatClock(clip.durationSec)}
         </span>
@@ -383,6 +387,9 @@ export const ClipRow = React.memo(function ClipRow({
       </div>
       <div className="flex w-32 shrink-0 justify-end">
         <ClipStatusPill clip={clip} className="bg-muted" />
+        {clip.brandApplied && clip.status === 'rendered' ? (
+          <BrandedBadge applied={clip.brandApplied} className="bg-muted" />
+        ) : null}
       </div>
       <div className="flex w-12 shrink-0 justify-center">
         {clip.score === null ? (

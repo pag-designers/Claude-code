@@ -116,6 +116,9 @@ async function makeEnv() {
       llmCalls.meta++;
       return { tiktok: pm(`TT ${hook}`), reels: pm('IG'), shorts: pm('YT') } satisfies Omit<ClipMeta, 'generatedAt'>;
     },
+    async suggestBroll() {
+      return ['city traffic night'];
+    },
     async rankThumbnails({ frames }) {
       llmCalls.rank++;
       if (llmState.visionFails) throw new Error('vision unavailable');

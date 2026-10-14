@@ -44,6 +44,7 @@ import { Segmented } from '@/components/ui/segmented';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tip } from '@/components/ui/tooltip';
+import { ClipBrandSection } from '@/components/brand-apply/brand-section';
 import { StyleStudio } from '@/components/captions/style-studio';
 import {
   DAY_NAMES,
@@ -1458,6 +1459,8 @@ export function ReframeTab({ clipId, clip: provided }: TabProps) {
           <StyleStudioButton clip={clip} />
         </div>
       </section>
+
+      <ClipBrandSection clip={clip} />
 
       <section className="flex flex-col gap-3" aria-label="Subtitle files">
         <SectionLabel>Subtitle files</SectionLabel>

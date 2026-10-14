@@ -23,6 +23,9 @@ importers:
       ffprobe-static:
         specifier: ^3.1.0
         version: 3.1.0
+      wawoff2:
+        specifier: ^2.0.1
+        version: 2.0.1
     devDependencies:
       '@anthropic-ai/sdk':
         specifier: ^0.133.0
@@ -4608,6 +4611,10 @@ packages:
   wait-on@9.5.1:
     resolution: {integrity: sha512-bOtj1wRY6u+GPnNskZLcgZNHOaL5NC4+5hRCbEpVoVX6MbMrCLCqIBM2bjsAfrgst3ZC0siIo7vLb4LuYFfIow==}
     engines: {node: '>=20.0.0'}
+    hasBin: true
+
+  wawoff2@2.0.1:
+    resolution: {integrity: sha512-r0CEmvpH63r4T15ebFqeOjGqU4+EgTx4I510NtK35EMciSdcTxCw3Byy3JnBonz7iyIFZ0AbVo0bbFpEVuhCYA==}
     hasBin: true
 
   web-streams-polyfill@3.3.3:
@@ -9421,6 +9428,10 @@ snapshots:
     transitivePeerDependencies:
       - debug
       - supports-color
+
+  wawoff2@2.0.1:
+    dependencies:
+      argparse: 2.0.1
 
   web-streams-polyfill@3.3.3: {}
 

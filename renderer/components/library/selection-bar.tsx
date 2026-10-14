@@ -2,6 +2,8 @@
 
 import { AnimatePresence, motion } from 'framer-motion';
 import { CalendarClock, Download, PencilRuler, Star, Trash2, X } from 'lucide-react';
+import type { ClipView } from '@shared/pipeline';
+import { ApplyBrandPopover } from '@/components/brand-apply/apply-popover';
 import { Button } from '@/components/ui/button';
 import { DisabledTip } from '@/components/ui/tooltip';
 import { spring } from '@/lib/motion';
@@ -19,6 +21,7 @@ export function SelectionBar({
   onClear,
   onOpenEditor,
   openingEditor,
+  selectedClips,
 }: {
   count: number;
   allFavorite: boolean;
@@ -30,6 +33,8 @@ export function SelectionBar({
   /** Provided when exactly one clip is selected; otherwise the button explains why it is off. */
   onOpenEditor?: () => void;
   openingEditor?: boolean;
+  /** The selected clips; enables "Apply Brand Kit…" (re-renders them with the chosen kit after a confirm). */
+  selectedClips?: readonly ClipView[];
 }) {
   return (
     <AnimatePresence>
@@ -81,6 +86,13 @@ export function SelectionBar({
               </Button>
             </DisabledTip>
           )}
+          {selectedClips ? (
+            <ApplyBrandPopover
+              clips={selectedClips}
+              label="Apply Brand Kit…"
+              testId="selection-apply-brand"
+            />
+          ) : null}
           <Button size="sm" variant="danger-ghost" onClick={onDelete}>
             <Trash2 /> Delete
           </Button>

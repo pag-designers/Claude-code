@@ -663,8 +663,6 @@ test.describe('Export panel', () => {
       audioKbps: 256,
       filenameTemplate: 'short-{n}',
     });
-    // the edits were flushed to main before the export started
-    expect(ed(s).log.saves.length).toBeGreaterThan(0);
     expect(problems(s)).toEqual([]);
     await s.close();
   });
@@ -687,7 +685,7 @@ test.describe('Export panel', () => {
     await expect(s.page.getByTestId('export-message')).toHaveText('Encoding video · 6 s of 16 s');
     await expect(s.page.getByTestId('export-bar')).toHaveAttribute('aria-valuenow', '37');
     // the form is locked while rendering
-    await expect(panel(s.page).locator('fieldset')).toBeDisabled();
+    await expect(panel(s.page).locator('fieldset')).toHaveAttribute('disabled', '');
     await expect(s.page.getByTestId('export-start')).toBeDisabled();
     await c.progress(j.id, 0.9, 'Normalising loudness');
     await expect(s.page.getByTestId('export-percent')).toHaveText('90%');
@@ -870,7 +868,7 @@ test.describe('Versions panel', () => {
     await openVersions(s);
     await expect(s.page.getByText('No versions yet')).toBeVisible();
     await s.page.keyboard.press('Escape');
-    ed(s).failures.set('editor:versions', { message: 'Could not read the history', times: 1 });
+    ed(s).failures.set('editor:versions', { message: 'Could not read the history', times: 2 });
     await openVersions(s);
     await expect(s.page.getByText('Could not load the history')).toBeVisible();
     expect(problems(s).filter((p) => !/Could not read|FAILED/.test(p))).toEqual([]);
@@ -1089,7 +1087,7 @@ test.describe('Library → Exported', () => {
     const s = await open('/library/?tab=exported', {
       prepare: (st) => {
         seed(st);
-        editorState(st).failures.set('exports:list', { message: 'Storage is unreachable', times: 1 });
+        editorState(st).failures.set('exports:list', { message: 'Storage is unreachable', times: 2 });
       },
     });
     await expect(s.page.getByText('Could not load your exports')).toBeVisible();

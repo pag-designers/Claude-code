@@ -112,7 +112,7 @@ function LibraryRowItem({ row, inProject }: { row: LibraryRow; inProject: boolea
       draggable
       onDragStart={(e) => {
         // the drop target needs a project asset id, so the asset is created the moment the drag starts
-        const asset = ensureLibraryAsset(row);
+        const asset = ensureLibraryAsset(row, { defer: true });
         startAssetDrag(e.dataTransfer, asset.id, asset.name);
       }}
       onDoubleClick={() => addAssetToTimeline(ensureLibraryAsset(row).id)}

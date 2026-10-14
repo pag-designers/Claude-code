@@ -6,7 +6,12 @@
 import { handleKey, useEditorStore } from '@/lib/editor/core';
 
 export { useEditorStore };
-export { createCompositor, computeDrag, parseCube, ensureEditorFonts } from '@/lib/editor/compositor';
+export {
+  createCompositor,
+  computeDrag,
+  parseCube,
+  ensureEditorFonts,
+} from '@/lib/editor/compositor';
 
 /** Forwards a keyboard event to the editor's shortcut map. Returns true when it was handled. */
 export function forwardKey(event: KeyboardEvent): boolean {

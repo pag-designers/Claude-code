@@ -63,6 +63,7 @@ export function useOpenInEditor() {
         } else {
           toast.success(`“${doc.name}” is ready`, {
             description: 'Find it in Library → Edited.',
+            duration: 15_000,
             action: { label: 'Open', onClick: () => router.push(editorHref(doc.id)) },
           });
         }

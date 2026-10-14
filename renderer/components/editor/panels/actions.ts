@@ -42,8 +42,12 @@ export function addAssetToTimeline(assetId: string): string | null {
   return id;
 }
 
-/** Makes sure a Library row exists as a project asset (reusing one added earlier) and returns it. */
-export function ensureLibraryAsset(row: LibraryRow): Asset {
+/**
+ * Makes sure a Library row exists as a project asset (reusing one added earlier) and returns it.
+ * `defer` postpones the store write to the next task: Chromium cancels a drag whose `dragstart` handler changes the
+ * DOM synchronously, and the drop target only needs the asset id (it adds the asset long after the timeout ran).
+ */
+export function ensureLibraryAsset(row: LibraryRow, opts: { defer?: boolean } = {}): Asset {
   const st = store();
   const source = row.clip
     ? ({ kind: 'clip', clipId: row.clip.id } as const)
@@ -53,7 +57,8 @@ export function ensureLibraryAsset(row: LibraryRow): Asset {
   const asset = row.clip
     ? assetFromClip(row.clip, newId('as'))
     : assetFromVideo(row.video!, newId('as'));
-  st.addAssets([asset]);
+  if (opts.defer) setTimeout(() => store().addAssets([asset]), 0);
+  else st.addAssets([asset]);
   return asset;
 }
 

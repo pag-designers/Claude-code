@@ -1,6 +1,5 @@
 import type { Project } from '@shared/editor';
 import type { Waveform } from '@shared/editor';
-import { projectDuration } from '@shared/editor-eval';
 import type { Compositor, CompositorExports } from '../compositor/api';
 import type { EditorStore } from '../core/api';
 import type { ThumbStrip } from './api';
@@ -90,7 +89,6 @@ export class PlaybackEngineImpl implements PlaybackEngineExt {
   private skippedForMissing = 0;
   private renders = 0;
   private disposed = false;
-  private warmed = new Set<string>();
   private lastPlaying = false;
   private lastRate = 1;
   private statusNotifyPending = false;
@@ -314,11 +312,6 @@ export class PlaybackEngineImpl implements PlaybackEngineExt {
     this.pool.setProject(project);
     this.compositor?.setProject(project);
     this.mixer?.setProject(project);
-    for (const a of project.assets) {
-      if (!this.warmed.has(a.id)) {
-        this.warmed.add(a.id);
-      }
-    }
     this.pool.warmup();
     for (const a of project.assets)
       if (a.kind === 'audio' || (a.kind === 'video' && a.hasAudio)) this.caches.waveform(a.id);
@@ -481,5 +474,3 @@ export class PlaybackEngineImpl implements PlaybackEngineExt {
     if (missing.length) this.missingSince = null;
   }
 }
-
-export { projectDuration };

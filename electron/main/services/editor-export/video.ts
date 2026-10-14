@@ -44,8 +44,10 @@ export const TOL = {
 } as const;
 
 const MAX_PIECES = 90;
-/** Slot-timestamp bias: with `fps round=near` a frame lands on slot ceil(τ·F − 0.0001), i.e. "last source frame at or before". */
-const SLOT_BIAS = 0.4999;
+/** Slot-timestamp bias: with `fps round=near` a frame lands on slot ceil(τ·F − 0.01), i.e. "last source frame at or before" (0.01 slot = 0.3 ms of slack for timebase rounding). */
+const SLOT_BIAS = 0.49;
+/** Reverse: a frame is shown from the first slot STRICTLY after (c − period) (display interval (c−period, c]). */
+const SLOT_BIAS_REV = 0.51;
 /** Reverse is buffered in memory: chunks of at most this many source seconds. */
 const REVERSE_CHUNK_SEC = 4;
 
@@ -88,6 +90,8 @@ function sampleMedia(
   const m = info.jb - info.ja;
   const srcW = file.width as number;
   const srcH = file.height as number;
+  const lw = file.layoutW ?? srcW;
+  const lh = file.layoutH ?? srcH;
   const off = item.type === 'video' ? makeSourceOffset(item) : () => 0;
   const s: Samples = {
     m,
@@ -124,7 +128,7 @@ function sampleMedia(
       mode === 'bg' ? BG_BLUR_FRACTION * shortSide : Math.max(0, animatedAt(item.blur, tl));
     const blurOps = (ops?.blur ?? 0) * shortSide;
     const rc = resolveCrop(item.crop, tl);
-    const nl = naturalLayout(mode === 'bg' ? 'cover' : item.fit, rc, srcW, srcH, cw, ch);
+    const nl = naturalLayout(mode === 'bg' ? 'cover' : item.fit, rc, lw, lh, cw, ch);
     s.tOut.push(grid.out(j));
     s.c.push(off(tl));
     s.cx.push(ctx.W / 2 + K * (tr.x * sOps + (ops?.dx ?? 0) * cw));
@@ -133,10 +137,11 @@ function sampleMedia(
     s.rot.push(tr.rotation);
     s.opa.push(info.hidden[k] ? 0 : tr.opacity * (ops?.opacity ?? 1));
     s.blur.push(K * Math.hypot(blurItem, blurOps));
-    s.sx.push(nl.src.x);
-    s.sy.push(nl.src.y);
-    s.sw.push(nl.src.w);
-    s.sh.push(nl.src.h);
+    // the layout is computed on the asset's size; sample the same normalised region of the decoded file
+    s.sx.push((nl.src.x / lw) * srcW);
+    s.sy.push((nl.src.y / lh) * srcH);
+    s.sw.push((nl.src.w / lw) * srcW);
+    s.sh.push((nl.src.h / lh) * srcH);
     s.dstW.push(nl.dst.w);
     s.dstH.push(nl.dst.h);
     s.color.push(resolveColor(item.color, tl));
@@ -212,6 +217,7 @@ function timeChain(ctx: Ctx, item: VideoItem, file: FileInfo, info: ItemFrameInf
     let srcStart: number;
     let srcLen: number;
     let cOff: number;
+    let trimEnd = 0;
     if (!item.reverse) {
       srcStart = Math.max(0, item.inSec + cLo - (1.5 * period + 0.02));
       srcLen = item.inSec + cHi + 2 * period - srcStart;
@@ -221,17 +227,19 @@ function timeChain(ctx: Ctx, item: VideoItem, file: FileInfo, info: ItemFrameInf
       const low = item.inSec + fullSpan - cHi - 1.5 * period;
       srcStart = Math.max(0, low);
       srcLen = top + 0.0005 - srcStart;
-      cOff = cLo;
+      cOff = cLo - period;
+      // `-t` on an input lets about one frame too many through: cut the window exactly (relative to -ss)
+      trimEnd = top + 0.0005 - Number(ss(srcStart));
     }
     const idx = ctx.g.addInput(['-ss', ss(srcStart), '-t', num(Math.max(0.1, srcLen), 4), '-i', file.path]);
     const c = new Chain(ctx.g, `${idx}:v:0`);
-    if (item.reverse) c.push('setpts=PTS-STARTPTS', 'reverse');
+    if (item.reverse) c.push(filt('trim', { end: num(trimEnd, 4) }), 'setpts=PTS-STARTPTS', 'reverse');
     // G(c) → absolute output time of that source frame; T = pts (s) of the frame in this chain
     const times: number[] = [];
     const vals: number[] = [];
     for (let k = k0; k < k1; k++) {
       times.push((s.c[k] as number) - cOff);
-      vals.push((s.tOut[k] as number) + SLOT_BIAS / F);
+      vals.push((s.tOut[k] as number) + (item.reverse ? SLOT_BIAS_REV : SLOT_BIAS) / F);
     }
     const g = toSeries(times, vals, TOL.time);
     // a series with a single knot (m === 1) is constant: build a unit-slope line instead
@@ -625,7 +633,7 @@ function applyColor(
   if (lutId) {
     const path = opts.lut(lutId);
     const amount = item.color.lutAmount;
-    const lutF = filt('lut3d', { file: pathOpt(path), interp: 'tetrahedral' });
+    const lutF = filt('lut3d', { file: pathOpt(path), interp: 'trilinear' });
     if (amount >= 0.999) c.push(lutF);
     else if (amount > 0.001) {
       const base = c.flush();

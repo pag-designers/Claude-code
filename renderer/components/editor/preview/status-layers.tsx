@@ -57,7 +57,7 @@ export function PreviewLoading({ delayMs = 160 }: { delayMs?: number }) {
       data-testid="preview-loading"
       role="status"
       aria-live="polite"
-      className="absolute inset-0 flex flex-col items-center justify-end gap-2 p-4"
+      className="pointer-events-none absolute inset-0 flex flex-col items-center justify-end gap-2 p-4"
     >
       <Skeleton className="absolute inset-0 rounded-none opacity-60" />
       <span className="relative rounded-full bg-popover/90 px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm">

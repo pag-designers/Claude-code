@@ -322,7 +322,7 @@ export function seedEditor(state: Cp1State): void {
     updatedAt: now - 5 * 24 * h,
     createdAt: now - 6 * 24 * h,
   });
-  addVersion(state, 'ep-clip', { kind: 'auto', label: null, createdAt: now - 3 * h });
+  addVersion(state, 'ep-clip', { kind: 'auto', label: null, createdAt: now - 20 * 60_000 });
   addVersion(state, 'ep-clip', {
     kind: 'manual',
     label: 'Before the b-roll pass',
@@ -524,7 +524,7 @@ export async function handleEditorPanels(
     case 'editor:create': {
       ed.log.creates.push(p);
       if (ed.createDelayMs) await sleep(ed.createDelayMs);
-      const id = `ep-new-${++ed.counter}`;
+      const id = `ep-new-${ed.log.creates.length}`;
       let project: Project;
       let name = (p.name as string | undefined) ?? 'Untitled project';
       if ('clipId' in p.from) {

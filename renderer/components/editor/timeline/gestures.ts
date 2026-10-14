@@ -103,6 +103,7 @@ type Gesture = Base &
         index: number;
         value: number;
         startT: number;
+        grab: number;
         t: number;
         item: Item;
       }
@@ -319,7 +320,7 @@ export function createGestures(getScroller: () => HTMLDivElement | null): Gestur
       case 'kf': {
         const local = Math.max(
           0,
-          Math.min(g.item.durationSec, snapToFrame(secAt(cx) - g.item.startSec, fps)),
+          Math.min(g.item.durationSec, snapToFrame(secAt(cx) - g.item.startSec - g.grab, fps)),
         );
         g.t = local;
         UI().set({

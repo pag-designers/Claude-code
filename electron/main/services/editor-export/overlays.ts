@@ -69,22 +69,70 @@ function resolveTextFont(family: string, weight: number, italic: boolean): FontS
   return { name: family, bold: weight >= 600, italic, cell: 1.2, face: null };
 }
 
-/** Greedy word wrap with the face's real advances (explicit \n kept). */
-function wrapText(text: string, font: FontSetup, fsAss: number, spacing: number, maxW: number): string[] {
-  const out: string[] = [];
-  for (const para of text.split('\n')) {
-    const words = para.split(/ +/);
-    let cur = '';
-    for (const w of words) {
-      const trial = cur === '' ? w : `${cur} ${w}`;
-      if (cur !== '' && measureText(font.face, trial, fsAss, spacing) > maxW) {
-        out.push(cur);
-        cur = w;
-      } else cur = trial;
+interface WrapLine {
+  text: string;
+  /** Code-point range of the line inside the whole text (typewriter reveals by index). */
+  start: number;
+  end: number;
+  /** Advance incl. letter spacing after EVERY code point (libass \fsp), output px at scale 1. */
+  width: number;
+}
+
+/**
+ * The preview's rules (renderer/lib/editor/compositor/text-layout.ts): greedy wrap at spaces, `\n` always breaks,
+ * an over-long word is never split, leading / trailing spaces of a line are dropped, interior spaces kept.
+ */
+function wrapText(text: string, font: FontSetup, fsAss: number, ls: number, wrapW: number): WrapLine[] {
+  const cps = Array.from(text);
+  const advance = (str: string): number =>
+    str === '' ? 0 : measureText(font.face, str, fsAss, 0) + Array.from(str).length * ls;
+  const lines: WrapLine[] = [];
+  const isSpace = (c: string): boolean => c === ' ' || c === '\t';
+  let p = 0;
+  while (p <= cps.length) {
+    let q = p;
+    while (q < cps.length && cps[q] !== '\n') q++;
+    const toks: [number, number][] = [];
+    for (let i = p; i < q; ) {
+      if (isSpace(cps[i] as string)) {
+        i++;
+        continue;
+      }
+      let j = i;
+      while (j < q && !isSpace(cps[j] as string)) j++;
+      toks.push([i, j]);
+      i = j;
     }
-    out.push(cur);
+    if (toks.length === 0) lines.push({ text: '', start: p, end: p, width: 0 });
+    else {
+      const seg = (a: number, b: number): string =>
+        cps.slice((toks[a] as [number, number])[0], (toks[b] as [number, number])[1]).join('');
+      let first = 0;
+      let cur = '';
+      for (let k = 0; k < toks.length; k++) {
+        const cand = seg(first, k);
+        if (k > first && advance(cand) > wrapW) {
+          const t = seg(first, k - 1);
+          lines.push({
+            text: t,
+            start: (toks[first] as [number, number])[0],
+            end: (toks[k - 1] as [number, number])[1],
+            width: advance(t),
+          });
+          first = k;
+          cur = seg(first, k);
+        } else cur = cand;
+      }
+      lines.push({
+        text: cur,
+        start: (toks[first] as [number, number])[0],
+        end: (toks[toks.length - 1] as [number, number])[1],
+        width: advance(cur),
+      });
+    }
+    p = q + 1;
   }
-  return out;
+  return lines;
 }
 
 interface Event {
@@ -122,7 +170,7 @@ function textEvents(ctx: Ctx, item: TextItem, info: ItemFrameInfo, styleName: st
   const spacingBase = st.letterSpacing * K;
   const maxW = (st.maxWidth ?? cw * 0.8) * K;
   const lines = wrapText(item.text, font, fsBase, spacingBase, maxW);
-  const widths = lines.map((l) => measureText(font.face, l, fsBase, spacingBase));
+  const widths = lines.map((l) => l.width);
   const blockW = Math.max(1, ...widths);
   const lineH = st.lineHeight * size;
   const m = info.jb - info.ja;
@@ -189,11 +237,9 @@ function textEvents(ctx: Ctx, item: TextItem, info: ItemFrameInfo, styleName: st
       });
     }
 
-    let remaining = f.chars;
-    lines.forEach((line, li) => {
-      const chars = Array.from(line);
-      const showN = Math.max(0, Math.min(chars.length, remaining));
-      remaining -= chars.length + 1; // the break character between lines
+    lines.forEach((wl, li) => {
+      const chars = Array.from(wl.text);
+      const showN = Math.max(0, Math.min(chars.length, f.chars - wl.start));
       if (showN <= 0) return;
       const shown = chars.slice(0, showN).join('');
       const hidden = chars.slice(showN).join('');
@@ -270,28 +316,97 @@ function textStyleLine(name: string, item: TextItem, ctx: Ctx): string {
 /* ----------------------------------------------------------------------------- shapes ----------- */
 
 const KAPPA = 0.5523;
+const f1 = (n: number): string => r1(n);
 
-function ellipsePath(w: number, h: number): string {
-  const f = (n: number): string => r1(n);
-  const rx = w / 2;
-  const ry = h / 2;
+/** Rounded rectangle at (x,y); `cw` = clockwise (outer contour), else counter-clockwise (a hole in a ring). */
+function rrect(x: number, y: number, w: number, h: number, rad: number, cw: boolean): string {
+  const r = Math.max(0, Math.min(rad, w / 2, h / 2));
+  const c = r * KAPPA;
+  if (r < 0.5) {
+    return cw
+      ? `m ${f1(x)} ${f1(y)} l ${f1(x + w)} ${f1(y)} l ${f1(x + w)} ${f1(y + h)} l ${f1(x)} ${f1(y + h)}`
+      : `m ${f1(x)} ${f1(y)} l ${f1(x)} ${f1(y + h)} l ${f1(x + w)} ${f1(y + h)} l ${f1(x + w)} ${f1(y)}`;
+  }
+  if (cw) {
+    return [
+      `m ${f1(x + r)} ${f1(y)}`,
+      `l ${f1(x + w - r)} ${f1(y)}`,
+      `b ${f1(x + w - r + c)} ${f1(y)} ${f1(x + w)} ${f1(y + r - c)} ${f1(x + w)} ${f1(y + r)}`,
+      `l ${f1(x + w)} ${f1(y + h - r)}`,
+      `b ${f1(x + w)} ${f1(y + h - r + c)} ${f1(x + w - r + c)} ${f1(y + h)} ${f1(x + w - r)} ${f1(y + h)}`,
+      `l ${f1(x + r)} ${f1(y + h)}`,
+      `b ${f1(x + r - c)} ${f1(y + h)} ${f1(x)} ${f1(y + h - r + c)} ${f1(x)} ${f1(y + h - r)}`,
+      `l ${f1(x)} ${f1(y + r)}`,
+      `b ${f1(x)} ${f1(y + r - c)} ${f1(x + r - c)} ${f1(y)} ${f1(x + r)} ${f1(y)}`,
+    ].join(' ');
+  }
   return [
-    `m 0 ${f(ry)}`,
-    `b 0 ${f(ry - KAPPA * ry)} ${f(rx - KAPPA * rx)} 0 ${f(rx)} 0`,
-    `b ${f(rx + KAPPA * rx)} 0 ${f(w)} ${f(ry - KAPPA * ry)} ${f(w)} ${f(ry)}`,
-    `b ${f(w)} ${f(ry + KAPPA * ry)} ${f(rx + KAPPA * rx)} ${f(h)} ${f(rx)} ${f(h)}`,
-    `b ${f(rx - KAPPA * rx)} ${f(h)} 0 ${f(ry + KAPPA * ry)} 0 ${f(ry)}`,
+    `m ${f1(x + r)} ${f1(y)}`,
+    `b ${f1(x + r - c)} ${f1(y)} ${f1(x)} ${f1(y + r - c)} ${f1(x)} ${f1(y + r)}`,
+    `l ${f1(x)} ${f1(y + h - r)}`,
+    `b ${f1(x)} ${f1(y + h - r + c)} ${f1(x + r - c)} ${f1(y + h)} ${f1(x + r)} ${f1(y + h)}`,
+    `l ${f1(x + w - r)} ${f1(y + h)}`,
+    `b ${f1(x + w - r + c)} ${f1(y + h)} ${f1(x + w)} ${f1(y + h - r + c)} ${f1(x + w)} ${f1(y + h - r)}`,
+    `l ${f1(x + w)} ${f1(y + r)}`,
+    `b ${f1(x + w)} ${f1(y + r - c)} ${f1(x + w - r + c)} ${f1(y)} ${f1(x + w - r)} ${f1(y)}`,
   ].join(' ');
 }
 
-/** Shaft (34 % of the height) + triangular head (length min(45 % of the width, 90 % of the height)). */
-function arrowPath(w: number, h: number): string {
-  const f = (n: number): string => r1(n);
-  const head = Math.min(w * 0.45, h * 0.9);
-  const shaft = h * 0.34;
-  const y0 = (h - shaft) / 2;
+function ellipse(x: number, y: number, w: number, h: number, cw: boolean): string {
+  const rx = w / 2;
+  const ry = h / 2;
+  const cx = x + rx;
+  const cy = y + ry;
+  const kx = KAPPA * rx;
+  const ky = KAPPA * ry;
+  const cwPath = [
+    `m ${f1(x)} ${f1(cy)}`,
+    `b ${f1(x)} ${f1(cy - ky)} ${f1(cx - kx)} ${f1(y)} ${f1(cx)} ${f1(y)}`,
+    `b ${f1(cx + kx)} ${f1(y)} ${f1(x + w)} ${f1(cy - ky)} ${f1(x + w)} ${f1(cy)}`,
+    `b ${f1(x + w)} ${f1(cy + ky)} ${f1(cx + kx)} ${f1(y + h)} ${f1(cx)} ${f1(y + h)}`,
+    `b ${f1(cx - kx)} ${f1(y + h)} ${f1(x)} ${f1(cy + ky)} ${f1(x)} ${f1(cy)}`,
+  ];
+  if (cw) return cwPath.join(' ');
+  return [
+    `m ${f1(x)} ${f1(cy)}`,
+    `b ${f1(x)} ${f1(cy + ky)} ${f1(cx - kx)} ${f1(y + h)} ${f1(cx)} ${f1(y + h)}`,
+    `b ${f1(cx + kx)} ${f1(y + h)} ${f1(x + w)} ${f1(cy + ky)} ${f1(x + w)} ${f1(cy)}`,
+    `b ${f1(x + w)} ${f1(cy - ky)} ${f1(cx + kx)} ${f1(y)} ${f1(cx)} ${f1(y)}`,
+    `b ${f1(cx - kx)} ${f1(y)} ${f1(x)} ${f1(cy - ky)} ${f1(x)} ${f1(cy)}`,
+  ].join(' ');
+}
+
+/** Right-pointing arrow in a w×h box: shaft 40 % of the height, head min(w/2, 0.9·h) long and h tall. */
+function arrow(x: number, y: number, w: number, h: number, cw: boolean): string {
+  const head = Math.min(w / 2, 0.9 * h);
+  const shaft = 0.4 * h;
+  const y0 = y + (h - shaft) / 2;
   const y1 = y0 + shaft;
-  return `m 0 ${f(y0)} l ${f(w - head)} ${f(y0)} l ${f(w - head)} 0 l ${f(w)} ${f(h / 2)} l ${f(w - head)} ${f(h)} l ${f(w - head)} ${f(y1)} l 0 ${f(y1)}`;
+  const pts: [number, number][] = [
+    [x, y0],
+    [x + w - head, y0],
+    [x + w - head, y],
+    [x + w, y + h / 2],
+    [x + w - head, y + h],
+    [x + w - head, y1],
+    [x, y1],
+  ];
+  const ordered = cw ? pts : [...pts].reverse();
+  return ordered.map(([px, py], i) => `${i === 0 ? 'm' : 'l'} ${f1(px)} ${f1(py)}`).join(' ');
+}
+
+function shapePath(
+  shape: ShapeItem['shape'],
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  rad: number,
+  cw: boolean,
+): string {
+  if (shape === 'ellipse') return ellipse(x, y, w, h, cw);
+  if (shape === 'arrow') return arrow(x, y, w, h, cw);
+  return rrect(x, y, w, h, rad, cw);
 }
 
 function shapeEvents(ctx: Ctx, item: ShapeItem, info: ItemFrameInfo, styleName: string): Event[] {
@@ -331,34 +446,45 @@ function shapeEvents(ctx: Ctx, item: ShapeItem, info: ItemFrameInfo, styleName: 
     if (f.opa <= 0.002 || f.s <= 0.005) continue;
     const start = grid.out(info.ja + run.k0) - half;
     const end = grid.out(info.ja + run.k1 - 1) + half;
-    const w = item.width * K * f.s;
+    const W0 = item.width * K * f.s;
     const h = item.height * K * f.s;
-    const x0 = f.cx - w / 2;
+    // progress bar: only the filled part, left-anchored in the natural rect; the radius is clamped to it
+    const w = item.shape === 'progress-bar' ? W0 * f.p : W0;
+    if (w < 0.5 || h < 0.5) continue;
+    const x0 = f.cx - W0 / 2;
     const y0 = f.cy - h / 2;
-    let path: string;
-    let dw = w;
-    switch (item.shape) {
-      case 'ellipse':
-        path = ellipsePath(w, h);
-        break;
-      case 'arrow':
-        path = arrowPath(w, h);
-        break;
-      case 'progress-bar':
-        dw = Math.max(0.01, w * f.p);
-        if (f.p <= 0) continue;
-        path = roundedRectPath(Math.round(dw), Math.round(h), item.radius * K * f.s);
-        break;
-      default:
-        path = roundedRectPath(Math.round(w), Math.round(h), item.radius * K * f.s);
-    }
-    const bord = item.stroke ? item.stroke.width * K * f.s : 0;
+    const rad = item.radius * K * f.s;
+    const sw = item.stroke ? Math.min(item.stroke.width * K * f.s, Math.min(w, h) / 2) : 0;
     const frz = Math.abs(f.rot) > 0.01 ? `\\frz${num(-f.rot, 2)}` : '';
-    const tags =
-      `\\an7\\pos(${r1(x0)},${r1(y0)})\\org(${r1(f.cx)},${r1(f.cy)})${frz}` +
-      `\\bord${num(bord, 2)}\\shad0\\blur0.4\\1c${assTagColor(item.fill)}\\1a${alphaTag(item.fillOpacity * f.opa)}` +
-      `\\3c${assTagColor(item.stroke?.color ?? '#000000')}\\3a${alphaTag(item.stroke ? f.opa : 0)}\\p1`;
-    events.push({ layer: 1, start, end, style: styleName, text: `{${tags}}${path}{\\p0}` });
+    const base = `\\an7\\pos(${r1(x0)},${r1(y0)})\\org(${r1(f.cx)},${r1(f.cy)})${frz}\\bord0\\shad0\\blur0.4\\p1`;
+    // fill: the whole shape, fillOpacity applies to the fill only
+    events.push({
+      layer: 1,
+      start,
+      end,
+      style: styleName,
+      text: `{${base}\\1c${assTagColor(item.fill)}\\1a${alphaTag(item.fillOpacity * f.opa)}}${shapePath(item.shape === 'progress-bar' ? 'rect' : item.shape, 0, 0, w, h, rad, true)}{\\p0}`,
+    });
+    // stroke: an opaque band INSIDE the natural rect (outer contour + inner hole)
+    if (item.stroke && sw >= 0.5) {
+      const inner = shapePath(
+        item.shape === 'progress-bar' ? 'rect' : item.shape,
+        sw,
+        sw,
+        Math.max(0.5, w - 2 * sw),
+        Math.max(0.5, h - 2 * sw),
+        Math.max(0, rad - sw),
+        false,
+      );
+      const outer = shapePath(item.shape === 'progress-bar' ? 'rect' : item.shape, 0, 0, w, h, rad, true);
+      events.push({
+        layer: 2,
+        start,
+        end,
+        style: styleName,
+        text: `{${base}\\1c${assTagColor(item.stroke.color)}\\1a${alphaTag(f.opa)}}${outer} ${inner}{\\p0}`,
+      });
+    }
   }
   return events;
 }
@@ -370,19 +496,27 @@ const shapeStyleLine = (name: string): string =>
 
 const KEEP_STYLE_RE = /^(Dialogue: \d+,[^,]+,[^,]+,)(Caption(?:Bg)?),/;
 
-function shiftDialogue(line: string, offset: number): string {
-  return line.replace(
-    /^(Dialogue: \d+,)(\d+:\d{2}:\d{2}\.\d{2}),(\d+:\d{2}:\d{2}\.\d{2}),/,
-    (_m, head: string, a: string, b: string) =>
-      `${head}${assTime(parseAssTime(a) + offset)},${assTime(parseAssTime(b) + offset)},`,
-  );
-}
-
 function parseAssTime(t: string): number {
   const m = /^(\d+):(\d{2}):(\d{2})\.(\d{2})$/.exec(t);
   if (!m) return 0;
   return Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) + Number(m[4]) / 100;
 }
+
+interface DLine {
+  layer: string;
+  start: number;
+  end: number;
+  rest: string;
+}
+
+function parseDialogue(line: string): DLine | null {
+  const m = /^Dialogue: (\d+),(\d+:\d{2}:\d{2}\.\d{2}),(\d+:\d{2}:\d{2}\.\d{2}),(.*)$/.exec(line);
+  if (!m) return null;
+  return { layer: m[1] as string, start: parseAssTime(m[2] as string), end: parseAssTime(m[3] as string), rest: m[4] as string };
+}
+
+const fmtDialogue = (d: DLine, offset: number): string =>
+  `Dialogue: ${d.layer},${assTime(d.start + offset)},${assTime(d.end + offset)},${d.rest}`;
 
 /** Splits `{tags}text{tags}text` into alternating segments. */
 const segments = (text: string): string[] => text.split(/(\{[^}]*\})/);
@@ -392,7 +526,14 @@ interface SubOut {
   events: string[];
 }
 
-/** One subtitle item → ASS lines in output time (per-word colours merged in). */
+const PUNCT_END = /[.?!…,;:–—]["')\]”’]*$/;
+
+/**
+ * One subtitle item = ONE caption block shown for the whole item (the preview's rule), built with the caption
+ * engine: the chunker is neutralised (no phrase splits: a zero-width joiner hides trailing punctuation, word ends
+ * are bridged to the next start, maxWords / maxChars lifted — lines still break by width), the entrance happens at
+ * the item start, the block stays until the item end, and the active word is the last word that has started.
+ */
 function subtitleLines(
   ctx: Ctx,
   item: SubtitleItem,
@@ -401,50 +542,106 @@ function subtitleLines(
   styleTag: string,
   r0: number,
 ): SubOut {
-  const words: Word[] = item.words.map((w) => ({ w: w.w, s: w.s, e: Math.max(w.e, w.s) }));
-  const base = (keywords: string[] | undefined, st: CaptionStyle): string =>
-    captions.buildAss({
-      words,
-      startSec: 0,
-      endSec: item.durationSec,
-      width: ctx.W,
-      height: ctx.H,
-      style: st,
-      keywords,
-    });
-  const docBase = base(undefined, style).split('\n');
-  const dlg = docBase.filter((l) => l.startsWith('Dialogue:'));
-  const merged = [...dlg];
-  // per-word emphasis colours: one extra pass per distinct colour (keyword colour = that colour)
-  const byColor = new Map<string, string[]>();
-  for (const w of item.words) {
-    if (!w.color) continue;
-    const list = byColor.get(w.color) ?? [];
-    list.push(w.w);
-    byColor.set(w.color, list);
-  }
-  for (const [color, ws] of byColor) {
-    const pass = base(ws, { ...style, keywordColor: color })
-      .split('\n')
-      .filter((l) => l.startsWith('Dialogue:'));
-    if (pass.length !== dlg.length) continue;
-    for (let i = 0; i < merged.length; i++) {
-      const a = segments(merged[i] as string);
-      const b = segments(pass[i] as string);
-      if (a.length !== b.length) continue;
-      for (let k = 0; k < a.length; k++) {
-        if ((a[k] as string).startsWith('{') && a[k] !== b[k]) a[k] = b[k] as string;
-      }
-      merged[i] = a.join('');
+  const sorted = [...item.words]
+    .filter((w) => w.w.trim() !== '')
+    .sort((x, y) => x.s - y.s);
+  const words: Word[] = sorted.map((w, i) => {
+    const next = sorted[i + 1];
+    const e = next ? Math.max(next.s, w.s) : Math.max(w.e, w.s);
+    return { w: PUNCT_END.test(w.w.trim()) ? `${w.w}‍` : w.w, s: w.s, e };
+  });
+  const dur = item.durationSec;
+  const lift = (st: CaptionStyle): CaptionStyle => ({
+    ...st,
+    chunking: { ...st.chunking, maxWords: 64, maxChars: 999 },
+  });
+  const build = (st: CaptionStyle, kw?: string[]): string[] =>
+    captions
+      .buildAss({ words, startSec: 0, endSec: dur, width: ctx.W, height: ctx.H, style: lift(st), keywords: kw })
+      .split('\n');
+  const dialogues = (doc: string[]): string[] => doc.filter((l) => l.startsWith('Dialogue:'));
+  /** Dialogue lines with the per-word emphasis colours merged in (one extra pass per distinct colour). */
+  const withColors = (st: CaptionStyle): string[] => {
+    const base = dialogues(build(st));
+    const merged = [...base];
+    const byColor = new Map<string, string[]>();
+    for (const w of item.words) {
+      if (!w.color) continue;
+      const list = byColor.get(w.color) ?? [];
+      list.push(w.w);
+      byColor.set(w.color, list);
     }
+    for (const [color, ws] of byColor) {
+      const pass = dialogues(build({ ...st, keywordColor: color }, ws));
+      if (pass.length !== base.length) continue;
+      for (let i = 0; i < merged.length; i++) {
+        const a = segments(merged[i] as string);
+        const b = segments(pass[i] as string);
+        if (a.length !== b.length) continue;
+        for (let k = 0; k < a.length; k++) if ((a[k] as string).startsWith('{') && a[k] !== b[k]) a[k] = b[k] as string;
+        merged[i] = a.join('');
+      }
+    }
+    return merged;
+  };
+
+  const main = withColors(style).map(parseDialogue).filter((d): d is DLine => d !== null);
+  const doc0 = build(style);
+  const styleLines = doc0.filter((l) => l.startsWith('Style:'));
+  const out: DLine[] = [];
+  if (main.length > 0) {
+    const t0 = Math.min(...main.map((d) => d.start));
+    const t1 = Math.max(...main.map((d) => d.end));
+    const anim = style.animation;
+    const blockAnim = anim === 'karaoke' || anim === 'typewriter';
+    const stripEntrance = (txt: string): string =>
+      txt
+        .replace(/\\move\((-?[\d.]+),(-?[\d.]+),(-?[\d.]+),(-?[\d.]+),[^)]*\)/, '\\pos($3,$4)')
+        .replace(/\\fad\((\d+),(\d+)\)/, (_m, _a: string, b: string) => (Number(b) > 0 ? `\\fad(0,${b})` : ''));
+    const stripExit = (txt: string): string => txt.replace(/\\fad\((\d+),\d+\)/, (_m, a: string) => (Number(a) > 0 ? `\\fad(${a},0)` : ''));
+    const firstGroup = main.filter((d) => Math.abs(d.start - t0) < 1e-6 && (blockAnim || Math.abs(d.end - (main[0] as DLine).end) < 1e-6));
+    if (t0 > 0.011 && blockAnim) {
+      // block-level animations: start the block at the item start, shifting the internal clock
+      for (const d of main) {
+        if (Math.abs(d.start - t0) > 1e-6) continue;
+        let rest = d.rest;
+        if (anim === 'karaoke') rest = rest.replace(/\\k(\d+)\\kf/, (_m, g: string) => `\\k${Number(g) + Math.round(t0 * 100)}\\kf`);
+        else rest = rest.replace(/\\t\((\d+),(\d+),/g, (_m, a: string, b: string) => `\\t(${Number(a) + Math.round(t0 * 1000)},${Number(b) + Math.round(t0 * 1000)},`);
+        out.push({ ...d, start: 0, end: Math.max(d.end, dur), rest });
+      }
+      for (const d of main) if (Math.abs(d.start - t0) > 1e-6) out.push(d);
+    } else {
+      // word-state animations
+      if (t0 > 0.011) {
+        // pre-roll: the block with no active word, carrying the entrance
+        const idleStyle: CaptionStyle = {
+          ...style,
+          highlight: { ...style.highlight, mode: 'none' },
+          animation: anim === 'fade' || anim === 'slide-up' ? anim : 'none',
+        };
+        const idle = withColors(idleStyle).map(parseDialogue).filter((d): d is DLine => d !== null);
+        const it0 = idle.length ? Math.min(...idle.map((d) => d.start)) : 0;
+        const firstIdle = idle.filter((d) => Math.abs(d.start - it0) < 1e-6 && Math.abs(d.end - (idle[0] as DLine).end) < 1e-6);
+        for (const d of firstIdle) out.push({ ...d, start: 0, end: t0, rest: stripExit(d.rest) });
+        for (const d of main) {
+          const isFirst = firstGroup.includes(d);
+          out.push(isFirst ? { ...d, rest: stripEntrance(d.rest) } : d);
+        }
+      } else out.push(...main);
+      // hold the last word state until the item ends (the fade-out, if any, now ends with the item)
+      const lastEnd = Math.max(...out.map((d) => d.end));
+      for (const d of out) if (Math.abs(d.end - lastEnd) < 1e-6) d.end = Math.max(d.end, dur);
+    }
+    if (blockAnim) {
+      const lastEnd = Math.max(...out.map((d) => d.end));
+      for (const d of out) if (Math.abs(d.end - lastEnd) < 1e-6) d.end = Math.max(d.end, dur);
+    }
+    void t1;
   }
-  const styles = docBase.filter((l) => l.startsWith('Style:'));
   const offset = item.startSec - r0;
   return {
-    styles: styles.map((l) => l.replace(/^Style: (Caption(?:Bg)?),/, `Style: ${styleTag}_$1,`)),
-    events: merged.map((l) =>
-      shiftDialogue(l, offset).replace(KEEP_STYLE_RE, `$1${styleTag}_$2,`),
-    ),
+    styles: styleLines.map((l) => l.replace(/^Style: (Caption(?:Bg)?),/, `Style: ${styleTag}_$1,`)),
+    events: out.map((d) => fmtDialogue(d, offset).replace(KEEP_STYLE_RE, `$1${styleTag}_$2,`)),
   };
 }
 

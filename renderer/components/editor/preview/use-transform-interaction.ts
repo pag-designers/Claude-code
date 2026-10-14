@@ -121,12 +121,20 @@ export function useTransformInteraction(o: InteractionOptions) {
       const sel = store.selection.itemIds;
       let kind: HandleKind | null = null;
       let itemId: string | null = null;
-      if (sel.length === 1) {
+      if (sel.length === 1 && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
         const h = compositor.handlesFor(t, sel[0] as string);
         const hk = h ? hitHandle(h, p, layout.k) : null;
-        if (hk) {
+        // Corner / rotation handles always win. The BODY of the selected item only wins when nothing else is on top of
+        // the pointer, so a title over a full-bleed video can still be picked.
+        if (hk && hk !== 'move') {
           kind = hk;
           itemId = sel[0] as string;
+        } else if (hk === 'move') {
+          const top = compositor.hitTest(t, p.x, p.y);
+          if (!top || top === sel[0]) {
+            kind = 'move';
+            itemId = sel[0] as string;
+          }
         }
       }
       if (!itemId) {

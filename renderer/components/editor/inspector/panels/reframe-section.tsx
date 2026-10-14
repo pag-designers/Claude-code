@@ -376,7 +376,7 @@ export function ReframeSection() {
           <ReframeMap item={item} srcW={srcW} srcH={srcH} />
           <Hint testId="reframe-status">
             {animated
-              ? `${nKeys} crop keyframe${nKeys === 1 ? '' : 's'}${coverage !== null ? ` · face found in ${Math.round(coverage * 100)}% of frames` : ''}. Drag the rectangle to override the path at the playhead; click a dashed one to jump to it.`
+              ? `${nKeys} crop keyframe${nKeys === 1 ? '' : 's'}${coverage !== null ? ` · face found in ${Math.round(coverage * 100)}% of frames` : ''}. Drag the rectangle to override the path at the playhead; click a dot to jump to that keyframe, drag it to move it.`
               : 'Run the tracker for a face-following path, or drag the rectangle to place the crop yourself.'}
           </Hint>
         </>

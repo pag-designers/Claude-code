@@ -210,6 +210,9 @@ export function createExportCompiler(options: ExportCompilerOptions = {}): Expor
           };
           if (!info.width || !info.height) throw new ExportCompileError(`Cannot read the size of "${name}".`);
         }
+        const asset = assetById.get(id);
+        info.layoutW = asset?.width ?? info.width ?? undefined;
+        info.layoutH = asset?.height ?? info.height ?? undefined;
         fileCache.set(id, info);
       }
       // HD video without a colour tag: swscale would assume BT.601, browsers / players assume BT.709

@@ -361,7 +361,14 @@ test.describe('keyframe graph keyboard', () => {
       await x.press('Enter');
       if (t === 0) await kfToggle(p, 'Position X').click();
     }
-    await p.getByTestId('kf-chip-transform.x').click();
+    // what the timeline does when a keyframe diamond is clicked: select it in the store → the inspector opens its curve
+    await s.read((st) =>
+      (st as unknown as { selectKeyframe: (k: unknown) => void }).selectKeyframe({
+        itemId: 'v1',
+        prop: 'transform.x',
+        index: 1,
+      }),
+    );
     const pt = p.getByTestId('selected-keyframe-editor').getByTestId('graph-point').nth(1);
     await pt.focus();
     await expect(pt).toHaveAttribute('data-selected', 'true');

@@ -13,6 +13,9 @@ export interface FileInfo {
   hasAudio: boolean;
   /** Untagged HD video: convert YUV→RGB with BT.709 (swscale would assume BT.601). */
   forceBt709?: boolean;
+  /** Size the LAYOUT uses (the asset's width/height; the decoded file may be larger or smaller). */
+  layoutW?: number;
+  layoutH?: number;
 }
 
 /** Everything the visual / text builders need. All geometry in OUTPUT pixels of the inner canvas. */

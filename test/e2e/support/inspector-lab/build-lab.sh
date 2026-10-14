@@ -21,7 +21,6 @@ cp "$ROOT/renderer/"{next.config.mjs,postcss.config.mjs,tsconfig.json} .
 # the library (open-in-editor) need
 rm -rf app/editor app/design/editor-panels components/editor/timeline components/editor/preview components/editor/shell lib/editor/playback
 find components/editor/panels -type f ! -name open-in-editor.tsx -delete
-find lib/editor/compositor -type f ! -name fonts.ts ! -name api.ts -delete
 sed -i 's/ignoreBuildErrors: false/ignoreBuildErrors: true/' next.config.mjs
 mkdir -p app/editor app/inspector-lab
 echo 'export default function EditorPlaceholder() { return null; }' > app/editor/page.tsx
@@ -42,7 +41,6 @@ EOT
 else
   echo "lab: using the REAL editor-core store"
 fi
-# the compositor index may not exist yet either: the inspector only needs EDITOR_FONTS from its fonts module
 rm -rf .next out
 npx next build 2>&1 | tail -${TAIL:-30}
 rm -rf "$OUT"

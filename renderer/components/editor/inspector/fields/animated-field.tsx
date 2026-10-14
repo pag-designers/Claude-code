@@ -74,11 +74,7 @@ export function AnimatedField({
   const display = toDisplay(path, value);
 
   return (
-    <Row
-      label={name}
-      hint={hint === 'db' && !mixed ? formatDb(value) : undefined}
-      className="[&:hover_[data-reset]]:opacity-100"
-    >
+    <Row label={name} hint={hint === 'db' && !mixed ? formatDb(value) : undefined}>
       <NumberField
         label={name}
         testId={`field-${path}`}

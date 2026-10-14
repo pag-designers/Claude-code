@@ -178,7 +178,7 @@ export async function processAudio(ctx: FfCtx, a: AvArgs): Promise<ProcessedBran
     measured = await measureLoudness(ctx, a.file, {
       durationSec: duration,
       signal: a.signal,
-      onFraction: (f) => a.stage('Measuring loudness', f === null ? null : f * 0.5),
+      onFraction: (f) => a.stage('Measuring loudness', f),
     });
   } catch (e) {
     if (isAbort(e)) throw e;
@@ -187,7 +187,7 @@ export async function processAudio(ctx: FfCtx, a: AvArgs): Promise<ProcessedBran
   }
 
   const out = path.join(a.outDir, 'preview.m4a');
-  a.stage('Creating preview', 0.5);
+  a.stage('Creating preview', 0);
   try {
     await normaliseTo(ctx, a, { src: a.file, out, measured, duration });
   } catch (e) {
@@ -259,17 +259,19 @@ async function normaliseTo(
     );
 
   if (!p.measured) {
-    await render(null, (f) => a.stage('Creating preview', f === null ? null : 0.5 + f * 0.5));
+    await render(null, (f) => a.stage('Creating preview', f));
     return;
   }
   let targetI = TARGET_LUFS;
   let tp = TARGET_TP - 0.5;
   for (let attempt = 0; attempt < 3; attempt++) {
-    await render(loudnormFilter(p.measured, targetI, tp), (f) =>
-      a.stage('Creating preview', f === null ? null : 0.5 + f * 0.4),
-    );
-    const got = await measureLoudness(ctx, p.out, { durationSec: p.duration, signal: a.signal });
-    a.stage('Verifying loudness', 0.95);
+    await render(loudnormFilter(p.measured, targetI, tp), (f) => a.stage('Creating preview', f));
+    a.stage('Verifying loudness', 0);
+    const got = await measureLoudness(ctx, p.out, {
+      durationSec: p.duration,
+      signal: a.signal,
+      onFraction: (f) => a.stage('Verifying loudness', f),
+    });
     if (!got) return;
     const err = got.inputI - TARGET_LUFS;
     ctx.log(

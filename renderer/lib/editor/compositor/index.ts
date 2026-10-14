@@ -24,6 +24,7 @@ export { parseCube, MAX_LUT_SIZE } from './cube';
 export {
   EDITOR_FONTS,
   ensureEditorFonts,
+  refreshBrandFonts,
   editorFontsReady,
   onEditorFontsLoaded,
   resolveEditorFace,

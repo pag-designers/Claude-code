@@ -340,6 +340,8 @@ export const invokeContract = {
           aspect: z.enum(['9:16', '1:1', '16:9', '4:5']).default('9:16'),
         }),
       ]),
+      /** Brand Kit for the new project: omitted = the default kit, null = none, else a kit id (CP4). */
+      brandKitId: z.string().nullable().optional(),
     }),
     editorProjectDocSchema,
   ),

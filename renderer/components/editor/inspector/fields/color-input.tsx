@@ -5,8 +5,76 @@ import { Check } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { useSwatches } from '@/components/captions/color-field';
+import { useBrandPanelKit } from '@/lib/editor-panels/brand-hooks';
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
+
+/** The Brand Kit's palette as swatches (grouped as in the kit). Mounted inside the open popover only. */
+function BrandSwatches({
+  label,
+  value,
+  apply,
+}: {
+  label: string;
+  value: string;
+  apply: (hex: string, final: boolean) => void;
+}) {
+  const panel = useBrandPanelKit();
+  const colors = panel.kit?.spec.colors ?? [];
+  if (!panel.kit || colors.length === 0) return null;
+  const groups = [...new Set(colors.map((c) => c.group))];
+  return (
+    <div
+      role="group"
+      aria-label={`${label}: Brand Kit colours`}
+      data-testid="brand-swatches"
+      className="mb-2.5 flex flex-col gap-1.5 border-b border-border pb-2.5"
+    >
+      <p className="truncate text-2xs font-semibold uppercase tracking-wider text-subtle">
+        {panel.kit.name} palette
+      </p>
+      {groups.map((g) => (
+        <div key={g} className="flex flex-wrap items-center gap-1.5">
+          {groups.length > 1 ? (
+            <span className="w-full text-2xs text-subtle" data-testid="brand-swatch-group">
+              {g}
+            </span>
+          ) : null}
+          {colors
+            .filter((c) => c.group === g)
+            .map((c) => {
+              const active = HEX.test(value) && value.toLowerCase() === c.hex.toLowerCase();
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  title={`${c.name} ${c.hex.toUpperCase()}`}
+                  aria-label={`${label}: Brand ${c.name}`}
+                  aria-pressed={active}
+                  data-testid="brand-swatch"
+                  data-hex={c.hex.toUpperCase()}
+                  onClick={() => apply(c.hex.toUpperCase(), true)}
+                  className={cn(
+                    'relative flex size-6 items-center justify-center rounded-full border border-border-strong outline-none transition-transform duration-(--duration-fast) hover:scale-110 focus-visible:ring-2 focus-visible:ring-ring',
+                    active && 'ring-2 ring-ring ring-offset-2 ring-offset-popover',
+                  )}
+                  style={{ background: c.hex }}
+                >
+                  {active ? (
+                    <Check
+                      className="size-3 mix-blend-difference"
+                      style={{ color: 'var(--swatch-white)' }}
+                      aria-hidden
+                    />
+                  ) : null}
+                </button>
+              );
+            })}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /**
  * Compact colour control: a swatch button (opens token swatches + the native colour well) and a hex field.
@@ -65,6 +133,7 @@ export function ColorInput({
           className="w-52 p-2.5"
           onEscapeKeyDown={(e) => e.stopPropagation()}
         >
+          <BrandSwatches label={label} value={value} apply={apply} />
           <div role="group" aria-label={`${label} swatches`} className="flex flex-wrap gap-1.5">
             {swatches.map((s) => {
               const active = valid && value.toLowerCase() === s.hex;

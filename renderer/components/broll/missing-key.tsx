@@ -38,7 +38,11 @@ export function MissingKey({
         actions={
           <>
             <Button variant="primary" asChild>
-              <Link href={SETTINGS_API_KEYS_HREF} onClick={onNavigate} data-testid="broll-open-settings">
+              <Link
+                href={SETTINGS_API_KEYS_HREF}
+                onClick={onNavigate}
+                data-testid="broll-open-settings"
+              >
                 <KeyRound aria-hidden />
                 Open Settings &rarr; API Keys
               </Link>
@@ -48,7 +52,11 @@ export function MissingKey({
               Get a free {info.name} key
             </Button>
             {otherReady ? (
-              <Button variant="ghost" onClick={() => onSwitch(otherReady)} data-testid="broll-switch-provider">
+              <Button
+                variant="ghost"
+                onClick={() => onSwitch(otherReady)}
+                data-testid="broll-switch-provider"
+              >
                 Search {PROVIDER_INFO[otherReady].name} instead
               </Button>
             ) : null}

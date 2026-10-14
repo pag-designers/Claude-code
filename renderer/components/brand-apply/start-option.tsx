@@ -65,9 +65,9 @@ export function BrandKitStartOption({
         Brand Kit
       </Label>
       {kitsQ.isPending ? (
-        <Skeleton className="h-11 w-56 rounded-md" aria-label="Loading Brand Kits" />
+        <Skeleton className="h-11 w-52 rounded-md" aria-label="Loading Brand Kits" />
       ) : kitsQ.isError ? (
-        <div className="flex h-11 w-56 items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex h-11 w-52 items-center gap-2 text-xs text-muted-foreground">
           <TriangleAlert className="size-4 shrink-0 text-warning" aria-hidden />
           <span className="min-w-0">Could not load your kits.</span>
           <Button variant="link" size="xs" onClick={() => void kitsQ.refetch()}>
@@ -79,7 +79,7 @@ export function BrandKitStartOption({
           id="brand-kit-start"
           href={BRAND_KIT_HREF}
           data-testid="home-brand-create"
-          className="flex h-11 w-56 items-center gap-2.5 rounded-lg border border-dashed border-border-strong px-3 text-sm text-muted-foreground outline-none transition-colors duration-(--duration-fast) hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex h-11 w-52 items-center gap-2.5 rounded-lg border border-dashed border-border-strong px-3 text-sm text-muted-foreground outline-none transition-colors duration-(--duration-fast) hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Palette className="size-4 shrink-0 text-subtle" aria-hidden />
           <span className="min-w-0 flex-1 truncate">Create a Brand Kit</span>
@@ -89,7 +89,7 @@ export function BrandKitStartOption({
         <BrandKitSelect
           id="brand-kit-start"
           testId="home-brand-kit"
-          className="h-11 w-56"
+          className="h-11 w-52"
           value={value}
           onValueChange={onChange}
           kits={kits}

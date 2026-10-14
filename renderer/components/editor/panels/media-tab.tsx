@@ -25,6 +25,7 @@ import {
 import { addAssetToTimeline, ensureLibraryAsset } from './actions';
 import { AssetThumb, KIND_ICON } from './asset-thumb';
 import { GroupLabel, Note, tileBase } from './bits';
+import { BrandVideosSection, StockFootageSection } from './brand-videos';
 import { ImportButton } from './import-button';
 
 const assetMeta = (a: Asset): string => {
@@ -311,6 +312,8 @@ export function MediaTab() {
           </ul>
         )}
       </section>
+      <BrandVideosSection />
+      <StockFootageSection />
       <LibrarySection />
     </div>
   );

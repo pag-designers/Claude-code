@@ -8,6 +8,9 @@ import { ipc, useIpcEvent, useIpcQuery } from '../ipc';
  * family name. Idempotent per asset; the `url` is a short-lived presigned URL, so a font is only fetched once.
  */
 const loaded = new Map<string, FontFace>();
+/** TypeScript's DOM lib omits the mutable parts of FontFaceSet (add/delete); every supported Chromium has them. */
+const fontSet = (): { add(f: FontFace): void; delete(f: FontFace): boolean } =>
+  document.fonts as unknown as { add(f: FontFace): void; delete(f: FontFace): boolean };
 let inflight: Promise<void> | null = null;
 
 export interface BrandFontRef {
@@ -27,7 +30,7 @@ export function registerBrandFonts(): Promise<BrandFontRef[]> {
     const keep = new Set(fonts.map((f) => f.assetId));
     for (const [id, face] of loaded) {
       if (!keep.has(id)) {
-        document.fonts.delete(face);
+        fontSet().delete(face);
         loaded.delete(id);
       }
     }
@@ -41,7 +44,7 @@ export function registerBrandFonts(): Promise<BrandFontRef[]> {
           });
           try {
             await face.load();
-            document.fonts.add(face);
+            fontSet().add(face);
             loaded.set(f.assetId, face);
           } catch {
             /* unreadable font: the picker still lists the family, the browser falls back */

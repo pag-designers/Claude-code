@@ -191,7 +191,7 @@ export function colorFamilyName(hex: string): string {
   const l = (max + min) / 2 / 255;
   const d = max - min;
   if (d < 18) return l > 0.9 ? 'White' : l < 0.14 ? 'Black' : l > 0.55 ? 'Light grey' : 'Grey';
-  let h = 0;
+  let h: number;
   if (max === r) h = ((g - b) / d) % 6;
   else if (max === g) h = (b - r) / d + 2;
   else h = (r - g) / d + 4;
@@ -445,4 +445,58 @@ export function gridWindow(p: {
     totalHeight,
     offsetTop: startRow * step,
   };
+}
+
+/* ------------------------------------------------------------------------------- music bed curve ---- */
+
+export interface EnvelopePoint {
+  t: number;
+  /** dB, -40 (silent) … 0 */
+  db: number;
+}
+
+/**
+ * The music bed level over a sample timeline: fade in, steady level, a dip while someone speaks (ducking), fade out.
+ * Purely illustrative (the finisher mixes the real audio), but built from the very numbers it will use.
+ */
+export function bedEnvelope(
+  bed: {
+    gainDb: number;
+    duckEnabled: boolean;
+    duckAmountDb: number;
+    fadeInSec: number;
+    fadeOutSec: number;
+  },
+  totalSec: number,
+  speech: readonly (readonly [number, number])[],
+): EnvelopePoint[] {
+  const floor = -40;
+  const ramp = 0.25;
+  const base = Math.max(floor, Math.min(0, bed.gainDb));
+  const low = Math.max(floor, base - (bed.duckEnabled ? bed.duckAmountDb : 0));
+  const pts: EnvelopePoint[] = [];
+  const level = (t: number) => {
+    let db = base;
+    if (bed.duckEnabled) {
+      for (const [a, b] of speech) {
+        if (t >= a - ramp && t < a)
+          db = Math.min(db, base + ((low - base) * (t - (a - ramp))) / ramp);
+        else if (t >= a && t <= b) db = Math.min(db, low);
+        else if (t > b && t <= b + ramp) db = Math.min(db, low + ((base - low) * (t - b)) / ramp);
+      }
+    }
+    if (bed.fadeInSec > 0 && t < bed.fadeInSec) db = floor + ((db - floor) * t) / bed.fadeInSec;
+    const out = totalSec - bed.fadeOutSec;
+    if (bed.fadeOutSec > 0 && t > out)
+      db = floor + ((db - floor) * (totalSec - t)) / bed.fadeOutSec;
+    return Math.max(floor, db);
+  };
+  const times = new Set<number>([0, totalSec]);
+  for (let t = 0; t <= totalSec; t += 0.25) times.add(Math.round(t * 100) / 100);
+  for (const [a, b] of speech)
+    for (const t of [a - ramp, a, b, b + ramp]) if (t > 0 && t < totalSec) times.add(t);
+  for (const t of [bed.fadeInSec, totalSec - bed.fadeOutSec])
+    if (t > 0 && t < totalSec) times.add(t);
+  for (const t of [...times].sort((x, y) => x - y)) pts.push({ t, db: level(t) });
+  return pts;
 }

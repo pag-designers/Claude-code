@@ -23,6 +23,9 @@ import { createServices, JOB_KINDS, type Services } from './services/context';
 import { pickCipher } from './services/secrets';
 import { SidecarManager } from './services/sidecar';
 import { createPipeline } from './pipeline/wiring';
+import { createFontsHub } from './services/brand-media';
+import { createElectronSvgRasterizer } from './services/brand-media/svg-electron';
+import { fontBook } from './services/captions/fontbook';
 
 const APP_NAME = 'Clipfern';
 const APP_HOST = 'clipfern';
@@ -253,8 +256,19 @@ async function bootstrap(): Promise<void> {
     log: (line) => logger.scoped('sidecar').info(line),
     onStatus: (s: SidecarStatus) => send('sidecar:progress', s),
   });
+  // One fonts directory for libass: shipped fonts + Brand Kit fonts (CP4).
+  const fontsHub = createFontsHub({
+    shippedDir: pipelineFontsDir(),
+    userDir: path.join(userData, 'fonts'),
+    fontBook,
+    log: (m) => logger.scoped('fonts').info(m),
+  });
   const pipeline = createPipeline(svc, sidecar, {
+    fontsHub,
+    rasterizeSvg: createElectronSvgRasterizer(),
     emit: {
+      brandChanged: (kitId) => send('brand:changed', { kitId }),
+      brandProgress: (p) => send('brand:progress', p),
       pipeline: (e) => send('pipeline:event', e),
       video: (v) => send('videos:updated', v),
       clip: (c) => send('clips:updated', c),
@@ -290,9 +304,10 @@ async function bootstrap(): Promise<void> {
       });
       return res.canceled ? null : (res.filePaths[0] ?? null);
     },
-    fontsDir: pipelineFontsDir,
+    fontsDir: () => fontsHub.dir() ?? pipelineFontsDir(),
   });
   pipeline.orchestrator.registerJobs();
+  void pipeline.brand.reconcileOnStart().catch((e) => log.warn(`brand fonts: ${String(e)}`));
   await pipeline.editor.primeStyles();
 
   registerHandlers(
@@ -302,9 +317,11 @@ async function bootstrap(): Promise<void> {
       cp2: pipeline.cp2,
       chat: pipeline.chat,
       editor: pipeline.editor,
+      brand: pipeline.brand,
+      broll: pipeline.broll,
       styles: pipeline.styles,
       captions: pipeline.captions,
-      fontsDir: pipelineFontsDir,
+      fontsDir: () => fontsHub.dir() ?? pipelineFontsDir(),
       probeUrl: pipeline.probeUrl,
       appInfo: () => ({
         name: APP_NAME,

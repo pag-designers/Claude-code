@@ -124,7 +124,7 @@ export function gridNavigate(
   return next;
 }
 
-/** Columns of a rendered grid, read from the cells' vertical positions (cells wrap, so the first row is the answer). */
+/** Columns of a rendered grid, read from the cells' viewport tops (cells wrap, so the first row is the answer). */
 export function columnsFromOffsets(offsetTops: number[]): number {
   if (offsetTops.length === 0) return 1;
   const first = offsetTops[0]!;

@@ -233,7 +233,7 @@ export function buildHandlers(svc: Services, host: HostApi): Handlers {
 
     /* ---- CP3: editor ---- */
     'editor:list': async () => ({ items: await host.editor.list() }),
-    'editor:create': ({ name, from }) => host.editor.create(name, from),
+    'editor:create': ({ name, from, brandKitId }) => host.editor.create(name, from, brandKitId),
     'editor:get': ({ id }) => host.editor.get(id),
     'editor:save': ({ id, project, baseRev }) => host.editor.save(id, project, baseRev),
     'editor:rename': async ({ id, name }) => {

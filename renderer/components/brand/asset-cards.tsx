@@ -25,13 +25,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { invoke } from '@/lib/ipc';
 import { cn } from '@/lib/utils';
-import {
-  formatDur,
-  formatLufs,
-  humanBytes,
-  refsOfAsset,
-  weightName,
-} from '@/lib/brand/helpers';
+import { formatDur, formatLufs, humanBytes, refsOfAsset, weightName } from '@/lib/brand/helpers';
 import { useKitSession } from '@/lib/brand/kit-session';
 import { goToSection, requestExtractColors } from '@/lib/brand/bus';
 import { MiniPlayer } from './mini-player';
@@ -62,25 +56,24 @@ function NameEditor({
   editing: boolean;
   setEditing: (v: boolean) => void;
 }) {
-  const { renameAsset } = useKitSession();
-  const [val, setVal] = React.useState(asset.name);
-  const done = React.useRef(false);
-  React.useEffect(() => {
-    if (editing) {
-      setVal(asset.name);
-      done.current = false;
-    }
-  }, [editing, asset.name]);
   if (!editing)
     return (
       <span className="truncate text-sm font-medium text-foreground" title={asset.name}>
         {asset.name}
       </span>
     );
+  return <RenameInput asset={asset} onDone={() => setEditing(false)} />;
+}
+
+/** Mounted only while renaming, so its text always starts from the current name. */
+function RenameInput({ asset, onDone }: { asset: BrandAssetView; onDone: () => void }) {
+  const { renameAsset } = useKitSession();
+  const [val, setVal] = React.useState(asset.name);
+  const done = React.useRef(false);
   const commit = (save: boolean) => {
     if (done.current) return;
     done.current = true;
-    setEditing(false);
+    onDone();
     const v = val.trim();
     if (save && v && v !== asset.name) void renameAsset(asset.id, v.slice(0, 120));
   };
@@ -315,7 +308,11 @@ export function VideoCard({ asset, actions }: { asset: BrandAssetView; actions: 
       footer={
         <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
           <span className="truncate">
-            {[dims, asset.durationSec ? formatDur(asset.durationSec) : null, humanBytes(asset.bytes)]
+            {[
+              dims,
+              asset.durationSec ? formatDur(asset.durationSec) : null,
+              humanBytes(asset.bytes),
+            ]
               .filter(Boolean)
               .join(' · ')}
           </span>
@@ -327,7 +324,11 @@ export function VideoCard({ asset, actions }: { asset: BrandAssetView; actions: 
               title={credit.url ? `Open ${credit.source} page` : undefined}
               className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-sm text-primary-text hover:underline disabled:text-muted-foreground disabled:no-underline"
             >
-              {credit.source === 'pexels' ? 'Pexels' : credit.source === 'pixabay' ? 'Pixabay' : credit.source}
+              {credit.source === 'pexels'
+                ? 'Pexels'
+                : credit.source === 'pixabay'
+                  ? 'Pixabay'
+                  : credit.source}
               {credit.author ? ` · ${credit.author}` : ''}
               {credit.url ? <ExternalLink className="size-3" aria-hidden /> : null}
             </button>
@@ -405,7 +406,9 @@ export function AudioCard({ asset, actions }: { asset: BrandAssetView; actions: 
       badges={null}
       menuExtra={
         <DropdownMenuItem
-          onSelect={() => s.update('musicBed', (m) => ({ ...m, assetId: asset.id }), { immediate: true })}
+          onSelect={() =>
+            s.update('musicBed', (m) => ({ ...m, assetId: asset.id }), { immediate: true })
+          }
         >
           <Music2 /> Use as music bed
         </DropdownMenuItem>
@@ -413,7 +416,9 @@ export function AudioCard({ asset, actions }: { asset: BrandAssetView; actions: 
       footer={
         <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
           <span className="truncate">
-            {[formatDur(asset.durationSec), asset.ext.toUpperCase(), humanBytes(asset.bytes)].join(' · ')}
+            {[formatDur(asset.durationSec), asset.ext.toUpperCase(), humanBytes(asset.bytes)].join(
+              ' · ',
+            )}
           </span>
           {isBed ? (
             <span className="shrink-0 rounded-full bg-primary-soft px-1.5 py-px text-2xs font-semibold text-primary-text">

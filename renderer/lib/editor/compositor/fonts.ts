@@ -174,6 +174,8 @@ export function ensureEditorFonts(opts: EnsureFontsOptions = {}): Promise<void> 
   }
   const base = (opts.baseUrl ?? '/fonts/editor/').replace(/\/?$/, '/');
   loadPromise = (async () => {
+    // Brand Kit fonts are fetched in parallel; the first render waits for them only briefly (BRAND_FONTS_WAIT_MS)
+    const brand = refreshBrandFonts();
     await Promise.all(
       EDITOR_FONTS.flatMap((f) =>
         f.faces.map(async (fc) => {
@@ -191,9 +193,47 @@ export function ensureEditorFonts(opts: EnsureFontsOptions = {}): Promise<void> 
         }),
       ),
     );
+    await Promise.race([brand, new Promise<void>((r) => setTimeout(r, BRAND_FONTS_WAIT_MS))]);
     ready = true;
     epoch++;
     for (const l of [...listeners]) l();
   })();
   return loadPromise;
+}
+
+/* ------------------------------------------------------------------ Brand Kit fonts ------------- */
+
+/** How long the first render waits for the Brand Kit fonts before drawing with what it has (they redraw when they arrive). */
+const BRAND_FONTS_WAIT_MS = 2500;
+let brandSignature = '';
+let brandInflight: Promise<void> | null = null;
+
+/**
+ * Registers the Brand Kit's uploaded fonts (`brand:fonts` → `FontFace`, idempotent per asset) so text items whose
+ * `fontFamily` is a brand family are drawn with the real font on the canvas, exactly like the pickers show it. When the
+ * set of registered brand fonts changed, the font epoch moves and `onEditorFontsLoaded` listeners run (text caches
+ * re-measure, rasters re-draw). Never rejects: no bridge / no fonts / a broken file just means nothing to add.
+ */
+export function refreshBrandFonts(): Promise<void> {
+  if (typeof document === 'undefined' || typeof FontFace === 'undefined') return Promise.resolve();
+  const run = async (): Promise<void> => {
+    try {
+      const { registerBrandFonts } = await import('../../brand/fonts');
+      const refs = await registerBrandFonts();
+      const sig = refs
+        .map((f) => `${f.assetId}:${f.family}:${f.weight}:${f.italic ? 'i' : 'n'}`)
+        .sort()
+        .join('|');
+      if (sig === brandSignature) return;
+      brandSignature = sig;
+      if (ready) {
+        epoch++;
+        for (const l of [...listeners]) l();
+      }
+    } catch {
+      /* no bridge (tests, reference pages) or the list could not be read: shipped fonts only */
+    }
+  };
+  brandInflight = (brandInflight ?? Promise.resolve()).then(run, run);
+  return brandInflight;
 }

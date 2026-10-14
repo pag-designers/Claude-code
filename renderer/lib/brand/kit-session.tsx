@@ -17,13 +17,7 @@ import type {
 import { getApi, invoke, ipcKey, useIpcEvent } from '../ipc';
 import { useBrandKit } from './queries';
 import { KitSaver, type SaveStatus } from './kit-saver';
-import {
-  KIND_NOUN,
-  baseName,
-  clearRefs,
-  groupByKind,
-  validateDrop,
-} from './helpers';
+import { KIND_NOUN, baseName, clearRefs, groupByKind, validateDrop } from './helpers';
 import { emptyUploads, uploadReducer, type UploadState } from './uploads';
 
 export interface KitSession {
@@ -233,7 +227,8 @@ function SessionInner({
         else
           unreadable.push({
             name: f.name,
-            message: 'Could not read this file’s location. Drag it from your file manager, or use browse.',
+            message:
+              'Could not read this file’s location. Drag it from your file manager, or use browse.',
           });
       }
       if (unreadable.length) dispatch({ type: 'reject', kind, errors: unreadable });
@@ -352,7 +347,7 @@ function SessionInner({
         const cur = saver.getSnapshot().kit.spec[key];
         saver.edit({ spec: { [key]: fn(cur) } as Partial<BrandKitSpec> }, opts);
       },
-      rename: (name) => saver.edit({ name }, { immediate: true }),
+      rename: (name) => saver.edit({ name }),
       retry: () => void saver.retry(),
       reload,
       keepMine,

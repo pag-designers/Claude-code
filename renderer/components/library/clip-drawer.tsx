@@ -255,10 +255,12 @@ export function ClipDrawer({
           data-testid="clip-drawer"
           data-chat-open={chatOpen || undefined}
           style={chatOpen ? { left: 'max(470px, calc((100vw - 452px) / 2))' } : undefined}
-          // the AI Chat panel is a separate, non-modal layer: using it must not dismiss the drawer underneath
+          // the AI Chat panel is a separate, non-modal layer: using it must not dismiss the drawer underneath;
+          // neither must a toast action (e.g. "Try again" after a failed Brand Kit apply)
           onInteractOutside={(e) => {
             const t = e.target;
-            if (t instanceof Element && t.closest('[data-chat-panel]')) e.preventDefault();
+            if (t instanceof Element && t.closest('[data-chat-panel], [data-sonner-toaster]'))
+              e.preventDefault();
           }}
         >
           {clip ? (

@@ -7,6 +7,7 @@ import {
   History,
   Keyboard,
   Maximize2,
+  Palette,
   PanelLeft,
   PanelRight,
   Redo2,
@@ -24,10 +25,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Kbd } from '@/components/ui/kbd';
 import { Tip } from '@/components/ui/tooltip';
+import { onEditorFontsLoaded, refreshBrandFonts } from '@/lib/editor/compositor';
 import { useEditorStore } from '@/lib/editor/core';
-import { ipc } from '@/lib/ipc';
+import { getEngine } from '@/lib/editor/playback';
+import { ipc, useIpcEvent } from '@/lib/ipc';
 import { cn } from '@/lib/utils';
 import { useTimelineUi } from '@/components/editor/timeline/timeline-ui';
+import { ApplyBrandDialog } from './apply-brand-dialog';
 import { SaveChip } from './save-chip';
 
 const ASPECTS: { id: Exclude<AspectId, 'custom'>; label: string; w: number; h: number }[] = [
@@ -179,6 +183,15 @@ function AspectMenu() {
   );
 }
 
+/**
+ * Keeps the preview canvas in step with the Brand Kit's fonts: a kit that gained or lost a font re-registers them, and
+ * whenever fonts finish loading the preview draws a fresh frame (text rasters are keyed on the font epoch).
+ */
+function useBrandCanvasSync() {
+  useIpcEvent('brand:changed', () => void refreshBrandFonts());
+  React.useEffect(() => onEditorFontsLoaded(() => getEngine()?.requestRender()), []);
+}
+
 export function TopBar({
   onBack,
   onVersions,
@@ -198,6 +211,8 @@ export function TopBar({
   onToggleLeft: () => void;
   onToggleRight: () => void;
 }) {
+  useBrandCanvasSync();
+  const [brandOpen, setBrandOpen] = React.useState(false);
   const fit = () => {
     const s = useEditorStore.getState();
     s.zoomToFit(useTimelineUi.getState().viewportPx);
@@ -247,6 +262,16 @@ export function TopBar({
             <Maximize2 />
           </Button>
         </Tip>
+        <Tip content="Apply a Brand Kit: watermark, intro and outro, captions, hook, music">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setBrandOpen(true)}
+            data-testid="open-apply-brand"
+          >
+            <Palette /> Brand Kit
+          </Button>
+        </Tip>
         <Tip content="Version history">
           <Button variant="secondary" size="sm" onClick={onVersions} data-testid="open-versions">
             <History /> Versions
@@ -285,6 +310,7 @@ export function TopBar({
           </Button>
         </Tip>
       </div>
+      <ApplyBrandDialog open={brandOpen} onOpenChange={setBrandOpen} />
     </header>
   );
 }

@@ -31,7 +31,11 @@ export interface BrandLib {
   /** Applies that reached main, in order (payloads already contract-validated). */
   applies: { kitId: string | null; clipIds?: string[]; videoId?: string }[];
   /** The next `times` brand:apply calls fail with this message. */
-  failApply: { message: string; times: number; code?: 'NOT_FOUND' | 'FAILED' | 'UNAVAILABLE' } | null;
+  failApply: {
+    message: string;
+    times: number;
+    code?: 'NOT_FOUND' | 'FAILED' | 'UNAVAILABLE';
+  } | null;
   autoMs: number | null;
   /** Moves a rendering clip to `progress` (status 'rendering'). */
   step: (clipId: string, progress: number) => Promise<void>;
@@ -69,7 +73,10 @@ function notFound(what: string): Error {
 }
 
 /** Installs the brand layer into a session (call from the harness `prepare` hook). */
-export function installBrandLib(state: StubState, kits: StubKit[] = [KIT_ACME, KIT_NEON]): BrandLib {
+export function installBrandLib(
+  state: StubState,
+  kits: StubKit[] = [KIT_ACME, KIT_NEON],
+): BrandLib {
   const lib: BrandLib = {
     kits: kits.map((k) => ({ ...k })),
     applies: [],

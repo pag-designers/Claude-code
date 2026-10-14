@@ -12,6 +12,7 @@ import {
 } from '@/lib/editor-panels/presets';
 import { cn } from '@/lib/utils';
 import { addText } from './actions';
+import { BrandTextSection } from './brand-text';
 import { GroupLabel, tileBase } from './bits';
 
 /** Scale of the in-tile preview: a tile is ~130 px wide and stands for a 1080 px canvas. */
@@ -93,6 +94,7 @@ export function TextTab() {
           ))}
         </ul>
       </section>
+      <BrandTextSection />
       <section className="flex flex-col gap-2.5" aria-label="Text animations">
         <GroupLabel>Animated in</GroupLabel>
         <ul className="grid grid-cols-2 gap-2">

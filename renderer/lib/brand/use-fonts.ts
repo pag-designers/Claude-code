@@ -38,7 +38,12 @@ export function useFontChoices(): {
       brand.get(f.family)!.add(f.weight);
     }
     for (const [family, w] of [...brand].sort((a, b) => a[0].localeCompare(b[0])))
-      out.push({ family, weights: [...w].sort((a, b) => a - b), source: 'brand', category: 'brand' });
+      out.push({
+        family,
+        weights: [...w].sort((a, b) => a - b),
+        source: 'brand',
+        category: 'brand',
+      });
     for (const f of EDITOR_FONTS)
       if (!brand.has(f.family))
         out.push({ family: f.family, weights: f.weights, source: 'shipped', category: f.category });

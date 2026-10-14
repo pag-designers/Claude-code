@@ -348,6 +348,7 @@ export function createRenderService(): RenderService {
               { text: req.hook.text, durationSec: hookDur },
               plan.outW,
               plan.outH,
+              req.hook.style,
             );
           }
           assFile = path.join(work, 'overlay.ass');
@@ -546,6 +547,7 @@ export function createRenderService(): RenderService {
             { text: req.hook.text, durationSec: hookDur },
             outW,
             outH,
+            req.hook.style,
           );
           const hookFile = path.join(work, 'hook.ass');
           await writeFile(hookFile, doc, 'utf8');

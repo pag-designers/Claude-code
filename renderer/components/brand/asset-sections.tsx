@@ -20,7 +20,8 @@ import { VirtualGrid } from './virtual-grid';
 const SECTION_COPY: Record<BrandAssetKind, { id: string; description: string; empty: string }> = {
   logo: {
     id: 'logos',
-    description: 'PNG or SVG marks. Pick one as the watermark below; its colors can seed your palette.',
+    description:
+      'PNG or SVG marks. Pick one as the watermark below; its colors can seed your palette.',
     empty: 'No logos yet. Add your mark and use it as the watermark on every clip.',
   },
   image: {
@@ -35,7 +36,8 @@ const SECTION_COPY: Record<BrandAssetKind, { id: string; description: string; em
   },
   audio: {
     id: 'audio',
-    description: 'Music beds, sound effects and stingers. Previews are loudness-normalised so you can compare them fairly.',
+    description:
+      'Music beds, sound effects and stingers. Previews are loudness-normalised so you can compare them fairly.',
     empty: 'No audio yet. Add a music bed to duck under your speech.',
   },
   font: {
@@ -59,7 +61,7 @@ export function AssetSection({ kind }: { kind: BrandAssetKind }) {
   const copy = SECTION_COPY[kind];
   const noun = KIND_NOUN[kind];
   const assets = s.byKind[kind];
-  const [selected, setSelected] = React.useState<ReadonlySet<string>>(new Set());
+  const [pickedIds, setSelected] = React.useState<ReadonlySet<string>>(new Set());
   const [target, setTarget] = React.useState<BrandAssetView[] | null>(null);
   const [deleting, setDeleting] = React.useState(false);
   const [stockOpen, setStockOpen] = React.useState(false);
@@ -69,14 +71,11 @@ export function AssetSection({ kind }: { kind: BrandAssetKind }) {
   // fonts: register every uploaded font with document.fonts so the cards render in their own typeface
   useBrandFonts();
 
-  // drop ids of assets that vanished
-  React.useEffect(() => {
-    setSelected((cur) => {
-      const ids = new Set(assets.map((a) => a.id));
-      const next = new Set([...cur].filter((id) => ids.has(id)));
-      return next.size === cur.size ? cur : next;
-    });
-  }, [assets]);
+  // ids of assets that vanished (deleted elsewhere) drop out of the selection
+  const selected = React.useMemo(() => {
+    const ids = new Set(assets.map((a) => a.id));
+    return new Set([...pickedIds].filter((id) => ids.has(id)));
+  }, [pickedIds, assets]);
 
   const onSelect = React.useCallback(
     (id: string, on: boolean, e: React.MouseEvent) => {
@@ -123,7 +122,12 @@ export function AssetSection({ kind }: { kind: BrandAssetKind }) {
     );
   };
 
-  const clears = target ? refsOfAssets(s.spec, target.map((t) => t.id)) : [];
+  const clears = target
+    ? refsOfAssets(
+        s.spec,
+        target.map((t) => t.id),
+      )
+    : [];
   const g = GRID[kind];
 
   const actions =

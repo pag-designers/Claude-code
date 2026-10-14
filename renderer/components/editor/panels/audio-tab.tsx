@@ -14,6 +14,7 @@ import { useEditorStore } from '@/lib/editor/core';
 import { startAssetDrag } from '@/lib/editor-panels/drag';
 import { estimateBpm } from '@/lib/editor-panels/edit-targets';
 import { addAssetToTimeline } from './actions';
+import { BrandAudioSection } from './brand-audio';
 import { GroupLabel, Note } from './bits';
 import { ImportButton } from './import-button';
 
@@ -210,9 +211,11 @@ export function AudioTab() {
         <p className="flex items-start gap-1.5 text-2xs leading-4 text-subtle">
           <Info className="mt-px size-3 shrink-0" aria-hidden />
           Clipfern only uses official APIs, so there is no in-app music search. Upload tracks you
-          have the rights to, or keep them in your Brand Kit (coming in a later checkpoint).
+          have the rights to, or keep them in your Brand Kit and use them from Brand Kit audio.
         </p>
       </section>
+
+      <BrandAudioSection />
 
       <section
         className="flex flex-col gap-2 rounded-xl border bg-muted/40 p-3"

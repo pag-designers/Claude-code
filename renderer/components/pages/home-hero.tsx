@@ -441,7 +441,7 @@ export function HomeHero() {
               />
             </div>
 
-            <div className="flex flex-wrap items-end gap-x-10 gap-y-5">
+            <div className="flex flex-wrap items-end gap-x-6 gap-y-5">
               <div className="flex flex-col gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wider text-subtle">
                   Caption style

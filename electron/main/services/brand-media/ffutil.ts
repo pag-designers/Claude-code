@@ -224,7 +224,10 @@ export async function measureLoudness(
 export const THUMB_MAX = 480;
 
 /** Neutral two-tone checker so transparent logos stay legible in a JPEG. */
-const CHECKER_FILTER = "format=gray,geq=lum='if(lt(mod(floor(X/16)+floor(Y/16),2),1),96,120)'";
+// `format=rgba` after scale is load-bearing: without it ffmpeg negotiates an alpha-less format and drops transparency
+const CHECKER_V = 'if(lt(mod(floor(X/16)+floor(Y/16),2),1),96,120)';
+// the checker is built in an RGB format on purpose: a gray ground makes the overlay collapse the whole picture to gray
+const CHECKER_FILTER = `format=gbrp,geq=r='${CHECKER_V}':g='${CHECKER_V}':b='${CHECKER_V}',format=rgba`;
 
 /**
  * Writes a JPEG no larger than THUMB_MAX on the long side (never upscaled). `onChecker` composites alpha over a neutral
@@ -236,7 +239,7 @@ export async function makeThumbJpeg(
 ): Promise<void> {
   const scale = `scale='min(${THUMB_MAX},iw)':'min(${THUMB_MAX},ih)':force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos`;
   const vf = a.onChecker
-    ? `format=rgba,${scale},split[fg][bg];[bg]${CHECKER_FILTER}[ground];[ground][fg]overlay=format=auto,format=yuvj420p`
+    ? `format=rgba,${scale},format=rgba,split[fg][bg];[bg]${CHECKER_FILTER}[ground];[ground][fg]overlay=format=auto,format=yuvj420p`
     : `${scale},format=yuvj420p`;
   const args = [
     ...(a.seekSec && a.seekSec > 0 ? ['-ss', a.seekSec.toFixed(3)] : []),

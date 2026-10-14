@@ -79,7 +79,11 @@ export function Section({
           <Icon className="size-[18px]" aria-hidden />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 id={heading} tabIndex={-1} className="flex items-center gap-2 font-display text-lg font-semibold outline-none">
+          <h2
+            id={heading}
+            tabIndex={-1}
+            className="flex items-center gap-2 font-display text-lg font-semibold outline-none"
+          >
             {title ?? def.label}
             {badge}
           </h2>
@@ -101,7 +105,7 @@ export function SectionNav({
   scrollRoot: () => HTMLElement | null;
 }) {
   const [active, setActive] = React.useState<string>(SECTIONS[0]!.id);
-  const lockUntil = React.useRef(0);
+  const locked = React.useRef(false);
 
   React.useEffect(() => {
     const root = scrollRoot();
@@ -113,7 +117,7 @@ export function SectionNav({
           if (e.isIntersecting) visible.set(e.target.id, e.boundingClientRect.top);
           else visible.delete(e.target.id);
         }
-        if (Date.now() < lockUntil.current || visible.size === 0) return;
+        if (locked.current || visible.size === 0) return;
         // the section nearest to the top of the viewport wins
         const first = SECTIONS.find((s) => visible.has(s.id));
         if (first) setActive(first.id);
@@ -131,7 +135,10 @@ export function SectionNav({
     const el = document.getElementById(id);
     if (!el) return;
     setActive(id);
-    lockUntil.current = Date.now() + 700;
+    locked.current = true;
+    window.setTimeout(() => {
+      locked.current = false;
+    }, 700);
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
     el.querySelector<HTMLElement>('h2')?.focus({ preventScroll: true });

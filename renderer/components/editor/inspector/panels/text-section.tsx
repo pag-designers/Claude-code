@@ -6,9 +6,10 @@ import type { TextItem } from '@shared/editor';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
-import { DisabledTip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { EDITOR_FONTS } from '../fonts';
+import { useBrandFonts } from '@/lib/brand/fonts';
+import { BrandStyleChip } from './brand-style-chip';
+import { FontSelect, fontChoices } from '../fields/font-select';
 import { COMMON_EMOJI } from '../lib/emoji';
 import { DenseSelect, MiniSegmented, SwitchRow } from '../fields/controls';
 import { ColorProp, NumberProp, SelectProp, SwitchProp } from '../fields/prop-fields';
@@ -81,48 +82,31 @@ export function TextContentSection() {
             </div>
           </PopoverContent>
         </Popover>
-        <DisabledTip reason="Arrives in checkpoint 4">
-          <button
-            type="button"
-            disabled
-            data-testid="brand-style-chip"
-            className="inline-flex h-6 items-center gap-1.5 rounded-full border border-dashed border-border-strong px-2.5 text-2xs font-medium text-subtle opacity-70"
-          >
-            Brand Kit style
-          </button>
-        </DisabledTip>
+        <BrandStyleChip />
       </div>
     </Section>
   );
 }
 
-const FAMILY_OPTIONS = EDITOR_FONTS.map((f) => ({ value: f.family, label: f.family }));
-
 export function FontSection() {
   const ctx = useInspector();
+  const { fonts: brandFonts } = useBrandFonts();
   const family = ctx.read((i) => text(i).style.fontFamily);
-  const font = EDITOR_FONTS.find((f) => f.family === family.value);
-  const weights = font?.weights ?? [400, 700, 800];
+  const choices = fontChoices(brandFonts, family.mixed ? undefined : family.value);
+  const known = choices.find((c) => c.family === family.value)?.weights ?? [];
+  const weights = known.length ? known : [400, 700, 800];
   const align = ctx.read((i) => text(i).style.align);
   return (
     <Section title="Font" testId="section-font">
       <Row label="Family">
-        <DenseSelect
-          label="Font family"
-          testId="font-family"
+        <FontSelect
           value={family.value}
           mixed={family.mixed}
-          options={
-            font || family.mixed
-              ? FAMILY_OPTIONS
-              : [...FAMILY_OPTIONS, { value: family.value, label: `${family.value} (not bundled)` }]
-          }
-          onChange={(v) => {
-            const f = EDITOR_FONTS.find((x) => x.family === v);
+          onChange={(v, choice) => {
             const cur = text(ctx.primary).style.weight;
-            // snap the weight to one the family ships, so the preview and export pick the same face
-            const w = f?.weights.length
-              ? f.weights.reduce((a, b) => (Math.abs(b - cur) < Math.abs(a - cur) ? b : a))
+            // snap the weight to one the family ships / was uploaded with, so the preview and export pick the same face
+            const w = choice?.weights.length
+              ? choice.weights.reduce((a, b) => (Math.abs(b - cur) < Math.abs(a - cur) ? b : a))
               : cur;
             ctx.set({ style: { fontFamily: v, weight: w } }, 'Font family');
           }}

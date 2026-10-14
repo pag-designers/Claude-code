@@ -17,6 +17,8 @@ import {
   type Waveform,
 } from '@shared/editor';
 import { projectDuration } from '@shared/editor-eval';
+import { applyBrandToProject, brandPartsFromDefaults } from '@shared/brand-apply';
+import type { BrandKit, BrandAsset } from '@shared/brand';
 import { keys, type Word } from '@shared/pipeline';
 import type { Db } from '../db/client';
 import { AppError } from '../ipc/dispatch';
@@ -49,6 +51,12 @@ const BACKUP_INTERVAL_MS = 30_000;
 
 export interface EditorDeps {
   db: Db;
+  /** CP4: new projects take the default Brand Kit's parts (optional so tests can omit it). */
+  brand?: {
+    getKit(id: string): Promise<BrandKit>;
+    assetsOf(kitId: string): Promise<BrandAsset[]>;
+    defaultKitId(): Promise<string | null>;
+  };
   queue: JobQueue;
   notifications: NotificationService;
   getStorage(): StorageProvider | null;
@@ -242,6 +250,8 @@ export class EditorService {
       | { clipId: string }
       | { videoId: string }
       | { blank: true; aspect: '9:16' | '1:1' | '16:9' | '4:5' },
+    /** undefined = the default kit, null = no kit, else a kit id. */
+    brandKitId?: string | null,
   ): Promise<EditorProjectDoc> {
     let project: Project;
     let title = name;
@@ -262,6 +272,7 @@ export class EditorService {
       project = blankProject(from.aspect);
       title ??= 'Untitled project';
     }
+    project = await this.brandNewProject(project, brandKitId);
     const row = await this.d.db.editorProject.create({
       data: {
         name: title,
@@ -275,6 +286,29 @@ export class EditorService {
     });
     void this.backup(row.id, project, true);
     return this.toDoc(row);
+  }
+
+  /** Applies the chosen (or default) Brand Kit's switched-on parts to a brand-new project. Never blocks creation. */
+  private async brandNewProject(project: Project, brandKitId?: string | null): Promise<Project> {
+    const b = this.d.brand;
+    if (!b || brandKitId === null) return project;
+    try {
+      const id = brandKitId ?? (await b.defaultKitId());
+      if (!id) return project;
+      const kit = await b.getKit(id);
+      const res = applyBrandToProject({
+        project,
+        kit,
+        assets: await b.assetsOf(id),
+        parts: brandPartsFromDefaults(kit.spec),
+        newId,
+      });
+      for (const s of res.skipped) this.d.log(`editor: brand ${s.part} skipped: ${s.reason}`);
+      return { ...res.project, brandKitId: kit.id };
+    } catch (e) {
+      this.d.log(`editor: Brand Kit not applied to the new project: ${String(e)}`);
+      return project;
+    }
   }
 
   /** Optimistic save. A stale `baseRev` means another window saved in between: CONFLICT. */

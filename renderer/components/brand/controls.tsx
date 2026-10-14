@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Check } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -257,7 +258,11 @@ export function SelectField<T extends string>({
   id?: string;
 }) {
   return (
-    <Select value={value === '' ? undefined : value} onValueChange={(v) => onChange(v as T)} disabled={disabled}>
+    <Select
+      value={value === '' ? undefined : value}
+      onValueChange={(v) => onChange(v as T)}
+      disabled={disabled}
+    >
       <SelectTrigger id={id} aria-label={label} className={cn(className, triggerClassName)}>
         <SelectValue placeholder={placeholder ?? 'Choose…'} />
       </SelectTrigger>
@@ -379,7 +384,9 @@ export function HexField({
                 {active ? (
                   <Check
                     className="size-3"
-                    style={{ color: isLightColor(c.hex) ? 'var(--swatch-black)' : 'var(--swatch-white)' }}
+                    style={{
+                      color: isLightColor(c.hex) ? 'var(--swatch-black)' : 'var(--swatch-white)',
+                    }}
                     aria-hidden
                   />
                 ) : null}
@@ -397,8 +404,40 @@ export function Dot({ color, className }: { color: string; className?: string })
   return (
     <span
       aria-hidden
-      className={cn('inline-block size-3 shrink-0 rounded-full border border-border-strong', className)}
+      className={cn(
+        'inline-block size-3 shrink-0 rounded-full border border-border-strong',
+        className,
+      )}
       style={{ background: color }}
+    />
+  );
+}
+
+/**
+ * Text input that reports every non-empty edit at once (so the kit saves as you type) but lets you clear the field
+ * while typing; on blur an empty field snaps back to the last saved text.
+ */
+export function BufferedInput({
+  value,
+  onValue,
+  allowEmpty,
+  ...props
+}: Omit<React.ComponentProps<typeof Input>, 'value' | 'onChange' | 'onBlur'> & {
+  value: string;
+  onValue: (v: string) => void;
+  allowEmpty?: boolean;
+}) {
+  const [text, setText] = React.useState<string | null>(null);
+  return (
+    <Input
+      {...props}
+      value={text ?? value}
+      onChange={(e) => {
+        const v = e.target.value;
+        setText(v);
+        if (allowEmpty || v.trim()) onValue(v);
+      }}
+      onBlur={() => setText(null)}
     />
   );
 }

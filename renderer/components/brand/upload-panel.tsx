@@ -30,7 +30,8 @@ export function UploadPanel({
   const rows = rowsOfKind(s.uploads, kind);
   const busy = rows.some((r) => r.state !== 'error');
 
-  const hasFiles = (e: React.DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files');
+  const hasFiles = (e: React.DragEvent) =>
+    Array.from(e.dataTransfer?.types ?? []).includes('Files');
   const onEnter = (e: React.DragEvent) => {
     if (!hasFiles(e)) return;
     e.preventDefault();
@@ -157,12 +158,18 @@ function UploadRows({ rows, kind }: { rows: UploadRow[]; kind: BrandAssetKind })
                       'h-full rounded-full bg-primary transition-[width] duration-(--duration-base) ease-(--ease-standard)',
                       r.fraction === null && 'w-1/3 animate-indeterminate',
                     )}
-                    style={r.fraction === null ? undefined : { width: `${Math.round(r.fraction * 100)}%` }}
+                    style={
+                      r.fraction === null
+                        ? undefined
+                        : { width: `${Math.round(r.fraction * 100)}%` }
+                    }
                   />
                 </div>
                 <span className="w-32 shrink-0 text-right text-xs text-muted-foreground">
                   {r.state === 'done' ? 'Done' : stageLabel(r.stage)}
-                  {r.fraction !== null && r.state !== 'done' ? ` ${Math.round(r.fraction * 100)}%` : ''}
+                  {r.fraction !== null && r.state !== 'done'
+                    ? ` ${Math.round(r.fraction * 100)}%`
+                    : ''}
                 </span>
               </div>
             )}

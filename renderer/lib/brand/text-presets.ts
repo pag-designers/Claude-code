@@ -3,11 +3,7 @@
  * animations). Pure data; every preset parses with `brandTextStyleSchema` (unit tested). Sizes are canvas px at
  * 1080 wide, like editor text items.
  */
-import {
-  brandTextStyleSchema,
-  type BrandTextStyle,
-  type TEXT_STYLE_KINDS,
-} from '@shared/brand';
+import { brandTextStyleSchema, type BrandTextStyle, type TEXT_STYLE_KINDS } from '@shared/brand';
 
 export type TextStyleKind = (typeof TEXT_STYLE_KINDS)[number];
 

@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { keysEditor, projectSchema, type ExportJob } from '@shared/editor';
+import { defaultBrandSpec, type BrandAsset, type BrandKit } from '@shared/brand';
 import { keys, type Transcript } from '@shared/pipeline';
 import { subtitleEditsSchema } from '@shared/cp2';
 import { EditorService, JOB_EDITOR_EXPORT } from '@main/pipeline/editor';
@@ -50,7 +51,7 @@ afterEach(async () => {
   for (const c of cleanups.splice(0)) await c();
 });
 
-async function makeEnv() {
+async function makeEnv(over: Partial<ConstructorParameters<typeof EditorService>[0]> = {}) {
   const m = await makeServices();
   cleanups.push(m.cleanup);
   const db = m.svc.dbHandle.prisma;
@@ -186,6 +187,7 @@ async function makeEnv() {
     chooseDirectory: async () => m.dir,
     emit: { export: (j) => exportsSeen.push(j) },
     log: () => {},
+    ...over,
   });
   editor.registerJobs();
   await editor.primeStyles();
@@ -627,5 +629,87 @@ describe('EditorService: exports', () => {
     await db.editorExport.create({ data: { name: 'Zombie', status: 'rendering' } });
     await editor.reconcileOnStart();
     expect((await editor.listExports(10))[0]).toMatchObject({ status: 'failed' });
+  });
+});
+
+describe('EditorService: Brand Kit on new projects (CP4)', () => {
+  const asset = (
+    id: string,
+    kind: 'logo' | 'video',
+    extra: Partial<BrandAsset> = {},
+  ): BrandAsset => ({
+    id,
+    kitId: 'k1',
+    kind,
+    name: id,
+    ext: kind === 'logo' ? 'png' : 'mp4',
+    bytes: 10,
+    storageKey: `brand/k1/${id}.${kind === 'logo' ? 'png' : 'mp4'}`,
+    usableKey: null,
+    previewKey: null,
+    thumbKey: null,
+    width: kind === 'logo' ? 400 : 1080,
+    height: kind === 'logo' ? 200 : 1920,
+    durationSec: kind === 'video' ? 3 : null,
+    hasAudio: kind === 'video',
+    fps: kind === 'video' ? 30 : null,
+    loudnessLufs: null,
+    font: null,
+    credit: null,
+    createdAt: 0,
+    ...extra,
+  });
+  const kit = (): BrandKit => {
+    const spec = defaultBrandSpec();
+    spec.watermark.assetId = 'logo1';
+    spec.introAssetId = 'intro1';
+    spec.defaults = { ...spec.defaults, watermarkOn: true, introOn: true };
+    return { id: 'k1', name: 'Acme', isDefault: true, spec, rev: 1, createdAt: 0, updatedAt: 0 };
+  };
+  const brand = (over: { defaultId?: string | null; fail?: boolean } = {}) => ({
+    getKit: async (id: string) => {
+      if (over.fail) throw new Error('storage down');
+      if (id !== 'k1') throw new Error('no such kit');
+      return kit();
+    },
+    assetsOf: async () => [asset('logo1', 'logo'), asset('intro1', 'video')],
+    defaultKitId: async () => (over.defaultId === undefined ? 'k1' : over.defaultId),
+  });
+
+  it('a project opened from a clip takes the default kit: watermark track, intro at 0 and everything rippled', async () => {
+    const { editor } = await makeEnv({ brand: brand() });
+    const plain = (await makeEnv()).editor;
+    const base = (await plain.create(undefined, { clipId: 'c1' })).project;
+    const doc = await editor.create(undefined, { clipId: 'c1' });
+    const p = doc.project;
+    expect(p.brandKitId).toBe('k1');
+    expect(p.tracks.some((t) => t.id === 'tr_brand_wm' && t.items.length === 1)).toBe(true);
+    const intro = p.tracks.flatMap((t) => t.items).find((i) => i.id === 'brand_intro');
+    expect(intro?.startSec).toBe(0);
+    const mainStart = (pr: typeof p) =>
+      pr.tracks.find((t) => t.kind === 'video')!.items.find((i) => i.id !== 'brand_intro')!
+        .startSec;
+    expect(mainStart(p)).toBeCloseTo(mainStart(base) + 3, 5);
+    expect(projectSchema.safeParse(p).success).toBe(true);
+  });
+
+  it('brandKitId null means no kit; an explicit id picks that kit', async () => {
+    const { editor } = await makeEnv({ brand: brand() });
+    const none = (await editor.create(undefined, { clipId: 'c1' }, null)).project;
+    expect(none.brandKitId).toBeNull();
+    expect(none.tracks.some((t) => t.id === 'tr_brand_wm')).toBe(false);
+    const picked = (await editor.create(undefined, { blank: true, aspect: '9:16' }, 'k1')).project;
+    expect(picked.brandKitId).toBe('k1');
+  });
+
+  it('no kits at all, or a brand failure, never blocks creating the project', async () => {
+    const empty = await makeEnv({ brand: brand({ defaultId: null }) });
+    expect(
+      (await empty.editor.create(undefined, { blank: true, aspect: '9:16' })).project.brandKitId,
+    ).toBeNull();
+    const broken = await makeEnv({ brand: brand({ fail: true }) });
+    const doc = await broken.editor.create(undefined, { blank: true, aspect: '1:1' });
+    expect(doc.project.brandKitId).toBeNull();
+    expect(doc.project.canvas.aspect).toBe('1:1');
   });
 });

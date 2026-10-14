@@ -1,14 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import { ArrowRight, Image as ImageIcon } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ShapeKind } from '@shared/editor';
-import { Badge } from '@/components/ui/badge';
-import { DisabledTip } from '@/components/ui/tooltip';
 import { CTA_STICKERS, SHAPE_PRESETS } from '@/lib/editor-panels/presets';
 import { cn } from '@/lib/utils';
 import { addCta, addShape } from './actions';
+import { BrandImagesSection } from './brand-images';
 import { GroupLabel, tileBase } from './bits';
 
 function ShapeGlyph({ kind }: { kind: ShapeKind }) {
@@ -97,23 +96,7 @@ export function StickersTab() {
         </p>
       </section>
 
-      <section className="flex flex-col gap-2.5" aria-label="Brand Kit images">
-        <GroupLabel>Brand Kit</GroupLabel>
-        <DisabledTip reason="Arrives in checkpoint 4" className="w-fit">
-          <button
-            type="button"
-            disabled
-            data-testid="bin-brandkit-images"
-            className="inline-flex h-8 items-center gap-2 rounded-full border border-dashed border-border-strong px-3 text-xs font-medium text-muted-foreground opacity-70 disabled:cursor-not-allowed"
-          >
-            <ImageIcon className="size-3.5" aria-hidden />
-            Brand Kit images
-            <Badge variant="outline" className="h-4 px-1.5">
-              CP 4
-            </Badge>
-          </button>
-        </DisabledTip>
-      </section>
+      <BrandImagesSection />
     </div>
   );
 }

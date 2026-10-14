@@ -64,7 +64,11 @@ export function MiniPlayer({
         )}
       >
         {playing ? (
-          <Pause className={size === 'md' ? 'size-4' : 'size-3.5'} fill="currentColor" aria-hidden />
+          <Pause
+            className={size === 'md' ? 'size-4' : 'size-3.5'}
+            fill="currentColor"
+            aria-hidden
+          />
         ) : (
           <Play className={size === 'md' ? 'size-4' : 'size-3.5'} fill="currentColor" aria-hidden />
         )}
@@ -88,7 +92,9 @@ export function MiniPlayer({
         />
         <span className="flex justify-between text-2xs tabular-nums text-subtle">
           <span>{formatDur(t)}</span>
-          <span>{failed ? 'Preview unavailable' : src ? formatDur(total) : 'Preparing preview…'}</span>
+          <span>
+            {failed ? 'Preview unavailable' : src ? formatDur(total) : 'Preparing preview…'}
+          </span>
         </span>
       </div>
       {src ? (

@@ -125,10 +125,12 @@ export function buildVideoGraph(plan: GraphPlan): { graph: string; out: string }
     }
   });
   if (plan.pieces.length === 1) {
-    chains.push(`[${vLabel(0)}]null[vout]`);
+    chains.push(`[${vLabel(0)}]fps=${plan.fpsExpr}[vout]`);
   } else {
     const ins = plan.pieces.map((_, i) => `[${vLabel(i)}]`).join('');
-    chains.push(`${ins}concat=n=${plan.pieces.length}:v=1:a=0[vout]`);
+    // concat reports the first piece's frame rate; pin the output rate explicitly so the encoder stays at the clip's
+    chains.push(`${ins}concat=n=${plan.pieces.length}:v=1:a=0[vcat]`);
+    chains.push(`[vcat]fps=${plan.fpsExpr}[vout]`);
   }
   return { graph: chains.join(';'), out: 'vout' };
 }

@@ -42,7 +42,6 @@ function ResultCardImpl({
 }: ResultCardProps) {
   const [thumbFailed, setThumbFailed] = React.useState(false);
   const [thumbLoaded, setThumbLoaded] = React.useState(false);
-  const [videoReady, setVideoReady] = React.useState(false);
   const timer = React.useRef<number | null>(null);
   React.useEffect(
     () => () => {
@@ -50,9 +49,6 @@ function ResultCardImpl({
     },
     [],
   );
-  React.useEffect(() => {
-    if (!previewing) setVideoReady(false);
-  }, [previewing]);
 
   const busy = importState?.status === 'busy';
   const done = importState?.status === 'done';
@@ -107,7 +103,9 @@ function ResultCardImpl({
           className={cn(
             'group/card relative block w-full cursor-pointer overflow-hidden rounded-lg border bg-muted outline-none transition-[border-color,box-shadow] duration-(--duration-fast)',
             'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover',
-            selected ? 'border-primary ring-2 ring-primary' : 'border-border hover:border-border-strong',
+            selected
+              ? 'border-primary ring-2 ring-primary'
+              : 'border-border hover:border-border-strong',
             (busy || done) && 'cursor-default',
           )}
           style={{ aspectRatio: aspect }}
@@ -117,7 +115,6 @@ function ResultCardImpl({
               <ImageOff className="size-6" aria-hidden />
             </span>
           ) : (
-            // eslint-disable-next-line @next/next/no-img-element -- remote provider thumbnails in a static export
             <img
               src={item.thumbUrl}
               alt=""
@@ -135,23 +132,7 @@ function ResultCardImpl({
           )}
 
           {showVideo ? (
-            <video
-              src={item.previewUrl ?? undefined}
-              muted
-              loop
-              autoPlay
-              playsInline
-              preload="auto"
-              disablePictureInPicture
-              aria-hidden
-              data-testid="broll-preview"
-              onLoadedData={() => setVideoReady(true)}
-              onError={() => onPreview(null)}
-              className={cn(
-                'absolute inset-0 size-full object-cover transition-opacity duration-(--duration-fast)',
-                videoReady ? 'opacity-100' : 'opacity-0',
-              )}
-            />
+            <PreviewVideo src={item.previewUrl!} onFail={() => onPreview(null)} />
           ) : null}
 
           <span
@@ -204,7 +185,11 @@ function ResultCardImpl({
             onClick={() => onPreview(previewing ? null : item.id)}
             className="absolute right-2 top-2 flex size-6 items-center justify-center rounded-full border border-border-strong bg-background/80 text-foreground backdrop-blur transition-colors hover:bg-accent"
           >
-            {previewing ? <Pause className="size-3" aria-hidden /> : <Play className="size-3" aria-hidden />}
+            {previewing ? (
+              <Pause className="size-3" aria-hidden />
+            ) : (
+              <Play className="size-3" aria-hidden />
+            )}
           </button>
         ) : null}
       </div>
@@ -252,9 +237,36 @@ export const ResultCard = React.memo(ResultCardImpl);
 export function ResultCardSkeleton({ aspect }: { aspect: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-2" aria-hidden>
-      <div className="animate-shimmer rounded-lg border bg-[linear-gradient(100deg,var(--muted)_30%,var(--accent)_50%,var(--muted)_70%)] bg-[length:200%_100%]" style={{ aspectRatio: aspect }} />
+      <div
+        className="animate-shimmer rounded-lg border bg-[linear-gradient(100deg,var(--muted)_30%,var(--accent)_50%,var(--muted)_70%)] bg-[length:200%_100%]"
+        style={{ aspectRatio: aspect }}
+      />
       <div className="h-3.5 w-3/4 rounded-xs bg-muted" />
       <div className="h-3 w-1/2 rounded-xs bg-muted" />
     </div>
+  );
+}
+
+/** The muted hover preview. Mounted only while previewing, so it starts hidden and fades in once a frame exists. */
+function PreviewVideo({ src, onFail }: { src: string; onFail: () => void }) {
+  const [ready, setReady] = React.useState(false);
+  return (
+    <video
+      src={src}
+      muted
+      loop
+      autoPlay
+      playsInline
+      preload="auto"
+      disablePictureInPicture
+      aria-hidden
+      data-testid="broll-preview"
+      onLoadedData={() => setReady(true)}
+      onError={onFail}
+      className={cn(
+        'absolute inset-0 size-full object-cover transition-opacity duration-(--duration-fast)',
+        ready ? 'opacity-100' : 'opacity-0',
+      )}
+    />
   );
 }

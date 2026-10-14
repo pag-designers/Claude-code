@@ -73,7 +73,7 @@ export function BrandKitSelect({
             <span className="flex min-w-0 items-center gap-2">
               <KitSwatches swatches={k.swatches} />
               <span className="truncate">{k.name}</span>
-              {k.isDefault ? <span className="text-2xs text-subtle">default</span> : null}
+              {k.isDefault ? <span className="text-2xs text-subtle">{' default'}</span> : null}
             </span>
           </SelectItem>
         ))}

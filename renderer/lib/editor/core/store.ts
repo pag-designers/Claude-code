@@ -94,6 +94,11 @@ export interface EditorExtras {
   nudgeSelected(frames: number): void;
   /** Delete the selected keyframe if any, else the selected items. */
   deleteSelection(opts?: { ripple?: boolean }): void;
+  /**
+   * CP4: replace the whole project with a derived one as ONE undoable step (Apply Brand Kit computes the next project
+   * with the pure `applyBrandToProject`). Returns false (and records nothing) when `next` is the same object.
+   */
+  replaceProject(label: string, next: Project): boolean;
 }
 
 export type FullEditorStore = EditorStore & EditorExtras;
@@ -931,6 +936,9 @@ function initializer(opts: StoreOptions): (set: SetFn, get: GetFn) => FullEditor
           return;
         }
         if (s.selection.itemIds.length) actions.deleteItems(s.selection.itemIds, o);
+      },
+      replaceProject(label, next) {
+        return commit(label, next);
       },
     };
 

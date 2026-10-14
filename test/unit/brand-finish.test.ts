@@ -88,7 +88,7 @@ function bandDb(file: string, ss: number, t: number, freq: number): number {
     file,
     '-vn',
     '-af',
-    `bandpass=f=${freq}:width_type=h:w=60,volumedetect`,
+    `${Array(3).fill(`bandpass=f=${freq}:width_type=h:w=60`).join(',')},volumedetect`,
     '-f',
     'null',
     '-',
@@ -178,7 +178,7 @@ describe('graph builders (pure)', () => {
       'scale=360:640'.replace('360:640', '1080:1920') + ':force_original_aspect_ratio=decrease',
     );
     expect(g).toContain('pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black');
-    expect(g).toContain('[pv0][pv1][pv2]concat=n=3:v=1:a=0[vout]');
+    expect(g).toContain('[pv0][pv1][pv2]concat=n=3:v=1:a=0[vcat];[vcat]fps=30[vout]');
     expect(g).toContain('trim=end_frame=45');
   });
 

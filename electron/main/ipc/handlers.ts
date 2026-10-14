@@ -35,6 +35,10 @@ export interface HostApi {
   };
 }
 
+const notWired = (): never => {
+  throw new Error('Brand Kit is not available yet');
+};
+
 export function buildHandlers(svc: Services, host: HostApi): Handlers {
   const ok = { ok: true as const };
   const handlers: Handlers = {
@@ -266,6 +270,30 @@ export function buildHandlers(svc: Services, host: HostApi): Handlers {
       return ok;
     },
     'exports:download': ({ ids }) => host.editor.downloadExports(ids),
+
+    // CP4 INTERIM: replaced by the real brand/broll handlers during integration.
+    'brand:list': notWired,
+    'brand:get': notWired,
+    'brand:create': notWired,
+    'brand:update': notWired,
+    'brand:duplicate': notWired,
+    'brand:delete': notWired,
+    'brand:setDefault': notWired,
+    'brand:browse': notWired,
+    'brand:addFiles': notWired,
+    'brand:renameAsset': notWired,
+    'brand:deleteAssets': notWired,
+    'brand:extractColors': notWired,
+    'brand:fonts': notWired,
+    'brand:styles': notWired,
+    'brand:saveStyle': notWired,
+    'brand:apply': notWired,
+    'brand:defaultKit': notWired,
+    'broll:status': notWired,
+    'broll:search': notWired,
+    'broll:importToProject': notWired,
+    'broll:importToKit': notWired,
+    'broll:suggest': notWired,
 
     'shell:openExternal': async ({ url }) => {
       if (!/^https?:\/\//i.test(url)) throw new Error('Only http(s) links can be opened');

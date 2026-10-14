@@ -100,6 +100,8 @@ const clip = (p: Partial<ClipView> = {}): ClipView => ({
   hasMeta: false,
   hasThumbOptions: false,
   subtitleRev: 0,
+  brandKitId: null,
+  brandApplied: null,
   ...p,
 });
 const ev = (

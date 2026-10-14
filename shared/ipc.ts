@@ -47,6 +47,17 @@ import {
   projectVersionSchema,
   waveformSchema,
 } from './editor';
+import {
+  brandApplyResultSchema,
+  brandAssetKindSchema,
+  brandAssetViewSchema,
+  brandKitPatchSchema,
+  brandKitSchema,
+  brandKitSummarySchema,
+  brollItemSchema,
+  brollProviderSchema,
+  brollSearchResultSchema,
+} from './brand';
 import { secretKeySchema, secretsBackendSchema, secretStatusSchema } from './secrets';
 import { settingsPatchSchema, settingsSchema } from './settings';
 
@@ -444,6 +455,124 @@ export const invokeContract = {
     z.object({ saved: z.number(), dir: z.string().nullable(), canceled: z.boolean() }),
   ),
 
+  /* ---- CP4: brand kits ---- */
+  'brand:list': ch(none, z.object({ items: z.array(brandKitSummarySchema) })),
+  'brand:get': ch(
+    z.object({ id: z.string() }),
+    z.object({ kit: brandKitSchema, assets: z.array(brandAssetViewSchema) }),
+  ),
+  'brand:create': ch(
+    z.object({ name: z.string().min(1).max(60), copyFrom: z.string().optional() }),
+    brandKitSchema,
+  ),
+  /** Fails with CONFLICT when `baseRev` is not the stored revision. */
+  'brand:update': ch(
+    z.object({ id: z.string(), patch: brandKitPatchSchema, baseRev: z.number().int().optional() }),
+    brandKitSchema,
+  ),
+  'brand:duplicate': ch(z.object({ id: z.string() }), brandKitSchema),
+  /** Deletes the kit, its assets (storage objects too, unless an editor project still references them) and its subtitle styles. */
+  'brand:delete': ch(z.object({ id: z.string() }), ok),
+  'brand:setDefault': ch(z.object({ id: z.string() }), ok),
+  /** Native file dialog filtered to the section's formats, then the same pipeline as `brand:addFiles`. */
+  'brand:browse': ch(
+    z.object({ kitId: z.string(), kind: brandAssetKindSchema }),
+    z.object({
+      assets: z.array(brandAssetViewSchema),
+      errors: z.array(z.object({ name: z.string(), message: z.string() })),
+      canceled: z.boolean(),
+    }),
+  ),
+  /** Drag-and-drop: absolute paths from `window.clipfern.pathForFile`. Validates extension/size, probes, uploads, makes previews. */
+  'brand:addFiles': ch(
+    z.object({
+      kitId: z.string(),
+      kind: brandAssetKindSchema,
+      paths: z.array(z.string()).min(1).max(50),
+    }),
+    z.object({
+      assets: z.array(brandAssetViewSchema),
+      errors: z.array(z.object({ name: z.string(), message: z.string() })),
+    }),
+  ),
+  'brand:renameAsset': ch(z.object({ id: z.string(), name: z.string().min(1).max(120) }), ok),
+  /** Removes assets and clears kit references to them (watermark, intro, outro, music bed). */
+  'brand:deleteAssets': ch(
+    z.object({ ids: z.array(z.string()).min(1) }),
+    z.object({ deleted: z.number().int(), clearedRefs: z.array(z.string()) }),
+  ),
+  /** Dominant colours of a logo/image asset (#RRGGBB, most prominent first, near-duplicates merged). */
+  'brand:extractColors': ch(
+    z.object({ assetId: z.string(), count: z.number().int().min(1).max(12).default(6) }),
+    z.object({ colors: z.array(z.string()) }),
+  ),
+  /** Every uploaded font of every kit (the renderer registers them with `FontFace` for pickers and the editor canvas). */
+  'brand:fonts': ch(
+    none,
+    z.object({
+      fonts: z.array(
+        z.object({
+          assetId: z.string(),
+          kitId: z.string(),
+          family: z.string(),
+          weight: z.number().int(),
+          italic: z.boolean(),
+          url: z.string(),
+        }),
+      ),
+    }),
+  ),
+  /** Subtitle styles that belong to a kit (custom presets with `brandKitId`). Built-ins come from `captions:styles`. */
+  'brand:styles': ch(
+    z.object({ kitId: z.string() }),
+    z.object({ styles: z.array(captionStyleSchema) }),
+  ),
+  'brand:saveStyle': ch(
+    z.object({ kitId: z.string(), style: captionStyleSchema }),
+    captionStyleSchema,
+  ),
+  /**
+   * Apply a kit to rendered clips: sets `Clip.brandKitId` (null = remove branding) and re-renders them through the
+   * pipeline. Pass `clipIds` (a selection / one clip) or `videoId` (every clip of a video).
+   */
+  'brand:apply': ch(
+    z.object({
+      kitId: z.string().nullable(),
+      clipIds: z.array(z.string()).optional(),
+      videoId: z.string().optional(),
+    }),
+    brandApplyResultSchema,
+  ),
+  /** The kit used for new projects / runs (the default kit's id, null when there are no kits). */
+  'brand:defaultKit': ch(none, z.object({ id: z.string().nullable() })),
+
+  /* ---- CP4: stock B-roll (Pexels / Pixabay official APIs; keys in Settings → API Keys) ---- */
+  'broll:status': ch(none, z.object({ pexels: z.boolean(), pixabay: z.boolean() })),
+  'broll:search': ch(
+    z.object({
+      provider: brollProviderSchema,
+      query: z.string().min(1).max(120),
+      orientation: z.enum(['any', 'portrait', 'landscape', 'square']).default('portrait'),
+      page: z.number().int().min(1).max(50).default(1),
+    }),
+    brollSearchResultSchema,
+  ),
+  /** Downloads the best ≤1080p MP4 of the item into the project's assets (storage) and returns the project asset. */
+  'broll:importToProject': ch(
+    z.object({ projectId: z.string(), item: brollItemSchema }),
+    z.object({ asset: assetSchema }),
+  ),
+  /** Same, into the kit's Videos section (credit kept on the asset). */
+  'broll:importToKit': ch(
+    z.object({ kitId: z.string(), item: brollItemSchema }),
+    z.object({ asset: brandAssetViewSchema }),
+  ),
+  /** Claude turns a transcript passage into 3–5 short stock-footage search queries (cost-tracked). */
+  'broll:suggest': ch(
+    z.object({ text: z.string().min(1).max(2000) }),
+    z.object({ queries: z.array(z.string()) }),
+  ),
+
   'shell:openExternal': ch(z.object({ url: z.string().url() }), ok),
   'diagnostics:exportLogs': ch(none, z.object({ saved: z.boolean(), path: z.string().nullable() })),
 } as const;
@@ -465,6 +594,16 @@ export const eventContract = {
   'chat:event': chatEventSchema,
   'editor:export': exportJobSchema,
   'moments:run': momentRunSchema,
+  /** A kit or its assets changed (kitId null = the kit list changed). */
+  'brand:changed': z.object({ kitId: z.string().nullable() }),
+  /** Progress of an asset being processed (probe, previews, loudness, conversion). */
+  'brand:progress': z.object({
+    kitId: z.string(),
+    name: z.string(),
+    fraction: z.number().nullable(),
+    stage: z.string(),
+    done: z.boolean(),
+  }),
   'markers:changed': z.object({ videoId: z.string() }),
   /** Main asks the renderer to navigate (tray menu, OS notification click). */
   'nav:go': z.object({ href: z.string() }),
@@ -490,6 +629,8 @@ export interface ClipfernApi {
   invoke<C extends InvokeChannel>(channel: C, payload?: InvokeInput<C>): Promise<InvokeOutput<C>>;
   on<E extends EventChannel>(event: E, cb: (payload: EventPayload<E>) => void): () => void;
   readonly platform: string;
+  /** Absolute path of a dropped/selected `File` (Electron `webUtils`); '' when it has none. */
+  pathForFile(file: File): string;
 }
 
 /**

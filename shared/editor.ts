@@ -450,6 +450,8 @@ export const projectSchema = z.object({
   tracks: z.array(trackSchema),
   assets: z.array(assetSchema),
   markers: z.array(projectMarkerSchema).default([]),
+  /** Brand Kit this project was last branded with (CP4; informational, drives the Brand panel). */
+  brandKitId: z.string().nullable().default(null),
   /** Where it came from (informational): the library clip / video opened in the editor. */
   origin: z
     .object({ clipId: z.string().nullable(), videoId: z.string().nullable() })

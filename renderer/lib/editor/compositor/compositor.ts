@@ -62,6 +62,7 @@ const EMPTY_PROJECT = {
   canvas: { aspect: '9:16', width: 1080, height: 1920, fps: 30, background: '#000000' },
   tracks: [],
   assets: [],
+  brandKitId: null,
   markers: [],
   origin: { clipId: null, videoId: null },
 } as Project;

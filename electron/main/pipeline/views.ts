@@ -58,6 +58,8 @@ export interface ClipRow {
   reframeMode: string;
   layout: string | null;
   subtitleRev: number;
+  /** CP4 Brand Kit override ('none' | kit id); optional so older fixtures keep working. */
+  brandKitId?: string | null;
   favorite: boolean;
   tags: string;
   storageKeys: string;
@@ -140,6 +142,7 @@ export function toClipView(
     confidence?: number;
     hooks?: { applied: { platform: string; index: number } | null; [k: string]: unknown } | null;
     appliedHookText?: string | null;
+    brandApplied?: unknown;
     hookOff?: boolean;
     meta?: unknown;
     thumbs?: unknown;
@@ -183,7 +186,18 @@ export function toClipView(
     hasMeta: Boolean(meta.meta),
     hasThumbOptions: Boolean(meta.thumbs),
     subtitleRev: row.subtitleRev,
+    brandKitId: row.brandKitId ?? null,
+    brandApplied: brandApplied(meta.brandApplied),
   };
+}
+
+/** `Clip.metadata.brandApplied` → the view field (tolerant: anything malformed reads as 'not branded'). */
+function brandApplied(v: unknown): { kitId: string; rev: number } | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as { kitId?: unknown; rev?: unknown };
+  return typeof o.kitId === 'string' && typeof o.rev === 'number'
+    ? { kitId: o.kitId, rev: o.rev }
+    : null;
 }
 
 export const stageLabel = (s: PipelineStage): string => STAGE_LABELS[s];

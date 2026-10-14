@@ -137,6 +137,7 @@ model Clip {
   reframeMode    String   @default("auto")
   layout         String? // layout used by the last render: single | split | screen-face
   subtitleRev    Int      @default(0) // subtitle revision the last render was built from
+  brandKitId     String? // CP4: explicit Brand Kit override ('none' | kit id); null = inherit from the video options
   favorite       Boolean  @default(false)
   tags           String   @default("[]") // JSON string[]
   storageKeys    String   @default("{}") // JSON
@@ -261,4 +262,31 @@ model EditorExport {
   finishedAt  DateTime?
 
   @@index([createdAt])
+}
+
+// ---- CP4 ----
+
+model BrandKit {
+  id        String   @id @default(cuid())
+  ownerId   String   @default("local")
+  name      String
+  isDefault Boolean  @default(false)
+  spec      String   @default("{}") // JSON BrandKitSpec
+  rev       Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BrandAsset {
+  id        String   @id @default(cuid())
+  ownerId   String   @default("local")
+  kitId     String
+  kind      String // logo | image | video | audio | font
+  name      String
+  ext       String
+  bytes     Int      @default(0)
+  data      String   @default("{}") // JSON: storage keys, probed metadata, font info, credit
+  createdAt DateTime @default(now())
+
+  @@index([kitId])
 }

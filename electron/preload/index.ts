@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
 import {
   EVENT_CHANNELS,
   INVOKE_CHANNELS,
@@ -13,6 +13,13 @@ const eventAllowed = new Set<string>(EVENT_CHANNELS);
 
 const api: ClipfernApi = {
   platform: process.platform,
+  pathForFile(file: File) {
+    try {
+      return webUtils.getPathForFile(file);
+    } catch {
+      return '';
+    }
+  },
   async invoke(channel, payload) {
     if (!invokeAllowed.has(channel))
       throw new Error(encodeIpcError('UNKNOWN_CHANNEL', `Unknown channel: ${String(channel)}`));

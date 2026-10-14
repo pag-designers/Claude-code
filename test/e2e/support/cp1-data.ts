@@ -554,6 +554,8 @@ export const CP2_CLIP_DEFAULTS = {
   hasMeta: false,
   hasThumbOptions: false,
   subtitleRev: 0,
+  brandKitId: null,
+  brandApplied: null,
 };
 
 /* ------------------------------------------------------- stages -------------------------------------------------- */

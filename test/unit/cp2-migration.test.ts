@@ -15,21 +15,38 @@ afterEach(() => {
 async function applyUpTo(url: string, last: string): Promise<void> {
   const c = createClient({ url });
   try {
-    await c.execute('CREATE TABLE IF NOT EXISTS _clipfern_migrations (name TEXT PRIMARY KEY, appliedAt TEXT NOT NULL)');
+    await c.execute(
+      'CREATE TABLE IF NOT EXISTS _clipfern_migrations (name TEXT PRIMARY KEY, appliedAt TEXT NOT NULL)',
+    );
     for (const m of MIGRATIONS) {
       if (m.name > last) break;
       const statements = m.sql
         .split(/;\s*(?:\r?\n|$)/)
-        .map((s) => s.split(/\r?\n/).filter((l) => !l.trim().startsWith('--')).join('\n').trim())
+        .map((s) =>
+          s
+            .split(/\r?\n/)
+            .filter((l) => !l.trim().startsWith('--'))
+            .join('\n')
+            .trim(),
+        )
         .filter(Boolean);
-      await c.batch([...statements, { sql: 'INSERT INTO _clipfern_migrations (name, appliedAt) VALUES (?, ?)', args: [m.name, 'x'] }], 'write');
+      await c.batch(
+        [
+          ...statements,
+          {
+            sql: 'INSERT INTO _clipfern_migrations (name, appliedAt) VALUES (?, ?)',
+            args: [m.name, 'x'],
+          },
+        ],
+        'write',
+      );
     }
   } finally {
     c.close();
   }
 }
 
-describe('migrations 0003 (CP2) and 0004 (CP3) on an existing CP1 database', () => {
+describe('migrations 0003 (CP2), 0004 (CP3) and 0005 (CP4) on an existing CP1 database', () => {
   it('keeps every video and clip, and gives them the new column defaults', async () => {
     const dir = tmpDir();
     dirs.push(dir);
@@ -48,7 +65,7 @@ describe('migrations 0003 (CP2) and 0004 (CP3) on an existing CP1 database', () 
     c.close();
 
     const applied = await runMigrations(url);
-    expect(applied).toEqual(['0003_cp2', '0004_editor']);
+    expect(applied).toEqual(['0003_cp2', '0004_editor', '0005_brand_kit']);
 
     const db = await openDatabase(file);
     try {
@@ -67,6 +84,7 @@ describe('migrations 0003 (CP2) and 0004 (CP3) on an existing CP1 database', () 
         reframeMode: 'auto',
         layout: null,
         subtitleRev: 0,
+        brandKitId: null,
       });
       // new tables work, and chat messages cascade with their thread
       const t = await db.prisma.chatThread.create({ data: { videoId: 'v1', title: 't' } });
@@ -83,6 +101,13 @@ describe('migrations 0003 (CP2) and 0004 (CP3) on an existing CP1 database', () 
       await db.prisma.editorProject.delete({ where: { id: ep.id } });
       expect(await db.prisma.editorVersion.count()).toBe(0);
       expect(await db.prisma.editorExport.count()).toBe(1);
+      // CP4 tables
+      const kit = await db.prisma.brandKit.create({ data: { name: 'k' } });
+      await db.prisma.brandAsset.create({
+        data: { kitId: kit.id, kind: 'logo', name: 'l', ext: 'png' },
+      });
+      expect(await db.prisma.brandAsset.count()).toBe(1);
+      await db.prisma.clip.update({ where: { id: 'c1' }, data: { brandKitId: kit.id } });
     } finally {
       await db.close();
     }

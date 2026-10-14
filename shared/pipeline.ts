@@ -80,6 +80,8 @@ export const pipelineOptionsSchema = z.object({
   /** Caption preset (built-in id or a saved custom preset) for the clips of this run. */
   captionStyleId: z.string().default('clean-pop'),
   reframeMode: reframeModeSchema.default('auto'),
+  /** Brand Kit applied to the clips of this run: 'default' (the default kit, resolved at render time), 'none', or a kit id. */
+  brandKitId: z.string().default('default'),
   /** Spoken language override; null = auto-detect. */
   language: z.string().nullable().default(null),
   maxResolution: z
@@ -387,6 +389,10 @@ export const clipViewSchema = z.object({
   hasThumbOptions: z.boolean(),
   /** Subtitle revision the render was built from. */
   subtitleRev: z.number(),
+  /** Explicit Brand Kit override of this clip: a kit id, 'none', or null = inherit from the video's run options. */
+  brandKitId: z.string().nullable().default(null),
+  /** The kit (and its revision) the current render was branded with; null = rendered without a kit. */
+  brandApplied: z.object({ kitId: z.string(), rev: z.number().int() }).nullable().default(null),
 });
 export type ClipView = z.infer<typeof clipViewSchema>;
 

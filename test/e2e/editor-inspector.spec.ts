@@ -1,7 +1,9 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { sourceSpan } from '../../shared/editor-eval';
 import { videoItemSchema } from '../../shared/editor';
-import { canRun, createHarness, type Harness } from './support/harness';
+import fs from 'node:fs';
+import path from 'node:path';
+import { OUT, canRun, createHarness, type Harness } from './support/harness';
 import { openInspectorLab, type LabSession } from './support/editor-stub-inspector';
 import { LAB_IDS } from './support/inspector-lab/lab-project';
 
@@ -16,7 +18,10 @@ import { LAB_IDS } from './support/inspector-lab/lab-project';
 test.use({ trace: 'off', video: 'off', screenshot: 'off', actionTimeout: 10_000 });
 
 let h: Harness;
-test.skip(!canRun(), 'needs a Chromium binary and a built export (CLIPFERN_E2E_OUT)');
+test.skip(
+  !canRun() || !fs.existsSync(path.join(OUT, 'inspector-lab', 'index.html')),
+  'needs a Chromium binary and the private inspector-lab export (build-lab.sh, then CLIPFERN_E2E_OUT=<out>)',
+);
 test.beforeAll(async () => {
   test.setTimeout(300_000);
   h = await createHarness();

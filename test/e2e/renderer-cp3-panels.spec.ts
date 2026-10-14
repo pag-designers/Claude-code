@@ -1062,7 +1062,8 @@ test.describe('Library → Edited', () => {
     await s.page.getByTestId('project-duplicate').click();
     await expect(toast(s.page, 'Duplicated as “Founder story, rough cut copy”')).toBeVisible();
     await expect(cardsOf(s.page, 'project-card')).toHaveCount(4);
-    // delete needs a confirmation
+    // delete needs a confirmation (wait for the duplicate menu to be gone: Radix animates it out)
+    await expect(s.page.getByRole('menu')).toHaveCount(0);
     await card('ep-video').getByTestId('project-menu').click();
     await s.page.getByTestId('project-delete').click();
     const dlg = s.page.getByRole('dialog', { name: 'Delete this project?' });

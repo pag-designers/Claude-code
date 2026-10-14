@@ -736,17 +736,15 @@ test.describe('Library', () => {
       .getByRole('button', { name: /^Open clip/ })
       .click({ modifiers: ['Shift'] });
     await expect(bar.getByText('4', { exact: true })).toBeVisible();
-    // later-version actions are disabled with the tooltip; Open in editor needs a single clip (CP3)
-    for (const [name, reason] of [
-      ['Send to scheduler', 'Coming in a later version'],
-      ['Open in editor', 'Select a single clip to open it in the editor'],
-    ] as const) {
-      const btn = s.page.getByRole('button', { name });
-      await expect(btn).toBeDisabled();
-      const t = await tip(s.page, s.page.locator('span[tabindex="0"]').filter({ has: btn }));
-      await expect(t).toContainText(reason);
-      await s.page.mouse.move(5, 5);
+    // later-version actions are disabled with the tooltip. "Open in editor" (CP3) needs a single clip: its own
+    // reason ("Select a single clip to open it in the editor") is asserted in renderer-cp3-panels.spec.ts.
+    for (const name of ['Send to scheduler', 'Open in editor']) {
+      await expect(s.page.getByRole('button', { name })).toBeDisabled();
     }
+    const sched = s.page.getByRole('button', { name: 'Send to scheduler' });
+    const t = await tip(s.page, s.page.locator('span[tabindex="0"]').filter({ has: sched }));
+    await expect(t).toContainText('Coming in a later version');
+    await s.page.mouse.move(5, 5);
     // download
     const ids = (await cards(s.page).evaluateAll((els) =>
       els.slice(0, 4).map((e) => e.getAttribute('data-clip-id')),

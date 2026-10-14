@@ -455,7 +455,7 @@ export function ExportPanel({
               <div
                 role="radiogroup"
                 aria-label="Platform preset"
-                className="grid grid-cols-4 gap-2 max-[1000px]:grid-cols-3"
+                className="grid grid-cols-3 gap-2"
               >
                 {PRESET_IDS.map((id) => {
                   const active = settings.preset === id;
@@ -778,6 +778,11 @@ export function ExportPanel({
                     {progress !== null ? `${Math.round(progress * 100)}%` : ''}
                   </span>
                 </div>
+                <p className="text-2xs tabular-nums text-subtle" data-testid="export-target">
+                  {presetLabel(job?.settings.preset ?? settings.preset)} ·{' '}
+                  {job?.settings.width ?? settings.width}×{job?.settings.height ?? settings.height}{' '}
+                  · {job?.settings.fps ?? settings.fps} fps
+                </p>
                 <Progress
                   value={progress === null ? null : progress * 100}
                   aria-label="Export progress"
@@ -863,18 +868,24 @@ export function ExportPanel({
             </Button>
           </DisabledTip>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            <Button
+              variant={starting || !locked ? 'ghost' : 'primary'}
+              onClick={() => onOpenChange(false)}
+              data-testid="export-close"
+            >
               {running ? 'Hide' : job?.status === 'done' ? 'Done' : 'Close'}
             </Button>
-            <Button
-              variant="primary"
-              loading={starting}
-              disabled={locked || blocked || !projectId}
-              onClick={() => void start()}
-              data-testid="export-start"
-            >
-              {starting ? null : <Upload />} Export
-            </Button>
+            {starting || !locked ? (
+              <Button
+                variant="primary"
+                loading={starting}
+                disabled={blocked || !projectId}
+                onClick={() => void start()}
+                data-testid="export-start"
+              >
+                {starting ? null : <Upload />} Export
+              </Button>
+            ) : null}
           </div>
         </DialogFooter>
       </DialogContent>

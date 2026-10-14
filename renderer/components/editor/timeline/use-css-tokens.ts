@@ -2,11 +2,29 @@
 
 import * as React from 'react';
 
-/** Reads CSS custom properties (resolved per theme) for canvas drawing. Re-reads when the theme flips. */
-export function readTokens<K extends string>(el: Element, names: readonly K[]): Record<K, string> {
-  const cs = getComputedStyle(el);
+let tokenCache = new Map<string, Record<string, string>>();
+let tokenCacheVersion = -1;
+
+/**
+ * Resolved CSS custom properties for canvas drawing, read from the timeline root (where the `--tl-*` tokens live) and
+ * memoised per theme version, so mounting dozens of canvases costs one style read, not one per canvas.
+ */
+export function readTokens<K extends string>(
+  _el: Element | null,
+  names: readonly K[],
+): Record<K, string> {
+  if (tokenCacheVersion !== themeVersion) {
+    tokenCache = new Map();
+    tokenCacheVersion = themeVersion;
+  }
+  const key = names.join('|');
+  const hit = tokenCache.get(key);
+  if (hit) return hit as Record<K, string>;
+  const root = document.querySelector('.tl-root') ?? document.documentElement;
+  const cs = getComputedStyle(root);
   const out = {} as Record<K, string>;
   for (const n of names) out[n] = cs.getPropertyValue(n).trim();
+  tokenCache.set(key, out);
   return out;
 }
 

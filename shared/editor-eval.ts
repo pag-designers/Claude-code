@@ -586,6 +586,19 @@ export function activeOnTrack(track: Pick<Track, 'items'>, t: number): ActiveOnT
   };
 }
 
+/**
+ * Audio gain multipliers of the OUTGOING / INCOMING item during a transition overlap at progress p: a linear
+ * crossfade (FFmpeg acrossfade-style). A 'cut' overlap mutes the outgoing item. Applied on top of itemGainAt.
+ */
+export function transitionAudioGains(
+  type: TransitionType,
+  pIn: number,
+): { from: number; to: number } {
+  const p = clamp(pIn, 0, 1);
+  if (type === 'cut') return { from: 0, to: 1 };
+  return { from: 1 - p, to: p };
+}
+
 /* ------------------------------------------------------------------ text animation ----------- */
 
 export interface TextAnimState {

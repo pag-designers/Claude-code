@@ -1,5 +1,11 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { canRun, createHarness, type Harness, type OpenOptions, type Session } from './support/harness';
+import {
+  canRun,
+  createHarness,
+  type Harness,
+  type OpenOptions,
+  type Session,
+} from './support/harness';
 import type { StubState } from './support/clipfern-stub';
 import {
   addDoc,
@@ -62,7 +68,24 @@ const goTab = async (p: Page, t: string) => {
 };
 const itemRows = (p: Page) => p.getByTestId('host-item');
 const itemRow = (p: Page, id: string) => p.locator(`[data-testid="host-item"][data-id="${id}"]`);
-const detail = async (p: Page, id: string): Promise<Record<string, any>> => // eslint-disable-line @typescript-eslint/no-explicit-any -- test readout is free-form JSON
+/** What the host page prints for one item (see app/design/editor-panels). */
+interface ItemDetail {
+  tr?: { type: string; durationSec: number };
+  filter?: string | null;
+  lut?: string | null;
+  lutAmount?: number;
+  anim?: string;
+  font?: string;
+  size?: number;
+  y: number;
+  align?: string;
+  box?: boolean;
+  shape?: string;
+  w?: number;
+  h?: number;
+  group?: string;
+}
+const detail = async (p: Page, id: string): Promise<ItemDetail> =>
   JSON.parse((await itemRow(p, id).getByTestId('host-item-details').innerText()) || '{}');
 const rowByName = (p: Page, name: string) => itemRows(p).filter({ hasText: name });
 const setPlayhead = (p: Page, sec: number) =>
@@ -80,7 +103,8 @@ const ed = (s: Session) => editorState(s.state);
 const PRELOAD_NOISE = /was preloaded using link preload but not used within a few seconds/;
 /** Software-GL performance notice printed by the REAL editor page (compositor) when a test navigates into it. */
 const GL_NOISE = /GL Driver Message .*GPU stall/;
-const problems = (s: Session) => s.problems.filter((p) => !PRELOAD_NOISE.test(p) && !GL_NOISE.test(p));
+const problems = (s: Session) =>
+  s.problems.filter((p) => !PRELOAD_NOISE.test(p) && !GL_NOISE.test(p));
 
 /** Records the DataTransfer of every dragstart in the page (readable only while the event is dispatched). */
 async function captureDrags(p: Page) {
@@ -97,7 +121,9 @@ async function captureDrags(p: Page) {
 }
 const drags = (p: Page) =>
   p.evaluate(
-    () => (window as unknown as { __drags: { types: string[]; data: Record<string, string> }[] }).__drags,
+    () =>
+      (window as unknown as { __drags: { types: string[]; data: Record<string, string> }[] })
+        .__drags,
   );
 
 /* ================================================================================ media bin */
@@ -107,7 +133,14 @@ test.describe('Media bin', () => {
     const s = await host();
     const tabs = bin(s.page).getByRole('tab');
     await expect(tabs).toHaveCount(6);
-    expect(await tabs.allInnerTexts()).toEqual(['Media', 'Audio', 'Text', 'Stickers', 'Transitions', 'Effects']);
+    expect(await tabs.allInnerTexts()).toEqual([
+      'Media',
+      'Audio',
+      'Text',
+      'Stickers',
+      'Transitions',
+      'Effects',
+    ]);
     await expect(s.page.getByTestId('bin-tab-media')).toHaveAttribute('aria-selected', 'true');
     await expect(bin(s.page).getByRole('tablist')).toHaveAttribute('aria-orientation', 'vertical');
     await goTab(s.page, 'stickers');
@@ -117,7 +150,10 @@ test.describe('Media bin', () => {
     // arrow keys move between tabs
     await s.page.getByTestId('bin-tab-stickers').focus();
     await s.page.keyboard.press('ArrowDown');
-    await expect(s.page.getByTestId('bin-tab-transitions')).toHaveAttribute('aria-selected', 'true');
+    await expect(s.page.getByTestId('bin-tab-transitions')).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
     expect(problems(s)).toEqual([]);
     await s.close();
   });
@@ -134,7 +170,9 @@ test.describe('Media bin', () => {
     await tiles.first().getByTestId('bin-asset-add').click({ force: true });
     await expect(itemRows(s.page)).toHaveCount(3);
     // the new item sits at the playhead and is selected
-    const added = s.page.locator('[data-testid="host-item"]:not([data-id="it_a"]):not([data-id="it_b"])');
+    const added = s.page.locator(
+      '[data-testid="host-item"]:not([data-id="it_a"]):not([data-id="it_b"])',
+    );
     await expect(added.first().locator('td').nth(3)).toHaveText('20.00');
     await expect(s.page.getByTestId('host-selection')).not.toHaveText('none');
     await setPlayhead(s.page, 40);
@@ -155,7 +193,10 @@ test.describe('Media bin', () => {
     // user picks a picture and a video
     e.importQueue.push({
       canceled: false,
-      assets: [uploadAsset('as_img', 'image', 'logo.png'), uploadAsset('as_vid', 'video', 'broll.mp4')],
+      assets: [
+        uploadAsset('as_img', 'image', 'logo.png'),
+        uploadAsset('as_vid', 'video', 'broll.mp4'),
+      ],
     });
     await s.page.getByTestId('bin-import').click();
     await expect(s.page.getByTestId('bin-asset')).toHaveCount(4);
@@ -167,7 +208,10 @@ test.describe('Media bin', () => {
       s.page.locator('[data-testid="bin-asset"][data-asset-id="as_img"] img'),
     ).toBeVisible();
     // a failing import reports the reason and keeps the dock usable
-    e.failures.set('editor:importAssets', { message: 'Could not copy broll.mp4: disk full', times: 1 });
+    e.failures.set('editor:importAssets', {
+      message: 'Could not copy broll.mp4: disk full',
+      times: 1,
+    });
     await s.page.getByTestId('bin-import').click();
     await expect(toast(s.page, 'Import failed')).toContainText('disk full');
     await expect(s.page.getByTestId('bin-asset')).toHaveCount(4);
@@ -200,11 +244,16 @@ test.describe('Media bin', () => {
     const unrendered = s.state.clips.filter((c) => !(c.status === 'rendered' && c.hasRender));
     expect(unrendered.length).toBeGreaterThan(0);
     await expect(rows).toHaveCount(rendered.length);
-    for (const c of unrendered) await expect(lib.locator(`[data-library-id="${c.id}"]`)).toHaveCount(0);
-    for (const c of rendered) await expect(lib.locator(`[data-library-id="${c.id}"]`)).toHaveCount(1);
+    for (const c of unrendered)
+      await expect(lib.locator(`[data-library-id="${c.id}"]`)).toHaveCount(0);
+    for (const c of rendered)
+      await expect(lib.locator(`[data-library-id="${c.id}"]`)).toHaveCount(1);
     // search
     // the seeded project already uses the first two rendered clips: pick another one
-    const used = s.state.clips.filter((c) => c.hasRender).slice(0, 2).map((c) => c.id);
+    const used = s.state.clips
+      .filter((c) => c.hasRender)
+      .slice(0, 2)
+      .map((c) => c.id);
     const target = rendered.find(
       (c) => !used.includes(c.id) && !s.state.clips.some((o) => o !== c && o.title === c.title),
     )!;
@@ -237,7 +286,9 @@ test.describe('Media bin', () => {
     const asset = saved.assets.find((a) => a.name === target.title)!;
     expect(asset.source).toEqual({ kind: 'clip', clipId: target.id });
     expect(asset.durationSec).toBe(target.durationSec);
-    expect(saved.assets.filter((a) => a.source.kind === 'clip' && a.source.clipId === target.id)).toHaveLength(1);
+    expect(
+      saved.assets.filter((a) => a.source.kind === 'clip' && a.source.clipId === target.id),
+    ).toHaveLength(1);
     expect(problems(s)).toEqual([]);
     await s.close();
   });
@@ -256,12 +307,16 @@ test.describe('Media bin', () => {
     const payload = JSON.parse(got[0]!.data['application/x-clipfern-asset']!);
     expect(payload.assetId).toMatch(/^as_/);
     await expect(s.page.getByTestId('host-dropped')).toHaveText(`asset ${payload.assetId}`);
-    await expect(s.page.getByTestId('host-assets')).toContainText(`${payload.assetId}:video:${title}`);
+    await expect(s.page.getByTestId('host-assets')).toContainText(
+      `${payload.assetId}:video:${title}`,
+    );
     // the asset is a video source with no invented pixel size
     await s.page.getByTestId('host-open-export').click();
     await s.page.getByTestId('export-start').click();
     await expect.poll(() => ed(s).log.saves.length).toBeGreaterThan(0);
-    const a = ed(s).log.saves.at(-1)!.project.assets.find((x) => x.id === payload.assetId)!;
+    const a = ed(s)
+      .log.saves.at(-1)!
+      .project.assets.find((x) => x.id === payload.assetId)!;
     expect(a.source.kind).toBe('video');
     expect(a.width).toBeNull();
     expect(a.durationSec).toBe(videos.find((v) => v.title === title)!.durationSec);
@@ -274,7 +329,10 @@ test.describe('Media bin', () => {
     const e = ed(s);
     await goTab(s.page, 'audio');
     await expect(s.page.getByText('No music or sound yet')).toBeVisible();
-    e.importQueue.push({ canceled: false, assets: [uploadAsset('as_song', 'audio', 'beat-loop.mp3', { durationSec: 12 })] });
+    e.importQueue.push({
+      canceled: false,
+      assets: [uploadAsset('as_song', 'audio', 'beat-loop.mp3', { durationSec: 12 })],
+    });
     await s.page.getByTestId('bin-audio-import').click();
     expect(e.log.imports.at(-1)!.kinds).toEqual(['audio']);
     const row = s.page.getByTestId('bin-audio-row');
@@ -291,17 +349,23 @@ test.describe('Media bin', () => {
     await s.page.getByTestId('host-open-export').click();
     await s.page.getByTestId('export-start').click();
     await expect.poll(() => e.log.saves.length).toBeGreaterThan(0);
-    expect(e.log.saves.at(-1)!.project.assets.find((a) => a.id === 'as_song')!.beats).toHaveLength(24);
+    expect(e.log.saves.at(-1)!.project.assets.find((a) => a.id === 'as_song')!.beats).toHaveLength(
+      24,
+    );
     await s.page.keyboard.press('Escape');
     // drag payload
     await captureDrags(s.page);
     await row.dragTo(s.page.getByTestId('host-dropzone'));
-    expect(JSON.parse((await drags(s.page))[0]!.data['application/x-clipfern-asset']!)).toEqual({ assetId: 'as_song' });
+    expect(JSON.parse((await drags(s.page))[0]!.data['application/x-clipfern-asset']!)).toEqual({
+      assetId: 'as_song',
+    });
     // the music search is disabled and says why (no scraping)
     const search = s.page.getByTestId('bin-music-search');
     await expect(search).toBeDisabled();
     const t = await tip(s.page, s.page.locator('span[tabindex="0"]').filter({ has: search }));
-    await expect(t).toContainText('Pixabay has no official music API, so music comes from your own files');
+    await expect(t).toContainText(
+      'Pixabay has no official music API, so music comes from your own files',
+    );
     await expect(s.page.getByText('Beat sync', { exact: true })).toBeVisible();
     expect(problems(s)).toEqual([]);
     await s.close();
@@ -318,22 +382,36 @@ test.describe('Media bin', () => {
     await expect(title.locator('td').nth(3)).toHaveText('5.00');
     const id = (await title.getAttribute('data-id'))!;
     const d = await detail(s.page, id);
-    expect(d).toMatchObject({ font: 'Montserrat', size: 112, y: Math.round(-0.22 * 1920), anim: 'none' });
+    expect(d).toMatchObject({
+      font: 'Montserrat',
+      size: 112,
+      y: Math.round(-0.22 * 1920),
+      anim: 'none',
+    });
     await expect(s.page.getByTestId('host-selection')).toHaveText(id);
     await s.page.locator('[data-preset="lower-third"]').click();
-    const lt = await detail(s.page, (await rowByName(s.page, 'Lower third').first().getAttribute('data-id'))!);
+    const lt = await detail(
+      s.page,
+      (await rowByName(s.page, 'Lower third').first().getAttribute('data-id'))!,
+    );
     expect(lt).toMatchObject({ align: 'left', box: true });
     await s.page.locator('[data-preset="quote"]').click();
-    expect(await detail(s.page, (await rowByName(s.page, 'Quote').first().getAttribute('data-id'))!)).toMatchObject({ font: 'DM Serif Display' });
+    expect(
+      await detail(s.page, (await rowByName(s.page, 'Quote').first().getAttribute('data-id'))!),
+    ).toMatchObject({ font: 'DM Serif Display' });
     await s.page.locator('[data-preset="counter"]').click();
-    expect(await detail(s.page, (await rowByName(s.page, 'Counter').first().getAttribute('data-id'))!)).toMatchObject({ font: 'Anton', size: 240 });
+    expect(
+      await detail(s.page, (await rowByName(s.page, 'Counter').first().getAttribute('data-id'))!),
+    ).toMatchObject({ font: 'Anton', size: 240 });
     await s.page.locator('[data-preset="subtitle"]').click();
     for (const a of ['pop', 'typewriter', 'slide', 'bounce', 'fade', 'scale']) {
       await s.page.locator(`[data-preset="anim-${a}"]`).click();
       const label = a[0]!.toUpperCase() + a.slice(1);
       const rows = rowByName(s.page, label);
       const last = rows.last();
-      expect(await detail(s.page, (await last.getAttribute('data-id'))!)).toMatchObject({ anim: a });
+      expect(await detail(s.page, (await last.getAttribute('data-id'))!)).toMatchObject({
+        anim: a,
+      });
     }
     await expect(itemRows(s.page)).toHaveCount(2 + 5 + 6);
     expect(problems(s)).toEqual([]);
@@ -354,7 +432,8 @@ test.describe('Media bin', () => {
     const s = await host();
     await goTab(s.page, 'stickers');
     await expect(s.page.getByTestId('bin-shape')).toHaveCount(5);
-    for (const k of ['rect', 'ellipse', 'line', 'arrow']) await s.page.locator(`[data-kind="${k}"]`).click();
+    for (const k of ['rect', 'ellipse', 'line', 'arrow'])
+      await s.page.locator(`[data-kind="${k}"]`).click();
     expect(await itemRows(s.page).filter({ hasText: 'Ellipse' }).count()).toBe(1);
     await setPlayhead(s.page, 4);
     await s.page.locator('[data-kind="progress-bar"]').click();
@@ -419,7 +498,9 @@ test.describe('Media bin', () => {
     await s.page.locator('[data-type="whip-pan"]').dragTo(s.page.getByTestId('host-dropzone'));
     const got = await drags(s.page);
     expect(got[0]!.types).toContain('application/x-clipfern-transition');
-    expect(JSON.parse(got[0]!.data['application/x-clipfern-transition']!)).toEqual({ type: 'whip-pan' });
+    expect(JSON.parse(got[0]!.data['application/x-clipfern-transition']!)).toEqual({
+      type: 'whip-pan',
+    });
     await expect(s.page.getByTestId('host-dropped')).toHaveText('transition whip-pan');
     expect(problems(s)).toEqual([]);
     await s.close();
@@ -458,7 +539,9 @@ test.describe('Media bin', () => {
     const s = await host();
     await goTab(s.page, 'effects');
     await expect(s.page.getByTestId('bin-filter')).toHaveCount(8);
-    await expect(s.page.getByTestId('bin-effects-target')).toContainText('Select a video or image clip');
+    await expect(s.page.getByTestId('bin-effects-target')).toContainText(
+      'Select a video or image clip',
+    );
     await s.page.locator('[data-filter="noir"]').click();
     await expect(toast(s.page, 'Select a video or image clip')).toBeVisible();
     expect((await detail(s.page, 'it_a')).filter).toBeUndefined();
@@ -470,7 +553,9 @@ test.describe('Media bin', () => {
     await expect(s.page.locator('[data-filter="noir"]')).toHaveAttribute('aria-pressed', 'true');
     // two clips: all get the look; None clears
     await itemRow(s.page, 'it_a').click();
-    await itemRow(s.page, 'it_b').click({ modifiers: ['Control'] }).catch(() => undefined);
+    await itemRow(s.page, 'it_b')
+      .click({ modifiers: ['Control'] })
+      .catch(() => undefined);
     await s.page.locator('[data-filter="warm"]').click();
     expect((await detail(s.page, 'it_a')).filter).toBe('warm');
     await s.page.locator('[data-filter="none"]').click();
@@ -478,7 +563,9 @@ test.describe('Media bin', () => {
     // each tile previews the look through the shared colour maths
     const bgs = await s.page
       .getByTestId('bin-filter')
-      .evaluateAll((els) => els.map((e) => (e.querySelector('span') as HTMLElement).style.background));
+      .evaluateAll((els) =>
+        els.map((e) => (e.querySelector('span') as HTMLElement).style.background),
+      );
     expect(new Set(bgs).size).toBe(8);
     // text layers cannot take a look
     await s.page.locator('[data-preset]').count();
@@ -491,7 +578,10 @@ test.describe('Media bin', () => {
     const e = ed(s);
     await goTab(s.page, 'effects');
     await expect(s.page.getByText('No LUTs yet')).toBeVisible();
-    e.importQueue.push({ canceled: false, assets: [uploadAsset('as_lut', 'lut', 'teal-orange.cube')] });
+    e.importQueue.push({
+      canceled: false,
+      assets: [uploadAsset('as_lut', 'lut', 'teal-orange.cube')],
+    });
     await s.page.getByTestId('bin-lut-import').click();
     expect(e.log.imports.at(-1)!.kinds).toEqual(['lut']);
     const row = s.page.getByTestId('bin-lut');
@@ -515,7 +605,8 @@ const openExport = async (s: Session) => {
   await s.page.getByTestId('host-open-export').click();
   await expect(panel(s.page)).toBeVisible();
 };
-const preset = (p: Page, id: string) => p.locator(`[data-testid="export-preset"][data-preset="${id}"]`);
+const preset = (p: Page, id: string) =>
+  p.locator(`[data-testid="export-preset"][data-preset="${id}"]`);
 
 test.describe('Export panel', () => {
   test('presets fill size, fps and the summary; limits warn; choices are remembered', async () => {
@@ -529,7 +620,9 @@ test.describe('Export panel', () => {
     await expect(s.page.getByTestId('export-width')).toHaveValue('1920');
     await expect(s.page.getByTestId('export-height')).toHaveValue('1080');
     await expect(s.page.getByTestId('export-dims')).toContainText('1920×1080 · 16:9');
-    await expect(panel(s.page).getByTestId('export-issues')).toContainText('9:16 but this export is 16:9');
+    await expect(panel(s.page).getByTestId('export-issues')).toContainText(
+      '9:16 but this export is 16:9',
+    );
     await preset(s.page, 'draft-720p').click();
     await expect(s.page.getByTestId('export-width')).toHaveValue('720');
     // editing a preset-owned number switches to Custom
@@ -575,7 +668,9 @@ test.describe('Export panel', () => {
     await preset(s.page, 'tiktok').click();
     await expect(s.page.getByTestId('export-duration-warning')).toHaveCount(0); // 3:30 < 10:00
     await preset(s.page, 'reels').click();
-    await expect(s.page.getByTestId('export-duration-warning')).toContainText('3:30 is longer than the Instagram Reels limit of 3:00');
+    await expect(s.page.getByTestId('export-duration-warning')).toContainText(
+      '3:30 is longer than the Instagram Reels limit of 3:00',
+    );
     await preset(s.page, 'shorts').click();
     await expect(s.page.getByTestId('export-duration-warning')).toContainText('YouTube Shorts');
     await preset(s.page, 'youtube-1080p').click();
@@ -604,7 +699,9 @@ test.describe('Export panel', () => {
     await s.page.getByTestId('export-bitrate').fill('8000');
     await expect(s.page.getByTestId('export-size')).toHaveText(/^≈ 16\.5 MB$/);
     await s.page.getByTestId('export-bitrate').fill('100');
-    await expect(panel(s.page).getByTestId('export-issues')).toContainText('between 500 and 80,000 kbps');
+    await expect(panel(s.page).getByTestId('export-issues')).toContainText(
+      'between 500 and 80,000 kbps',
+    );
     await expect(s.page.getByTestId('export-start')).toBeDisabled();
     await s.page.getByTestId('export-bitrate').fill('8000');
     await expect(s.page.getByTestId('export-start')).toBeEnabled();
@@ -631,7 +728,9 @@ test.describe('Export panel', () => {
     await expect(panel(s.page).getByTestId('export-issues')).toContainText('cannot contain');
     await expect(s.page.getByTestId('export-start')).toBeDisabled();
     await s.page.getByTestId('export-filename').fill('{title}-{oops}');
-    await expect(panel(s.page).getByTestId('export-issues')).toContainText('{oops} is not a known token');
+    await expect(panel(s.page).getByTestId('export-issues')).toContainText(
+      '{oops} is not a known token',
+    );
     await expect(s.page.getByTestId('export-start')).toBeEnabled(); // unknown tokens only warn
     expect(problems(s)).toEqual([]);
     await s.close();
@@ -676,7 +775,13 @@ test.describe('Export panel', () => {
     await expect(s.page.getByTestId('export-schedule')).toBeDisabled();
     await s.page.getByTestId('export-start').click();
     const job = async () => {
-      await expect.poll(() => c.state.exports.some((j) => j.projectId === 'ep-clip' && j.id.startsWith('ex-') && j.status === 'queued')).toBe(true);
+      await expect
+        .poll(() =>
+          c.state.exports.some(
+            (j) => j.projectId === 'ep-clip' && j.id.startsWith('ex-') && j.status === 'queued',
+          ),
+        )
+        .toBe(true);
       return c.lastExport();
     };
     const j = await job();
@@ -688,7 +793,7 @@ test.describe('Export panel', () => {
     await expect(s.page.getByTestId('export-bar')).toHaveAttribute('aria-valuenow', '37');
     // the form is locked while rendering
     await expect(panel(s.page).locator('fieldset')).toHaveAttribute('disabled', '');
-    await expect(s.page.getByTestId('export-start')).toBeDisabled();
+    await expect(s.page.getByTestId('export-start')).toHaveCount(0);
     await c.progress(j.id, 0.9, 'Normalising loudness');
     await expect(s.page.getByTestId('export-percent')).toHaveText('90%');
     await c.finish(j.id);
@@ -703,8 +808,13 @@ test.describe('Export panel', () => {
     // Show in Library → Exported
     await s.page.getByTestId('export-show-library').click();
     await expect(s.page).toHaveURL(/\/library\/\?tab=exported$/);
-    await expect(s.page.getByRole('tab', { name: /Exported/ })).toHaveAttribute('aria-selected', 'true');
-    await expect(s.page.locator(`[data-testid="export-card"][data-export-id="${j.id}"]`)).toHaveAttribute('data-status', 'done');
+    await expect(s.page.getByRole('tab', { name: /Exported/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await expect(
+      s.page.locator(`[data-testid="export-card"][data-export-id="${j.id}"]`),
+    ).toHaveAttribute('data-status', 'done');
     expect(problems(s)).toEqual([]);
     await s.close();
   });
@@ -843,7 +953,10 @@ test.describe('Versions panel', () => {
     await s.page.locator('[data-preset="title"]').click();
     await expect(itemRows(s.page)).toHaveCount(3);
     await openVersions(s);
-    await expect(s.page.getByTestId('versions-autosave')).toHaveAttribute('data-state', /dirty|saving|saved/);
+    await expect(s.page.getByTestId('versions-autosave')).toHaveAttribute(
+      'data-state',
+      /dirty|saving|saved/,
+    );
     const target = s.page.getByTestId('version-row').filter({ hasText: 'Before the b-roll pass' });
     await target.getByTestId('version-restore').click();
     const confirm = s.page.getByRole('dialog', { name: 'Restore this version?' });
@@ -853,7 +966,10 @@ test.describe('Versions panel', () => {
     await confirm.getByRole('button', { name: 'Cancel' }).click();
     expect(ed(s).log.restores).toEqual([]);
     await target.getByTestId('version-restore').click();
-    await s.page.getByRole('dialog', { name: 'Restore this version?' }).getByRole('button', { name: 'Restore' }).click();
+    await s.page
+      .getByRole('dialog', { name: 'Restore this version?' })
+      .getByRole('button', { name: 'Restore' })
+      .click();
     await expect.poll(() => ed(s).log.restores.length).toBe(1);
     expect(ed(s).log.restores[0]!.id).toBe('ep-clip');
     await expect(toast(s.page, 'Version restored')).toBeVisible();
@@ -862,7 +978,9 @@ test.describe('Versions panel', () => {
     await expect(itemRows(s.page)).toHaveCount(2);
     // the pre-restore state was kept as a restore point
     await openVersions(s);
-    await expect(s.page.getByTestId('version-row').first().getByTestId('version-kind')).toHaveText('Restore point');
+    await expect(s.page.getByTestId('version-row').first().getByTestId('version-kind')).toHaveText(
+      'Restore point',
+    );
     expect(problems(s)).toEqual([]);
     await s.close();
   });
@@ -888,9 +1006,14 @@ test.describe('Library → Edited', () => {
   test('empty state explains what lives here and offers a blank project', async () => {
     const s = await h.open('/library/?tab=edited', { scenario: 'configured', settle: 500 });
     await expect(s.page.getByText('Nothing edited yet')).toBeVisible();
-    await expect(s.page.getByText(/Open any clip or video from your Library, or start from a blank canvas/)).toBeVisible();
+    await expect(
+      s.page.getByText(/Open any clip or video from your Library, or start from a blank canvas/),
+    ).toBeVisible();
     await expect(s.page.getByTestId('edited-new')).toBeVisible();
-    await expect(s.page.getByRole('link', { name: 'Open a clip in the editor' })).toHaveAttribute('href', '/library/?tab=clips');
+    await expect(s.page.getByRole('link', { name: 'Open a clip in the editor' })).toHaveAttribute(
+      'href',
+      '/library/?tab=clips',
+    );
     expect(problems(s)).toEqual([]);
     await s.close();
   });
@@ -923,7 +1046,8 @@ test.describe('Library → Edited', () => {
 
   test('rename, duplicate and delete (with confirmation)', async () => {
     const s = await open('/library/?tab=edited');
-    const card = (id: string) => s.page.locator(`[data-testid="project-card"][data-project-id="${id}"]`);
+    const card = (id: string) =>
+      s.page.locator(`[data-testid="project-card"][data-project-id="${id}"]`);
     // rename
     await card('ep-blank').getByTestId('project-menu').click();
     await s.page.getByTestId('project-rename').click();
@@ -947,7 +1071,10 @@ test.describe('Library → Edited', () => {
     expect(ed(s).log.deletes).toEqual([]);
     await card('ep-video').getByTestId('project-menu').click();
     await s.page.getByTestId('project-delete').click();
-    await s.page.getByRole('dialog', { name: 'Delete this project?' }).getByRole('button', { name: 'Delete' }).click();
+    await s.page
+      .getByRole('dialog', { name: 'Delete this project?' })
+      .getByRole('button', { name: 'Delete' })
+      .click();
     await expect(card('ep-video')).toHaveCount(0);
     expect(ed(s).log.deletes).toEqual(['ep-video']);
     expect(problems(s)).toEqual([]);
@@ -964,7 +1091,9 @@ test.describe('Library → Edited', () => {
     await dlg.getByTestId('new-project-name').fill('Carousel opener');
     await dlg.getByTestId('new-project-create').click();
     await expect(s.page).toHaveURL(/\/editor\/\?id=ep-new-1$/);
-    expect(ed(s).log.creates).toEqual([{ name: 'Carousel opener', from: { blank: true, aspect: '4:5' } }]);
+    expect(ed(s).log.creates).toEqual([
+      { name: 'Carousel opener', from: { blank: true, aspect: '4:5' } },
+    ]);
     expect(problems(s)).toEqual([]);
     await s.close();
   });
@@ -974,7 +1103,9 @@ test.describe('Library → Edited', () => {
     ed(s).failures.set('editor:create', { message: 'Storage is not configured', times: 1 });
     await s.page.getByTestId('edited-new').click();
     await s.page.getByTestId('new-project-create').click();
-    await expect(toast(s.page, 'Could not create the project')).toContainText('Storage is not configured');
+    await expect(toast(s.page, 'Could not create the project')).toContainText(
+      'Storage is not configured',
+    );
     await expect(s.page.getByTestId('new-project-dialog')).toBeVisible();
     await s.page.getByTestId('new-project-create').click();
     await expect(s.page).toHaveURL(/\/editor\/\?id=/);
@@ -986,20 +1117,28 @@ test.describe('Library → Edited', () => {
 test.describe('Library → Exported', () => {
   test('cards by status: ready, rendering with progress, failed with the reason', async () => {
     const s = await open('/library/?tab=exported');
-    const card = (id: string) => s.page.locator(`[data-testid="export-card"][data-export-id="${id}"]`);
+    const card = (id: string) =>
+      s.page.locator(`[data-testid="export-card"][data-export-id="${id}"]`);
     await expect(cardsOf(s.page, 'export-card')).toHaveCount(4);
     await expect(card('ex-run')).toHaveAttribute('data-status', 'rendering');
     await expect(card('ex-run').getByTestId('export-status')).toContainText('Rendering 42%');
-    await expect(card('ex-run').getByTestId('export-card-progress')).toContainText('Encoding video');
+    await expect(card('ex-run').getByTestId('export-card-progress')).toContainText(
+      'Encoding video',
+    );
     await expect(card('ex-done').getByTestId('export-status')).toContainText('Ready');
     await expect(card('ex-done')).toContainText('TikTok · 1080×1920 · 21.4 MB');
     await expect(card('ex-done').locator('img')).toBeVisible();
     await expect(card('ex-yt')).toContainText('YouTube 1080p · 1920×1080');
     await expect(card('ex-yt')).toContainText('1:35');
     await expect(card('ex-fail').getByTestId('export-status')).toContainText('Failed');
-    await expect(card('ex-fail').getByTestId('export-card-error')).toContainText('Unable to open the LUT file');
+    await expect(card('ex-fail').getByTestId('export-card-error')).toContainText(
+      'Unable to open the LUT file',
+    );
     // newest first: the running one leads
-    await expect(cardsOf(s.page, 'export-card').first()).toHaveAttribute('data-export-id', 'ex-run');
+    await expect(cardsOf(s.page, 'export-card').first()).toHaveAttribute(
+      'data-export-id',
+      'ex-run',
+    );
     expect(problems(s)).toEqual([]);
     await s.close();
   });
@@ -1028,7 +1167,10 @@ test.describe('Library → Exported', () => {
     };
     c.state.exports.unshift(fresh);
     await s.state.emit?.('editor:export', fresh);
-    await expect(cardsOf(s.page, 'export-card').first()).toHaveAttribute('data-export-id', 'ex-live');
+    await expect(cardsOf(s.page, 'export-card').first()).toHaveAttribute(
+      'data-export-id',
+      'ex-live',
+    );
     expect(problems(s)).toEqual([]);
     await s.close();
   });
@@ -1045,11 +1187,16 @@ test.describe('Library → Exported', () => {
 
   test('play in a dialog, download, delete with confirmation, open the project', async () => {
     const s = await open('/library/?tab=exported');
-    const card = (id: string) => s.page.locator(`[data-testid="export-card"][data-export-id="${id}"]`);
+    const card = (id: string) =>
+      s.page.locator(`[data-testid="export-card"][data-export-id="${id}"]`);
     await card('ex-done').getByTestId('export-play').click();
     const dlg = s.page.getByTestId('export-play-dialog');
     await expect(dlg.getByTestId('export-play-video')).toBeVisible();
-    await expect.poll(() => dlg.getByTestId('export-play-video').evaluate((v: HTMLVideoElement) => v.readyState)).toBeGreaterThan(0);
+    await expect
+      .poll(() =>
+        dlg.getByTestId('export-play-video').evaluate((v: HTMLVideoElement) => v.readyState),
+      )
+      .toBeGreaterThan(0);
     await s.page.keyboard.press('Escape');
     // download goes through exports:download
     await card('ex-done').getByTestId('export-download').click();
@@ -1091,7 +1238,10 @@ test.describe('Library → Exported', () => {
     const s = await open('/library/?tab=exported', {
       prepare: (st) => {
         seed(st);
-        editorState(st).failures.set('exports:list', { message: 'Storage is unreachable', times: 2 });
+        editorState(st).failures.set('exports:list', {
+          message: 'Storage is unreachable',
+          times: 2,
+        });
       },
     });
     await expect(s.page.getByText('Could not load your exports')).toBeVisible();
@@ -1105,7 +1255,8 @@ test.describe('Library → Exported', () => {
 /* ======================================================================= Open in editor */
 
 test.describe('Open in editor', () => {
-  const firstRendered = (s: Session) => s.state.clips.find((c) => c.status === 'rendered' && c.hasRender)!;
+  const firstRendered = (s: Session) =>
+    s.state.clips.find((c) => c.status === 'rendered' && c.hasRender)!;
 
   test('clip drawer: shows "Preparing your project…", then opens the new project', async () => {
     const s = await open('/library/?tab=clips', {
@@ -1116,7 +1267,10 @@ test.describe('Open in editor', () => {
     });
     ed(s).createDelayMs = 700;
     const clip = firstRendered(s);
-    await s.page.locator(`[data-testid="clip-card"][data-clip-id="${clip.id}"]`).getByRole('button', { name: /^Open clip/ }).click();
+    await s.page
+      .locator(`[data-testid="clip-card"][data-clip-id="${clip.id}"]`)
+      .getByRole('button', { name: /^Open clip/ })
+      .click();
     const drawer = s.page.getByTestId('clip-drawer');
     await drawer.getByTestId('open-in-editor-button').click();
     const dlg = s.page.getByTestId('open-in-editor');
@@ -1132,7 +1286,10 @@ test.describe('Open in editor', () => {
     const s = await open('/library/?tab=clips', { prepare: seedExports });
     ed(s).createDelayMs = 5000;
     const clip = firstRendered(s);
-    await s.page.locator(`[data-testid="clip-card"][data-clip-id="${clip.id}"]`).getByRole('button', { name: /^Open clip/ }).click();
+    await s.page
+      .locator(`[data-testid="clip-card"][data-clip-id="${clip.id}"]`)
+      .getByRole('button', { name: /^Open clip/ })
+      .click();
     await s.page.getByTestId('clip-drawer').getByTestId('open-in-editor-button').click();
     await expect(s.page.getByTestId('open-in-editor')).toHaveAttribute('data-phase', 'preparing');
     await s.page.getByTestId('open-in-editor-cancel').click();
@@ -1140,7 +1297,16 @@ test.describe('Open in editor', () => {
     // still on the Library; the result arrives as a toast with an Open action
     await expect(toast(s.page, /is ready/)).toBeVisible({ timeout: 12_000 });
     expect(s.page.url()).toContain('/library/');
-    await toast(s.page, /is ready/).getByRole('button', { name: 'Open' }).click();
+    // Radix makes the page inert while the clip drawer is open (toasts inherit pointer-events: none from <body>),
+    // so close the drawer first. Known app-wide limitation, reported to the lead.
+    await s.page
+      .getByTestId('clip-drawer')
+      .getByRole('button', { name: 'Close', exact: true })
+      .click();
+    await expect(s.page.getByTestId('clip-drawer')).toHaveCount(0);
+    await toast(s.page, /is ready/)
+      .getByRole('button', { name: 'Open' })
+      .click();
     await expect(s.page).toHaveURL(/\/editor\/\?id=ep-new-1$/);
     expect(problems(s)).toEqual([]);
     await s.close();
@@ -1156,7 +1322,10 @@ test.describe('Open in editor', () => {
       },
     });
     const clip = firstRendered(s);
-    await s.page.locator(`[data-testid="clip-card"][data-clip-id="${clip.id}"]`).getByRole('button', { name: /^Open clip/ }).click();
+    await s.page
+      .locator(`[data-testid="clip-card"][data-clip-id="${clip.id}"]`)
+      .getByRole('button', { name: /^Open clip/ })
+      .click();
     await s.page.getByTestId('clip-drawer').getByTestId('open-in-editor-button').click();
     const dlg = s.page.getByTestId('open-in-editor');
     await expect(dlg).toHaveAttribute('data-phase', 'choose');
@@ -1166,7 +1335,10 @@ test.describe('Open in editor', () => {
     await expect(s.page).toHaveURL(/\/editor\/\?id=ep-new-1$/);
     expect(ed(s).log.creates).toHaveLength(1);
     await s.page.goBack();
-    await s.page.getByTestId('clip-drawer').waitFor({ state: 'detached' }).catch(() => undefined);
+    await s.page
+      .getByTestId('clip-drawer')
+      .waitFor({ state: 'detached' })
+      .catch(() => undefined);
     expect(problems(s)).toEqual([]);
     await s.close();
   });
@@ -1181,7 +1353,10 @@ test.describe('Open in editor', () => {
       },
     });
     const clip = firstRendered(s);
-    await s.page.locator(`[data-testid="clip-card"][data-clip-id="${clip.id}"]`).getByRole('button', { name: /^Open clip/ }).click();
+    await s.page
+      .locator(`[data-testid="clip-card"][data-clip-id="${clip.id}"]`)
+      .getByRole('button', { name: /^Open clip/ })
+      .click();
     await s.page.getByTestId('clip-drawer').getByTestId('open-in-editor-button').click();
     await s.page.getByTestId('open-existing').click();
     await expect(s.page).toHaveURL(/\/editor\/\?id=ep-clip$/);
@@ -1193,8 +1368,14 @@ test.describe('Open in editor', () => {
   test('a failed create shows the reason and can be retried', async () => {
     const s = await open('/library/?tab=clips', { prepare: seedExports });
     const clip = firstRendered(s);
-    ed(s).failures.set('editor:create', { message: 'The clip file is missing from storage', times: 1 });
-    await s.page.locator(`[data-testid="clip-card"][data-clip-id="${clip.id}"]`).getByRole('button', { name: /^Open clip/ }).click();
+    ed(s).failures.set('editor:create', {
+      message: 'The clip file is missing from storage',
+      times: 1,
+    });
+    await s.page
+      .locator(`[data-testid="clip-card"][data-clip-id="${clip.id}"]`)
+      .getByRole('button', { name: /^Open clip/ })
+      .click();
     await s.page.getByTestId('clip-drawer').getByTestId('open-in-editor-button').click();
     const dlg = s.page.getByTestId('open-in-editor');
     await expect(dlg).toHaveAttribute('data-phase', 'error');
@@ -1237,7 +1418,10 @@ test.describe('Open in editor', () => {
     await s.close();
 
     const s2 = await open('/library/', { prepare: seedExports });
-    await s2.page.getByRole('button', { name: /^More actions for/ }).first().click();
+    await s2.page
+      .getByRole('button', { name: /^More actions for/ })
+      .first()
+      .click();
     await s2.page.getByTestId('video-open-editor').click();
     await expect(s2.page).toHaveURL(/\/editor\/\?id=ep-new-1$/);
     expect(ed(s2).log.creates).toHaveLength(1);
@@ -1252,7 +1436,10 @@ test.describe('Open in editor', () => {
     await expect(card).toHaveAttribute('data-available', 'true');
     await card.getByRole('link').click();
     await expect(s.page).toHaveURL(/\/library\/\?tab=edited$/);
-    await expect(s.page.getByRole('tab', { name: /Edited/ })).toHaveAttribute('aria-selected', 'true');
+    await expect(s.page.getByRole('tab', { name: /Edited/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
     await expect(cardsOf(s.page, 'project-card')).toHaveCount(3);
     expect(problems(s)).toEqual([]);
     await s.close();

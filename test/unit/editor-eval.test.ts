@@ -31,6 +31,7 @@ import {
   speechRanges,
   textAnimAt,
   transitionOps,
+  transitionAudioGains,
   visibleChars,
   cubicBezier,
 } from '@shared/editor-eval';
@@ -413,5 +414,13 @@ describe('determinism', () => {
       JSON.stringify(transitionOps('glitch', 0.37)),
     );
     expect(projectDuration(p)).toBe(0);
+  });
+});
+
+describe('transition audio', () => {
+  it('crossfades linearly and a cut mutes the outgoing item', () => {
+    expect(transitionAudioGains('crossfade', 0.25)).toEqual({ from: 0.75, to: 0.25 });
+    expect(transitionAudioGains('slide-left', 1)).toEqual({ from: 0, to: 1 });
+    expect(transitionAudioGains('cut', 0.5)).toEqual({ from: 0, to: 1 });
   });
 });

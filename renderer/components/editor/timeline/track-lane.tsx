@@ -4,6 +4,7 @@ import * as React from 'react';
 import type { Asset, Track } from '@shared/editor';
 import { cullItems, type RowLayout, type TimeWindow } from './geometry';
 import { ItemBlock, type ItemBlockProps } from './item-block';
+import { LaneMedia } from './lane-media';
 import { cn } from '@/lib/utils';
 
 const KEYFRAME_SELECTION_LIMIT = 6;
@@ -51,17 +52,11 @@ export const TrackLane = React.memo(function TrackLane({
   }
   if (!tabbableId) tabbableId = visible[0]?.id ?? null;
   const showKf = selectionCount > 0 && selectionCount <= KEYFRAME_SELECTION_LIMIT;
-  const blockProps: Pick<
-    ItemBlockProps,
-    'trackId' | 'trackKind' | 'pxPerSec' | 'win' | 'trackLocked' | 'trackMuted' | 'height'
-  > = {
+  const blockProps: Pick<ItemBlockProps, 'trackId' | 'trackKind' | 'pxPerSec' | 'trackLocked'> = {
     trackId: track.id,
     trackKind: track.kind,
     pxPerSec,
-    win,
     trackLocked: track.locked,
-    trackMuted: track.muted,
-    height: row.height - 6,
   };
   return (
     <div
@@ -80,6 +75,13 @@ export const TrackLane = React.memo(function TrackLane({
       style={{ width: contentW, height: row.height }}
     >
       <div className={cn('tl-lane-items absolute inset-0')}>
+        <LaneMedia
+          track={track}
+          win={win}
+          pxPerSec={pxPerSec}
+          height={row.height}
+          assets={assets}
+        />
         {visible.map((item) => {
           const selected = selectedIds.has(item.id);
           return (

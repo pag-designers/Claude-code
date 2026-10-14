@@ -56,7 +56,8 @@ interface FontSetup {
 }
 
 function resolveTextFont(family: string, weight: number, italic: boolean): FontSetup {
-  const face = fontBook.resolve(family, weight, italic) ?? fontBook.resolve(FONT_FALLBACK, weight, italic);
+  const face =
+    fontBook.resolve(family, weight, italic) ?? fontBook.resolve(FONT_FALLBACK, weight, italic);
   if (face) {
     return {
       name: face.assName,
@@ -82,7 +83,13 @@ interface WrapLine {
  * The preview's rules (renderer/lib/editor/compositor/text-layout.ts): greedy wrap at spaces, `\n` always breaks,
  * an over-long word is never split, leading / trailing spaces of a line are dropped, interior spaces kept.
  */
-function wrapText(text: string, font: FontSetup, fsAss: number, ls: number, wrapW: number): WrapLine[] {
+function wrapText(
+  text: string,
+  font: FontSetup,
+  fsAss: number,
+  ls: number,
+  wrapW: number,
+): WrapLine[] {
   const cps = Array.from(text);
   const advance = (str: string): number =>
     str === '' ? 0 : measureText(font.face, str, fsAss, 0) + Array.from(str).length * ls;
@@ -93,7 +100,7 @@ function wrapText(text: string, font: FontSetup, fsAss: number, ls: number, wrap
     let q = p;
     while (q < cps.length && cps[q] !== '\n') q++;
     const toks: [number, number][] = [];
-    for (let i = p; i < q; ) {
+    for (let i = p; i < q;) {
       if (isSpace(cps[i] as string)) {
         i++;
         continue;
@@ -202,7 +209,8 @@ function textEvents(ctx: Ctx, item: TextItem, info: ItemFrameInfo, styleName: st
     });
   }
   const keys = frames.map(
-    (f) => `${f.cx.toFixed(1)}|${f.cy.toFixed(1)}|${f.s.toFixed(3)}|${f.rot.toFixed(2)}|${f.opa.toFixed(3)}|${f.chars}`,
+    (f) =>
+      `${f.cx.toFixed(1)}|${f.cy.toFixed(1)}|${f.s.toFixed(3)}|${f.rot.toFixed(2)}|${f.opa.toFixed(3)}|${f.chars}`,
   );
   const events: Event[] = [];
   const half = 0.5 / ctx.fps;
@@ -437,7 +445,8 @@ function shapeEvents(ctx: Ctx, item: ShapeItem, info: ItemFrameInfo, styleName: 
     });
   }
   const keys = frames.map(
-    (f) => `${f.cx.toFixed(1)}|${f.cy.toFixed(1)}|${f.s.toFixed(3)}|${f.rot.toFixed(2)}|${f.opa.toFixed(3)}|${(f.p * 4000).toFixed(0)}`,
+    (f) =>
+      `${f.cx.toFixed(1)}|${f.cy.toFixed(1)}|${f.s.toFixed(3)}|${f.rot.toFixed(2)}|${f.opa.toFixed(3)}|${(f.p * 4000).toFixed(0)}`,
   );
   const half = 0.5 / ctx.fps;
   const events: Event[] = [];
@@ -476,7 +485,15 @@ function shapeEvents(ctx: Ctx, item: ShapeItem, info: ItemFrameInfo, styleName: 
         Math.max(0, rad - sw),
         false,
       );
-      const outer = shapePath(item.shape === 'progress-bar' ? 'rect' : item.shape, 0, 0, w, h, rad, true);
+      const outer = shapePath(
+        item.shape === 'progress-bar' ? 'rect' : item.shape,
+        0,
+        0,
+        w,
+        h,
+        rad,
+        true,
+      );
       events.push({
         layer: 2,
         start,
@@ -512,7 +529,12 @@ interface DLine {
 function parseDialogue(line: string): DLine | null {
   const m = /^Dialogue: (\d+),(\d+:\d{2}:\d{2}\.\d{2}),(\d+:\d{2}:\d{2}\.\d{2}),(.*)$/.exec(line);
   if (!m) return null;
-  return { layer: m[1] as string, start: parseAssTime(m[2] as string), end: parseAssTime(m[3] as string), rest: m[4] as string };
+  return {
+    layer: m[1] as string,
+    start: parseAssTime(m[2] as string),
+    end: parseAssTime(m[3] as string),
+    rest: m[4] as string,
+  };
 }
 
 const fmtDialogue = (d: DLine, offset: number): string =>
@@ -542,9 +564,7 @@ function subtitleLines(
   styleTag: string,
   r0: number,
 ): SubOut {
-  const sorted = [...item.words]
-    .filter((w) => w.w.trim() !== '')
-    .sort((x, y) => x.s - y.s);
+  const sorted = [...item.words].filter((w) => w.w.trim() !== '').sort((x, y) => x.s - y.s);
   const words: Word[] = sorted.map((w, i) => {
     const next = sorted[i + 1];
     const e = next ? Math.max(next.s, w.s) : Math.max(w.e, w.s);
@@ -557,7 +577,15 @@ function subtitleLines(
   });
   const build = (st: CaptionStyle, kw?: string[]): string[] =>
     captions
-      .buildAss({ words, startSec: 0, endSec: dur, width: ctx.W, height: ctx.H, style: lift(st), keywords: kw })
+      .buildAss({
+        words,
+        startSec: 0,
+        endSec: dur,
+        width: ctx.W,
+        height: ctx.H,
+        style: lift(st),
+        keywords: kw,
+      })
       .split('\n');
   const dialogues = (doc: string[]): string[] => doc.filter((l) => l.startsWith('Dialogue:'));
   /** Dialogue lines with the per-word emphasis colours merged in (one extra pass per distinct colour). */
@@ -578,35 +606,53 @@ function subtitleLines(
         const a = segments(merged[i] as string);
         const b = segments(pass[i] as string);
         if (a.length !== b.length) continue;
-        for (let k = 0; k < a.length; k++) if ((a[k] as string).startsWith('{') && a[k] !== b[k]) a[k] = b[k] as string;
+        for (let k = 0; k < a.length; k++)
+          if ((a[k] as string).startsWith('{') && a[k] !== b[k]) a[k] = b[k] as string;
         merged[i] = a.join('');
       }
     }
     return merged;
   };
 
-  const main = withColors(style).map(parseDialogue).filter((d): d is DLine => d !== null);
+  const main = withColors(style)
+    .map(parseDialogue)
+    .filter((d): d is DLine => d !== null);
   const doc0 = build(style);
   const styleLines = doc0.filter((l) => l.startsWith('Style:'));
   const out: DLine[] = [];
   if (main.length > 0) {
     const t0 = Math.min(...main.map((d) => d.start));
-    const t1 = Math.max(...main.map((d) => d.end));
     const anim = style.animation;
     const blockAnim = anim === 'karaoke' || anim === 'typewriter';
     const stripEntrance = (txt: string): string =>
       txt
         .replace(/\\move\((-?[\d.]+),(-?[\d.]+),(-?[\d.]+),(-?[\d.]+),[^)]*\)/, '\\pos($3,$4)')
-        .replace(/\\fad\((\d+),(\d+)\)/, (_m, _a: string, b: string) => (Number(b) > 0 ? `\\fad(0,${b})` : ''));
-    const stripExit = (txt: string): string => txt.replace(/\\fad\((\d+),\d+\)/, (_m, a: string) => (Number(a) > 0 ? `\\fad(${a},0)` : ''));
-    const firstGroup = main.filter((d) => Math.abs(d.start - t0) < 1e-6 && (blockAnim || Math.abs(d.end - (main[0] as DLine).end) < 1e-6));
+        .replace(/\\fad\((\d+),(\d+)\)/, (_m, _a: string, b: string) =>
+          Number(b) > 0 ? `\\fad(0,${b})` : '',
+        );
+    const stripExit = (txt: string): string =>
+      txt.replace(/\\fad\((\d+),\d+\)/, (_m, a: string) => (Number(a) > 0 ? `\\fad(${a},0)` : ''));
+    const firstGroup = main.filter(
+      (d) =>
+        Math.abs(d.start - t0) < 1e-6 &&
+        (blockAnim || Math.abs(d.end - (main[0] as DLine).end) < 1e-6),
+    );
     if (t0 > 0.011 && blockAnim) {
       // block-level animations: start the block at the item start, shifting the internal clock
       for (const d of main) {
         if (Math.abs(d.start - t0) > 1e-6) continue;
         let rest = d.rest;
-        if (anim === 'karaoke') rest = rest.replace(/\\k(\d+)\\kf/, (_m, g: string) => `\\k${Number(g) + Math.round(t0 * 100)}\\kf`);
-        else rest = rest.replace(/\\t\((\d+),(\d+),/g, (_m, a: string, b: string) => `\\t(${Number(a) + Math.round(t0 * 1000)},${Number(b) + Math.round(t0 * 1000)},`);
+        if (anim === 'karaoke')
+          rest = rest.replace(
+            /\\k(\d+)\\kf/,
+            (_m, g: string) => `\\k${Number(g) + Math.round(t0 * 100)}\\kf`,
+          );
+        else
+          rest = rest.replace(
+            /\\t\((\d+),(\d+),/g,
+            (_m, a: string, b: string) =>
+              `\\t(${Number(a) + Math.round(t0 * 1000)},${Number(b) + Math.round(t0 * 1000)},`,
+          );
         out.push({ ...d, start: 0, end: Math.max(d.end, dur), rest });
       }
       for (const d of main) if (Math.abs(d.start - t0) > 1e-6) out.push(d);
@@ -619,9 +665,13 @@ function subtitleLines(
           highlight: { ...style.highlight, mode: 'none' },
           animation: anim === 'fade' || anim === 'slide-up' ? anim : 'none',
         };
-        const idle = withColors(idleStyle).map(parseDialogue).filter((d): d is DLine => d !== null);
+        const idle = withColors(idleStyle)
+          .map(parseDialogue)
+          .filter((d): d is DLine => d !== null);
         const it0 = idle.length ? Math.min(...idle.map((d) => d.start)) : 0;
-        const firstIdle = idle.filter((d) => Math.abs(d.start - it0) < 1e-6 && Math.abs(d.end - (idle[0] as DLine).end) < 1e-6);
+        const firstIdle = idle.filter(
+          (d) => Math.abs(d.start - it0) < 1e-6 && Math.abs(d.end - (idle[0] as DLine).end) < 1e-6,
+        );
         for (const d of firstIdle) out.push({ ...d, start: 0, end: t0, rest: stripExit(d.rest) });
         for (const d of main) {
           const isFirst = firstGroup.includes(d);
@@ -636,7 +686,6 @@ function subtitleLines(
       const lastEnd = Math.max(...out.map((d) => d.end));
       for (const d of out) if (Math.abs(d.end - lastEnd) < 1e-6) d.end = Math.max(d.end, dur);
     }
-    void t1;
   }
   const offset = item.startSec - r0;
   return {
@@ -699,7 +748,10 @@ export async function buildTrackOverlays(a: {
   }
 
   // text + shapes, grouped by blend mode (a non-normal blend needs its own canvas)
-  const groups = new Map<BlendMode, { styles: string[]; events: Event[]; ja: number; jb: number }>();
+  const groups = new Map<
+    BlendMode,
+    { styles: string[]; events: Event[]; ja: number; jb: number }
+  >();
   let seq = 0;
   for (const item of track.items) {
     if (item.type !== 'text' && item.type !== 'shape') continue;
@@ -768,7 +820,9 @@ export function buildSubtitleCues(
   }
   if (cues.length === 0) return { srt: null, vtt: null };
   cues.sort((x, y) => x.s - y.s);
-  const srt = cues.map((c, i) => `${i + 1}\n${ts(c.s, ',')} --> ${ts(c.e, ',')}\n${c.text}\n`).join('\n');
+  const srt = cues
+    .map((c, i) => `${i + 1}\n${ts(c.s, ',')} --> ${ts(c.e, ',')}\n${c.text}\n`)
+    .join('\n');
   const vtt = `WEBVTT\n\n${cues
     .map((c) => {
       const safe = c.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/-->/g, '--&gt;');

@@ -73,7 +73,9 @@ function Readout() {
               data-type={i.type}
               data-selected={selection.includes(i.id)}
               className="cursor-pointer border-t data-[selected=true]:bg-primary-soft"
-              onClick={(e) => select([i.id], e.ctrlKey || e.metaKey || e.shiftKey ? 'toggle' : 'replace')}
+              onClick={(e) =>
+                select([i.id], e.ctrlKey || e.metaKey || e.shiftKey ? 'toggle' : 'replace')
+              }
             >
               <td className="truncate">{t.name}</td>
               <td className="truncate">{i.id}</td>

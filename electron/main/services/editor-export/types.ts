@@ -32,6 +32,8 @@ export interface Ctx {
   W: number;
   H: number;
   notes: string[];
+  /** The stack is BT.709 limited-range yuv420p (set when the dominant layer is an opaque cover picture). */
+  yuv: boolean;
   file(assetId: string): FileInfo;
 }
 
@@ -44,4 +46,6 @@ export interface PlacedLayer {
   x: string;
   y: string;
   blend: BlendMode;
+  /** The layer is already in the stack's yuv420p format (opaque cover picture). */
+  yuv?: boolean;
 }

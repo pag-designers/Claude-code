@@ -5,16 +5,28 @@ import { Flag } from 'lucide-react';
 import type { ProjectMarker } from '@shared/editor';
 import { useEditorStore } from '@/lib/editor/core';
 import { HEADER_W, RULER_H, rulerTicks, type TimeWindow } from './geometry';
+import { useSettled, useSettledWindow } from './engine-cache';
 import { useTimelineUi } from './timeline-ui';
 import { readTokens, useThemeVersion } from './use-css-tokens';
 
 const RULER_TOKENS = ['--muted-foreground', '--border-strong', '--subtle'] as const;
 
 /** Tick marks + labels, drawn only for the render window and positioned natively (so they never tear against the tracks). */
-function RulerCanvas({ win, pxPerSec, fps }: { win: TimeWindow; pxPerSec: number; fps: number }) {
+function RulerCanvas({
+  win: liveWin,
+  pxPerSec,
+  fps,
+}: {
+  win: TimeWindow;
+  pxPerSec: number;
+  fps: number;
+}) {
+  const win = useSettledWindow(liveWin, 90);
   const ref = React.useRef<HTMLCanvasElement>(null);
   const theme = useThemeVersion();
-  const width = Math.max(1, Math.round((win.end - win.start) * pxPerSec));
+  // the bitmap is drawn at the settled zoom and stretched with CSS while the zoom is changing (cheap, like the clips)
+  const drawPx = useSettled(pxPerSec, 90);
+  const width = Math.max(1, Math.round((win.end - win.start) * drawPx));
   React.useLayoutEffect(() => {
     const c = ref.current;
     if (!c) return;
@@ -25,13 +37,13 @@ function RulerCanvas({ win, pxPerSec, fps }: { win: TimeWindow; pxPerSec: number
     const ctx = c.getContext('2d');
     if (!ctx) return;
     ctx.setTransform(r, 0, 0, r, 0, 0);
-    const tk = readTokens(document.documentElement, RULER_TOKENS);
+    const tk = readTokens(null, RULER_TOKENS);
     const h = RULER_H - 12;
     ctx.clearRect(0, 0, w, h);
     ctx.font = '500 10px "Inter Variable", ui-sans-serif, system-ui, sans-serif';
     ctx.textBaseline = 'top';
-    for (const tick of rulerTicks(pxPerSec, win.start, win.end, fps)) {
-      const x = Math.round((tick.t - win.start) * pxPerSec) + 0.5;
+    for (const tick of rulerTicks(drawPx, win.start, win.end, fps)) {
+      const x = Math.round((tick.t - win.start) * drawPx) + 0.5;
       if (tick.kind === 'major') {
         ctx.fillStyle = tk['--border-strong'] || 'transparent';
         ctx.fillRect(x - 0.5, h - 12, 1, 12);
@@ -46,13 +58,17 @@ function RulerCanvas({ win, pxPerSec, fps }: { win: TimeWindow; pxPerSec: number
         ctx.globalAlpha = 1;
       }
     }
-  }, [width, win.start, win.end, pxPerSec, fps, theme]);
+  }, [width, win.start, win.end, drawPx, fps, theme]);
   return (
     <canvas
       ref={ref}
       aria-hidden
       className="pointer-events-none absolute top-0"
-      style={{ left: win.start * pxPerSec, width, height: RULER_H - 12 }}
+      style={{
+        left: win.start * pxPerSec,
+        width: (win.end - win.start) * pxPerSec,
+        height: RULER_H - 12,
+      }}
     />
   );
 }

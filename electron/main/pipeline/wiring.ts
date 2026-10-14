@@ -8,11 +8,20 @@ import { createMediaService } from '../services/media/ffmpeg';
 import { createIngestService } from '../services/media/ytdlp';
 import { createMomentService } from '../services/moments';
 import { createReframeService, facesFromSidecar } from '../services/reframe';
-import { createRenderService, createThumbnailService, extractThumbnail, renderCleanFrame } from '../services/render';
+import { createEditorMedia } from '../services/editor-media';
+import { createExportCompiler } from '../services/editor-export';
+import {
+  createRenderService,
+  createThumbnailService,
+  extractThumbnail,
+  renderCleanFrame,
+} from '../services/render';
 import { logger } from '../logger';
 import type { ChatEvent, MomentRun } from '@shared/cp2';
+import type { ExportJob } from '@shared/editor';
 import { ChatService } from './chat';
 import { Cp2Service } from './cp2';
+import { EditorService } from './editor';
 import { LibraryService } from './library';
 import { StyleRegistry } from './styles';
 import { PipelineOrchestrator } from './orchestrator';
@@ -21,10 +30,19 @@ export interface PipelineHost {
   emit: ConstructorParameters<typeof PipelineOrchestrator>[0]['emit'] & {
     chat(e: ChatEvent): void;
     momentRun(r: MomentRun): void;
+    editorExport(j: ExportJob): void;
     markers(videoId: string): void;
   };
   /** Save dialog + write a text file; null = canceled. */
-  saveText(opts: { title: string; defaultName: string; extension: string }, content: string): Promise<string | null>;
+  /** Open dialog for importing media into a project; [] = canceled. */
+  chooseFiles(opts: {
+    title: string;
+    extensions: { name: string; extensions: string[] }[];
+  }): Promise<string[]>;
+  saveText(
+    opts: { title: string; defaultName: string; extension: string },
+    content: string,
+  ): Promise<string | null>;
   chooseDirectory(): Promise<string | null>;
   /** Directory with fonts for libass (null = system fonts). */
   fontsDir(): string | null;
@@ -65,7 +83,10 @@ export function createPipeline(svc: Services, sidecar: SidecarManager, host: Pip
       void svc.notifications.create({
         kind: 'system',
         level: 'warning',
-        title: level === 'warn' ? 'AI spend at 80% of your monthly target' : 'AI spend passed your monthly target',
+        title:
+          level === 'warn'
+            ? 'AI spend at 80% of your monthly target'
+            : 'AI spend passed your monthly target',
         body: 'Clipfern will use the cheaper model for low-value tasks and find fewer candidates. Adjust the budget in Settings → Models & Budget.',
         href: '/settings/models/',
         os: level !== 'warn',
@@ -81,6 +102,7 @@ export function createPipeline(svc: Services, sidecar: SidecarManager, host: Pip
   // Late-bound: the subtitle-edit store lives in Cp2Service, which needs the orchestrator.
   let cp2Ref: Cp2Service | null = null;
 
+  const render = createRenderService();
   const orchestrator = new PipelineOrchestrator({
     db: svc.dbHandle.prisma,
     queue: svc.queue,
@@ -101,7 +123,7 @@ export function createPipeline(svc: Services, sidecar: SidecarManager, host: Pip
       return cp2Ref.loadEdits(videoId);
     },
     emitRun: (r) => host.emit.momentRun(r),
-    render: createRenderService(),
+    render,
     sidecar,
     toFaceSamples: (wire) => facesFromSidecar(wire as Parameters<typeof facesFromSidecar>[0]),
     thumbnail: extractThumbnail,
@@ -118,12 +140,15 @@ export function createPipeline(svc: Services, sidecar: SidecarManager, host: Pip
     async checkReady() {
       if (!llm.isConfigured()) return 'Add your Anthropic API key in Settings → API Keys.';
       await svc.storage.refresh();
-      if (!svc.storage.get()) return 'Connect object storage first: add your Cloudflare R2 (or Backblaze B2) details in Settings → Storage.';
+      if (!svc.storage.get())
+        return 'Connect object storage first: add your Cloudflare R2 (or Backblaze B2) details in Settings → Storage.';
       const [ff, yt] = await Promise.all([svc.binaries.checkFfmpeg(), svc.binaries.checkYtdlp()]);
       if (!ff.ok) return `ffmpeg is not working: ${ff.error ?? 'unknown error'}`;
-      if (!yt.ok) return 'yt-dlp is still being downloaded. Try again in a moment (Settings → Diagnostics shows its status).';
+      if (!yt.ok)
+        return 'yt-dlp is still being downloaded. Try again in a moment (Settings → Diagnostics shows its status).';
       const st = sidecar.getStatus();
-      if (!st.installed || !st.modelReady) return 'Install the transcription engine first: Settings → Compute → Install.';
+      if (!st.installed || !st.modelReady)
+        return 'Install the transcription engine first: Settings → Compute → Install.';
       return null;
     },
   });
@@ -171,18 +196,49 @@ export function createPipeline(svc: Services, sidecar: SidecarManager, host: Pip
     moments,
     llm,
     emit: host.emit.chat,
-    checkLlmReady: () => (llm.isConfigured() ? null : 'Add your Anthropic API key in Settings → API Keys.'),
+    checkLlmReady: () =>
+      llm.isConfigured() ? null : 'Add your Anthropic API key in Settings → API Keys.',
     log,
   });
+
+  const editorMedia = createEditorMedia({ ffmpegPath, ffprobePath, log });
+  const editor = new EditorService({
+    db: svc.dbHandle.prisma,
+    queue: svc.queue,
+    notifications: svc.notifications,
+    getStorage: () => svc.storage.get(),
+    invalidateStorage: () => svc.storageUsage.invalidate(),
+    cacheDir: path.join(svc.userDataDir, 'cache'),
+    ffmpegPath,
+    fontsDir: host.fontsDir,
+    orchestrator,
+    loadSubtitleEdits: (videoId) => cp2.loadEdits(videoId),
+    subtitles,
+    styles,
+    captions,
+    reframe: createReframeService(),
+    toFaceSamples: (wire) => facesFromSidecar(wire as Parameters<typeof facesFromSidecar>[0]),
+    sidecar,
+    media: editorMedia,
+    compiler: createExportCompiler({ ffmpegPath: svc.binaries.ffmpegPath() ?? undefined }),
+    detectEncoder: (ff) => render.detectEncoder(ff),
+    thumbnail: extractThumbnail,
+    whisperModel: () => process.env.CLIPFERN_WHISPER_MODEL || svc.currentWhisperModel(),
+    chooseFiles: host.chooseFiles,
+    chooseDirectory: host.chooseDirectory,
+    emit: { export: host.emit.editorExport },
+    log,
+  });
+  editor.registerJobs();
 
   return {
     orchestrator,
     library,
     cp2,
+    editor,
     chat,
     styles,
     captions,
-    probeUrl: (url: string) =>
-      ingest.probe(url, { cookiesFromBrowser: svc.currentCookies() }),
+    probeUrl: (url: string) => ingest.probe(url, { cookiesFromBrowser: svc.currentCookies() }),
   };
 }

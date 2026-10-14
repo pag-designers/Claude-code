@@ -3,15 +3,8 @@
 import * as React from 'react';
 import type { Asset, Item, TrackKind } from '@shared/editor';
 import { cn } from '@/lib/utils';
-import { MIN_ITEM_PX, groupColorIndex, itemAriaLabel, type TimeWindow } from './geometry';
-import {
-  AudioWave,
-  ItemLabel,
-  SHAPE_ICON,
-  SubtitleContent,
-  TypeIcon,
-  VideoStrip,
-} from './item-content';
+import { MIN_ITEM_PX, groupColorIndex, itemAriaLabel } from './geometry';
+import { ItemLabel, SHAPE_ICON, SubtitleContent, TypeIcon } from './item-content';
 import { KeyframeDiamonds } from './keyframe-diamonds';
 import { TransitionGlyph } from './transition-editor';
 
@@ -21,14 +14,10 @@ export interface ItemBlockProps {
   trackKind: TrackKind;
   asset: Asset | undefined;
   pxPerSec: number;
-  win: TimeWindow;
   selected: boolean;
   /** Show keyframe diamonds (only for a handful of selected items). */
   showKeyframes: boolean;
   trackLocked: boolean;
-  trackMuted: boolean;
-  /** Height of the block's content box. */
-  height: number;
   tabbable: boolean;
 }
 
@@ -39,17 +28,13 @@ export const ItemBlock = React.memo(function ItemBlock({
   trackKind,
   asset,
   pxPerSec,
-  win,
   selected,
   showKeyframes,
   trackLocked,
-  trackMuted,
-  height,
   tabbable,
 }: ItemBlockProps) {
   const left = item.startSec * pxPerSec;
   const width = Math.max(MIN_ITEM_PX, item.durationSec * pxPerSec);
-  const contentH = Math.max(10, height - 8);
   const fadeIn = 'fadeInSec' in item ? item.fadeInSec : 0;
   const fadeOut = 'fadeOutSec' in item ? item.fadeOutSec : 0;
   const locked = trackLocked || item.locked;
@@ -58,35 +43,9 @@ export const ItemBlock = React.memo(function ItemBlock({
   let body: React.ReactNode = null;
   switch (item.type) {
     case 'video':
-      body = (
-        <VideoStrip item={item} asset={asset} pxPerSec={pxPerSec} win={win} height={contentH} />
-      );
-      if (trackKind === 'audio' && asset?.hasAudio) {
-        body = (
-          <AudioWave
-            item={item}
-            asset={asset}
-            pxPerSec={pxPerSec}
-            win={win}
-            height={contentH}
-            muted={trackMuted}
-            sfx={false}
-          />
-        );
-      }
-      break;
     case 'audio':
-      body = (
-        <AudioWave
-          item={item}
-          asset={asset}
-          pxPerSec={pxPerSec}
-          win={win}
-          height={contentH}
-          muted={trackMuted}
-          sfx={trackKind === 'sfx'}
-        />
-      );
+      // picture / waveform content is drawn by the lane's single media canvas (see lane-media.tsx)
+      body = null;
       break;
     case 'subtitle':
       body = <SubtitleContent item={item} pxWidth={width} />;
@@ -135,6 +94,7 @@ export const ItemBlock = React.memo(function ItemBlock({
       data-type={item.type}
       data-overlay={overlay || undefined}
       data-sfx={trackKind === 'sfx' || undefined}
+      data-media={item.type === 'video' || item.type === 'audio' || undefined}
       data-selected={selected}
       data-locked={locked || undefined}
       data-start={item.startSec}
@@ -164,8 +124,20 @@ export const ItemBlock = React.memo(function ItemBlock({
       ) : null}
       {!locked ? (
         <>
-          <div className="tl-trim" data-trim="start" data-edge="start" data-item-id={item.id} aria-hidden />
-          <div className="tl-trim" data-trim="end" data-edge="end" data-item-id={item.id} aria-hidden />
+          <div
+            className="tl-trim"
+            data-trim="start"
+            data-edge="start"
+            data-item-id={item.id}
+            aria-hidden
+          />
+          <div
+            className="tl-trim"
+            data-trim="end"
+            data-edge="end"
+            data-item-id={item.id}
+            aria-hidden
+          />
         </>
       ) : null}
     </div>

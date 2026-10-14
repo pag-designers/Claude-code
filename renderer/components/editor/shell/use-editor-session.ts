@@ -68,14 +68,15 @@ export function useEditorSession(projectId: string) {
     })();
     return () => {
       cancelled = true;
-      stop?.();
       const st = useEditorStore.getState();
       if (st.projectId === projectId) {
         st.pause();
-        // flush on leave: autosave flush for in-app navigation (the IPC call outlives the unmounted page)
+        // flush on leave, BEFORE the autosave loop is stopped (stopping drops the save dependency); the IPC call
+        // outlives the unmounted page
         if (PENDING.has(st.saveState) && st.saveState !== 'conflict')
           void st.saveNow().catch(() => {});
       }
+      stop?.();
     };
   }, [projectId, attempt]);
 

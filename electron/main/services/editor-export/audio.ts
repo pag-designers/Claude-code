@@ -129,11 +129,10 @@ function planItems(
   r0: number,
   r1: number,
   ranges: TimeRange[],
-  notes: string[],
 ): Plan {
   const inputs: string[][] = [];
   const builders: ((g: Graph, base: number) => string)[] = [];
-  items.forEach(({ track, item, file }, idx) => {
+  items.forEach(({ track, item, file }) => {
     const off = makeSourceOffset(item);
     const A = Math.max(item.startSec, r0);
     const B = Math.min(itemEnd(item), r1);
@@ -179,10 +178,12 @@ function planItems(
       crossFactor(track, item, Math.min(T, itemEnd(item) - 1e-5));
     const breaks: number[] = [A, B];
     const eps = 1e-4;
-    for (const k of item.volume.kf) breaks.push(item.startSec + k.t - eps, item.startSec + k.t, item.startSec + k.t + eps);
+    for (const k of item.volume.kf)
+      breaks.push(item.startSec + k.t - eps, item.startSec + k.t, item.startSec + k.t + eps);
     if (item.fadeInSec > 0) breaks.push(item.startSec + item.fadeInSec);
     if (item.fadeOutSec > 0) breaks.push(B - item.fadeOutSec, itemEnd(item) - item.fadeOutSec);
-    if (duck) breaks.push(...duckBreakpoints(ranges, track.ducking, project.tracks.length ? r1 + 1 : r1));
+    if (duck)
+      breaks.push(...duckBreakpoints(ranges, track.ducking, project.tracks.length ? r1 + 1 : r1));
     const tin = item.type === 'video' ? item.transitionIn : null;
     if (tin) breaks.push(item.startSec, item.startSec + tin.durationSec);
     // outgoing side of a neighbour's transition
@@ -191,7 +192,9 @@ function planItems(
       if (t2 && o.startSec < itemEnd(item) && o.startSec + t2.durationSec > item.startSec)
         breaks.push(o.startSec, o.startSec + t2.durationSec);
     }
-    const inRange = breaks.filter((b) => b >= A - 1e-9 && b <= B + 1e-9).map((b) => Math.min(B, Math.max(A, b)));
+    const inRange = breaks
+      .filter((b) => b >= A - 1e-9 && b <= B + 1e-9)
+      .map((b) => Math.min(B, Math.max(A, b)));
     const knots = adaptiveKnots(gainAt, inRange, 0.003).map((k) => ({ t: k.t - r0, v: k.v }));
     const times = knots.map((k) => k.t);
     const values = knots.map((k) => k.v);
@@ -224,7 +227,9 @@ function planItems(
       }
       const f: string[] = [];
       if (item.noiseGate) {
-        f.push(filt('agate', { threshold: num(GATE_THRESHOLD, 6), ratio: 10, attack: 10, release: 120 }));
+        f.push(
+          filt('agate', { threshold: num(GATE_THRESHOLD, 6), ratio: 10, attack: 10, release: 120 }),
+        );
       }
       f.push(filt('atrim', { end: num(tlB - tlA, 6) }));
       const delaySamples = Math.round((A - r0) * RATE);
@@ -242,7 +247,6 @@ function planItems(
       return g.add([cur], f);
     });
   });
-  void notes;
   return { inputs, build: (g, base) => builders.map((b) => b(g, base)) };
 }
 
@@ -263,7 +267,7 @@ export async function buildAudio(a: {
   if (items.length === 0) return null;
   const ranges = speechRanges(project);
   const notes: string[] = [];
-  const plan = planItems(project, items, r0, r1, ranges, notes);
+  const plan = planItems(project, items, r0, r1, ranges);
 
   const make = (base: number, filterTail: string | null): AudioBuild => {
     const g = new Graph(base, 'au');

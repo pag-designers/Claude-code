@@ -223,15 +223,15 @@ export function timelineProject(opts: { beats?: boolean } = {}): Project {
           id: 'logo',
           assetId: 'as_logo',
           startSec: 0,
-          durationSec: 42,
+          durationSec: 6,
           name: 'Logo',
         }),
         shapeItemSchema.parse({
           type: 'shape',
           id: 'bar',
           shape: 'progress-bar',
-          startSec: 0,
-          durationSec: 42,
+          startSec: 6.5,
+          durationSec: 35.5,
           name: 'Progress bar',
         }),
       ].sort((a, b) => a.startSec - b.startSec),
@@ -520,6 +520,7 @@ export async function handleEditorTimeline(
 ): Promise<{ value: unknown } | null> {
   const p = (payload ?? {}) as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any -- test stub: the real contract already validated the payload
   if (channel === 'editor:thumbStrip') {
+    if (p.projectId === 'tl-big') return null; // the 3,000-item stress project must not spawn ffmpeg
     thumbCalls.push({ assetId: p.assetId, startSec: p.startSec, endSec: p.endSec, count: p.count });
     const file = mediaFor(p.assetId, state);
     const asset =

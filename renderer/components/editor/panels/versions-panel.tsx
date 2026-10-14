@@ -198,7 +198,10 @@ export function VersionsPanel({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="h-[min(80vh,640px)] max-w-lg" data-testid="versions-panel">
+        <DialogContent
+          className="min-h-[420px] max-h-[min(80vh,640px)] max-w-lg"
+          data-testid="versions-panel"
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 font-display text-xl font-semibold">
               <History className="size-5 text-primary-text" aria-hidden /> Version history

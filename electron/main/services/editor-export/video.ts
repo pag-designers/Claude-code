@@ -43,7 +43,7 @@ export const TOL = {
   time: 0.0004,
 } as const;
 
-const MAX_PIECES = 90;
+const MAX_PIECES = 60;
 /** Slot-timestamp bias: with `fps round=near` a frame lands on slot ceil(τ·F − 0.01), i.e. "last source frame at or before" (0.01 slot = 0.3 ms of slack for timebase rounding). */
 const SLOT_BIAS = 0.49;
 /** Reverse: a frame is shown from the first slot STRICTLY after (c − period) (display interval (c−period, c]). */
@@ -161,13 +161,7 @@ function holdAndCut(c: Chain, n: number): void {
 }
 
 /** A still image / freeze frame: one decoded frame repeated for `n` frames at slots ja.. */
-function stillChain(
-  ctx: Ctx,
-  file: FileInfo,
-  seek: number | null,
-  ja: number,
-  n: number,
-): string {
+function stillChain(ctx: Ctx, file: FileInfo, seek: number | null, ja: number, n: number): string {
   const idx = ctx.g.addInput([...(seek !== null ? ['-ss', ss(seek)] : []), '-i', file.path]);
   const c = new Chain(ctx.g, `${idx}:v:0`);
   c.push(
@@ -185,7 +179,13 @@ function stillChain(
  * Video of a media item as a CFR stream whose frame for slot j (j in [ja, jb)) is the source frame the
  * evaluator picks at that frame time (the last frame at or before it). Output timestamps are j / fps.
  */
-function timeChain(ctx: Ctx, item: VideoItem, file: FileInfo, info: ItemFrameInfo, s: Samples): string {
+function timeChain(
+  ctx: Ctx,
+  item: VideoItem,
+  file: FileInfo,
+  info: ItemFrameInfo,
+  s: Samples,
+): string {
   const F = ctx.fps;
   const n = s.m;
   const ja = info.ja;
@@ -231,9 +231,17 @@ function timeChain(ctx: Ctx, item: VideoItem, file: FileInfo, info: ItemFrameInf
       // `-t` on an input lets about one frame too many through: cut the window exactly (relative to -ss)
       trimEnd = top + 0.0005 - Number(ss(srcStart));
     }
-    const idx = ctx.g.addInput(['-ss', ss(srcStart), '-t', num(Math.max(0.1, srcLen), 4), '-i', file.path]);
+    const idx = ctx.g.addInput([
+      '-ss',
+      ss(srcStart),
+      '-t',
+      num(Math.max(0.1, srcLen), 4),
+      '-i',
+      file.path,
+    ]);
     const c = new Chain(ctx.g, `${idx}:v:0`);
-    if (item.reverse) c.push(filt('trim', { end: num(trimEnd, 4) }), 'setpts=PTS-STARTPTS', 'reverse');
+    if (item.reverse)
+      c.push(filt('trim', { end: num(trimEnd, 4) }), 'setpts=PTS-STARTPTS', 'reverse');
     // G(c) → absolute output time of that source frame; T = pts (s) of the frame in this chain
     const times: number[] = [];
     const vals: number[] = [];
@@ -361,6 +369,7 @@ function buildNatural(
   s: Samples,
   sNat: number,
   mirror: boolean,
+  yuv = false,
 ): Natural {
   const { K } = ctx;
   const srcW = file.width as number;
@@ -376,7 +385,10 @@ function buildNatural(
   const sizeAnimated = !isConst(sw) || !isConst(sh);
   const posAnimated = !isConst(sx) || !isConst(sy);
   const animated = sizeAnimated || posAnimated;
-  if (sizeAnimated && (s.dstW.some((v) => Math.abs(v - dstW0) > 0.5) || s.dstH.some((v) => Math.abs(v - dstH0) > 0.5))) {
+  if (
+    sizeAnimated &&
+    (s.dstW.some((v) => Math.abs(v - dstW0) > 0.5) || s.dstH.some((v) => Math.abs(v - dstH0) > 0.5))
+  ) {
     ctx.notes.push(
       `crop size animation with contain/native fit is approximated (natural size fixed at the first frame) on item ${info.ja}`,
     );
@@ -390,8 +402,16 @@ function buildNatural(
   let w1 = 0;
   let h1 = 0;
   for (let k = 0; k < s.m; k++) {
-    w1 = Math.max(w1, Math.ceil((s.sx[k] as number) + (s.sw[k] as number) - 1e-6) - Math.floor((s.sx[k] as number) + 1e-6));
-    h1 = Math.max(h1, Math.ceil((s.sy[k] as number) + (s.sh[k] as number) - 1e-6) - Math.floor((s.sy[k] as number) + 1e-6));
+    w1 = Math.max(
+      w1,
+      Math.ceil((s.sx[k] as number) + (s.sw[k] as number) - 1e-6) -
+        Math.floor((s.sx[k] as number) + 1e-6),
+    );
+    h1 = Math.max(
+      h1,
+      Math.ceil((s.sy[k] as number) + (s.sh[k] as number) - 1e-6) -
+        Math.floor((s.sy[k] as number) + 1e-6),
+    );
   }
   if (animated) {
     w1 += 1;
@@ -412,7 +432,12 @@ function buildNatural(
   const c = new Chain(ctx.g, src);
   c.push('setsar=1');
   const fullWindow = isConst(sx) && isConst(sy) && w1 === srcW && h1 === srcH;
-  const noCrop1 = fullWindow && sx.kind === 'const' && Math.floor(sx.v + 1e-6) === 0 && sy.kind === 'const' && Math.floor(sy.v + 1e-6) === 0;
+  const noCrop1 =
+    fullWindow &&
+    sx.kind === 'const' &&
+    Math.floor(sx.v + 1e-6) === 0 &&
+    sy.kind === 'const' &&
+    Math.floor(sy.v + 1e-6) === 0;
   if (!noCrop1) {
     c.push(
       filt('crop', {
@@ -425,13 +450,16 @@ function buildNatural(
     );
   }
   const matrix = matrixFor(file);
-  const scaleBase = { flags: 'bicubic', in_color_matrix: matrix, out_range: 'pc' };
+  const scaleBase = yuv
+    ? { flags: 'bicubic', in_color_matrix: matrix, out_color_matrix: 'bt709', out_range: 'tv' }
+    : { flags: 'bicubic', in_color_matrix: matrix, out_range: 'pc' };
+  const pix = yuv ? 'format=yuv420p' : 'format=rgba';
   let scaledW: number;
   let scaledH: number;
   if (isConst(fS)) {
     scaledW = Math.max(natW, Math.ceil(w1 * fS.v - 1e-6));
     scaledH = Math.max(natH, Math.ceil(h1 * fS.v - 1e-6));
-    c.push(filt('scale', { w: scaledW, h: scaledH, ...scaleBase }), 'format=rgba');
+    c.push(filt('scale', { w: scaledW, h: scaledH, ...scaleBase }), pix);
   } else {
     const fe = seriesExpr(fS);
     c.push(
@@ -441,19 +469,21 @@ function buildNatural(
         eval: 'frame',
         ...scaleBase,
       }),
-      'format=rgba',
+      pix,
     );
     scaledW = Math.ceil(w1 * fMax);
     scaledH = Math.ceil(h1 * fMax);
   }
   // stage 2: exact window (sub-pixel position rounded at OUTPUT resolution)
   const fExpr = isConst(fS) ? num(fS.v, 6) : `(${seriesExpr(fS)})`;
-  const x2 = isConst(sx) && isConst(fS)
-    ? num(Math.max(0, Math.min(Math.round((sx.v - Number(x1E())) * fS.v), scaledW - natW)))
-    : q(`max(0,round((${isConst(sx) ? num(sx.v) : seriesExpr(sx)}-${x1E()})*${fExpr}))`);
-  const y2 = isConst(sy) && isConst(fS)
-    ? num(Math.max(0, Math.min(Math.round((sy.v - Number(y1E())) * fS.v), scaledH - natH)))
-    : q(`max(0,round((${isConst(sy) ? num(sy.v) : seriesExpr(sy)}-${y1E()})*${fExpr}))`);
+  const x2 =
+    isConst(sx) && isConst(fS)
+      ? num(Math.max(0, Math.min(Math.round((sx.v - Number(x1E())) * fS.v), scaledW - natW)))
+      : q(`max(0,round((${isConst(sx) ? num(sx.v) : seriesExpr(sx)}-${x1E()})*${fExpr}))`);
+  const y2 =
+    isConst(sy) && isConst(fS)
+      ? num(Math.max(0, Math.min(Math.round((sy.v - Number(y1E())) * fS.v), scaledH - natH)))
+      : q(`max(0,round((${isConst(sy) ? num(sy.v) : seriesExpr(sy)}-${y1E()})*${fExpr}))`);
   const trivial2 = isConst(fS) && scaledW === natW && scaledH === natH && x2 === '0' && y2 === '0';
   if (!trivial2) c.push(filt('crop', { w: natW, h: natH, x: x2, y: y2, exact: 1 }));
   if (mirror) c.push('hflip');
@@ -465,6 +495,44 @@ function buildNatural(
 export interface MediaLayerOpts {
   /** LUT file for item.color.lutAssetId. */
   lut: (assetId: string) => string;
+}
+
+/**
+ * True when the item is an opaque, untransformed, uncoloured COVER picture that fills the canvas: it can stay in
+ * the (faster) yuv420p stack without any RGB round trip.
+ */
+export function yuvEligible(ctx: Ctx, item: VideoItem | ImageItem, info: ItemFrameInfo): boolean {
+  if (item.blend !== 'normal' || item.fit !== 'cover' || item.blur.kf.length > 0 || item.blur.v > 0)
+    return false;
+  if (item.color.lutAssetId) return false;
+  const file = ctx.file(item.assetId);
+  const s = sampleMedia(ctx, item, info, file, 'main');
+  const tol = 0.3;
+  for (let k = 0; k < s.m; k++) {
+    if (info.hidden[k] || info.ops[k]) return false;
+    if ((s.opa[k] as number) < 0.998) return false;
+    if (Math.abs((s.sTot[k] as number) - 1) > 0.002 || Math.abs(s.rot[k] as number) > 0.01)
+      return false;
+    if (
+      Math.abs((s.cx[k] as number) - ctx.W / 2) > tol ||
+      Math.abs((s.cy[k] as number) - ctx.H / 2) > tol
+    )
+      return false;
+    const e = s.color[k] as EffectiveColor;
+    if (
+      Math.abs(e.ev) > 1e-6 ||
+      Math.abs(e.contrast - 1) > 1e-6 ||
+      Math.abs(e.saturation - 1) > 1e-6 ||
+      Math.abs(e.temperature) > 1e-6
+    )
+      return false;
+    if (
+      Math.abs((s.dstW[k] as number) * ctx.K - ctx.W) > 1 ||
+      Math.abs((s.dstH[k] as number) * ctx.K - ctx.H) > 1
+    )
+      return false;
+  }
+  return true;
 }
 
 /** Compiles one video / image item into placed RGBA layers (a blurred background copy first, when requested). */
@@ -487,6 +555,7 @@ export function compileMediaItem(
   if (item.type === 'image') slots = stillChain(ctx, file, null, info.ja, main.m);
   else slots = timeChain(ctx, item, file, info, main);
 
+  const asYuv = ctx.yuv && yuvEligible(ctx, item, info);
   const wantBg = item.fit === 'contain' && item.backgroundBlur;
   let slotsMain = slots;
   let slotsBg = '';
@@ -496,11 +565,17 @@ export function compileMediaItem(
     ctx.g.chains.push(`[${slots}]split=2[${slotsBg}][${slotsMain}]`);
   }
   const layers: PlacedLayer[] = [];
+  if (asYuv) {
+    const nat = buildNatural(ctx, file, slotsMain, info, main, 1, item.mirror, true);
+    return [
+      { label: nat.label, ja: info.ja, jb: info.jb, x: '0', y: '0', blend: 'normal', yuv: true },
+    ];
+  }
   if (wantBg) {
     const bg = sampleMedia(ctx, item, info, file, 'bg');
-    layers.push(layerFromSamples(ctx, item, info, file, bg, slotsBg, opts, true));
+    layers.push(layerFromSamples(ctx, item, info, file, bg, slotsBg, opts));
   }
-  layers.push(layerFromSamples(ctx, item, info, file, main, slotsMain, opts, false));
+  layers.push(layerFromSamples(ctx, item, info, file, main, slotsMain, opts));
   return layers;
 }
 
@@ -512,7 +587,6 @@ function layerFromSamples(
   s: Samples,
   slots: string,
   opts: MediaLayerOpts,
-  isBg: boolean,
 ): PlacedLayer {
   const { g } = ctx;
   const opa = toSeries(s.tOut, s.opa, TOL.opacity);
@@ -594,9 +668,10 @@ function layerFromSamples(
       }),
     );
   }
-  void isBg;
+  let outLabel = c.flush();
+  if (ctx.yuv && item.blend === 'normal') outLabel = toYuvLayer(ctx, outLabel);
   return {
-    label: c.flush(),
+    label: outLabel,
     ja: info.ja,
     jb: info.jb,
     x: q(`${seriesExpr(cxS)}-w/2`),
@@ -644,7 +719,11 @@ function applyColor(
       ctx.g.chains.pop();
       ctx.g.chains.push(`[${base}]split=2[${a}][${b}]`);
       const lutted = ctx.g.add([b], [lutF]);
-      const mixed = ctx.g.add([a, lutted], [filt('blend', { all_mode: 'normal', all_opacity: amount })]);
+      // blend's opacity weights the FIRST (top) input: lut result on top → amount × lut + (1 − amount) × original
+      const mixed = ctx.g.add(
+        [lutted, a],
+        [filt('blend', { all_mode: 'normal', all_opacity: amount })],
+      );
       c.label = mixed;
     }
   }
@@ -668,6 +747,17 @@ function applyOpacity(ctx: Ctx, c: Chain, opa: Series): void {
     ['alphaextract', filt('eq', { contrast: q(cexpr), brightness: q(bexpr), eval: 'frame' })],
   );
   c.label = ctx.g.add([b, m], ['alphamerge']);
+}
+
+/** rgba layer → yuva420p (BT.709 limited) so it can be overlaid on the yuv stack with the right matrix. */
+export function toYuvLayer(ctx: Ctx, label: string): string {
+  return ctx.g.add(
+    [label],
+    [
+      filt('scale', { flags: 'bicubic', out_color_matrix: 'bt709', out_range: 'tv' }),
+      'format=yuva420p',
+    ],
+  );
 }
 
 /** Opacity from samples (used for dip veils). */

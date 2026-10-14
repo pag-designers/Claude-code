@@ -3,17 +3,41 @@ import { execFileSync } from 'node:child_process';
 import { describe, expect, it, vi } from 'vitest';
 import { makeSourceTime } from '../../../shared/editor-eval';
 import type { Item } from '../../../shared/editor';
-import { FFPROBE, exportProject, files, frameLevels, haveFfmpeg, indexClip, makeProject, probeDims, settingsFor, track, vitem } from './helpers';
+import {
+  FFPROBE,
+  exportProject,
+  files,
+  frameLevels,
+  haveFfmpeg,
+  indexClip,
+  makeProject,
+  probeDims,
+  settingsFor,
+  track,
+  vitem,
+} from './helpers';
 
 vi.setConfig({ testTimeout: 60_000 });
 
 const idx = indexClip(100, 30, 64, 64); // 100 frames: 0 .. 99, 3.33 s
 const specs = [{ id: 'x', kind: 'video' as const, path: idx, w: 64, h: 64, fps: 30, dur: 3.3 }];
-const kfs = (a: [number, number, string?][]) => a.map(([t, v, ease]) => ({ t, v, ease: ease ?? 'linear' }));
+const kfs = (a: [number, number, string?][]) =>
+  a.map(([t, v, ease]) => ({ t, v, ease: ease ?? 'linear' }));
 
-async function levels(over: Record<string, unknown>, start = 0, dur = 1, extra: { range?: { startSec: number; endSec: number }; total?: number } = {}) {
-  const p = makeProject([track('video', [vitem('i', 'x', start, dur, over)])], specs, { width: 64, height: 64 });
-  const r = await exportProject(p, files(specs), settingsFor(64, 64), { range: extra.range, name: 'timing' });
+async function levels(
+  over: Record<string, unknown>,
+  start = 0,
+  dur = 1,
+  extra: { range?: { startSec: number; endSec: number }; total?: number } = {},
+) {
+  const p = makeProject([track('video', [vitem('i', 'x', start, dur, over)])], specs, {
+    width: 64,
+    height: 64,
+  });
+  const r = await exportProject(p, files(specs), settingsFor(64, 64), {
+    range: extra.range,
+    name: 'timing',
+  });
   const lv = frameLevels(r.out);
   const f = makeSourceTime(p.tracks[0]!.items[0] as Extract<Item, { type: 'video' }>);
   const r0 = extra.range?.startSec ?? 0;
@@ -52,9 +76,40 @@ describe.skipIf(!haveFfmpeg)('speed / reverse / freeze', () => {
     ['freeze ignores inSec/speed', { freezeAtSec: 0.5, inSec: 2, speed: 3 }, 0],
     ['inSec offset', { inSec: 1.5 }, 0],
     ['item starting between frames (0.41 s)', { inSec: 0.2 }, 0],
-    ['speed ramp 1 → 3', { inSec: 0.2, speedCurve: kfs([[0, 1], [1, 3]]) }, 0],
-    ['speed ramp 2 → 0.5 (ease)', { inSec: 0.2, speedCurve: kfs([[0, 2, 'ease-in-out'], [1, 0.5]]) }, 0],
-    ['speed ramp + reverse', { inSec: 0.2, reverse: true, speedCurve: kfs([[0, 1], [1, 2.5, 'ease-in-out']]) }, 1],
+    [
+      'speed ramp 1 → 3',
+      {
+        inSec: 0.2,
+        speedCurve: kfs([
+          [0, 1],
+          [1, 3],
+        ]),
+      },
+      0,
+    ],
+    [
+      'speed ramp 2 → 0.5 (ease)',
+      {
+        inSec: 0.2,
+        speedCurve: kfs([
+          [0, 2, 'ease-in-out'],
+          [1, 0.5],
+        ]),
+      },
+      0,
+    ],
+    [
+      'speed ramp + reverse',
+      {
+        inSec: 0.2,
+        reverse: true,
+        speedCurve: kfs([
+          [0, 1],
+          [1, 2.5, 'ease-in-out'],
+        ]),
+      },
+      1,
+    ],
   ];
   for (const [name, over, tol] of cases) {
     it(name, async () => {
@@ -66,7 +121,17 @@ describe.skipIf(!haveFfmpeg)('speed / reverse / freeze', () => {
   }
 
   it('constant speed ramp frames are monotonic (never go backwards)', async () => {
-    const { lv } = await levels({ inSec: 0, speedCurve: kfs([[0, 0.5], [1, 4]]) }, 0, 1);
+    const { lv } = await levels(
+      {
+        inSec: 0,
+        speedCurve: kfs([
+          [0, 0.5],
+          [1, 4],
+        ]),
+      },
+      0,
+      1,
+    );
     for (let i = 1; i < lv.length; i++) expect(lv[i]!).toBeGreaterThanOrEqual(lv[i - 1]!);
   });
 
@@ -78,7 +143,11 @@ describe.skipIf(!haveFfmpeg)('speed / reverse / freeze', () => {
   it('a long reverse (several memory chunks, 10 s of source at speed 4) stays exact', async () => {
     const long = indexClip(100, 30, 64, 64);
     const sp = [{ id: 'x', kind: 'video' as const, path: long, w: 64, h: 64, fps: 30, dur: 3.3 }];
-    const p = makeProject([track('video', [vitem('i', 'x', 0, 0.8, { inSec: 0, reverse: true, speed: 4 })])], sp, { width: 64, height: 64 });
+    const p = makeProject(
+      [track('video', [vitem('i', 'x', 0, 0.8, { inSec: 0, reverse: true, speed: 4 })])],
+      sp,
+      { width: 64, height: 64 },
+    );
     const r = await exportProject(p, files(sp), settingsFor(64, 64), { name: 'rev-long' });
     const lv = frameLevels(r.out);
     expect(lv.length).toBe(24);
@@ -96,7 +165,14 @@ describe.skipIf(!haveFfmpeg)('holds, gaps and ranges', () => {
   });
 
   it('frames before / after an item show nothing (-1)', async () => {
-    const p = makeProject([track('video', [vitem('i', 'x', 0.5, 0.5)]), track('overlay', [vitem('pad', 'x', 0, 1.5, { transform: { x: { v: 9999, kf: [] } } })])], specs, { width: 64, height: 64 });
+    const p = makeProject(
+      [
+        track('video', [vitem('i', 'x', 0.5, 0.5)]),
+        track('overlay', [vitem('pad', 'x', 0, 1.5, { transform: { x: { v: 9999, kf: [] } } })]),
+      ],
+      specs,
+      { width: 64, height: 64 },
+    );
     const r = await exportProject(p, files(specs), settingsFor(64, 64), { name: 'gaps' });
     const lv = frameLevels(r.out);
     expect(lv.slice(0, 15).every((v) => v === -1)).toBe(true);
@@ -105,14 +181,18 @@ describe.skipIf(!haveFfmpeg)('holds, gaps and ranges', () => {
   });
 
   it('range exports only [start, end): frame k is timeline time start + k/fps', async () => {
-    const { lv, exp } = await levels({ inSec: 0.2 }, 0, 3, { range: { startSec: 1.0, endSec: 1.4 } });
+    const { lv, exp } = await levels({ inSec: 0.2 }, 0, 3, {
+      range: { startSec: 1.0, endSec: 1.4 },
+    });
     expect(lv.length).toBe(12);
     expect(same(lv, exp)).toBe(true);
     expect(lv[0]).toBe(36);
   });
 
   it('a one-frame range renders exactly that frame (parity-test mode)', async () => {
-    const { lv, exp } = await levels({ speed: 2 }, 0, 3, { range: { startSec: 1.5, endSec: 1.5 + 1 / 30 } });
+    const { lv, exp } = await levels({ speed: 2 }, 0, 3, {
+      range: { startSec: 1.5, endSec: 1.5 + 1 / 30 },
+    });
     expect(lv).toEqual(exp);
     expect(lv).toEqual([90]);
   });
@@ -123,7 +203,19 @@ describe.skipIf(!haveFfmpeg)('holds, gaps and ranges', () => {
   });
 
   it('range inside a speed ramp with reverse', async () => {
-    const { lv, exp } = await levels({ inSec: 0, reverse: true, speedCurve: kfs([[0, 1], [3, 2]]) }, 0, 3, { range: { startSec: 1.0, endSec: 1.5 } });
+    const { lv, exp } = await levels(
+      {
+        inSec: 0,
+        reverse: true,
+        speedCurve: kfs([
+          [0, 1],
+          [3, 2],
+        ]),
+      },
+      0,
+      3,
+      { range: { startSec: 1.0, endSec: 1.5 } },
+    );
     expect(same(lv, exp, 1)).toBe(true);
   });
 
@@ -132,7 +224,19 @@ describe.skipIf(!haveFfmpeg)('holds, gaps and ranges', () => {
     const d = probeDims(out);
     expect(Math.abs(d.dur - 2.5)).toBeLessThanOrEqual(1 / 30 + 1e-6);
     expect(d.fps).toBe(30);
-    const info = JSON.parse(execFileSync(FFPROBE, ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_name,pix_fmt,color_space,color_range,color_transfer', '-of', 'json', out]).toString()).streams[0];
+    const info = JSON.parse(
+      execFileSync(FFPROBE, [
+        '-v',
+        'error',
+        '-select_streams',
+        'v:0',
+        '-show_entries',
+        'stream=codec_name,pix_fmt,color_space,color_range,color_transfer',
+        '-of',
+        'json',
+        out,
+      ]).toString(),
+    ).streams[0];
     expect(info.codec_name).toBe('h264');
     expect(info.pix_fmt).toBe('yuv420p');
     expect(info.color_space).toBe('bt709');
@@ -141,8 +245,13 @@ describe.skipIf(!haveFfmpeg)('holds, gaps and ranges', () => {
 
   it('24 and 60 fps exports place frames on their own grid', async () => {
     for (const fps of [24, 60]) {
-      const p = makeProject([track('video', [vitem('i', 'x', 0, 1)])], specs, { width: 64, height: 64 });
-      const r = await exportProject(p, files(specs), settingsFor(64, 64, { fps }), { name: `fps${fps}` });
+      const p = makeProject([track('video', [vitem('i', 'x', 0, 1)])], specs, {
+        width: 64,
+        height: 64,
+      });
+      const r = await exportProject(p, files(specs), settingsFor(64, 64, { fps }), {
+        name: `fps${fps}`,
+      });
       const lv = frameLevels(r.out);
       expect(lv.length).toBe(fps);
       // source frame shown at output frame k = floor(30 * k / fps)

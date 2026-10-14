@@ -147,5 +147,8 @@ export function seriesExpr(s: Series, tv = 't'): string {
 /** Expression of `a·series + b`. */
 export function affineExpr(s: Series, a: number, b: number, tv = 't'): string {
   if (s.kind === 'const') return num(a * s.v + b);
-  return seriesExpr(mapSeries(s, (v) => a * v + b), tv);
+  return seriesExpr(
+    mapSeries(s, (v) => a * v + b),
+    tv,
+  );
 }

@@ -246,6 +246,16 @@ async function bootstrap(): Promise<void> {
       chat: (e) => send('chat:event', e),
       momentRun: (r) => send('moments:run', r),
       markers: (videoId) => send('markers:changed', { videoId }),
+      editorExport: (j) => send('editor:export', j),
+    },
+    chooseFiles: async ({ title, extensions }) => {
+      const res = await dialog.showOpenDialog({
+        title,
+        properties: ['openFile', 'multiSelections'],
+        filters: extensions,
+        defaultPath: app.getPath('videos'),
+      });
+      return res.canceled ? [] : res.filePaths;
     },
     saveText: async ({ title, defaultName, extension }, content) => {
       const res = await dialog.showSaveDialog({
@@ -268,6 +278,7 @@ async function bootstrap(): Promise<void> {
     fontsDir: pipelineFontsDir,
   });
   pipeline.orchestrator.registerJobs();
+  await pipeline.editor.primeStyles();
 
   registerHandlers(
     buildHandlers(svc, {
@@ -275,6 +286,7 @@ async function bootstrap(): Promise<void> {
       library: pipeline.library,
       cp2: pipeline.cp2,
       chat: pipeline.chat,
+      editor: pipeline.editor,
       styles: pipeline.styles,
       captions: pipeline.captions,
       fontsDir: pipelineFontsDir,
@@ -313,6 +325,7 @@ async function bootstrap(): Promise<void> {
 
   const { recovered } = await svc.queue.start();
   await pipeline.orchestrator.reconcileOnStart();
+  await pipeline.editor.reconcileOnStart();
   if (recovered) log.info(`re-queued ${recovered} job(s) interrupted by the last shutdown`);
   // Real background work through the durable queue: make sure yt-dlp exists; read bucket usage.
   await svc.queue.enqueue({ kind: JOB_KINDS.ensureYtdlp, priority: 5 });

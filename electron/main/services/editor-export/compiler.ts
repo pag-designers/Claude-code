@@ -28,7 +28,7 @@ import { buildSubtitleCues, buildTrackOverlays, type OverlayLayer } from './over
 import { num } from './pl';
 import { makeGrid, trackFrames, type Grid } from './timeline';
 import type { Ctx, FileInfo, PlacedLayer } from './types';
-import { applyOpacityFor, compileMediaItem } from './video';
+import { applyOpacityFor, compileMediaItem, toYuvLayer, yuvEligible } from './video';
 
 export class ExportCompileError extends Error {
   constructor(message: string) {
@@ -56,10 +56,16 @@ function defaultFfmpeg(): string {
 /** True when the first video stream carries a YUV colour-matrix tag (printed in the ffmpeg banner). */
 async function hasColorTag(ffmpegPath: string, file: string): Promise<boolean> {
   try {
-    const r = await runFfmpeg(ffmpegPath, ['-hide_banner', '-nostdin', '-i', file], { timeoutMs: 20_000 });
+    const r = await runFfmpeg(ffmpegPath, ['-hide_banner', '-nostdin', '-i', file], {
+      timeoutMs: 20_000,
+    });
     const m = /Video:[^\n]*?yuv[a-z0-9]*\(([^)]*)\)/.exec(r.stderr);
     if (!m?.[1]) return false;
-    return m[1].split(',').some((t) => /^(bt709|bt470bg|smpte170m|bt2020nc|bt2020c|smpte240m|fcc|ycgco)/.test(t.trim()));
+    return m[1]
+      .split(',')
+      .some((t) =>
+        /^(bt709|bt470bg|smpte170m|bt2020nc|bt2020c|smpte240m|fcc|ycgco)/.test(t.trim()),
+      );
   } catch {
     return true; // cannot tell: let ffmpeg use the frame tag
   }
@@ -125,7 +131,14 @@ export function videoEncoderArgs(
         '-preset',
         'veryfast',
         ...(s.rateMode === 'bitrate'
-          ? ['-b:v', `${kbps}k`, '-maxrate', `${Math.round(kbps * 1.5)}k`, '-bufsize', `${kbps * 2}k`]
+          ? [
+              '-b:v',
+              `${kbps}k`,
+              '-maxrate',
+              `${Math.round(kbps * 1.5)}k`,
+              '-bufsize',
+              `${kbps * 2}k`,
+            ]
           : ['-crf', String(crf)]),
         '-profile:v',
         'high',
@@ -135,7 +148,8 @@ export function videoEncoderArgs(
   }
 }
 
-const isVisualTrack = (t: Track): boolean => t.kind === 'video' || t.kind === 'overlay' || t.kind === 'image';
+const isVisualTrack = (t: Track): boolean =>
+  t.kind === 'video' || t.kind === 'overlay' || t.kind === 'image';
 
 export function createExportCompiler(options: ExportCompilerOptions = {}): ExportCompiler {
   return {
@@ -187,16 +201,23 @@ export function createExportCompiler(options: ExportCompilerOptions = {}): Expor
       const fileCache = new Map<string, FileInfo>();
       const needed = new Set<string>();
       const collect = (it: Item): void => {
-        if (it.type === 'video' || it.type === 'audio' || it.type === 'image') needed.add(it.assetId);
-        if ((it.type === 'video' || it.type === 'image') && it.color.lutAssetId) needed.add(it.color.lutAssetId);
+        if (it.type === 'video' || it.type === 'audio' || it.type === 'image')
+          needed.add(it.assetId);
+        if ((it.type === 'video' || it.type === 'image') && it.color.lutAssetId)
+          needed.add(it.color.lutAssetId);
       };
       for (const t of project.tracks) for (const it of t.items) collect(it);
       for (const id of needed) {
         const f: EditorAssetFile | undefined = args.files[id];
         const name = assetById.get(id)?.name ?? id;
-        if (!assetById.has(id)) throw new ExportCompileError(`An item references an unknown asset "${id}".`);
-        if (!f) throw new ExportCompileError(`The media file for "${name}" is not available (asset ${id}).`);
-        if (!fs.existsSync(f.path)) throw new ExportCompileError(`The media file for "${name}" is missing: ${f.path}`);
+        if (!assetById.has(id))
+          throw new ExportCompileError(`An item references an unknown asset "${id}".`);
+        if (!f)
+          throw new ExportCompileError(
+            `The media file for "${name}" is not available (asset ${id}).`,
+          );
+        if (!fs.existsSync(f.path))
+          throw new ExportCompileError(`The media file for "${name}" is missing: ${f.path}`);
         let info: FileInfo = { ...f };
         if ((f.kind === 'video' || f.kind === 'image') && (!f.width || !f.height)) {
           const st = await probeStreams(ffmpegPath, f.path);
@@ -208,7 +229,8 @@ export function createExportCompiler(options: ExportCompilerOptions = {}): Expor
             hasAudio: st.hasAudio,
             durationSec: info.durationSec ?? st.durationSec,
           };
-          if (!info.width || !info.height) throw new ExportCompileError(`Cannot read the size of "${name}".`);
+          if (!info.width || !info.height)
+            throw new ExportCompileError(`Cannot read the size of "${name}".`);
         }
         const asset = assetById.get(id);
         info.layoutW = asset?.width ?? info.width ?? undefined;
@@ -231,15 +253,37 @@ export function createExportCompiler(options: ExportCompilerOptions = {}): Expor
 
       /* ------------------------------------------------------- video ---- */
       const g = new Graph(0);
-      const ctx: Ctx = { g, grid, fps, K, cw, ch, W, H, notes, file };
+      const ctx: Ctx = { g, grid, fps, K, cw, ch, W, H, notes, file, yuv: false };
       const bg = project.canvas.background.replace('#', '0x');
-      let stack = g.source([
-        filt('color', { c: bg, s: `${W}x${H}`, r: fps, d: num(durationSec, 6) }),
-        'format=rgba',
-      ]);
+      // the longest visual media item decides the stack format: an opaque cover picture stays in yuv420p (no RGB round trip)
+      {
+        let best = 0;
+        let eligible = false;
+        for (const track of project.tracks) {
+          if (track.hidden || !isVisualTrack(track)) continue;
+          const tf = trackFrames(track, grid);
+          for (const item of track.items) {
+            if (item.type !== 'video' && item.type !== 'image') continue;
+            const info = tf.items.get(item.id);
+            if (!info || info.jb - info.ja <= best) continue;
+            best = info.jb - info.ja;
+            eligible = yuvEligible(ctx, item, info);
+          }
+        }
+        ctx.yuv = eligible;
+      }
+      let stack = ctx.yuv
+        ? g.source([
+            filt('color', { c: bg, s: `${W}x${H}`, r: fps, d: num(durationSec, 6) }),
+            'format=rgb24',
+            filt('scale', { out_color_matrix: 'bt709', out_range: 'tv' }),
+            'format=yuv420p',
+          ])
+        : g.source([
+            filt('color', { c: bg, s: `${W}x${H}`, r: fps, d: num(durationSec, 6) }),
+            'format=rgba',
+          ]);
       const lutPath = (id: string): string => file(id).path;
-      let layersDrawn = 0;
-      const drawn: string[] = [];
 
       for (const track of project.tracks) {
         if (track.hidden) continue;
@@ -256,7 +300,6 @@ export function createExportCompiler(options: ExportCompilerOptions = {}): Expor
         }
         for (const l of placed) {
           stack = drawLayer(ctx, stack, l);
-          layersDrawn++;
         }
         // --- dip veils of this track
         stack = drawVeils(ctx, stack, frames.veils);
@@ -273,11 +316,8 @@ export function createExportCompiler(options: ExportCompilerOptions = {}): Expor
         });
         for (const o of overlays) {
           stack = drawOverlay(ctx, stack, o, args.fontsDir);
-          layersDrawn++;
         }
-        void drawn;
       }
-      void layersDrawn;
 
       // final conversion: pad to export size, RGB → BT.709 limited-range yuv420p
       const fin = new Chain(g, stack);
@@ -292,7 +332,13 @@ export function createExportCompiler(options: ExportCompilerOptions = {}): Expor
           }),
         );
       }
-      fin.push('setsar=1', filt('scale', { out_color_matrix: 'bt709', out_range: 'tv' }), 'format=yuv420p');
+      if (ctx.yuv) fin.push('setsar=1', 'format=yuv420p');
+      else
+        fin.push(
+          'setsar=1',
+          filt('scale', { out_color_matrix: 'bt709', out_range: 'tv' }),
+          'format=yuv420p',
+        );
       const vout = fin.flush();
 
       /* ------------------------------------------------------- audio ---- */
@@ -413,7 +459,17 @@ const BLEND_MODE: Record<string, string> = {
 function drawLayer(ctx: Ctx, stack: string, l: PlacedLayer): string {
   const { g } = ctx;
   if (l.blend === 'normal') {
-    return g.add([stack, l.label], [filt('overlay', { x: l.x, y: l.y, eof_action: 'pass', format: 'auto' })]);
+    return g.add(
+      [stack, l.label],
+      [
+        filt('overlay', {
+          x: l.x,
+          y: l.y,
+          eof_action: 'pass',
+          format: ctx.yuv ? 'yuv420' : 'auto',
+        }),
+      ],
+    );
   }
   // non-normal: composite on a full-length transparent canvas, then blend through the layer's alpha
   const D = ctx.grid.n / ctx.fps;
@@ -421,7 +477,10 @@ function drawLayer(ctx: Ctx, stack: string, l: PlacedLayer): string {
     filt('color', { c: '0x00000000', s: `${ctx.W}x${ctx.H}`, r: ctx.fps, d: num(D, 6) }),
     'format=rgba',
   ]);
-  const lc = g.add([canvas, l.label], [filt('overlay', { x: l.x, y: l.y, eof_action: 'pass', format: 'auto' })]);
+  const lc = g.add(
+    [canvas, l.label],
+    [filt('overlay', { x: l.x, y: l.y, eof_action: 'pass', format: 'auto' })],
+  );
   return blendOnto(ctx, stack, lc, l.blend, l.ja, l.jb);
 }
 
@@ -445,13 +504,25 @@ function blendOnto(
   const top = g.add([b], ['format=gbrp']);
   const s0 = g.label('bs');
   const s1 = g.label('bt');
-  g.chains.push(`[${stack}]format=gbrp,split=2[${s0}][${s1}]`);
-  const blended = g.add([s0, top], [filt('blend', { all_mode: BLEND_MODE[mode] ?? 'normal', enable: gate })]);
-  const merged = g.add([s1, blended, mask], [filt('maskedmerge', { enable: gate }), 'format=rgba']);
-  return merged;
+  const toRgb = ctx.yuv
+    ? `${filt('scale', { in_color_matrix: 'bt709', in_range: 'tv', out_range: 'pc' })},format=gbrp`
+    : 'format=gbrp';
+  g.chains.push(`[${stack}]${toRgb},split=2[${s0}][${s1}]`);
+  const blended = g.add(
+    [s0, top],
+    [filt('blend', { all_mode: BLEND_MODE[mode] ?? 'normal', enable: gate })],
+  );
+  const back = ctx.yuv
+    ? [filt('scale', { out_color_matrix: 'bt709', out_range: 'tv' }), 'format=yuv420p']
+    : ['format=rgba'];
+  return g.add([s1, blended, mask], [filt('maskedmerge', { enable: gate }), ...back]);
 }
 
-function drawVeils(ctx: Ctx, stack: string, veils: Map<number, { color: '#000000' | '#FFFFFF'; alpha: number }>): string {
+function drawVeils(
+  ctx: Ctx,
+  stack: string,
+  veils: Map<number, { color: '#000000' | '#FFFFFF'; alpha: number }>,
+): string {
   if (veils.size === 0) return stack;
   const js = [...veils.keys()].sort((a, b) => a - b);
   const runs: number[][] = [];
@@ -467,13 +538,23 @@ function drawVeils(ctx: Ctx, stack: string, veils: Map<number, { color: '#000000
     const alphas = run.map((j) => (veils.get(j) as { alpha: number }).alpha);
     const times = run.map((j) => ctx.grid.out(j));
     const src = ctx.g.source([
-      filt('color', { c: first.color.replace('#', '0x'), s: `${ctx.W}x${ctx.H}`, r: ctx.fps, d: num(run.length / ctx.fps, 6) }),
+      filt('color', {
+        c: first.color.replace('#', '0x'),
+        s: `${ctx.W}x${ctx.H}`,
+        r: ctx.fps,
+        d: num(run.length / ctx.fps, 6),
+      }),
       'format=rgba',
       `setpts=PTS+${num(ja / ctx.fps, 6)}/TB`,
     ]);
     const c = new Chain(ctx.g, src);
     applyOpacityFor(ctx, c, times, alphas);
-    cur = ctx.g.add([cur, c.flush()], [filt('overlay', { x: 0, y: 0, eof_action: 'pass', format: 'auto' })]);
+    let veil = c.flush();
+    if (ctx.yuv) veil = toYuvLayer(ctx, veil);
+    cur = ctx.g.add(
+      [cur, veil],
+      [filt('overlay', { x: 0, y: 0, eof_action: 'pass', format: ctx.yuv ? 'yuv420' : 'auto' })],
+    );
   }
   return cur;
 }
@@ -487,7 +568,7 @@ function drawOverlay(ctx: Ctx, stack: string, o: OverlayLayer, fontsDir: string 
     return f;
   };
   if (o.blend === 'normal') {
-    return g.add([stack], [assFilter(), 'format=rgba']);
+    return g.add([stack], ctx.yuv ? [assFilter()] : [assFilter(), 'format=rgba']);
   }
   const D = ctx.grid.n / ctx.fps;
   const canvas = g.source([

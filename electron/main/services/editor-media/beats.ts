@@ -49,7 +49,10 @@ function fft(re: Float64Array, im: Float64Array): void {
 }
 
 /** Onset strength per hop (frames/s = sampleRate / HOP). */
-export function onsetEnvelope(pcm: Float32Array, sampleRate: number): { env: Float64Array; fps: number } {
+export function onsetEnvelope(
+  pcm: Float32Array,
+  sampleRate: number,
+): { env: Float64Array; fps: number } {
   const frames = Math.max(0, Math.floor((pcm.length - N) / HOP) + 1);
   const win = new Float64Array(N);
   for (let i = 0; i < N; i++) win[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (N - 1));
@@ -105,7 +108,12 @@ export interface TempoEstimate {
   confidence: number;
 }
 
-export function estimateTempo(env: Float64Array, fps: number, minBpm = 60, maxBpm = 200): TempoEstimate | null {
+export function estimateTempo(
+  env: Float64Array,
+  fps: number,
+  minBpm = 60,
+  maxBpm = 200,
+): TempoEstimate | null {
   const n = env.length;
   if (n < fps * 4) return null;
   let mean = 0;
@@ -158,7 +166,11 @@ function gridScore(env: Float64Array, p: number, phase: number): number {
   for (let t = phase; t < env.length - 1; t += p) {
     const i = Math.round(t);
     // tolerance of ±1 frame for jitter
-    const v = Math.max(env[Math.max(0, i - 1)] as number, env[i] as number, env[Math.min(env.length - 1, i + 1)] as number);
+    const v = Math.max(
+      env[Math.max(0, i - 1)] as number,
+      env[i] as number,
+      env[Math.min(env.length - 1, i + 1)] as number,
+    );
     s += v;
     count++;
   }
@@ -172,7 +184,11 @@ export const BEAT_LATENCY_SEC = -0.024;
  * Beat times (s) of `pcm` (mono). `latency` compensates the analysis window delay (seconds); the default is
  * calibrated on synthetic click tracks (see tests).
  */
-export function detectBeats(pcm: Float32Array, sampleRate: number, latency = BEAT_LATENCY_SEC): number[] {
+export function detectBeats(
+  pcm: Float32Array,
+  sampleRate: number,
+  latency = BEAT_LATENCY_SEC,
+): number[] {
   const { env, fps } = onsetEnvelope(pcm, sampleRate);
   const tempo = estimateTempo(env, fps);
   if (!tempo) return [];

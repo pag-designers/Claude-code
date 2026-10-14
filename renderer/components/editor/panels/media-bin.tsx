@@ -51,7 +51,7 @@ export function MediaBin({
     >
       <TabsPrimitive.List
         aria-label="Editor panels"
-        className="flex w-[60px] shrink-0 flex-col gap-0.5 border-r bg-card/50 p-1.5"
+        className="flex w-16 shrink-0 flex-col gap-0.5 border-r bg-card/50 p-1.5"
       >
         {TABS.map((t) => {
           const m = META[t];

@@ -9,6 +9,15 @@ import { useTimelineUi } from './timeline-ui';
 
 const S = () => useEditorStore.getState();
 
+/**
+ * Was the last interaction with the timeline the keyboard? (`:focus-visible` cannot tell: pressing a key flips it before
+ * the handler runs.) Mouse presses reset it, Tab sets it; after a click the arrows keep stepping frames.
+ */
+let keyboardModality = false;
+export const setKeyboardModality = (v: boolean) => {
+  keyboardModality = v;
+};
+
 /** Moves DOM focus to an item once it is rendered (it may be outside the virtualised window for a frame or two). */
 export function focusItemSoon(scroller: HTMLElement | null, id: string, tries = 6) {
   if (!scroller) return;
@@ -34,8 +43,8 @@ function revealItem(id: string) {
 
 /**
  * Keyboard operation of the clips: arrows move/extend the selection (Left/Right along the track, Up/Down to the nearest clip
- * on the neighbouring track), Home/End jump to the first/last clip, Enter opens the inspector. Only active when the clip has
- * keyboard focus (`:focus-visible`), so after a mouse click the global frame-step arrows keep working.
+ * on the neighbouring track), Home/End jump to the first/last clip, Enter opens the inspector. Only active when the clip was
+ * reached by keyboard, so after a mouse click the global frame-step arrows keep working.
  */
 export function handleItemKey(e: React.KeyboardEvent, scroller: HTMLElement | null): boolean {
   const el = e.target as HTMLElement;
@@ -50,7 +59,7 @@ export function handleItemKey(e: React.KeyboardEvent, scroller: HTMLElement | nu
   }
   if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key))
     return false;
-  if (!el.matches(':focus-visible')) return false;
+  if (!keyboardModality) return false;
   const s = S();
   const tracks = s.project.tracks;
   const track = tracks.find((t) => t.id === trackId);

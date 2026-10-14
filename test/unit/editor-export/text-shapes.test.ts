@@ -2,7 +2,20 @@
 import { describe, expect, it, vi } from 'vitest';
 import { A, TR } from './fixtures';
 import {
-  allFrames, bboxWhere, exportProject, files, frameAt, haveFfmpeg, isBlue, isDark, isGreen, isRed, isWhite, makeProject, settingsFor, track,
+  allFrames,
+  bboxWhere,
+  exportProject,
+  files,
+  frameAt,
+  haveFfmpeg,
+  isBlue,
+  isDark,
+  isGreen,
+  isRed,
+  isWhite,
+  makeProject,
+  settingsFor,
+  track,
   type Frame,
 } from './helpers';
 import { textAnimAt, resolveTransform } from '../../../shared/editor-eval';
@@ -11,19 +24,56 @@ vi.setConfig({ testTimeout: 60_000 });
 
 const CW = 270;
 const CH = 480;
-const style = (o: Record<string, unknown> = {}) => ({ fontFamily: 'Montserrat', weight: 800, size: 40, color: '#FFFFFF', ...o });
-const txt = (text: string, over: Record<string, unknown> = {}, st: Record<string, unknown> = {}) => ({
-  type: 'text', id: 't1', startSec: 0, durationSec: 1, text, style: style(st), ...over,
+const style = (o: Record<string, unknown> = {}) => ({
+  fontFamily: 'Montserrat',
+  weight: 800,
+  size: 40,
+  color: '#FFFFFF',
+  ...o,
+});
+const txt = (
+  text: string,
+  over: Record<string, unknown> = {},
+  st: Record<string, unknown> = {},
+) => ({
+  type: 'text',
+  id: 't1',
+  startSec: 0,
+  durationSec: 1,
+  text,
+  style: style(st),
+  ...over,
 });
 const shape = (kind: string, over: Record<string, unknown> = {}) => ({
-  type: 'shape', id: 's1', shape: kind, startSec: 0, durationSec: 1, width: 100, height: 60, fill: '#FF0000', ...over,
+  type: 'shape',
+  id: 's1',
+  shape: kind,
+  startSec: 0,
+  durationSec: 1,
+  width: 100,
+  height: 60,
+  fill: '#FF0000',
+  ...over,
 });
 
-async function render(items: Record<string, unknown>[], opts: { w?: number; h?: number; canvas?: { width: number; height: number }; extra?: ReturnType<typeof track>[] } = {}) {
+async function render(
+  items: Record<string, unknown>[],
+  opts: {
+    w?: number;
+    h?: number;
+    canvas?: { width: number; height: number };
+    extra?: ReturnType<typeof track>[];
+  } = {},
+) {
   const cw = opts.canvas?.width ?? CW;
   const ch = opts.canvas?.height ?? CH;
-  const p = makeProject([track('text', items), ...(opts.extra ?? [])], [], { width: cw, height: ch });
-  const r = await exportProject(p, files([]), settingsFor(opts.w ?? cw, opts.h ?? ch), { name: 'text' });
+  const p = makeProject([track('text', items), ...(opts.extra ?? [])], [], {
+    width: cw,
+    height: ch,
+  });
+  const r = await exportProject(p, files([]), settingsFor(opts.w ?? cw, opts.h ?? ch), {
+    name: 'text',
+  });
   return { r, frames: allFrames(r.out), p };
 }
 
@@ -62,7 +112,10 @@ describe.skipIf(!haveFfmpeg)('text: layout', () => {
 
   it('transform scale 2 doubles the glyph size about the block centre', async () => {
     const a = bboxWhere((await render([txt('Hi')])).frames[3]!, isWhite);
-    const b = bboxWhere((await render([txt('Hi', { transform: TR({ scale: A(2) }) })])).frames[3]!, isWhite);
+    const b = bboxWhere(
+      (await render([txt('Hi', { transform: TR({ scale: A(2) }) })])).frames[3]!,
+      isWhite,
+    );
     expect(b.w / a.w).toBeGreaterThan(1.85);
     expect(b.w / a.w).toBeLessThan(2.15);
     expect(Math.abs(b.cx - a.cx)).toBeLessThan(4);
@@ -70,20 +123,28 @@ describe.skipIf(!haveFfmpeg)('text: layout', () => {
 
   it('letterSpacing widens the line (added after every code point)', async () => {
     const a = bboxWhere((await render([txt('HELLO')])).frames[3]!, isWhite);
-    const b = bboxWhere((await render([txt('HELLO', {}, { letterSpacing: 10 })])).frames[3]!, isWhite);
+    const b = bboxWhere(
+      (await render([txt('HELLO', {}, { letterSpacing: 10 })])).frames[3]!,
+      isWhite,
+    );
     expect(b.w - a.w).toBeGreaterThan(30);
     expect(b.w - a.w).toBeLessThan(50);
   });
 
   it('\\n always breaks; lineHeight × size is the line pitch', async () => {
     const one = bboxWhere((await render([txt('HH')])).frames[3]!, isWhite);
-    const two = bboxWhere((await render([txt('HH\nHH', {}, { lineHeight: 1.5 })])).frames[3]!, isWhite);
+    const two = bboxWhere(
+      (await render([txt('HH\nHH', {}, { lineHeight: 1.5 })])).frames[3]!,
+      isWhite,
+    );
     expect(two.h - one.h).toBeGreaterThan(0.9 * 1.5 * 40);
     expect(two.h - one.h).toBeLessThan(1.1 * 1.5 * 40);
   });
 
   it('greedy wrap at 0.8 × canvas width; an over-long word is never split', async () => {
-    const long = await render([txt('aaa bbb ccc ddd eee fff ggg hhh iii jjj kkk', {}, { size: 40 })]);
+    const long = await render([
+      txt('aaa bbb ccc ddd eee fff ggg hhh iii jjj kkk', {}, { size: 40 }),
+    ]);
     const b = bboxWhere(long.frames[3]!, isWhite);
     expect(b.w).toBeLessThanOrEqual(CW * 0.8 + 8);
     expect(b.h).toBeGreaterThan(1.5 * 40);
@@ -93,19 +154,32 @@ describe.skipIf(!haveFfmpeg)('text: layout', () => {
   });
 
   it('maxWidth overrides the wrap width', async () => {
-    const a = bboxWhere((await render([txt('aaa bbb ccc ddd', {}, { size: 30, maxWidth: 80 })])).frames[3]!, isWhite);
+    const a = bboxWhere(
+      (await render([txt('aaa bbb ccc ddd', {}, { size: 30, maxWidth: 80 })])).frames[3]!,
+      isWhite,
+    );
     expect(a.w).toBeLessThanOrEqual(90);
     expect(a.h).toBeGreaterThan(60);
   });
 
   it('alignment inside the widest line: left / right put the short line at the block edges', async () => {
-    const mk = async (align: string) => bboxWhere((await render([txt('HELLO WORLD\nHI', {}, { align, size: 20 })])).frames[3]!, isWhite, [0, 0, CW, CH / 2 + 18]);
+    const mk = async (align: string) =>
+      bboxWhere(
+        (await render([txt('HELLO WORLD\nHI', {}, { align, size: 20 })])).frames[3]!,
+        isWhite,
+        [0, 0, CW, CH / 2 + 18],
+      );
     const left = await mk('left');
     const right = await mk('right');
     const centre = await mk('center');
     void left;
     // the second line (HI) is the narrow one: measure it in the bottom half
-    const bottom = async (align: string) => bboxWhere((await render([txt('HELLO WORLD\nHI', {}, { align, size: 20 })])).frames[3]!, isWhite, [0, CH / 2 + 2, CW, CH]);
+    const bottom = async (align: string) =>
+      bboxWhere(
+        (await render([txt('HELLO WORLD\nHI', {}, { align, size: 20 })])).frames[3]!,
+        isWhite,
+        [0, CH / 2 + 2, CW, CH],
+      );
     const bl = await bottom('left');
     const br = await bottom('right');
     const bc = await bottom('center');
@@ -119,14 +193,27 @@ describe.skipIf(!haveFfmpeg)('text: layout', () => {
 
   it('rotation 90° swaps the bounding box aspect', async () => {
     const a = bboxWhere((await render([txt('HELLO')])).frames[3]!, isWhite);
-    const b = bboxWhere((await render([txt('HELLO', { transform: TR({ rotation: A(90) }) })])).frames[3]!, isWhite);
+    const b = bboxWhere(
+      (await render([txt('HELLO', { transform: TR({ rotation: A(90) }) })])).frames[3]!,
+      isWhite,
+    );
     expect(b.h).toBeGreaterThan(a.w * 0.9);
     expect(b.w).toBeLessThan(a.h * 1.3);
     expect(Math.abs(b.cx - a.cx)).toBeLessThan(8);
   });
 
   it('the item is only visible between its start and end', async () => {
-    const { frames } = await render([txt('Hello', { startSec: 0.2, durationSec: 0.4 }), shape('rect', { id: 'pad', startSec: 0, durationSec: 1, width: 2, height: 2, fill: '#000001' })]);
+    const { frames } = await render([
+      txt('Hello', { startSec: 0.2, durationSec: 0.4 }),
+      shape('rect', {
+        id: 'pad',
+        startSec: 0,
+        durationSec: 1,
+        width: 2,
+        height: 2,
+        fill: '#000001',
+      }),
+    ]);
     expect(bboxWhere(frames[5]!, isWhite).n).toBe(0);
     expect(bboxWhere(frames[6]!, isWhite).n).toBeGreaterThan(100);
     expect(bboxWhere(frames[17]!, isWhite).n).toBeGreaterThan(100);
@@ -142,16 +229,45 @@ describe.skipIf(!haveFfmpeg)('text: style', () => {
   });
 
   it('stroke draws an outline OUTSIDE the glyphs (bbox grows by ~width)', async () => {
-    const plain = bboxWhere((await render([txt('HH', {}, { color: '#FF0000', size: 80 })])).frames[3]!, (r, g, b) => r + g + b > 60);
-    const stroked = bboxWhere((await render([txt('HH', {}, { color: '#FF0000', size: 80, stroke: { color: '#0000FF', width: 6 } })])).frames[3]!, (r, g, b) => r + g + b > 60);
+    const plain = bboxWhere(
+      (await render([txt('HH', {}, { color: '#FF0000', size: 80 })])).frames[3]!,
+      (r, g, b) => r + g + b > 60,
+    );
+    const stroked = bboxWhere(
+      (
+        await render([
+          txt('HH', {}, { color: '#FF0000', size: 80, stroke: { color: '#0000FF', width: 6 } }),
+        ])
+      ).frames[3]!,
+      (r, g, b) => r + g + b > 60,
+    );
     expect(stroked.w - plain.w).toBeGreaterThan(8);
     expect(stroked.w - plain.w).toBeLessThan(16);
-    const blue = bboxWhere((await render([txt('HH', {}, { color: '#FF0000', size: 80, stroke: { color: '#0000FF', width: 6 } })])).frames[3]!, isBlue);
+    const blue = bboxWhere(
+      (
+        await render([
+          txt('HH', {}, { color: '#FF0000', size: 80, stroke: { color: '#0000FF', width: 6 } }),
+        ])
+      ).frames[3]!,
+      isBlue,
+    );
     expect(blue.n).toBeGreaterThan(300);
   });
 
   it('box: opaque background rect with padding on every side', async () => {
-    const f = (await render([txt('HH', {}, { color: '#FFFFFF', size: 60, box: { color: '#0000FF', opacity: 1, padding: 20, radius: 0 } })])).frames[3]!;
+    const f = (
+      await render([
+        txt(
+          'HH',
+          {},
+          {
+            color: '#FFFFFF',
+            size: 60,
+            box: { color: '#0000FF', opacity: 1, padding: 20, radius: 0 },
+          },
+        ),
+      ])
+    ).frames[3]!;
     const box = bboxWhere(f, isBlue);
     const glyph = bboxWhere(f, isWhite);
     expect(glyph.x0 - box.x0).toBeGreaterThan(14);
@@ -162,7 +278,19 @@ describe.skipIf(!haveFfmpeg)('text: style', () => {
   });
 
   it('hard shadow is offset by (offsetX, offsetY)', async () => {
-    const f = (await render([txt('HH', {}, { color: '#FFFFFF', size: 80, shadow: { color: '#FF0000', opacity: 1, blur: 0, offsetX: 12, offsetY: 12 } })])).frames[3]!;
+    const f = (
+      await render([
+        txt(
+          'HH',
+          {},
+          {
+            color: '#FFFFFF',
+            size: 80,
+            shadow: { color: '#FF0000', opacity: 1, blur: 0, offsetX: 12, offsetY: 12 },
+          },
+        ),
+      ])
+    ).frames[3]!;
     const g = bboxWhere(f, isWhite);
     const s = bboxWhere(f, isRed);
     expect(s.n).toBeGreaterThan(100);
@@ -171,12 +299,25 @@ describe.skipIf(!haveFfmpeg)('text: style', () => {
   });
 
   it('soft shadow (blur > 0) is drawn as a blurred copy underneath', async () => {
-    const f = (await render([txt('HH', {}, { color: '#FFFFFF', size: 80, shadow: { color: '#FF0000', opacity: 1, blur: 10, offsetX: 0, offsetY: 8 } })])).frames[3]!;
+    const f = (
+      await render([
+        txt(
+          'HH',
+          {},
+          {
+            color: '#FFFFFF',
+            size: 80,
+            shadow: { color: '#FF0000', opacity: 1, blur: 10, offsetX: 0, offsetY: 8 },
+          },
+        ),
+      ])
+    ).frames[3]!;
     expect(bboxWhere(f, (r, g, b) => r > 60 && g < 80 && b < 80).n).toBeGreaterThan(100);
   });
 
   it('transform opacity 0.5 halves the brightness', async () => {
-    const f = (await render([txt('HHH', { transform: TR({ opacity: A(0.5) }) }, { size: 100 })])).frames[3]!;
+    const f = (await render([txt('HHH', { transform: TR({ opacity: A(0.5) }) }, { size: 100 })]))
+      .frames[3]!;
     const b = bboxWhere(f, (r) => r > 100);
     expect(b.n).toBeGreaterThan(400);
     const w = bboxWhere(f, (r) => r > 200);
@@ -185,8 +326,12 @@ describe.skipIf(!haveFfmpeg)('text: style', () => {
 
   it('a blend mode on text (multiply) darkens the picture below instead of painting white', async () => {
     const p = makeProject(
-      [track('overlay', [shape('rect', { id: 'bg', width: 270, height: 480, fill: '#00FF00' })]), track('text', [txt('HHH', { blend: 'multiply' }, { color: '#FF0000', size: 100 })])],
-      [], { width: CW, height: CH },
+      [
+        track('overlay', [shape('rect', { id: 'bg', width: 270, height: 480, fill: '#00FF00' })]),
+        track('text', [txt('HHH', { blend: 'multiply' }, { color: '#FF0000', size: 100 })]),
+      ],
+      [],
+      { width: CW, height: CH },
     );
     const r = await exportProject(p, files([]), settingsFor(CW, CH));
     const f = frameAt(r.out, 3);
@@ -230,7 +375,8 @@ describe.skipIf(!haveFfmpeg)('text: animation = textAnimAt sampled per frame', (
         }
         // vertical offset (fraction of the canvas height) and scale
         expect(Math.abs(b.cy - (rest.cy + an.dy * CH)), `${name} dy @${k}`).toBeLessThan(6);
-        if (name !== 'fade' && name !== 'slide') expect(Math.abs(b.w / rest.w - an.scale), `${name} scale @${k}`).toBeLessThan(0.15);
+        if (name !== 'fade' && name !== 'slide')
+          expect(Math.abs(b.w / rest.w - an.scale), `${name} scale @${k}`).toBeLessThan(0.15);
       }
       if (name === 'fade' || name === 'slide' || name === 'scale') {
         const bright = (k: number) => bboxWhere(frames[k]!, (r) => r > 30).n;
@@ -240,15 +386,26 @@ describe.skipIf(!haveFfmpeg)('text: animation = textAnimAt sampled per frame', (
   }
 
   it('animOut fade: opacity ramps to 0 at the end of the item', async () => {
-    const { frames } = await render([txt('HHH', { animOut: { type: 'fade', durationSec: 0.5 } }, { size: 100 })]);
-    const peak = (k: number) => Math.max(...[0, 1, 2, 3, 4].map((i) => frames[k]!.px(135 + i * 8, 240)[0]));
+    const { frames } = await render([
+      txt('HHH', { animOut: { type: 'fade', durationSec: 0.5 } }, { size: 100 }),
+    ]);
+    const peak = (k: number) =>
+      Math.max(...[0, 1, 2, 3, 4].map((i) => frames[k]!.px(135 + i * 8, 240)[0]));
     expect(bboxWhere(frames[5]!, (r) => r > 200).n).toBeGreaterThan(300);
-    expect(bboxWhere(frames[28]!, (r) => r > 200).n).toBeLessThan(bboxWhere(frames[18]!, (r) => r > 200).n);
+    expect(bboxWhere(frames[28]!, (r) => r > 200).n).toBeLessThan(
+      bboxWhere(frames[18]!, (r) => r > 200).n,
+    );
     void peak;
   });
 
   it('typewriter reveals visibleChars() code points WITHOUT reflow (left edge stays)', async () => {
-    const { frames } = await render([txt('HELLO WORLD', { durationSec: 1, animIn: { type: 'typewriter', durationSec: 0.8 } }, { size: 40, align: 'left' })]);
+    const { frames } = await render([
+      txt(
+        'HELLO WORLD',
+        { durationSec: 1, animIn: { type: 'typewriter', durationSec: 0.8 } },
+        { size: 40, align: 'left' },
+      ),
+    ]);
     const w = (k: number) => bboxWhere(frames[k]!, isWhite);
     expect(w(2).n).toBeLessThan(w(12).n);
     expect(w(12).n).toBeLessThan(w(26).n);
@@ -258,7 +415,24 @@ describe.skipIf(!haveFfmpeg)('text: animation = textAnimAt sampled per frame', (
   });
 
   it('keyframed transform (position + opacity) is sampled per frame', async () => {
-    const { frames } = await render([txt('HHH', { transform: TR({ x: A(0, [{ t: 0, v: -60 }, { t: 1, v: 60 }]), opacity: A(1, [{ t: 0, v: 1 }, { t: 1, v: 0.4 }]) }) }, { size: 70 })]);
+    const { frames } = await render([
+      txt(
+        'HHH',
+        {
+          transform: TR({
+            x: A(0, [
+              { t: 0, v: -60 },
+              { t: 1, v: 60 },
+            ]),
+            opacity: A(1, [
+              { t: 0, v: 1 },
+              { t: 1, v: 0.4 },
+            ]),
+          }),
+        },
+        { size: 70 },
+      ),
+    ]);
     const c = (k: number) => bboxWhere(frames[k]!, (r) => r > 80).cx;
     expect(c(2)).toBeLessThan(c(15));
     expect(c(15)).toBeLessThan(c(27));
@@ -299,7 +473,7 @@ describe.skipIf(!haveFfmpeg)('shapes', () => {
     expect(b.n / (Math.PI * 50 * 30)).toBeLessThan(1.07);
   });
 
-  it("line = a rect width × height (with radius)", async () => {
+  it('line = a rect width × height (with radius)', async () => {
     const f = (await render([shape('line', { width: 160, height: 6 })])).frames[3]!;
     const b = bboxWhere(f, isRed);
     expect(Math.abs(b.w - 160)).toBeLessThanOrEqual(2);
@@ -318,7 +492,9 @@ describe.skipIf(!haveFfmpeg)('shapes', () => {
   });
 
   it('progress-bar fills left → right: width = w × progressFraction (±1 px)', async () => {
-    const { frames } = await render([shape('progress-bar', { width: 200, height: 20, durationSec: 1 })]);
+    const { frames } = await render([
+      shape('progress-bar', { width: 200, height: 20, durationSec: 1 }),
+    ]);
     for (const k of [3, 7, 15, 22, 29]) {
       const b = bboxWhere(frames[k]!, isRed);
       expect(Math.abs(b.w - (200 * k) / 30), `frame ${k}`).toBeLessThanOrEqual(2.5);
@@ -327,7 +503,11 @@ describe.skipIf(!haveFfmpeg)('shapes', () => {
   });
 
   it('stroke is an INSIDE band: the shape does not grow, edge = stroke colour, centre = fill', async () => {
-    const f = (await render([shape('rect', { width: 100, height: 60, stroke: { color: '#0000FF', width: 8 } })])).frames[3]!;
+    const f = (
+      await render([
+        shape('rect', { width: 100, height: 60, stroke: { color: '#0000FF', width: 8 } }),
+      ])
+    ).frames[3]!;
     const outer = bboxWhere(f, (r, g, b) => r + g + b > 60);
     expect(Math.abs(outer.w - 100)).toBeLessThanOrEqual(2);
     expect(Math.abs(outer.h - 60)).toBeLessThanOrEqual(2);
@@ -338,7 +518,16 @@ describe.skipIf(!haveFfmpeg)('shapes', () => {
   });
 
   it('fillOpacity applies to the fill only; the stroke stays opaque', async () => {
-    const f = (await render([shape('rect', { width: 100, height: 60, fillOpacity: 0.5, stroke: { color: '#0000FF', width: 8 } })])).frames[3]!;
+    const f = (
+      await render([
+        shape('rect', {
+          width: 100,
+          height: 60,
+          fillOpacity: 0.5,
+          stroke: { color: '#0000FF', width: 8 },
+        }),
+      ])
+    ).frames[3]!;
     const c = f.px(135, 240);
     expect(c[0]).toBeGreaterThan(110);
     expect(c[0]).toBeLessThan(145);
@@ -346,13 +535,35 @@ describe.skipIf(!haveFfmpeg)('shapes', () => {
   });
 
   it('shape scale and rotation (90° swaps width and height)', async () => {
-    const b = bboxWhere((await render([shape('rect', { width: 100, height: 40, transform: TR({ scale: A(2), rotation: A(90) }) })])).frames[3]!, isRed);
+    const b = bboxWhere(
+      (
+        await render([
+          shape('rect', {
+            width: 100,
+            height: 40,
+            transform: TR({ scale: A(2), rotation: A(90) }),
+          }),
+        ])
+      ).frames[3]!,
+      isRed,
+    );
     expect(Math.abs(b.w - 80)).toBeLessThanOrEqual(3);
     expect(Math.abs(b.h - 200)).toBeLessThanOrEqual(3);
   });
 
   it('shape opacity keyframes and blend', async () => {
-    const { frames } = await render([shape('rect', { width: 100, height: 60, transform: TR({ opacity: A(1, [{ t: 0, v: 1 }, { t: 1, v: 0 }]) }) })]);
+    const { frames } = await render([
+      shape('rect', {
+        width: 100,
+        height: 60,
+        transform: TR({
+          opacity: A(1, [
+            { t: 0, v: 1 },
+            { t: 1, v: 0 },
+          ]),
+        }),
+      }),
+    ]);
     expect(frames[1]!.px(135, 240)[0]).toBeGreaterThan(220);
     expect(frames[15]!.px(135, 240)[0]).toBeGreaterThan(90);
     expect(frames[15]!.px(135, 240)[0]).toBeLessThan(165);
@@ -361,8 +572,14 @@ describe.skipIf(!haveFfmpeg)('shapes', () => {
 
   it('a screen-blended shape lightens the picture below only inside its area', async () => {
     const p = makeProject(
-      [track('overlay', [shape('rect', { id: 'bg', width: 270, height: 480, fill: '#0000FF' })]), track('overlay', [shape('rect', { id: 'top', width: 100, height: 60, fill: '#FF0000', blend: 'screen' })])],
-      [], { width: CW, height: CH },
+      [
+        track('overlay', [shape('rect', { id: 'bg', width: 270, height: 480, fill: '#0000FF' })]),
+        track('overlay', [
+          shape('rect', { id: 'top', width: 100, height: 60, fill: '#FF0000', blend: 'screen' }),
+        ]),
+      ],
+      [],
+      { width: CW, height: CH },
     );
     const r = await exportProject(p, files([]), settingsFor(CW, CH));
     const f: Frame = frameAt(r.out, 3);
@@ -373,7 +590,14 @@ describe.skipIf(!haveFfmpeg)('shapes', () => {
   });
 
   it('shapes on a video-less overlay stack in track order (later on top)', async () => {
-    const p = makeProject([track('overlay', [shape('rect', { id: 'a', width: 100, height: 100, fill: '#FF0000' })]), track('overlay', [shape('rect', { id: 'b', width: 50, height: 50, fill: '#00FF00' })])], [], { width: CW, height: CH });
+    const p = makeProject(
+      [
+        track('overlay', [shape('rect', { id: 'a', width: 100, height: 100, fill: '#FF0000' })]),
+        track('overlay', [shape('rect', { id: 'b', width: 50, height: 50, fill: '#00FF00' })]),
+      ],
+      [],
+      { width: CW, height: CH },
+    );
     const r = await exportProject(p, files([]), settingsFor(CW, CH));
     const f = frameAt(r.out, 3);
     expect(isGreen(...f.px(135, 240))).toBe(true);

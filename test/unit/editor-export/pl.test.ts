@@ -19,7 +19,15 @@ const frames = (n: number, fps = 30): number[] => Array.from({ length: n }, (_v,
 
 /** Evaluates an FFmpeg expression of `t` with the REAL expression engine (aevalsrc), 1 kHz samples. */
 function evalWithFfmpeg(expr: string, dur: number): number[] {
-  const out = ff(['-f', 'lavfi', '-i', `aevalsrc=exprs='${expr}':s=1000:d=${dur}`, '-f', 'f32le', '-']);
+  const out = ff([
+    '-f',
+    'lavfi',
+    '-i',
+    `aevalsrc=exprs='${expr}':s=1000:d=${dur}`,
+    '-f',
+    'f32le',
+    '-',
+  ]);
   const copy = Buffer.from(out);
   return Array.from(new Float32Array(copy.buffer, copy.byteOffset, copy.length / 4));
 }
@@ -36,12 +44,22 @@ describe('pl: sampling and simplification', () => {
 
   it('a flat signal is a constant (first sample)', () => {
     const t = frames(30);
-    expect(toSeries(t, t.map(() => 5), 0.01)).toEqual({ kind: 'const', v: 5 });
+    expect(
+      toSeries(
+        t,
+        t.map(() => 5),
+        0.01,
+      ),
+    ).toEqual({ kind: 'const', v: 5 });
   });
 
   it('a straight line collapses to two knots', () => {
     const t = frames(60);
-    const s = toSeries(t, t.map((x) => 10 + 100 * x), 0.01);
+    const s = toSeries(
+      t,
+      t.map((x) => 10 + 100 * x),
+      0.01,
+    );
     expect(s.kind).toBe('pl');
     if (s.kind === 'pl') expect(s.knots).toHaveLength(2);
   });
@@ -57,7 +75,13 @@ describe('pl: sampling and simplification', () => {
   });
 
   it('ease-in-out between keyframes: every frame within tol, few knots', () => {
-    const a = { v: 0, kf: [{ t: 0, v: 0, ease: 'ease-in-out' as const }, { t: 2, v: 100, ease: 'linear' as const }] };
+    const a = {
+      v: 0,
+      kf: [
+        { t: 0, v: 0, ease: 'ease-in-out' as const },
+        { t: 2, v: 100, ease: 'linear' as const },
+      ],
+    };
     const t = frames(61);
     const v = t.map((x) => animatedAt(a, x));
     const s = toSeries(t, v, 0.25);
@@ -67,7 +91,13 @@ describe('pl: sampling and simplification', () => {
   });
 
   it('every knot is an exact sample (exact at those frames)', () => {
-    const a = { v: 0, kf: [{ t: 0, v: 3, ease: 'ease-out' as const }, { t: 1, v: 9, ease: 'linear' as const }] };
+    const a = {
+      v: 0,
+      kf: [
+        { t: 0, v: 3, ease: 'ease-out' as const },
+        { t: 1, v: 9, ease: 'linear' as const },
+      ],
+    };
     const t = frames(31);
     const v = t.map((x) => animatedAt(a, x));
     const s = toSeries(t, v, 0.05);
@@ -76,7 +106,13 @@ describe('pl: sampling and simplification', () => {
   });
 
   it("'hold' keyframes produce a one-frame step at the exact frame", () => {
-    const a = { v: 0, kf: [{ t: 0, v: 1, ease: 'hold' as const }, { t: 0.5, v: 5, ease: 'linear' as const }] };
+    const a = {
+      v: 0,
+      kf: [
+        { t: 0, v: 1, ease: 'hold' as const },
+        { t: 0.5, v: 5, ease: 'linear' as const },
+      ],
+    };
     const t = frames(30);
     const v = t.map((x) => animatedAt(a, x));
     const s = toSeries(t, v, 0.01);
@@ -85,7 +121,13 @@ describe('pl: sampling and simplification', () => {
   });
 
   it('bezier easing is reproduced to 0.5 % of the range', () => {
-    const a = { v: 0, kf: [{ t: 0, v: 0, ease: { type: 'bezier' as const, x1: 0.2, y1: 1.4, x2: 0.4, y2: 0.9 } }, { t: 1.5, v: 200, ease: 'linear' as const }] };
+    const a = {
+      v: 0,
+      kf: [
+        { t: 0, v: 0, ease: { type: 'bezier' as const, x1: 0.2, y1: 1.4, x2: 0.4, y2: 0.9 } },
+        { t: 1.5, v: 200, ease: 'linear' as const },
+      ],
+    };
     const t = frames(46);
     const v = t.map((x) => animatedAt(a, x));
     const s = toSeries(t, v, 1);
@@ -94,9 +136,20 @@ describe('pl: sampling and simplification', () => {
   });
 
   it('mapSeries / seriesRange / affineExpr', () => {
-    const s: Series = { kind: 'pl', knots: [{ t: 0, v: 1 }, { t: 1, v: 3 }] };
+    const s: Series = {
+      kind: 'pl',
+      knots: [
+        { t: 0, v: 1 },
+        { t: 1, v: 3 },
+      ],
+    };
     expect(seriesRange(s)).toEqual({ min: 1, max: 3 });
-    expect(seriesAt(mapSeries(s, (v) => v * 2), 0.5)).toBe(4);
+    expect(
+      seriesAt(
+        mapSeries(s, (v) => v * 2),
+        0.5,
+      ),
+    ).toBe(4);
     expect(affineExpr({ kind: 'const', v: 2 }, 3, 1)).toBe('7');
   });
 
@@ -106,51 +159,93 @@ describe('pl: sampling and simplification', () => {
   });
 });
 
-describe.skipIf(!haveFfmpeg)('pl: expressions evaluated by the real FFmpeg expression engine', () => {
-  const cases: [string, Series][] = [
-    ['two knots', { kind: 'pl', knots: [{ t: 0, v: 1 }, { t: 2, v: 5 }] }],
-    ['step', { kind: 'pl', knots: [{ t: 0, v: 0 }, { t: 1, v: 0 }, { t: 1.034, v: 10 }, { t: 3, v: 10 }] }],
-    ['five knots', { kind: 'pl', knots: [{ t: 0, v: 0 }, { t: 0.5, v: 4 }, { t: 1.5, v: -2 }, { t: 2.2, v: 7 }, { t: 3, v: 1 }] }],
-  ];
-  for (const [name, s] of cases) {
-    it(`seriesExpr(${name}) == seriesAt`, () => {
-      const got = evalWithFfmpeg(seriesExpr(s), 3);
-      let worst = 0;
-      const last = s.kind === 'pl' ? (s.knots[s.knots.length - 1] as { t: number }).t : 3;
-      for (let i = 0; i < got.length; i++) {
-        if (i / 1000 > last) break; // beyond the last knot the expression extends the last segment
-        worst = Math.max(worst, Math.abs((got[i] as number) - seriesAt(s, i / 1000)));
-      }
-      expect(worst).toBeLessThan(0.01);
-    });
-  }
-
-  it('a 120-knot series builds a log-depth tree that FFmpeg evaluates correctly', () => {
-    const t = Array.from({ length: 120 }, (_v, i) => i * 0.025);
-    const v = t.map((x) => Math.sin(x * 3) * 10);
-    const s: Series = { kind: 'pl', knots: t.map((tt, i) => ({ t: tt, v: v[i] as number })) };
-    const e = seriesExpr(s);
-    expect(e.split('if(').length - 1).toBe(118);
-    // nesting depth ~ log2(119)
-    let depth = 0;
-    let max = 0;
-    for (const ch of e) {
-      if (ch === '(') max = Math.max(max, ++depth);
-      if (ch === ')') depth--;
+describe.skipIf(!haveFfmpeg)(
+  'pl: expressions evaluated by the real FFmpeg expression engine',
+  () => {
+    const cases: [string, Series][] = [
+      [
+        'two knots',
+        {
+          kind: 'pl',
+          knots: [
+            { t: 0, v: 1 },
+            { t: 2, v: 5 },
+          ],
+        },
+      ],
+      [
+        'step',
+        {
+          kind: 'pl',
+          knots: [
+            { t: 0, v: 0 },
+            { t: 1, v: 0 },
+            { t: 1.034, v: 10 },
+            { t: 3, v: 10 },
+          ],
+        },
+      ],
+      [
+        'five knots',
+        {
+          kind: 'pl',
+          knots: [
+            { t: 0, v: 0 },
+            { t: 0.5, v: 4 },
+            { t: 1.5, v: -2 },
+            { t: 2.2, v: 7 },
+            { t: 3, v: 1 },
+          ],
+        },
+      ],
+    ];
+    for (const [name, s] of cases) {
+      it(`seriesExpr(${name}) == seriesAt`, () => {
+        const got = evalWithFfmpeg(seriesExpr(s), 3);
+        let worst = 0;
+        const last = s.kind === 'pl' ? (s.knots[s.knots.length - 1] as { t: number }).t : 3;
+        for (let i = 0; i < got.length; i++) {
+          if (i / 1000 > last) break; // beyond the last knot the expression extends the last segment
+          worst = Math.max(worst, Math.abs((got[i] as number) - seriesAt(s, i / 1000)));
+        }
+        expect(worst).toBeLessThan(0.01);
+      });
     }
-    expect(max).toBeLessThan(30);
-    const got = evalWithFfmpeg(e, 2.9);
-    let worst = 0;
-    for (let i = 0; i < got.length; i++) worst = Math.max(worst, Math.abs((got[i] as number) - seriesAt(s, i / 1000)));
-    expect(worst).toBeLessThan(0.02);
-  });
 
-  it('the time variable can be renamed (setpts uses T)', () => {
-    const s: Series = { kind: 'pl', knots: [{ t: 0, v: 1 }, { t: 1, v: 2 }] };
-    expect(seriesExpr(s, 'T')).toContain('(T-');
-    expect(seriesExpr(s, 'T')).not.toContain('(t-');
-  });
-});
+    it('a 120-knot series builds a log-depth tree that FFmpeg evaluates correctly', () => {
+      const t = Array.from({ length: 120 }, (_v, i) => i * 0.025);
+      const v = t.map((x) => Math.sin(x * 3) * 10);
+      const s: Series = { kind: 'pl', knots: t.map((tt, i) => ({ t: tt, v: v[i] as number })) };
+      const e = seriesExpr(s);
+      expect(e.split('if(').length - 1).toBe(118);
+      // nesting depth ~ log2(119)
+      let depth = 0;
+      let max = 0;
+      for (const ch of e) {
+        if (ch === '(') max = Math.max(max, ++depth);
+        if (ch === ')') depth--;
+      }
+      expect(max).toBeLessThan(30);
+      const got = evalWithFfmpeg(e, 2.9);
+      let worst = 0;
+      for (let i = 0; i < got.length; i++)
+        worst = Math.max(worst, Math.abs((got[i] as number) - seriesAt(s, i / 1000)));
+      expect(worst).toBeLessThan(0.02);
+    });
+
+    it('the time variable can be renamed (setpts uses T)', () => {
+      const s: Series = {
+        kind: 'pl',
+        knots: [
+          { t: 0, v: 1 },
+          { t: 1, v: 2 },
+        ],
+      };
+      expect(seriesExpr(s, 'T')).toContain('(T-');
+      expect(seriesExpr(s, 'T')).not.toContain('(t-');
+    });
+  },
+);
 
 describe('audio helpers', () => {
   it('tempoChain: identity, plain range, below 0.5 chains, above 2 single stage', () => {

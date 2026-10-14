@@ -62,3 +62,17 @@ export function useSettled<T>(value: T, ms: number): T {
   }, [value, ms]);
   return settled;
 }
+
+/** The render window, held back while the zoom is changing (so bitmaps are redrawn once it settles, not every frame). */
+export function useSettledWindow(
+  win: { start: number; end: number },
+  ms: number,
+): { start: number; end: number } {
+  const key = `${win.start}:${win.end}`;
+  const settledKey = useSettled(key, ms);
+  return React.useMemo(() => {
+    const [s, e] = settledKey.split(':').map(Number);
+    return { start: s ?? win.start, end: e ?? win.end };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the settled key is the only input
+  }, [settledKey]);
+}

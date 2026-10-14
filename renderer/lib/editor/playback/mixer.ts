@@ -11,6 +11,7 @@ import {
 import type { AudioBuffers } from './audio-buffers';
 import {
   audioEntries,
+  crossfadeMult,
   ctxAt,
   duckPoints,
   elementRateAt,
@@ -36,6 +37,11 @@ import { clampToAsset, sourceTimeFn } from './src-time';
  * under speech) → master gain → limiter (DynamicsCompressor) → destination. All automation is scheduled in
  * AudioContext time against an anchor (timeline time `tl0` plays at context time `ctx0`), only for items overlapping
  * [t, t + lookahead], and only for the not-yet-scheduled stretch, so a long project costs nothing.
+ *
+ * Transitions: during a transition overlap on a track (the later item's `transitionIn`) the two items' voice gains are
+ * multiplied by `transitionAudioGains` (linear crossfade; a 'cut' overlap mutes the outgoing item), scheduled with the
+ * other gain breakpoints (see mixer-math `transitionWindows` / `itemGainPoints`). Exporter parity: hidden or muted tracks and
+ * freeze frames are silent; the noise gate is export-only (not applied here).
  *
  * Voices: 'element' (an <audio> element through MediaElementSource: streaming, pitch-preserving speed) or 'buffer' (a
  * decoded AudioBuffer: reverse via a time-reversed copy, speeds the media pipeline would mute). Freeze = no voice.
@@ -133,7 +139,9 @@ export interface AudioGraphSnapshot {
     gain: number;
     /** volume × fades at the current timeline time. */
     expectedItemGain: number;
-    /** expected product incl. track level and ducking. */
+    /** Audio crossfade multiplier of a transition overlap at the current time (1 outside one). */
+    transitionGain: number;
+    /** expected product incl. transition crossfade, track level and ducking. */
     expectedGain: number;
     /** measured product: voice gain × track level × duck. */
     effectiveGain: number;
@@ -258,6 +266,13 @@ export class AudioMixer {
       if (
         !e ||
         e.item !== v.entry.item ||
+        e.xfades.length !== v.entry.xfades.length ||
+        e.xfades.some(
+          (x, i) =>
+            x.start !== v.entry.xfades[i]?.start ||
+            x.end !== v.entry.xfades[i]?.end ||
+            x.type !== v.entry.xfades[i]?.type,
+        ) ||
         e.asset !== v.entry.asset ||
         e.track.id !== v.entry.track.id
       )
@@ -326,7 +341,7 @@ export class AudioMixer {
       if (!bus) continue;
       const tl = tSec - item.startSec;
       // duck / track level are applied by the bus; here only item volume × fades
-      const itemPeak = itemGainAt(item, tl);
+      const itemPeak = itemGainAt(item, tl) * crossfadeMult(e.xfades, tSec);
       if (itemPeak <= 0) continue;
       const decoded = item.reverse
         ? (() => {
@@ -394,6 +409,7 @@ export class AudioMixer {
         state: v.state,
         gain: g,
         expectedItemGain: tl >= 0 && tl <= item.durationSec ? itemGainAt(item, tl) : 0,
+        transitionGain: crossfadeMult(v.entry.xfades, t),
         expectedGain: expectedGain(v.entry, this.ranges, t),
         effectiveGain: g * (bus ? bus.level.gain.value * bus.duck.gain.value : 0),
         playbackRate: el ? el.playbackRate : v.source ? v.source.playbackRate.value : 0,
@@ -685,7 +701,12 @@ export class AudioMixer {
     const param = v.gain.gain;
     if (v.gainUntil === null) {
       const startTl = Math.max(item.startSec, tSec);
-      const pts = itemGainPoints(item, startTl - item.startSec, upTo - item.startSec);
+      const pts = itemGainPoints(
+        item,
+        startTl - item.startSec,
+        upTo - item.startSec,
+        v.entry.xfades,
+      );
       if (!pts.length) return;
       const t0 = Math.max(now, ctxAt(anchor, startTl));
       param.cancelScheduledValues(0);
@@ -698,7 +719,12 @@ export class AudioMixer {
       scheduleLinear(param, ctxPts, { continueFrom: t0 });
       v.gainUntil = upTo;
     } else if (upTo > v.gainUntil + 1e-6) {
-      const pts = itemGainPoints(item, v.gainUntil - item.startSec, upTo - item.startSec).slice(1);
+      const pts = itemGainPoints(
+        item,
+        v.gainUntil - item.startSec,
+        upTo - item.startSec,
+        v.entry.xfades,
+      ).slice(1);
       scheduleLinear(
         param,
         pts.map((p) => ({ ctx: ctxAt(anchor, item.startSec + p.t), v: p.v })),

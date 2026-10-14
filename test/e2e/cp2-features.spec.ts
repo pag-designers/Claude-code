@@ -110,21 +110,60 @@ async function download(id: string, name: string, kind: 'render' | 'thumb' = 're
 
 function probe(file: string) {
   const j = JSON.parse(
-    execFileSync(FFPROBE, ['-v', 'error', '-print_format', 'json', '-show_streams', '-show_format', file]).toString(),
-  ) as { streams: { codec_type: string; width?: number; height?: number }[]; format: { duration: string } };
+    execFileSync(FFPROBE, [
+      '-v',
+      'error',
+      '-print_format',
+      'json',
+      '-show_streams',
+      '-show_format',
+      file,
+    ]).toString(),
+  ) as {
+    streams: { codec_type: string; width?: number; height?: number }[];
+    format: { duration: string };
+  };
   const v = j.streams.find((s) => s.codec_type === 'video');
-  return { w: v?.width, h: v?.height, dur: Number(j.format.duration), audio: j.streams.some((s) => s.codec_type === 'audio') };
+  return {
+    w: v?.width,
+    h: v?.height,
+    dur: Number(j.format.duration),
+    audio: j.streams.some((s) => s.codec_type === 'audio'),
+  };
 }
 
 /** Grabs one frame as raw gray bytes (small), for pixel comparisons. */
 function frameGray(file: string, t: number, out: string): Buffer {
-  spawnSync(FFMPEG, ['-y', '-v', 'error', '-ss', String(t), '-i', file, '-frames:v', '1', '-vf', 'scale=270:480', '-f', 'image2', out]);
-  const raw = spawnSync(FFMPEG, ['-v', 'error', '-i', out, '-vf', 'format=gray', '-f', 'rawvideo', '-'], { maxBuffer: 1 << 24 });
+  spawnSync(FFMPEG, [
+    '-y',
+    '-v',
+    'error',
+    '-ss',
+    String(t),
+    '-i',
+    file,
+    '-frames:v',
+    '1',
+    '-vf',
+    'scale=270:480',
+    '-f',
+    'image2',
+    out,
+  ]);
+  const raw = spawnSync(
+    FFMPEG,
+    ['-v', 'error', '-i', out, '-vf', 'format=gray', '-f', 'rawvideo', '-'],
+    { maxBuffer: 1 << 24 },
+  );
   return raw.stdout;
 }
 /** Same for a still image (JPEG). */
 function imageGray(file: string): Buffer {
-  const raw = spawnSync(FFMPEG, ['-v', 'error', '-i', file, '-vf', 'scale=270:480,format=gray', '-f', 'rawvideo', '-'], { maxBuffer: 1 << 24 });
+  const raw = spawnSync(
+    FFMPEG,
+    ['-v', 'error', '-i', file, '-vf', 'scale=270:480,format=gray', '-f', 'rawvideo', '-'],
+    { maxBuffer: 1 << 24 },
+  );
   return raw.stdout;
 }
 const meanAbsDiff = (a: Buffer, b: Buffer) => {
@@ -136,7 +175,8 @@ const meanAbsDiff = (a: Buffer, b: Buffer) => {
 
 test.beforeAll(async () => {
   fs.mkdirSync(OUT, { recursive: true });
-  const s3dir = process.env.CLIPFERN_E2E_S3DIR ?? fs.mkdtempSync(path.join(os.tmpdir(), 'clipfern-s3-'));
+  const s3dir =
+    process.env.CLIPFERN_E2E_S3DIR ?? fs.mkdtempSync(path.join(os.tmpdir(), 'clipfern-s3-'));
   fs.mkdirSync(s3dir, { recursive: true });
   const server = new S3rver({
     port: S3_PORT,
@@ -154,14 +194,20 @@ test.beforeAll(async () => {
     if (range) {
       const start = Number(range[1]);
       const end = range[2] ? Number(range[2]) : size - 1;
-      res.writeHead(206, { ...base, 'content-range': `bytes ${start}-${end}/${size}`, 'content-length': end - start + 1 });
+      res.writeHead(206, {
+        ...base,
+        'content-range': `bytes ${start}-${end}/${size}`,
+        'content-length': end - start + 1,
+      });
       fs.createReadStream(VIDEO!, { start, end }).pipe(res);
     } else {
       res.writeHead(200, { ...base, 'content-length': size });
       fs.createReadStream(VIDEO!).pipe(res);
     }
   });
-  await new Promise<void>((r) => media.listen(Number(process.env.CLIPFERN_E2E_MEDIA_PORT ?? 0), '127.0.0.1', r));
+  await new Promise<void>((r) =>
+    media.listen(Number(process.env.CLIPFERN_E2E_MEDIA_PORT ?? 0), '127.0.0.1', r),
+  );
   mediaUrl = `http://127.0.0.1:${(media.address() as AddressInfo).port}/talk.mp4`;
   stub = await startSmartAnthropicStub();
   userData = fs.mkdtempSync(path.join(os.tmpdir(), 'clipfern-cp2-ud-'));
@@ -207,25 +253,40 @@ test.afterAll(async () => {
 test('pipeline: real media → clips (with CP2 fields), engine ready', async () => {
   test.setTimeout(30 * 60_000);
   await expect
-    .poll(async () => (await invoke<{ modelReady: boolean }>('sidecar:status')).modelReady, { timeout: 30_000 })
+    .poll(async () => (await invoke<{ modelReady: boolean }>('sidecar:status')).modelReady, {
+      timeout: 30_000,
+    })
     .toBe(true);
   await expect
     .poll(
       async () =>
-        (await invoke<{ tools: { name: string; ok: boolean }[] }>('binaries:status')).tools.find((t) => t.name === 'yt-dlp')?.ok,
+        (await invoke<{ tools: { name: string; ok: boolean }[] }>('binaries:status')).tools.find(
+          (t) => t.name === 'yt-dlp',
+        )?.ok,
       { timeout: 120_000 },
     )
     .toBe(true);
   const res = await invoke<{ videoId: string }>('pipeline:start', {
     url: mediaUrl,
-    options: { clipPreset: '30-60', clipCount: 3, minScore: 45, captions: true, hookCard: true, aspect: '9:16' },
+    options: {
+      clipPreset: '30-60',
+      clipCount: 3,
+      minScore: 45,
+      captions: true,
+      hookCard: true,
+      aspect: '9:16',
+    },
   });
   videoId = res.videoId;
   await expect
     .poll(
       async () => {
-        const g = await invoke<{ video: { status: string; stage: string; error: string } }>('videos:get', { id: videoId });
-        if (g.video.status === 'failed') throw new Error(`failed at ${g.video.stage}: ${g.video.error}`);
+        const g = await invoke<{ video: { status: string; stage: string; error: string } }>(
+          'videos:get',
+          { id: videoId },
+        );
+        if (g.video.status === 'failed')
+          throw new Error(`failed at ${g.video.stage}: ${g.video.error}`);
         return g.video.status;
       },
       { timeout: 20 * 60_000, intervals: [2000] },
@@ -233,24 +294,48 @@ test('pipeline: real media → clips (with CP2 fields), engine ready', async () 
     .toBe('ready');
   const cs = await clips();
   expect(cs.length).toBeGreaterThanOrEqual(1);
-  expect(cs.every((c) => c.status === 'rendered' && c.kind === 'clip' && c.captionStyleId === 'clean-pop')).toBe(true);
-  expect(cs.every((c) => c.reframeMode === 'auto' && ['single', 'split', 'screen-face'].includes(c.layout ?? ''))).toBe(true);
+  expect(
+    cs.every(
+      (c) => c.status === 'rendered' && c.kind === 'clip' && c.captionStyleId === 'clean-pop',
+    ),
+  ).toBe(true);
+  expect(
+    cs.every(
+      (c) =>
+        c.reframeMode === 'auto' && ['single', 'split', 'screen-face'].includes(c.layout ?? ''),
+    ),
+  ).toBe(true);
 });
 
 test('captions: 14 built-in presets, real libass previews that differ, custom preset round-trip', async () => {
   test.setTimeout(180_000);
-  const { styles } = await invoke<{ styles: { id: string; builtin: boolean; name: string }[] }>('captions:styles');
+  const { styles } = await invoke<{ styles: { id: string; builtin: boolean; name: string }[] }>(
+    'captions:styles',
+  );
   const ids = styles.filter((s) => s.builtin).map((s) => s.id);
   expect(ids).toEqual([
-    'clean-pop', 'hormozi-bold', 'karaoke-highlight', 'tiktok-classic', 'minimal-lower-third', 'neon-glow',
-    'boxed-highlight', 'typewriter', 'bounce-word', 'gradient-glow', 'outline-only', 'caption-bubble',
-    'podcast-lower-third', 'subtle-serif',
+    'clean-pop',
+    'hormozi-bold',
+    'karaoke-highlight',
+    'tiktok-classic',
+    'minimal-lower-third',
+    'neon-glow',
+    'boxed-highlight',
+    'typewriter',
+    'bounce-word',
+    'gradient-glow',
+    'outline-only',
+    'caption-bubble',
+    'podcast-lower-third',
+    'subtle-serif',
   ]);
   const [first] = await clips();
   const hashes = new Set<string>();
   fs.mkdirSync(path.join(OUT, 'previews'), { recursive: true });
   for (const s of styles.filter((x) => x.builtin)) {
-    const full = (await invoke<{ styles: Record<string, unknown>[] }>('captions:styles')).styles.find((x) => x.id === s.id)!;
+    const full = (
+      await invoke<{ styles: Record<string, unknown>[] }>('captions:styles')
+    ).styles.find((x) => x.id === s.id)!;
     const p = await invoke<{ dataUrl: string; width: number; height: number }>('captions:preview', {
       style: full,
       clipId: first!.id,
@@ -261,19 +346,32 @@ test('captions: 14 built-in presets, real libass previews that differ, custom pr
     const png = Buffer.from(p.dataUrl.split(',')[1]!, 'base64');
     expect(png.length).toBeGreaterThan(3000);
     fs.writeFileSync(path.join(OUT, 'previews', `${s.id}.png`), png);
-    hashes.add(png.toString('base64').slice(0, 0) + String(png.length) + ':' + png.subarray(100, 200).toString('hex'));
+    hashes.add(
+      png.toString('base64').slice(0, 0) +
+        String(png.length) +
+        ':' +
+        png.subarray(100, 200).toString('hex'),
+    );
   }
   expect(hashes.size, 'every preset renders differently').toBe(14);
 
-  const base = (await invoke<{ styles: Record<string, unknown>[] }>('captions:styles')).styles.find((x) => x.id === 'hormozi-bold')!;
-  const saved = await invoke<{ id: string; builtin: boolean }>('captions:saveStyle', { style: { ...base, name: 'My style', fill: '#00FF88' } });
+  const base = (await invoke<{ styles: Record<string, unknown>[] }>('captions:styles')).styles.find(
+    (x) => x.id === 'hormozi-bold',
+  )!;
+  const saved = await invoke<{ id: string; builtin: boolean }>('captions:saveStyle', {
+    style: { ...base, name: 'My style', fill: '#00FF88' },
+  });
   expect(saved.builtin).toBe(false);
   expect(saved.id).not.toBe('hormozi-bold');
-  expect((await invoke<{ styles: { id: string }[] }>('captions:styles')).styles.map((s) => s.id)).toContain(saved.id);
+  expect(
+    (await invoke<{ styles: { id: string }[] }>('captions:styles')).styles.map((s) => s.id),
+  ).toContain(saved.id);
   await expect(invoke('captions:deleteStyle', { id: 'clean-pop' })).rejects.toThrow(/Built-in/);
   await invoke('captions:deleteStyle', { id: saved.id });
   const { fonts } = await invoke<{ fonts: { family: string }[] }>('captions:fonts');
-  expect(fonts.map((f) => f.family)).toEqual(expect.arrayContaining(['Montserrat', 'Anton', 'Poppins']));
+  expect(fonts.map((f) => f.family)).toEqual(
+    expect.arrayContaining(['Montserrat', 'Anton', 'Poppins']),
+  );
 });
 
 test('restyle: another preset re-renders the clip and the burned captions really change', async () => {
@@ -295,8 +393,20 @@ test('restyle: another preset re-renders the clip and the burned captions really
     const w = 270;
     const h = 480;
     const slice = (buf: Buffer, y0: number, y1: number) => buf.subarray(y0 * w, y1 * w);
-    band = Math.max(band, meanAbsDiff(slice(a, Math.floor(h * 0.55), Math.floor(h * 0.8)), slice(b, Math.floor(h * 0.55), Math.floor(h * 0.8))));
-    top = Math.max(top, meanAbsDiff(slice(a, Math.floor(h * 0.25), Math.floor(h * 0.45)), slice(b, Math.floor(h * 0.25), Math.floor(h * 0.45))));
+    band = Math.max(
+      band,
+      meanAbsDiff(
+        slice(a, Math.floor(h * 0.55), Math.floor(h * 0.8)),
+        slice(b, Math.floor(h * 0.55), Math.floor(h * 0.8)),
+      ),
+    );
+    top = Math.max(
+      top,
+      meanAbsDiff(
+        slice(a, Math.floor(h * 0.25), Math.floor(h * 0.45)),
+        slice(b, Math.floor(h * 0.25), Math.floor(h * 0.45)),
+      ),
+    );
   }
   fs.writeFileSync(path.join(OUT, 'restyle-metrics.json'), JSON.stringify({ band, top }));
   expect(band).toBeGreaterThan(2);
@@ -306,27 +416,46 @@ test('restyle: another preset re-renders the clip and the burned captions really
 test('subtitles: edits persist, mark clips outdated, appear in the re-rendered SRT and export', async () => {
   test.setTimeout(8 * 60_000);
   const [c] = await clips();
-  const got = await invoke<{ cues: { id: number; s: number; e: number; text: string; wordStart: number }[]; edits: { rev: number }; outdatedClips: number }>(
-    'subtitles:get', { videoId },
-  );
+  const got = await invoke<{
+    cues: { id: number; s: number; e: number; text: string; wordStart: number }[];
+    edits: { rev: number };
+    outdatedClips: number;
+  }>('subtitles:get', { videoId });
   expect(got.cues.length).toBeGreaterThan(5);
   expect(got.edits.rev).toBe(0);
   const inClip = got.cues.find((q) => q.s >= c!.startSec + 2 && q.e <= c!.endSec - 1)!;
   expect(inClip).toBeTruthy();
   const wordIdx = inClip.wordStart;
-  const saved = await invoke<{ edits: { rev: number }; outdatedClips: number; cues: { text: string }[] }>('subtitles:save', {
+  const saved = await invoke<{
+    edits: { rev: number };
+    outdatedClips: number;
+    cues: { text: string }[];
+  }>('subtitles:save', {
     videoId,
     edits: { rev: 0, words: { [String(wordIdx)]: { text: 'ZEBRAXYZ' } }, breaks: [], merges: [] },
   });
   expect(saved.edits.rev).toBe(1);
   expect(saved.outdatedClips).toBeGreaterThanOrEqual(1);
   expect(saved.cues.some((q) => q.text.includes('ZEBRAXYZ'))).toBe(true);
-  expect((await invoke<{ edits: { words: Record<string, { text?: string }> } }>('subtitles:get', { videoId })).edits.words[String(wordIdx)]?.text).toBe('ZEBRAXYZ');
+  expect(
+    (
+      await invoke<{ edits: { words: Record<string, { text?: string }> } }>('subtitles:get', {
+        videoId,
+      })
+    ).edits.words[String(wordIdx)]?.text,
+  ).toBe('ZEBRAXYZ');
   // video + clips carry the revision
-  expect((await invoke<{ video: { subtitleRev: number } }>('videos:get', { id: videoId })).video.subtitleRev).toBe(1);
+  expect(
+    (await invoke<{ video: { subtitleRev: number } }>('videos:get', { id: videoId })).video
+      .subtitleRev,
+  ).toBe(1);
 
   // export through the (stubbed) save dialog
-  const ex = await invoke<{ saved: boolean; path: string }>('subtitles:export', { videoId, clipId: c!.id, format: 'srt' });
+  const ex = await invoke<{ saved: boolean; path: string }>('subtitles:export', {
+    videoId,
+    clipId: c!.id,
+    format: 'srt',
+  });
   expect(ex.saved).toBe(true);
   const srt = fs.readFileSync(ex.path, 'utf8');
   expect(srt).toContain('ZEBRAXYZ');
@@ -337,17 +466,29 @@ test('subtitles: edits persist, mark clips outdated, appear in the re-rendered S
   // re-render picks the edit up: the SRT shipped with the clip contains it and the clip is no longer outdated
   await invoke('clips:rerender', { id: c!.id });
   await waitRendered(c!.id, (x) => x.subtitleRev === 1);
-  const dl = await invoke<{ saved: number; dir: string }>('clips:download', { ids: [c!.id], withCaptions: true });
+  const dl = await invoke<{ saved: number; dir: string }>('clips:download', {
+    ids: [c!.id],
+    withCaptions: true,
+  });
   expect(dl.saved).toBe(1);
   const srts = fs.readdirSync(dl.dir).filter((f) => f.endsWith('.srt'));
-  expect(srts.some((f) => fs.readFileSync(path.join(dl.dir, f), 'utf8').includes('ZEBRAXYZ'))).toBe(true);
-  expect((await invoke<{ outdatedClips: number }>('subtitles:get', { videoId })).outdatedClips).toBeLessThan(saved.outdatedClips);
+  expect(srts.some((f) => fs.readFileSync(path.join(dl.dir, f), 'utf8').includes('ZEBRAXYZ'))).toBe(
+    true,
+  );
+  expect(
+    (await invoke<{ outdatedClips: number }>('subtitles:get', { videoId })).outdatedClips,
+  ).toBeLessThan(saved.outdatedClips);
 });
 
 test('hooks: 5 variants per platform, applying one re-renders with that title card, removing it works', async () => {
   test.setTimeout(8 * 60_000);
   const [c] = await clips();
-  const h = await invoke<{ tiktok: { text: string }[]; reels: unknown[]; shorts: unknown[]; applied: unknown }>('hooks:generate', { clipId: c!.id });
+  const h = await invoke<{
+    tiktok: { text: string }[];
+    reels: unknown[];
+    shorts: unknown[];
+    applied: unknown;
+  }>('hooks:generate', { clipId: c!.id });
   expect(h.tiktok).toHaveLength(5);
   expect(h.reels).toHaveLength(5);
   expect(h.shorts).toHaveLength(5);
@@ -370,15 +511,26 @@ test('hooks: 5 variants per platform, applying one re-renders with that title ca
 
 test('metadata: per-platform title/description/hashtags/posting time, editable', async () => {
   const [c] = await clips();
-  const m = await invoke<Record<string, { title: string; hashtags: string[]; postingTime: { hour: number; reason: string } }>>('meta:generate', { clipId: c!.id });
+  const m = await invoke<
+    Record<
+      string,
+      { title: string; hashtags: string[]; postingTime: { hour: number; reason: string } }
+    >
+  >('meta:generate', { clipId: c!.id });
   for (const p of ['tiktok', 'reels', 'shorts']) {
     expect(m[p]!.title.length).toBeGreaterThan(3);
     expect(m[p]!.hashtags.length).toBeGreaterThan(0);
     expect(m[p]!.postingTime.reason).toMatch(/not based on your analytics/i);
   }
   expect(m.shorts!.hashtags.map((x) => x.toLowerCase().replace(/^#/, ''))).toContain('shorts');
-  await invoke('meta:save', { clipId: c!.id, platform: 'reels', meta: { ...m.reels, title: 'Edited title' } });
-  expect((await invoke<typeof m>('meta:get', { clipId: c!.id }))!.reels!.title).toBe('Edited title');
+  await invoke('meta:save', {
+    clipId: c!.id,
+    platform: 'reels',
+    meta: { ...m.reels, title: 'Edited title' },
+  });
+  expect((await invoke<typeof m>('meta:get', { clipId: c!.id }))!.reels!.title).toBe(
+    'Edited title',
+  );
   expect((await clipById(c!.id))?.hasMeta).toBe(true);
 });
 
@@ -386,7 +538,14 @@ test('thumbnails: real frames scored, candidates load from storage, choosing one
   test.setTimeout(180_000);
   const [c] = await clips();
   const before = await download(c!.id, 'thumb-before.jpg', 'thumb');
-  const t = await invoke<{ candidates: { t: number; scores: { total: number; sharpness: number }; llmRank: number | null }[]; overlayText: string | null }>('thumbs:generate', { clipId: c!.id });
+  const t = await invoke<{
+    candidates: {
+      t: number;
+      scores: { total: number; sharpness: number };
+      llmRank: number | null;
+    }[];
+    overlayText: string | null;
+  }>('thumbs:generate', { clipId: c!.id });
   expect(t.candidates.length).toBeGreaterThanOrEqual(4);
   expect(t.candidates.every((x) => x.scores.sharpness >= 0 && x.scores.total >= 0)).toBe(true);
   for (let i = 0; i < Math.min(3, t.candidates.length); i++) {
@@ -427,7 +586,10 @@ test('reframe: centre crop and multi-face modes re-render with the chosen layout
 
 test('One-Click Highlights: a stitched reel with several segments renders as one video', async () => {
   test.setTimeout(12 * 60_000);
-  const { clipId } = await invoke<{ clipId: string }>('highlights:create', { videoId, prompt: 'best moments' });
+  const { clipId } = await invoke<{ clipId: string }>('highlights:create', {
+    videoId,
+    prompt: 'best moments',
+  });
   await waitRendered(clipId);
   const reel = (await clips()).find((x) => x.id === clipId)!;
   expect(reel.kind).toBe('highlight');
@@ -442,11 +604,29 @@ test('One-Click Highlights: a stitched reel with several segments renders as one
 test('steered re-run: reuses the transcript, is tagged with its prompt, completes', async () => {
   test.setTimeout(10 * 60_000);
   const before = stub.requests.length;
-  const { runId } = await invoke<{ runId: string }>('moments:find', { videoId, prompt: 'anything about the weather', options: { clipCount: 2, minScore: 30 } });
+  const { runId } = await invoke<{ runId: string }>('moments:find', {
+    videoId,
+    prompt: 'anything about the weather',
+    options: { clipCount: 2, minScore: 30 },
+  });
   await expect
-    .poll(async () => (await invoke<{ items: { id: string; status: string; error: string | null }[] }>('moments:runs', { videoId })).items.find((r) => r.id === runId)?.status, { timeout: 5 * 60_000, intervals: [1500] })
+    .poll(
+      async () =>
+        (
+          await invoke<{ items: { id: string; status: string; error: string | null }[] }>(
+            'moments:runs',
+            { videoId },
+          )
+        ).items.find((r) => r.id === runId)?.status,
+      { timeout: 5 * 60_000, intervals: [1500] },
+    )
     .not.toBe('running');
-  const run = (await invoke<{ items: { id: string; status: string; found: number; error: string | null }[] }>('moments:runs', { videoId })).items.find((r) => r.id === runId)!;
+  const run = (
+    await invoke<{ items: { id: string; status: string; found: number; error: string | null }[] }>(
+      'moments:runs',
+      { videoId },
+    )
+  ).items.find((r) => r.id === runId)!;
   expect(run.status, run.error ?? '').toBe('done');
   const newReqs = stub.requests.slice(before).map((r) => JSON.stringify(r.body));
   expect(newReqs.some((b) => b.includes('anything about the weather'))).toBe(true);
@@ -460,36 +640,79 @@ test('steered re-run: reuses the transcript, is tagged with its prompt, complete
 
 test('analysis-only mode: summary + transcript without ranking or rendering (cached transcript reused)', async () => {
   test.setTimeout(10 * 60_000);
-  const rankBefore = stub.requests.filter((r) => 'moments' in ((r.body.output_config?.format?.schema as { properties?: object })?.properties ?? {})).length;
-  const res = await invoke<{ videoId: string }>('pipeline:start', { url: mediaUrl, options: { mode: 'analysis' } });
+  const rankBefore = stub.requests.filter(
+    (r) =>
+      'moments' in
+      ((r.body.output_config?.format?.schema as { properties?: object })?.properties ?? {}),
+  ).length;
+  const res = await invoke<{ videoId: string }>('pipeline:start', {
+    url: mediaUrl,
+    options: { mode: 'analysis' },
+  });
   await expect
-    .poll(async () => (await invoke<{ video: { status: string; error: string } }>('videos:get', { id: res.videoId })).video.status, { timeout: 5 * 60_000, intervals: [1500] })
+    .poll(
+      async () =>
+        (
+          await invoke<{ video: { status: string; error: string } }>('videos:get', {
+            id: res.videoId,
+          })
+        ).video.status,
+      { timeout: 5 * 60_000, intervals: [1500] },
+    )
     .toBe('ready');
-  const g = await invoke<{ video: { clipCount: number }; analysis: { overview: { summary: string } } | null; stages: { stage: string; status: string }[] }>('videos:get', { id: res.videoId });
+  const g = await invoke<{
+    video: { clipCount: number };
+    analysis: { overview: { summary: string } } | null;
+    stages: { stage: string; status: string }[];
+  }>('videos:get', { id: res.videoId });
   expect(g.video.clipCount).toBe(0);
   expect(g.analysis?.overview.summary.length ?? 0).toBeGreaterThan(10);
   expect(g.stages.find((s) => s.stage === 'moments')?.status).toBe('skipped');
   expect(g.stages.find((s) => s.stage === 'render')?.status).toBe('skipped');
-  const rankAfter = stub.requests.filter((r) => 'moments' in ((r.body.output_config?.format?.schema as { properties?: object })?.properties ?? {})).length;
+  const rankAfter = stub.requests.filter(
+    (r) =>
+      'moments' in
+      ((r.body.output_config?.format?.schema as { properties?: object })?.properties ?? {}),
+  ).length;
   expect(rankAfter).toBe(rankBefore);
-  expect((await invoke<{ words: unknown[] } | null>('videos:transcript', { id: res.videoId }))?.words.length ?? 0).toBeGreaterThan(100);
+  expect(
+    (await invoke<{ words: unknown[] } | null>('videos:transcript', { id: res.videoId }))?.words
+      .length ?? 0,
+  ).toBeGreaterThan(100);
 });
 
 test('AI chat: grounded answer with a [mm:ss] citation and an executed create_clip action; markers', async () => {
   test.setTimeout(10 * 60_000);
   const before = (await clips()).length;
-  const { threadId } = await invoke<{ threadId: string }>('chat:send', { videoId, text: 'Make a clip about the weather forecast' });
+  const { threadId } = await invoke<{ threadId: string }>('chat:send', {
+    videoId,
+    text: 'Make a clip about the weather forecast',
+  });
   await expect
     .poll(
       async () => {
-        const { items } = await invoke<{ items: { role: string; text: string; actions: { status: string; tool: string }[] }[] }>('chat:messages', { threadId });
+        const { items } = await invoke<{
+          items: { role: string; text: string; actions: { status: string; tool: string }[] }[];
+        }>('chat:messages', { threadId });
         const a = items.find((m) => m.role === 'assistant');
-        return a && a.text.length > 0 && a.actions.length > 0 && a.actions.every((x) => x.status !== 'running') ? a : null;
+        return a &&
+          a.text.length > 0 &&
+          a.actions.length > 0 &&
+          a.actions.every((x) => x.status !== 'running')
+          ? a
+          : null;
       },
       { timeout: 60_000, intervals: [500] },
     )
     .not.toBeNull();
-  const { items } = await invoke<{ items: { role: string; text: string; citations: unknown[]; actions: { tool: string; status: string; summary: string; href: string }[] }[] }>('chat:messages', { threadId });
+  const { items } = await invoke<{
+    items: {
+      role: string;
+      text: string;
+      citations: unknown[];
+      actions: { tool: string; status: string; summary: string; href: string }[];
+    }[];
+  }>('chat:messages', { threadId });
   const a = items.find((m) => m.role === 'assistant')!;
   expect(a.actions[0]).toMatchObject({ tool: 'create_clip', status: 'done' });
   expect(a.actions[0]!.summary).toMatch(/Created clip/);
@@ -498,12 +721,22 @@ test('AI chat: grounded answer with a [mm:ss] citation and an executed create_cl
   expect(after.length).toBe(before + 1);
   const created = after.find((c) => c.title.toLowerCase().includes('weather') || c.hook === null)!;
   expect(created).toBeTruthy();
-  expect((await invoke<{ items: { id: string }[] }>('chat:threads', { videoId })).items.map((t) => t.id)).toContain(threadId);
+  expect(
+    (await invoke<{ items: { id: string }[] }>('chat:threads', { videoId })).items.map((t) => t.id),
+  ).toContain(threadId);
   await invoke('chat:delete', { threadId });
   expect((await invoke<{ items: unknown[] }>('chat:messages', { threadId })).items).toHaveLength(0);
 
-  const m = await invoke<{ id: string; atSec: number }>('markers:add', { videoId, atSec: 42.5, label: 'Interesting' });
-  expect((await invoke<{ items: { label: string }[] }>('markers:list', { videoId })).items.map((x) => x.label)).toContain('Interesting');
+  const m = await invoke<{ id: string; atSec: number }>('markers:add', {
+    videoId,
+    atSec: 42.5,
+    label: 'Interesting',
+  });
+  expect(
+    (await invoke<{ items: { label: string }[] }>('markers:list', { videoId })).items.map(
+      (x) => x.label,
+    ),
+  ).toContain('Interesting');
   await invoke('markers:delete', { id: m.id });
   expect((await invoke<{ items: unknown[] }>('markers:list', { videoId })).items).toHaveLength(0);
 });

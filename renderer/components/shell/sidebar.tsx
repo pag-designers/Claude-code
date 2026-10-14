@@ -39,6 +39,7 @@ function NavLink({
     >
       <Link
         href={item.href}
+        prefetch={item.href === "/editor/" ? false : undefined}
         aria-current={active ? 'page' : undefined}
         className={cn(
           'group relative flex h-9 items-center gap-3 rounded-md px-[13px] text-sm font-medium outline-offset-0 transition-colors duration-(--duration-fast)',

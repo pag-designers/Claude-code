@@ -233,7 +233,7 @@ function ExportCard({
           >
             {job.name}
           </h3>
-          <p className="mt-1 truncate text-2xs tabular-nums text-subtle">
+          <p className="mt-1 line-clamp-2 text-2xs tabular-nums text-subtle">
             {presetLabel(s.preset)} · {s.width}×{s.height}
             {job.sizeBytes !== null ? ` · ${formatBytes(job.sizeBytes)}` : ''} ·{' '}
             {timeAgo(job.finishedAt ?? job.createdAt)}

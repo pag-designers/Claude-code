@@ -40,7 +40,7 @@ import {
   wheelZoomFactor,
 } from './geometry';
 import { createGestures, layoutFor, type GestureController } from './gestures';
-import { handleItemKey } from './keyboard-nav';
+import { handleItemKey, setKeyboardModality } from './keyboard-nav';
 import { ADD_TRACK_KINDS, itemMenu, laneMenu, markerMenu, trackMenu } from './menus';
 import {
   DragLabel,
@@ -153,6 +153,15 @@ export function Timeline({ className }: { className?: string }) {
     },
     [],
   );
+
+  /* ---- keyboard modality (Tab = keyboard reached the clips) ---------------------------- */
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Tab') setKeyboardModality(true);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, []);
 
   /* ---- fit the whole project into view when it is opened ------------------------------- */
   const projectId = useEditorStore((s) => s.projectId);
@@ -287,6 +296,7 @@ export function Timeline({ className }: { className?: string }) {
 
   /* ---- pointer / keyboard / menus ------------------------------------------------------ */
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    setKeyboardModality(false);
     if (menu) setMenu(null);
     gesturesRef.current?.pointerDown(e.nativeEvent, e.target as Element);
   };

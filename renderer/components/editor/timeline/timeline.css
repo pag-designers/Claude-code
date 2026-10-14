@@ -71,6 +71,16 @@
 .tl-item[data-type='shape'] {
   --tl-c: var(--tl-shape);
 }
+.tl-item[data-media='true'] {
+  /* the lane canvas underneath shows the picture / waveform; the clip only tints it */
+  background: color-mix(in srgb, var(--tl-c) 10%, transparent);
+}
+.tl-item[data-media='true']:hover {
+  background: color-mix(in srgb, var(--tl-c) 16%, transparent);
+}
+.tl-item[data-media='true'][data-selected='true'] {
+  background: color-mix(in srgb, var(--tl-c) 18%, transparent);
+}
 .tl-item:hover {
   background: color-mix(in srgb, var(--tl-c) 30%, var(--card));
   border-color: color-mix(in srgb, var(--tl-c) 75%, var(--card));

@@ -8,6 +8,9 @@ import {
 } from '../../shared/editor-eval';
 import {
   audioEntries,
+  crossfadeGain,
+  crossfadeMult,
+  transitionWindows,
   ctxAt,
   duckPoints,
   elementRateAt,
@@ -388,5 +391,97 @@ describe('AudioParam scheduling and grains', () => {
     expect(Math.max(...env.map((e) => e.v))).toBe(0.8);
     expect(env[1]!.t).toBeLessThan(0.01);
     expect(env[2]!.t).toBeGreaterThan(0.05);
+  });
+});
+
+describe('transition audio crossfade (matches the exporter: transitionAudioGains)', () => {
+  const a = asset({ id: 'a1', hasAudio: true });
+  const mkTrack = (type: string, dur = 1) =>
+    track({
+      id: 'v',
+      items: [
+        vItem({ id: 'one', startSec: 0, durationSec: 5 }),
+        vItem({ id: 'two', startSec: 4, durationSec: 5, transitionIn: { type, durationSec: dur } }),
+      ],
+    });
+
+  it('the overlap of the later item is a window for both items', () => {
+    const w = transitionWindows(mkTrack('crossfade'));
+    expect(w.get('one')).toEqual([{ role: 'from', type: 'crossfade', start: 4, end: 5, dur: 1 }]);
+    expect(w.get('two')).toEqual([{ role: 'to', type: 'crossfade', start: 4, end: 5, dur: 1 }]);
+  });
+  it('duration is capped by the overlap; items without a transition have no windows', () => {
+    const w = transitionWindows(mkTrack('crossfade', 3));
+    expect(w.get('two')![0]!.dur).toBe(1);
+    expect(transitionWindows(track({ id: 'x', items: [vItem({ id: 'solo' })] })).size).toBe(0);
+  });
+  it('linear crossfade: outgoing 1−p, incoming p, 1 outside the overlap', () => {
+    const [out] = transitionWindows(mkTrack('crossfade')).get('one')!;
+    const [inn] = transitionWindows(mkTrack('crossfade')).get('two')!;
+    expect(crossfadeGain(out!, 3.9)).toBe(1);
+    expect(crossfadeGain(out!, 4)).toBe(1);
+    expect(crossfadeGain(out!, 4.25)).toBeCloseTo(0.75, 9);
+    expect(crossfadeGain(inn!, 4.25)).toBeCloseTo(0.25, 9);
+    expect(crossfadeGain(inn!, 4.5) + crossfadeGain(out!, 4.5)).toBeCloseTo(1, 9);
+    expect(crossfadeGain(inn!, 5)).toBe(1);
+  });
+  it('a cut overlap mutes the outgoing item and keeps the incoming at unity', () => {
+    const w = transitionWindows(mkTrack('cut'));
+    expect(crossfadeGain(w.get('one')![0]!, 4.5)).toBe(0);
+    expect(crossfadeGain(w.get('two')![0]!, 4.5)).toBe(1);
+    expect(crossfadeGain(w.get('one')![0]!, 3.99)).toBe(1);
+  });
+  it('a dip transition crossfades audio too (same rule for every non-cut type)', () => {
+    const w = transitionWindows(mkTrack('dip-black'));
+    expect(crossfadeGain(w.get('one')![0]!, 4.5)).toBeCloseTo(0.5, 9);
+  });
+  it('audioEntries attaches the windows; crossfadeMult multiplies several', () => {
+    const es = audioEntries(project([mkTrack('crossfade')], [a]));
+    expect(es.map((e) => e.xfades.length)).toEqual([1, 1]);
+    expect(crossfadeMult([], 1)).toBe(1);
+    expect(crossfadeMult(es[0]!.xfades, 4.5)).toBeCloseTo(0.5, 9);
+  });
+  it('gain breakpoints include the ramp: item gain × crossfade at every sample', () => {
+    const t = mkTrack('crossfade');
+    const [from, to] = audioEntries(project([t], [a]));
+    const pf = itemGainPoints(from!.item, 0, 5, from!.xfades);
+    const pt = itemGainPoints(to!.item, 0, 5, to!.xfades);
+    for (const x of [3.9, 4, 4.2, 4.5, 4.9, 5]) {
+      expect(evalPts(pf, x)).toBeCloseTo(
+        itemGainAt(from!.item, x) * crossfadeMult(from!.xfades, x),
+        2,
+      );
+    }
+    for (const x of [0, 0.3, 0.5, 0.9, 1]) {
+      expect(evalPts(pt, x)).toBeCloseTo(crossfadeMult(to!.xfades, 4 + x), 2);
+    }
+    expect(evalPts(pf, 0.5 + 4 - 4)).toBe(1);
+  });
+  it('a cut overlap is a near-instant step in the breakpoints', () => {
+    const [from] = audioEntries(project([mkTrack('cut')], [a]));
+    const pts = itemGainPoints(from!.item, 0, 5, from!.xfades);
+    expect(evalPts(pts, 3.99)).toBeCloseTo(1, 6);
+    expect(evalPts(pts, 4.01)).toBeCloseTo(0, 6);
+  });
+  it('combines with the item fades (product, not replacement)', () => {
+    const t = track({
+      id: 'v',
+      items: [
+        vItem({ id: 'one', startSec: 0, durationSec: 5, fadeOutSec: 2 }),
+        vItem({
+          id: 'two',
+          startSec: 4,
+          durationSec: 5,
+          transitionIn: { type: 'crossfade', durationSec: 1 },
+        }),
+      ],
+    });
+    const [from] = audioEntries(project([t], [a]));
+    const pts = itemGainPoints(from!.item, 0, 5, from!.xfades);
+    for (const x of [3.2, 4.2, 4.6])
+      expect(evalPts(pts, x)).toBeCloseTo(
+        itemGainAt(from!.item, x) * crossfadeMult(from!.xfades, x),
+        2,
+      );
   });
 });

@@ -25,9 +25,30 @@ export interface EditorMediaDeps {
   log?: (m: string) => void;
 }
 
-const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp', '.bmp', '.tif', '.tiff', '.avif', '.heic', '.heif']);
+const IMAGE_EXT = new Set([
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.webp',
+  '.bmp',
+  '.tif',
+  '.tiff',
+  '.avif',
+  '.heic',
+  '.heif',
+]);
 const LUT_EXT = new Set(['.cube', '.3dl', '.csp']);
-const AUDIO_EXT = new Set(['.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg', '.opus', '.aiff', '.wma']);
+const AUDIO_EXT = new Set([
+  '.mp3',
+  '.wav',
+  '.m4a',
+  '.aac',
+  '.flac',
+  '.ogg',
+  '.opus',
+  '.aiff',
+  '.wma',
+]);
 
 function defaultFfmpeg(): string {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -65,7 +86,10 @@ export function createEditorMedia(deps: EditorMediaDeps = {}): EditorMediaServic
       { onStdout: (c) => chunks.push(c.toString('utf8')) },
     );
     if (res.code !== 0) {
-      throw new MediaError(humanizeFfmpegError(res.stderrTail, 'Reading media info'), res.stderrTail);
+      throw new MediaError(
+        humanizeFfmpegError(res.stderrTail, 'Reading media info'),
+        res.stderrTail,
+      );
     }
     try {
       return JSON.parse(chunks.join('')) as unknown;
@@ -104,7 +128,10 @@ export function createEditorMedia(deps: EditorMediaDeps = {}): EditorMediaServic
       }
     });
     a.onProgress?.(0, 'Starting');
-    const res = await runProcess(a.ffmpegPath, args, { signal: a.signal, onStdout: (c) => lines.push(c) });
+    const res = await runProcess(a.ffmpegPath, args, {
+      signal: a.signal,
+      onStdout: (c) => lines.push(c),
+    });
     lines.flush();
     if (res.code !== 0) {
       throw new MediaError(
@@ -120,18 +147,48 @@ export function createEditorMedia(deps: EditorMediaDeps = {}): EditorMediaServic
       const ext = path.extname(file).toLowerCase();
       if (LUT_EXT.has(ext)) {
         if (!fs.existsSync(file)) throw new MediaError(`File not found: ${file}`);
-        return { kind: 'lut', width: null, height: null, fps: null, durationSec: null, hasAudio: false };
+        return {
+          kind: 'lut',
+          width: null,
+          height: null,
+          fps: null,
+          durationSec: null,
+          hasAudio: false,
+        };
       }
       const json = await probeJson(file);
       const info = mediaInfoFromProbe(json);
       const fmt = (json as { format?: { format_name?: string } }).format?.format_name ?? '';
-      const streams = (json as { streams?: { codec_type?: string; nb_frames?: string; disposition?: { attached_pic?: number } }[] }).streams ?? [];
+      const streams =
+        (
+          json as {
+            streams?: {
+              codec_type?: string;
+              nb_frames?: string;
+              disposition?: { attached_pic?: number };
+            }[];
+          }
+        ).streams ?? [];
       const v = streams.find((s) => s.codec_type === 'video' && s.disposition?.attached_pic !== 1);
-      const isImageFormat = /(^|,)(image2|png_pipe|jpeg_pipe|webp_pipe|bmp_pipe|tiff_pipe|avif|heif|mov,mp4)/.test(fmt) && IMAGE_EXT.has(ext);
+      // text / ANSI art files are "decoded" by ffmpeg as video: not media
+      if (/^(tty|ansi|bin|xbin|idf|adf|artworx|srt|webvtt|ass|microdvd|subviewer|data)/.test(fmt)) {
+        throw new MediaError(
+          `Unrecognised media file: ${path.basename(file)} is not a video, audio or image.`,
+        );
+      }
       const singleFrame = v?.nb_frames !== undefined && Number(v.nb_frames) === 1;
-      if (v && (IMAGE_EXT.has(ext) || /image2|_pipe/.test(fmt) || (ext === '.gif' && singleFrame))) {
-        void isImageFormat;
-        return { kind: 'image', width: info.width, height: info.height, fps: null, durationSec: null, hasAudio: false };
+      if (
+        v &&
+        (IMAGE_EXT.has(ext) || /image2|_pipe/.test(fmt) || (ext === '.gif' && singleFrame))
+      ) {
+        return {
+          kind: 'image',
+          width: info.width,
+          height: info.height,
+          fps: null,
+          durationSec: null,
+          hasAudio: false,
+        };
       }
       if (info.hasVideo) {
         return {
@@ -153,12 +210,15 @@ export function createEditorMedia(deps: EditorMediaDeps = {}): EditorMediaServic
           hasAudio: true,
         };
       }
-      throw new MediaError(`Unrecognised media file: ${path.basename(file)} has no video or audio stream.`);
+      throw new MediaError(
+        `Unrecognised media file: ${path.basename(file)} has no video or audio stream.`,
+      );
     },
 
     async waveform(file, rate, opts): Promise<Waveform> {
       const SR = 8000;
-      if (!(rate > 0) || rate > SR) throw new MediaError(`Waveform rate must be between 0 and ${SR} windows per second.`);
+      if (!(rate > 0) || rate > SR)
+        throw new MediaError(`Waveform rate must be between 0 and ${SR} windows per second.`);
       const dur = await durationOf(file);
       const peaks: number[] = [];
       let sample = 0;
@@ -187,7 +247,24 @@ export function createEditorMedia(deps: EditorMediaDeps = {}): EditorMediaServic
       let seen = 0;
       const res = await runProcess(
         ffmpeg(),
-        ['-hide_banner', '-nostdin', '-v', 'error', '-i', file, '-map', '0:a:0', '-vn', '-ac', '1', '-ar', String(SR), '-f', 's16le', '-'],
+        [
+          '-hide_banner',
+          '-nostdin',
+          '-v',
+          'error',
+          '-i',
+          file,
+          '-map',
+          '0:a:0',
+          '-vn',
+          '-ac',
+          '1',
+          '-ar',
+          String(SR),
+          '-f',
+          's16le',
+          '-',
+        ],
         {
           signal: opts?.signal,
           onStdout: (c) => {
@@ -198,9 +275,13 @@ export function createEditorMedia(deps: EditorMediaDeps = {}): EditorMediaServic
         },
       );
       if (res.code !== 0) {
-        throw new MediaError(humanizeFfmpegError(res.stderrTail, 'Reading the waveform'), res.stderrTail);
+        throw new MediaError(
+          humanizeFfmpegError(res.stderrTail, 'Reading the waveform'),
+          res.stderrTail,
+        );
       }
-      if (sample > 0 && (peaks.length === 0 || sample > (peaks.length * SR) / rate)) peaks.push(winMax);
+      if (sample > 0 && (peaks.length === 0 || sample > (peaks.length * SR) / rate))
+        peaks.push(winMax);
       opts?.onProgress?.(1);
       return { rate, durationSec: sample / SR, peaks };
     },
@@ -212,21 +293,44 @@ export function createEditorMedia(deps: EditorMediaDeps = {}): EditorMediaServic
       let seen = 0;
       const res = await runProcess(
         ffmpeg(),
-        ['-hide_banner', '-nostdin', '-v', 'error', '-i', file, '-map', '0:a:0', '-vn', '-ac', '1', '-ar', String(SR), '-f', 'f32le', '-'],
+        [
+          '-hide_banner',
+          '-nostdin',
+          '-v',
+          'error',
+          '-i',
+          file,
+          '-map',
+          '0:a:0',
+          '-vn',
+          '-ac',
+          '1',
+          '-ar',
+          String(SR),
+          '-f',
+          'f32le',
+          '-',
+        ],
         {
           signal: opts?.signal,
           onStdout: (c) => {
             chunks.push(c);
             seen += c.length;
-            if (dur && opts?.onProgress) opts.onProgress(Math.min(0.7, (seen / 4 / SR / dur) * 0.7));
+            if (dur && opts?.onProgress)
+              opts.onProgress(Math.min(0.7, (seen / 4 / SR / dur) * 0.7));
           },
         },
       );
       if (res.code !== 0) {
-        throw new MediaError(humanizeFfmpegError(res.stderrTail, 'Detecting beats'), res.stderrTail);
+        throw new MediaError(
+          humanizeFfmpegError(res.stderrTail, 'Detecting beats'),
+          res.stderrTail,
+        );
       }
       const all = Buffer.concat(chunks);
-      const pcm = new Float32Array(all.buffer.slice(all.byteOffset, all.byteOffset + (all.length - (all.length % 4))));
+      const pcm = new Float32Array(
+        all.buffer.slice(all.byteOffset, all.byteOffset + (all.length - (all.length % 4))),
+      );
       if (opts?.signal?.aborted) throw new AbortError();
       const beats = detectBeats(pcm, SR);
       opts?.onProgress?.(1);
@@ -251,10 +355,23 @@ export function createEditorMedia(deps: EditorMediaDeps = {}): EditorMediaServic
         signal: a.signal,
         onProgress: a.onProgress,
         args: [
-          '-hide_banner', '-v', 'error', '-y',
-          '-ss', a.startSec.toFixed(3), '-t', dur.toFixed(3), '-i', a.file,
-          '-vf', `fps=fps=${(count / dur).toFixed(6)}:start_time=0:round=down,scale=${tileW}:${tileH}:flags=bilinear,tile=${cols}x${rows}:padding=0:margin=0`,
-          '-frames:v', '1', '-q:v', '5', a.outJpg,
+          '-hide_banner',
+          '-v',
+          'error',
+          '-y',
+          '-ss',
+          a.startSec.toFixed(3),
+          '-t',
+          dur.toFixed(3),
+          '-i',
+          a.file,
+          '-vf',
+          `fps=fps=${(count / dur).toFixed(6)}:start_time=0:round=down,scale=${tileW}:${tileH}:flags=bilinear,tile=${cols}x${rows}:padding=0:margin=0`,
+          '-frames:v',
+          '1',
+          '-q:v',
+          '5',
+          a.outJpg,
         ],
       });
       return { tileW, tileH, cols, rows, times };
@@ -273,12 +390,35 @@ export function createEditorMedia(deps: EditorMediaDeps = {}): EditorMediaServic
           signal: opts?.signal,
           onProgress: opts?.onProgress,
           args: [
-            '-hide_banner', '-v', 'error', '-y', '-i', src,
-            '-map', '0:v:0', ...(info.hasAudio ? ['-map', '0:a:0'] : []),
-            '-vf', `scale=-2:${even(Math.min(480, info.height ?? 480))}:flags=bicubic,format=yuv420p`,
-            '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26', '-g', '15', '-keyint_min', '15', '-sc_threshold', '0',
+            '-hide_banner',
+            '-v',
+            'error',
+            '-y',
+            '-i',
+            src,
+            '-map',
+            '0:v:0',
+            ...(info.hasAudio ? ['-map', '0:a:0'] : []),
+            '-vf',
+            `scale=-2:${even(Math.min(480, info.height ?? 480))}:flags=bicubic,format=yuv420p`,
+            '-c:v',
+            'libx264',
+            '-preset',
+            'veryfast',
+            '-crf',
+            '26',
+            '-g',
+            '15',
+            '-keyint_min',
+            '15',
+            '-sc_threshold',
+            '0',
             ...(info.hasAudio ? ['-c:a', 'aac', '-b:a', '128k', '-ac', '2'] : ['-an']),
-            '-movflags', '+faststart', '-f', 'mp4', tmp,
+            '-movflags',
+            '+faststart',
+            '-f',
+            'mp4',
+            tmp,
           ],
         });
         await fs.promises.rename(tmp, out);

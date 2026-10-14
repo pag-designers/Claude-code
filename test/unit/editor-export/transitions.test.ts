@@ -1,7 +1,16 @@
 /** All 12 transition types: export frames at p = 0 .25 .5 .75 1 vs the evaluator (transitionOps) reference. */
 import { describe, expect, it, vi } from 'vitest';
 import { A, TR, std } from './fixtures';
-import { exportProject, files, frameAt, haveFfmpeg, makeProject, settingsFor, track, vitem } from './helpers';
+import {
+  exportProject,
+  files,
+  frameAt,
+  haveFfmpeg,
+  makeProject,
+  settingsFor,
+  track,
+  vitem,
+} from './helpers';
 import { parity } from './parity';
 
 vi.setConfig({ testTimeout: 60_000 });
@@ -11,13 +20,35 @@ const { specs, sources } = std();
 const P = (k: number) => 15 + Math.round(k * 15); // frame of progress k ∈ {0,.25,.5,.75,1}
 const FRAMES = [0, 0.25, 0.5, 0.75, 1].map(P).map((f) => (f > 30 ? 30 : f));
 
-const build = (type: string, over: Record<string, unknown> = {}, fromOver: Record<string, unknown> = {}) =>
+const build = (
+  type: string,
+  over: Record<string, unknown> = {},
+  fromOver: Record<string, unknown> = {},
+) =>
   makeProject(
-    [track('video', [vitem('a', 'q', 0, 1, fromOver), vitem('b', 'r', 0.5, 1, { transitionIn: { type, durationSec: 0.5 }, ...over })])],
+    [
+      track('video', [
+        vitem('a', 'q', 0, 1, fromOver),
+        vitem('b', 'r', 0.5, 1, { transitionIn: { type, durationSec: 0.5 }, ...over }),
+      ]),
+    ],
     specs,
   );
 
-const TYPES = ['cut', 'crossfade', 'dip-black', 'dip-white', 'slide-left', 'slide-right', 'slide-up', 'slide-down', 'zoom', 'blur', 'whip-pan', 'glitch'] as const;
+const TYPES = [
+  'cut',
+  'crossfade',
+  'dip-black',
+  'dip-white',
+  'slide-left',
+  'slide-right',
+  'slide-up',
+  'slide-down',
+  'zoom',
+  'blur',
+  'whip-pan',
+  'glitch',
+] as const;
 
 describe.skipIf(!haveFfmpeg)('transitions: 12 types at p = 0, .25, .5, .75, 1', () => {
   for (const type of TYPES) {
@@ -25,7 +56,11 @@ describe.skipIf(!haveFfmpeg)('transitions: 12 types at p = 0, .25, .5, .75, 1', 
       const p = build(type);
       // blur / whip-pan blur the layers (the flat-colour reference has no blur): compare away from the seams only
       const blurry = type === 'blur' || type === 'whip-pan';
-      const r = await parity(p, specs, sources, { frames: FRAMES, name: `tr-${type}`, edge: blurry ? 24 : 5 });
+      const r = await parity(p, specs, sources, {
+        frames: FRAMES,
+        name: `tr-${type}`,
+        edge: blurry ? 24 : 5,
+      });
       expect(r.rows.length).toBeGreaterThan(10);
       expect(r.maxErr, r.worst).toBeLessThan(blurry ? 40 : 12);
     });
@@ -33,7 +68,8 @@ describe.skipIf(!haveFfmpeg)('transitions: 12 types at p = 0, .25, .5, .75, 1', 
 });
 
 describe.skipIf(!haveFfmpeg)('transitions: specific frames', () => {
-  const run = async (type: string, name: string) => exportProject(build(type), files(specs), settingsFor(160, 284), { name });
+  const run = async (type: string, name: string) =>
+    exportProject(build(type), files(specs), settingsFor(160, 284), { name });
 
   it('crossfade p = 0.5 is the 50/50 mix of both pictures', async () => {
     const r = await run('crossfade', 'x50');
@@ -96,16 +132,30 @@ describe.skipIf(!haveFfmpeg)('transitions: specific frames', () => {
 
   it('transition ops come after the item transform (scale about the canvas centre)', async () => {
     const p = build('zoom', {}, { transform: TR({ x: A(40) }) });
-    const r = await parity(p, specs, sources, { frames: [0, 20, 26], name: 'tr-after-xf', edge: 5 });
+    const r = await parity(p, specs, sources, {
+      frames: [0, 20, 26],
+      name: 'tr-after-xf',
+      edge: 5,
+    });
     expect(r.maxErr, r.worst).toBeLessThan(12);
   });
 
   it('three items, two transitions in a row', async () => {
     const p = makeProject(
-      [track('video', [vitem('a', 'r', 0, 1), vitem('b', 'g', 0.8, 1, { transitionIn: { type: 'crossfade', durationSec: 0.2 } }), vitem('c', 'b', 1.6, 1, { transitionIn: { type: 'slide-left', durationSec: 0.2 } })])],
+      [
+        track('video', [
+          vitem('a', 'r', 0, 1),
+          vitem('b', 'g', 0.8, 1, { transitionIn: { type: 'crossfade', durationSec: 0.2 } }),
+          vitem('c', 'b', 1.6, 1, { transitionIn: { type: 'slide-left', durationSec: 0.2 } }),
+        ]),
+      ],
       specs,
     );
-    const r = await parity(p, specs, sources, { frames: [5, 25, 27, 30, 40, 50, 53], name: 'tr-chain', edge: 5 });
+    const r = await parity(p, specs, sources, {
+      frames: [5, 25, 27, 30, 40, 50, 53],
+      name: 'tr-chain',
+      edge: 5,
+    });
     expect(r.maxErr, r.worst).toBeLessThan(12);
   });
 
@@ -113,11 +163,21 @@ describe.skipIf(!haveFfmpeg)('transitions: specific frames', () => {
     const p = makeProject(
       [
         track('video', [vitem('bg', 'g', 0, 1.5)]),
-        track('overlay', [vitem('a', 'q', 0, 1, { transform: TR({ scale: A(0.5) }) }), vitem('b', 'r', 0.5, 1, { transform: TR({ scale: A(0.5) }), transitionIn: { type: 'crossfade', durationSec: 0.5 } })]),
+        track('overlay', [
+          vitem('a', 'q', 0, 1, { transform: TR({ scale: A(0.5) }) }),
+          vitem('b', 'r', 0.5, 1, {
+            transform: TR({ scale: A(0.5) }),
+            transitionIn: { type: 'crossfade', durationSec: 0.5 },
+          }),
+        ]),
       ],
       specs,
     );
-    const r = await parity(p, specs, sources, { frames: [3, 18, 22, 29, 36], name: 'tr-overlay', edge: 5 });
+    const r = await parity(p, specs, sources, {
+      frames: [3, 18, 22, 29, 36],
+      name: 'tr-overlay',
+      edge: 5,
+    });
     expect(r.maxErr, r.worst).toBeLessThan(12);
   });
 });

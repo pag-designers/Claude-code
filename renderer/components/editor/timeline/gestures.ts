@@ -514,7 +514,9 @@ export function createGestures(getScroller: () => HTMLDivElement | null): Gestur
           edge: trimEl.dataset.trim === 'end' ? 'end' : 'start',
           item,
           asset,
-          grab: secAt(e.clientX) - (trimEl.dataset.trim === 'end' ? item.startSec + item.durationSec : item.startSec),
+          grab:
+            secAt(e.clientX) -
+            (trimEl.dataset.trim === 'end' ? item.startSec + item.durationSec : item.startSec),
           result: null,
           mods,
         },

@@ -49,14 +49,24 @@ export function ff(args: string[], opts: { maxBuffer?: number } = {}): Buffer {
   const r = spawnSync(FFMPEG, ['-hide_banner', '-nostdin', '-v', 'error', '-y', ...args], {
     maxBuffer: opts.maxBuffer ?? 1 << 28,
   });
-  if (r.status !== 0) throw new Error(`ffmpeg failed: ${r.stderr.toString()}\nargs: ${args.join(' ')}`);
+  if (r.status !== 0)
+    throw new Error(`ffmpeg failed: ${r.stderr.toString()}\nargs: ${args.join(' ')}`);
   return r.stdout;
 }
 
 /* ------------------------------------------------------------------ synthetic media ------------ */
 
 const cache = new Map<string, string>();
-const BT709 = ['-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv'];
+const BT709 = [
+  '-colorspace',
+  'bt709',
+  '-color_primaries',
+  'bt709',
+  '-color_trc',
+  'bt709',
+  '-color_range',
+  'tv',
+];
 const TO_YUV = 'format=rgb24,scale=out_color_matrix=bt709:out_range=tv,format=yuv420p';
 
 function memo(key: string, make: (out: string) => void): string {
@@ -72,8 +82,20 @@ function memo(key: string, make: (out: string) => void): string {
 export function flatClip(color: string, dur: number, w = 160, h = 284, fps = 30): string {
   return memo(`flat-${color}-${dur}-${w}x${h}-${fps}`, (out) =>
     ff([
-      '-f', 'lavfi', '-i', `color=c=0x${color}:s=${w}x${h}:r=${fps}:d=${dur}`,
-      '-vf', TO_YUV, ...BT709, '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '10', out,
+      '-f',
+      'lavfi',
+      '-i',
+      `color=c=0x${color}:s=${w}x${h}:r=${fps}:d=${dur}`,
+      '-vf',
+      TO_YUV,
+      ...BT709,
+      '-c:v',
+      'libx264',
+      '-preset',
+      'ultrafast',
+      '-crf',
+      '10',
+      out,
     ]),
   );
 }
@@ -82,10 +104,20 @@ export function flatClip(color: string, dur: number, w = 160, h = 284, fps = 30)
 export function quadClip(dur: number, w = 160, h = 284, fps = 30): string {
   return memo(`quad-${dur}-${w}x${h}-${fps}`, (out) =>
     ff([
-      '-f', 'lavfi', '-i', `color=c=black:s=${w}x${h}:r=${fps}:d=${dur}`,
+      '-f',
+      'lavfi',
+      '-i',
+      `color=c=black:s=${w}x${h}:r=${fps}:d=${dur}`,
       '-vf',
       `drawbox=x=0:y=0:w=${w / 2}:h=${h / 2}:color=0xFF0000:t=fill,drawbox=x=${w / 2}:y=0:w=${w / 2}:h=${h / 2}:color=0x00FF00:t=fill,drawbox=x=0:y=${h / 2}:w=${w / 2}:h=${h / 2}:color=0x0000FF:t=fill,drawbox=x=${w / 2}:y=${h / 2}:w=${w / 2}:h=${h / 2}:color=0xFFFF00:t=fill,${TO_YUV}`,
-      ...BT709, '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '10', out,
+      ...BT709,
+      '-c:v',
+      'libx264',
+      '-preset',
+      'ultrafast',
+      '-crf',
+      '10',
+      out,
     ]),
   );
 }
@@ -94,9 +126,20 @@ export function quadClip(dur: number, w = 160, h = 284, fps = 30): string {
 export function indexClip(frames: number, fps = 30, w = 32, h = 32): string {
   return memo(`idx2-${frames}-${fps}-${w}x${h}`, (out) =>
     ff([
-      '-f', 'lavfi', '-i', `color=c=black:s=${w}x${h}:r=${fps}:d=${frames / fps + 0.001}`,
-      '-vf', `format=gbrp,geq=r='mod(N,16)*16+8':g='floor(N/16)*16+8':b=128,scale=out_color_matrix=bt709:out_range=tv,format=yuv420p`,
-      ...BT709, '-c:v', 'libx264', '-qp', '0', '-preset', 'ultrafast', out,
+      '-f',
+      'lavfi',
+      '-i',
+      `color=c=black:s=${w}x${h}:r=${fps}:d=${frames / fps + 0.001}`,
+      '-vf',
+      `format=gbrp,geq=r='mod(N,16)*16+8':g='floor(N/16)*16+8':b=128,scale=out_color_matrix=bt709:out_range=tv,format=yuv420p`,
+      ...BT709,
+      '-c:v',
+      'libx264',
+      '-qp',
+      '0',
+      '-preset',
+      'ultrafast',
+      out,
     ]),
   );
 }
@@ -104,9 +147,13 @@ export function indexClip(frames: number, fps = 30, w = 32, h = 32): string {
 /** Source frame indices shown by every frame of an `indexClip`-based export (-1 for black / no picture). */
 export function frameLevels(file: string): number[] {
   const out = ff([
-    '-i', file,
-    '-vf', 'scale=1:1:flags=area:in_color_matrix=bt709:in_range=tv:out_range=pc,format=rgb24',
-    '-f', 'rawvideo', '-',
+    '-i',
+    file,
+    '-vf',
+    'scale=1:1:flags=area:in_color_matrix=bt709:in_range=tv:out_range=pc,format=rgb24',
+    '-f',
+    'rawvideo',
+    '-',
   ]);
   const res: number[] = [];
   for (let i = 0; i + 2 < out.length; i += 3) {
@@ -124,22 +171,58 @@ export function sineWav(freq: number, dur: number, amp = 0.5, rate = 48000, ch =
   const hit = cache.get(key);
   if (hit) return hit;
   const out = path.join(tmp('media'), `${key}.wav`);
-  ff(['-f', 'lavfi', '-i', `sine=f=${freq}:r=${rate}:d=${dur}`, '-af', `volume=${amp * 8},aformat=channel_layouts=${ch === 1 ? 'mono' : 'stereo'}`, out]);
+  ff([
+    '-f',
+    'lavfi',
+    '-i',
+    `sine=f=${freq}:r=${rate}:d=${dur}`,
+    '-af',
+    `volume=${amp * 8},aformat=channel_layouts=${ch === 1 ? 'mono' : 'stereo'}`,
+    out,
+  ]);
   cache.set(key, out);
   return out;
 }
 
 /** Video with a sine audio track. */
-export function avClip(color: string, freq: number, dur: number, amp = 0.5, w = 160, h = 284): string {
+export function avClip(
+  color: string,
+  freq: number,
+  dur: number,
+  amp = 0.5,
+  w = 160,
+  h = 284,
+): string {
   const key = `av-${color}-${freq}-${dur}-${amp}-${w}x${h}`;
   const hit = cache.get(key);
   if (hit) return hit;
   const out = path.join(tmp('media'), `${key}.mp4`);
   ff([
-    '-f', 'lavfi', '-i', `color=c=0x${color}:s=${w}x${h}:r=30:d=${dur}`,
-    '-f', 'lavfi', '-i', `sine=f=${freq}:r=48000:d=${dur}`,
-    '-vf', TO_YUV, '-af', `volume=${amp * 8}`, ...BT709,
-    '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '10', '-c:a', 'aac', '-b:a', '192k', '-shortest', out,
+    '-f',
+    'lavfi',
+    '-i',
+    `color=c=0x${color}:s=${w}x${h}:r=30:d=${dur}`,
+    '-f',
+    'lavfi',
+    '-i',
+    `sine=f=${freq}:r=48000:d=${dur}`,
+    '-vf',
+    TO_YUV,
+    '-af',
+    `volume=${amp * 8}`,
+    ...BT709,
+    '-c:v',
+    'libx264',
+    '-preset',
+    'ultrafast',
+    '-crf',
+    '10',
+    '-c:a',
+    'aac',
+    '-b:a',
+    '192k',
+    '-shortest',
+    out,
   ]);
   cache.set(key, out);
   return out;
@@ -221,7 +304,11 @@ export function track(kind: Track['kind'], items: AnyItem[], over: Partial<Track
   } as Track;
 }
 
-export const kf = (t: number, v: number, ease: 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out' | 'hold' = 'linear') => ({ t, v, ease });
+export const kf = (
+  t: number,
+  v: number,
+  ease: 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out' | 'hold' = 'linear',
+) => ({ t, v, ease });
 
 export function makeProject(
   tracks: Track[],
@@ -229,7 +316,14 @@ export function makeProject(
   canvas: Partial<Project['canvas']> = {},
 ): Project {
   return projectSchema.parse({
-    canvas: { aspect: 'custom', width: 160, height: 284, fps: 30, background: '#000000', ...canvas },
+    canvas: {
+      aspect: 'custom',
+      width: 160,
+      height: 284,
+      fps: 30,
+      background: '#000000',
+      ...canvas,
+    },
     tracks: tracks.map((t) => ({
       ...t,
       items: t.items.map((i) => ({ ...(i as unknown as AnyItem) })),
@@ -238,13 +332,30 @@ export function makeProject(
   });
 }
 
-export function vitem(id: string, assetId: string, startSec: number, durationSec: number, over: AnyItem = {}): AnyItem {
+export function vitem(
+  id: string,
+  assetId: string,
+  startSec: number,
+  durationSec: number,
+  over: AnyItem = {},
+): AnyItem {
   return { type: 'video', id, assetId, startSec, durationSec, ...over };
 }
 
-export function settingsFor(w: number, h: number, over: Partial<ExportSettings> = {}): ExportSettings {
+export function settingsFor(
+  w: number,
+  h: number,
+  over: Partial<ExportSettings> = {},
+): ExportSettings {
   return exportSettingsSchema.parse({
-    preset: 'custom', width: w, height: h, fps: 30, quality: 100, loudnessLufs: null, burnCaptions: true, ...over,
+    preset: 'custom',
+    width: w,
+    height: h,
+    fps: 30,
+    quality: 100,
+    loudnessLufs: null,
+    burnCaptions: true,
+    ...over,
   });
 }
 
@@ -255,7 +366,8 @@ function FONT_DIR_OR_NULL(): string | null {
   return fs.existsSync(FONTS_DIR) ? FONTS_DIR : null;
 }
 const styleMap = new Map<string, CaptionStyle>(builtinStyles().map((s) => [s.id, s]));
-export const getStyle = (id: string): CaptionStyle => styleMap.get(id) ?? (styleMap.get('clean-pop') as CaptionStyle);
+export const getStyle = (id: string): CaptionStyle =>
+  styleMap.get(id) ?? (styleMap.get('clean-pop') as CaptionStyle);
 
 export interface RunResult {
   out: string;
@@ -283,21 +395,43 @@ export async function exportProject(
 ): Promise<RunResult> {
   const dir = tmp(`export-${extra.name ?? 'x'}-${runSeq++}`);
   const out = path.join(dir, 'out.mp4');
-  const compiler = createExportCompiler({ ffmpegPath: FFMPEG, measureLoudness: extra.measureLoudness ?? true });
+  const compiler = createExportCompiler({
+    ffmpegPath: FFMPEG,
+    measureLoudness: extra.measureLoudness ?? true,
+  });
   const t0 = Date.now();
   const c = await compiler.compile({
-    project, settings, files: fileMap, workDir: dir, outPath: out, fontsDir: FONTS_DIR,
-    encoder: extra.encoder ?? 'libx264', range: extra.range, getStyle, captions,
+    project,
+    settings,
+    files: fileMap,
+    workDir: dir,
+    outPath: out,
+    fontsDir: FONTS_DIR,
+    encoder: extra.encoder ?? 'libx264',
+    range: extra.range,
+    getStyle,
+    captions,
   });
   if (extra.run !== false) {
     const r = spawnSync(FFMPEG, c.args, { maxBuffer: 1 << 28 });
     if (r.status !== 0) {
-      throw new Error(`export failed (${r.status}): ${r.stderr.toString().slice(-3000)}\nnotes: ${c.notes.join(' | ')}`);
+      throw new Error(
+        `export failed (${r.status}): ${r.stderr.toString().slice(-3000)}\nnotes: ${c.notes.join(' | ')}`,
+      );
     }
   }
   const graphIdx = c.args.indexOf('-filter_complex_script');
   const graph = graphIdx >= 0 ? fs.readFileSync(c.args[graphIdx + 1] as string, 'utf8') : '';
-  return { out, args: c.args, graph, notes: c.notes, srt: c.srt, vtt: c.vtt, durationSec: c.durationSec, ms: Date.now() - t0 };
+  return {
+    out,
+    args: c.args,
+    graph,
+    notes: c.notes,
+    srt: c.srt,
+    vtt: c.vtt,
+    durationSec: c.durationSec,
+    ms: Date.now() - t0,
+  };
 }
 
 /* ------------------------------------------------------------------ decode -------------------- */
@@ -309,48 +443,106 @@ export interface Frame {
   px(x: number, y: number): [number, number, number];
 }
 
-export function probeDims(file: string): { w: number; h: number; frames: number; dur: number; fps: number } {
+export function probeDims(file: string): {
+  w: number;
+  h: number;
+  frames: number;
+  dur: number;
+  fps: number;
+} {
   const out = execFileSync(FFPROBE, [
-    '-v', 'error', '-select_streams', 'v:0', '-count_frames', '-show_entries',
-    'stream=width,height,nb_read_frames,r_frame_rate,duration', '-of', 'json', file,
+    '-v',
+    'error',
+    '-select_streams',
+    'v:0',
+    '-count_frames',
+    '-show_entries',
+    'stream=width,height,nb_read_frames,r_frame_rate,duration',
+    '-of',
+    'json',
+    file,
   ]).toString();
-  const s = (JSON.parse(out) as { streams: { width: number; height: number; nb_read_frames: string; r_frame_rate: string; duration: string }[] }).streams[0];
+  const s = (
+    JSON.parse(out) as {
+      streams: {
+        width: number;
+        height: number;
+        nb_read_frames: string;
+        r_frame_rate: string;
+        duration: string;
+      }[];
+    }
+  ).streams[0];
   if (!s) throw new Error('no video stream');
   const [a, b] = s.r_frame_rate.split('/').map(Number) as [number, number];
-  return { w: s.width, h: s.height, frames: Number(s.nb_read_frames), dur: Number(s.duration), fps: a / b };
+  return {
+    w: s.width,
+    h: s.height,
+    frames: Number(s.nb_read_frames),
+    dur: Number(s.duration),
+    fps: a / b,
+  };
 }
 
 /** Frame number k decoded to RGB (BT.709 limited → full). */
 export function frameAt(file: string, k: number): Frame {
   const { w, h } = probeDims(file);
   const rgb = ff([
-    '-i', file,
-    '-vf', `select=eq(n\\,${k}),scale=in_color_matrix=bt709:in_range=tv:out_range=pc:flags=accurate_rnd+full_chroma_int,format=rgb24`,
-    '-frames:v', '1', '-f', 'rawvideo', '-',
+    '-i',
+    file,
+    '-vf',
+    `select=eq(n\\,${k}),scale=in_color_matrix=bt709:in_range=tv:out_range=pc:flags=accurate_rnd+full_chroma_int,format=rgb24`,
+    '-frames:v',
+    '1',
+    '-f',
+    'rawvideo',
+    '-',
   ]);
   if (rgb.length < w * h * 3) throw new Error(`frame ${k} not found in ${file}`);
-  return { w, h, rgb, px: (x, y) => { const o = (Math.round(y) * w + Math.round(x)) * 3; return [rgb[o] as number, rgb[o + 1] as number, rgb[o + 2] as number]; } };
+  return {
+    w,
+    h,
+    rgb,
+    px: (x, y) => {
+      const o = (Math.round(y) * w + Math.round(x)) * 3;
+      return [rgb[o] as number, rgb[o + 1] as number, rgb[o + 2] as number];
+    },
+  };
 }
 
 /** All frames as RGB buffers (small clips only). */
 export function allFrames(file: string): Frame[] {
   const { w, h } = probeDims(file);
   const rgb = ff([
-    '-i', file,
-    '-vf', 'scale=in_color_matrix=bt709:in_range=tv:out_range=pc:flags=accurate_rnd+full_chroma_int,format=rgb24',
-    '-f', 'rawvideo', '-',
+    '-i',
+    file,
+    '-vf',
+    'scale=in_color_matrix=bt709:in_range=tv:out_range=pc:flags=accurate_rnd+full_chroma_int,format=rgb24',
+    '-f',
+    'rawvideo',
+    '-',
   ]);
   const n = Math.floor(rgb.length / (w * h * 3));
   const out: Frame[] = [];
   for (let k = 0; k < n; k++) {
     const buf = rgb.subarray(k * w * h * 3, (k + 1) * w * h * 3);
-    out.push({ w, h, rgb: buf, px: (x, y) => { const o = (Math.round(y) * w + Math.round(x)) * 3; return [buf[o] as number, buf[o + 1] as number, buf[o + 2] as number]; } });
+    out.push({
+      w,
+      h,
+      rgb: buf,
+      px: (x, y) => {
+        const o = (Math.round(y) * w + Math.round(x)) * 3;
+        return [buf[o] as number, buf[o + 1] as number, buf[o + 2] as number];
+      },
+    });
   }
   return out;
 }
 
 export const hexRgb = (hex: string): [number, number, number] => [
-  parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16),
+  parseInt(hex.slice(1, 3), 16),
+  parseInt(hex.slice(3, 5), 16),
+  parseInt(hex.slice(5, 7), 16),
 ];
 
 export function near(a: readonly number[], b: readonly number[], tol: number): boolean {
@@ -367,11 +559,22 @@ export function savePng(file: string, k: number, out: string): void {
 }
 
 /** Contact sheet (tile) of every `step`-th frame. */
-export function contactSheet(file: string, out: string, cols: number, rows: number, step: number, scaleW = 120): void {
+export function contactSheet(
+  file: string,
+  out: string,
+  cols: number,
+  rows: number,
+  step: number,
+  scaleW = 120,
+): void {
   ff([
-    '-i', file,
-    '-vf', `select='not(mod(n\\,${step}))',scale=${scaleW}:-1,tile=${cols}x${rows}:padding=2:color=gray`,
-    '-frames:v', '1', out,
+    '-i',
+    file,
+    '-vf',
+    `select='not(mod(n\\,${step}))',scale=${scaleW}:-1,tile=${cols}x${rows}:padding=2:color=gray`,
+    '-frames:v',
+    '1',
+    out,
   ]);
 }
 
@@ -382,7 +585,10 @@ export { os };
 export function decodeAudio(file: string): { rate: number; data: Float32Array } {
   const buf = ff(['-i', file, '-vn', '-ac', '1', '-ar', '48000', '-f', 'f32le', '-']);
   const copy = Buffer.from(buf);
-  return { rate: 48000, data: new Float32Array(copy.buffer, copy.byteOffset, Math.floor(copy.length / 4)) };
+  return {
+    rate: 48000,
+    data: new Float32Array(copy.buffer, copy.byteOffset, Math.floor(copy.length / 4)),
+  };
 }
 
 export function rmsDb(a: { rate: number; data: Float32Array }, t0: number, t1: number): number {
@@ -399,7 +605,8 @@ export function zcr(a: { rate: number; data: Float32Array }, t0: number, t1: num
   const i0 = Math.max(1, Math.floor(t0 * a.rate));
   const i1 = Math.min(a.data.length, Math.floor(t1 * a.rate));
   let z = 0;
-  for (let i = i0; i < i1; i++) if (((a.data[i - 1] as number) < 0) !== ((a.data[i] as number) < 0)) z++;
+  for (let i = i0; i < i1; i++)
+    if ((a.data[i - 1] as number) < 0 !== (a.data[i] as number) < 0) z++;
   return z / Math.max(1e-6, (i1 - i0) / a.rate);
 }
 
@@ -426,7 +633,11 @@ export interface Box {
 }
 
 /** Bounding box + count of the pixels matching `pred` (n = 0 → no match). */
-export function bboxWhere(f: Frame, pred: (r: number, g: number, b: number) => boolean, region?: [number, number, number, number]): Box {
+export function bboxWhere(
+  f: Frame,
+  pred: (r: number, g: number, b: number) => boolean,
+  region?: [number, number, number, number],
+): Box {
   const [rx0, ry0, rx1, ry1] = region ?? [0, 0, f.w, f.h];
   let x0 = Infinity;
   let y0 = Infinity;
@@ -446,7 +657,17 @@ export function bboxWhere(f: Frame, pred: (r: number, g: number, b: number) => b
     }
   }
   if (n === 0) return { x0: 0, y0: 0, x1: 0, y1: 0, n: 0, w: 0, h: 0, cx: 0, cy: 0 };
-  return { x0, y0, x1, y1, n, w: x1 - x0 + 1, h: y1 - y0 + 1, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+  return {
+    x0,
+    y0,
+    x1,
+    y1,
+    n,
+    w: x1 - x0 + 1,
+    h: y1 - y0 + 1,
+    cx: (x0 + x1) / 2,
+    cy: (y0 + y1) / 2,
+  };
 }
 
 export const isWhite = (r: number, g: number, b: number): boolean => r > 200 && g > 200 && b > 200;
@@ -458,7 +679,12 @@ export const isMagenta = (r: number, g: number, b: number): boolean => r > 200 &
 export const isDark = (r: number, g: number, b: number): boolean => r + g + b < 90;
 
 /** Power (mean square) of the frequency `f` in [t0, t1) (Goertzel, mono). */
-export function tonePower(a: { rate: number; data: Float32Array }, f: number, t0: number, t1: number): number {
+export function tonePower(
+  a: { rate: number; data: Float32Array },
+  f: number,
+  t0: number,
+  t1: number,
+): number {
   const i0 = Math.max(0, Math.floor(t0 * a.rate));
   const i1 = Math.min(a.data.length, Math.floor(t1 * a.rate));
   const n = i1 - i0;
@@ -477,17 +703,44 @@ export function tonePower(a: { rate: number; data: Float32Array }, f: number, t0
 
 /** Integrated loudness (LUFS) and true peak of a file via ffmpeg ebur128. */
 export function loudness(file: string): { lufs: number; peakDb: number } {
-  const r = spawnSync(FFMPEG, ['-hide_banner', '-nostats', '-i', file, '-af', 'ebur128=peak=true', '-f', 'null', '-'], { encoding: 'utf8' });
+  const r = spawnSync(
+    FFMPEG,
+    ['-hide_banner', '-nostats', '-i', file, '-af', 'ebur128=peak=true', '-f', 'null', '-'],
+    { encoding: 'utf8' },
+  );
   const sum = r.stderr.split('Summary:')[1] ?? '';
   const i = /I:\s+(-?[\d.]+) LUFS/.exec(sum);
   const p = /Peak:\s+(-?[\d.]+) dBFS/.exec(sum);
   return { lufs: i ? Number(i[1]) : NaN, peakDb: p ? Number(p[1]) : NaN };
 }
 
-export function audioStreamInfo(file: string): { codec: string; rate: number; channels: number; dur: number } | null {
-  const out = execFileSync(FFPROBE, ['-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_name,sample_rate,channels,duration', '-of', 'json', file]).toString();
-  const s = (JSON.parse(out) as { streams: { codec_name: string; sample_rate: string; channels: number; duration: string }[] }).streams[0];
-  return s ? { codec: s.codec_name, rate: Number(s.sample_rate), channels: s.channels, dur: Number(s.duration) } : null;
+export function audioStreamInfo(
+  file: string,
+): { codec: string; rate: number; channels: number; dur: number } | null {
+  const out = execFileSync(FFPROBE, [
+    '-v',
+    'error',
+    '-select_streams',
+    'a:0',
+    '-show_entries',
+    'stream=codec_name,sample_rate,channels,duration',
+    '-of',
+    'json',
+    file,
+  ]).toString();
+  const s = (
+    JSON.parse(out) as {
+      streams: { codec_name: string; sample_rate: string; channels: number; duration: string }[];
+    }
+  ).streams[0];
+  return s
+    ? {
+        codec: s.codec_name,
+        rate: Number(s.sample_rate),
+        channels: s.channels,
+        dur: Number(s.duration),
+      }
+    : null;
 }
 
 /** A tone whose amplitude ramps linearly 0 → 1 over its duration (for reverse tests). */
@@ -496,7 +749,15 @@ export function rampTone(freq: number, dur: number): string {
   const hit = cache.get(key);
   if (hit) return hit;
   const out = path.join(tmp('media'), `${key}.wav`);
-  ff(['-f', 'lavfi', '-i', `aevalsrc='sin(2*PI*${freq}*t)*t/${dur}':s=48000:d=${dur}`, '-ac', '1', out]);
+  ff([
+    '-f',
+    'lavfi',
+    '-i',
+    `aevalsrc='sin(2*PI*${freq}*t)*t/${dur}':s=48000:d=${dur}`,
+    '-ac',
+    '1',
+    out,
+  ]);
   cache.set(key, out);
   return out;
 }
@@ -507,7 +768,15 @@ export function twoTone(f1: number, f2: number, dur: number): string {
   const hit = cache.get(key);
   if (hit) return hit;
   const out = path.join(tmp('media'), `${key}.wav`);
-  ff(['-f', 'lavfi', '-i', `aevalsrc='sin(2*PI*if(lt(t\\,${dur / 2})\\,${f1}\\,${f2})*t)':s=48000:d=${dur}`, '-ac', '1', out]);
+  ff([
+    '-f',
+    'lavfi',
+    '-i',
+    `aevalsrc='sin(2*PI*if(lt(t\\,${dur / 2})\\,${f1}\\,${f2})*t)':s=48000:d=${dur}`,
+    '-ac',
+    '1',
+    out,
+  ]);
   cache.set(key, out);
   return out;
 }
@@ -518,7 +787,15 @@ export function toneThenNoise(): string {
   const hit = cache.get(key);
   if (hit) return hit;
   const out = path.join(tmp('media'), `${key}.wav`);
-  ff(['-f', 'lavfi', '-i', `aevalsrc='if(lt(t\\,1)\\,0.5*sin(2*PI*440*t)\\,0.0015*(random(0)-0.5)*2)':s=48000:d=2`, '-ac', '1', out]);
+  ff([
+    '-f',
+    'lavfi',
+    '-i',
+    `aevalsrc='if(lt(t\\,1)\\,0.5*sin(2*PI*440*t)\\,0.0015*(random(0)-0.5)*2)':s=48000:d=2`,
+    '-ac',
+    '1',
+    out,
+  ]);
   cache.set(key, out);
   return out;
 }

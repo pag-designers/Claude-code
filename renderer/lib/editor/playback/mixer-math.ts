@@ -1,10 +1,19 @@
-import type { Asset, AudioItem, Ducking, Project, Track, VideoItem } from '@shared/editor';
+import type {
+  Asset,
+  AudioItem,
+  Ducking,
+  Project,
+  Track,
+  TransitionType,
+  VideoItem,
+} from '@shared/editor';
 import {
   duckBreakpoints,
   duckGainAt,
   isActive,
   itemEnd,
   itemGainAt,
+  transitionAudioGains,
   makeSourceOffset,
   sourceSpan,
   speedAt,
@@ -22,7 +31,62 @@ export interface AudioEntry {
   item: MediaItem;
   track: Track;
   asset: Asset;
+  /** Transition overlaps this item takes part in (audio crossfade, see `transitionWindows`). */
+  xfades: Crossfade[];
 }
+
+/**
+ * One transition overlap seen from one of its two items. The later item carries `transitionIn`; the overlap runs from its
+ * start to the end of the earlier item, and the progress p = (t − start) / dur (dur = the transition's duration, capped by
+ * the overlap). Audio follows `transitionAudioGains` (a linear crossfade; a 'cut' overlap mutes the outgoing item) — the
+ * same rule the exporter uses.
+ */
+export interface Crossfade {
+  role: 'from' | 'to';
+  type: TransitionType;
+  /** Timeline seconds. */
+  start: number;
+  end: number;
+  dur: number;
+}
+
+/** Transition overlaps of a track, keyed by item id (each overlap yields a 'from' entry and a 'to' entry). */
+export function transitionWindows(track: Pick<Track, 'items'>): Map<string, Crossfade[]> {
+  const out = new Map<string, Crossfade[]>();
+  const push = (id: string, cf: Crossfade) => {
+    const l = out.get(id);
+    if (l) l.push(cf);
+    else out.set(id, [cf]);
+  };
+  for (const to of track.items) {
+    const tin = 'transitionIn' in to ? to.transitionIn : null;
+    if (!tin) continue;
+    let from: (typeof track.items)[number] | null = null;
+    for (const c of track.items) {
+      if (c === to || c.startSec >= to.startSec || itemEnd(c) <= to.startSec + 1e-6) continue;
+      if (!from || c.startSec > from.startSec) from = c;
+    }
+    if (!from) continue;
+    const end = Math.min(itemEnd(from), itemEnd(to));
+    const overlap = end - to.startSec;
+    if (overlap <= 1e-6) continue;
+    const dur = tin.type === 'cut' ? overlap : Math.min(tin.durationSec, overlap);
+    const base = { type: tin.type, start: to.startSec, end, dur };
+    push(from.id, { ...base, role: 'from' });
+    push(to.id, { ...base, role: 'to' });
+  }
+  return out;
+}
+
+/** Audio gain multiplier of one crossfade at timeline time t (1 outside the overlap). */
+export function crossfadeGain(cf: Crossfade, t: number): number {
+  if (t < cf.start || t >= cf.end) return 1;
+  const p = cf.dur > 1e-9 ? Math.min(1, Math.max(0, (t - cf.start) / cf.dur)) : 1;
+  return transitionAudioGains(cf.type, p)[cf.role];
+}
+
+export const crossfadeMult = (cfs: readonly Crossfade[], t: number): number =>
+  cfs.reduce((m, cf) => m * crossfadeGain(cf, t), 1);
 
 /** Linear media gain of a track: mute / hidden → 0, otherwise `track.gain`. */
 export const trackLevel = (track: Pick<Track, 'muted' | 'hidden' | 'gain'>): number =>
@@ -37,6 +101,7 @@ export function audioEntries(project: Pick<Project, 'tracks' | 'assets'>): Audio
   const out: AudioEntry[] = [];
   for (const track of project.tracks) {
     if (trackLevel(track) <= 0) continue;
+    const windows = transitionWindows(track);
     for (const item of track.items) {
       if (item.type !== 'video' && item.type !== 'audio') continue;
       if (item.freezeAtSec !== null) continue;
@@ -44,7 +109,7 @@ export function audioEntries(project: Pick<Project, 'tracks' | 'assets'>): Audio
       if (!asset) continue;
       if (item.type === 'video' && (!item.audioEnabled || !asset.hasAudio)) continue;
       if (item.type === 'audio' && asset.kind === 'image') continue;
-      out.push({ item, track, asset });
+      out.push({ item, track, asset, xfades: windows.get(item.id) ?? [] });
     }
   }
   return out;
@@ -84,15 +149,20 @@ export interface Point {
 const GAIN_TOL = 2e-3;
 
 /**
- * Piecewise-linear approximation of `itemGainAt` over item-local [from, to]. Kinks (keyframes, fade ends) are exact
+ * Piecewise-linear approximation of `itemGainAt` × the transition crossfade gain over item-local [from, to]. Kinks (keyframes, fade ends) are exact
  * breakpoints; spans between them are bisected until the midpoint is within 2e-3 of the chord, so eased keyframes and the
  * product of a ramp with a fade stay accurate.
  */
-export function itemGainPoints(item: MediaItem, from: number, to: number): Point[] {
+export function itemGainPoints(
+  item: MediaItem,
+  from: number,
+  to: number,
+  xfades: readonly Crossfade[] = [],
+): Point[] {
   const lo = Math.max(0, from);
   const hi = Math.min(item.durationSec, to);
   if (hi < lo) return [];
-  const g = (tl: number) => itemGainAt(item, tl);
+  const g = (tl: number) => itemGainAt(item, tl) * crossfadeMult(xfades, item.startSec + tl);
   const cand = new Set<number>([lo, hi]);
   const add = (t: number) => {
     if (t > lo && t < hi) cand.add(Math.round(t * 1e6) / 1e6);
@@ -103,6 +173,11 @@ export function itemGainPoints(item: MediaItem, from: number, to: number): Point
   }
   if (item.fadeInSec > 0) add(item.fadeInSec);
   if (item.fadeOutSec > 0) add(item.durationSec - item.fadeOutSec);
+  for (const cf of xfades) {
+    // kinks of the crossfade ramp; a 'cut' overlap is a near-instant step
+    for (const t of [cf.start, cf.start + cf.dur, cf.end]) add(t - item.startSec);
+    if (cf.type === 'cut') add(cf.start - item.startSec - 0.001);
+  }
   const times = [...cand].sort((a, b) => a - b);
   const out: Point[] = [{ t: times[0] as number, v: g(times[0] as number) }];
   const refine = (a: number, b: number, ga: number, gb: number, depth: number) => {
@@ -276,10 +351,15 @@ export function grainEnvelope(peak: number, durSec = 0.08): Point[] {
   ];
 }
 
-/** Product used for the debug "expected" gain of an item: volume × fades × track level × duck. */
+/** Product used for the debug "expected" gain of an item: volume × fades × transition crossfade × track level × duck. */
 export function expectedGain(entry: AudioEntry, ranges: readonly TimeRange[], t: number): number {
   const { item, track } = entry;
   const tl = t - item.startSec;
   if (tl < 0 || tl > item.durationSec) return 0;
-  return itemGainAt(item, tl) * trackLevel(track) * duckGainAt(ranges, track.ducking, t);
+  return (
+    itemGainAt(item, tl) *
+    crossfadeMult(entry.xfades, t) *
+    trackLevel(track) *
+    duckGainAt(ranges, track.ducking, t)
+  );
 }

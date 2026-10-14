@@ -3,7 +3,16 @@ import path from 'node:path';
 import { ff, flatClip, quadClip, tmp, type AssetSpec } from './helpers';
 import { flat, quad, type RefSource } from './reference';
 
-const BT709 = ['-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv'];
+const BT709 = [
+  '-colorspace',
+  'bt709',
+  '-color_primaries',
+  'bt709',
+  '-color_trc',
+  'bt709',
+  '-color_range',
+  'tv',
+];
 
 let wideCache: string | null = null;
 /** 320x180 quadrant clip (landscape). */
@@ -11,10 +20,20 @@ export function wideQuad(): string {
   if (wideCache) return wideCache;
   const out = path.join(tmp('media'), 'quadwide.mp4');
   ff([
-    '-f', 'lavfi', '-i', 'color=c=black:s=320x180:r=30:d=3',
+    '-f',
+    'lavfi',
+    '-i',
+    'color=c=black:s=320x180:r=30:d=3',
     '-vf',
     'drawbox=x=0:y=0:w=160:h=90:color=0xFF0000:t=fill,drawbox=x=160:y=0:w=160:h=90:color=0x00FF00:t=fill,drawbox=x=0:y=90:w=160:h=90:color=0x0000FF:t=fill,drawbox=x=160:y=90:w=160:h=90:color=0xFFFF00:t=fill,format=rgb24,scale=out_color_matrix=bt709:out_range=tv,format=yuv420p',
-    ...BT709, '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '10', out,
+    ...BT709,
+    '-c:v',
+    'libx264',
+    '-preset',
+    'ultrafast',
+    '-crf',
+    '10',
+    out,
   ]);
   wideCache = out;
   return out;
@@ -27,7 +46,15 @@ export interface Std {
 
 /** q = portrait quadrants, w = wide quadrants, r/g/b/o/y = flat colours, all 3 s long. */
 export function std(): Std {
-  const mk = (id: string, p: string, w: number, h: number, dur = 3): AssetSpec => ({ id, kind: 'video', path: p, w, h, fps: 30, dur });
+  const mk = (id: string, p: string, w: number, h: number, dur = 3): AssetSpec => ({
+    id,
+    kind: 'video',
+    path: p,
+    w,
+    h,
+    fps: 30,
+    dur,
+  });
   const specs: AssetSpec[] = [
     mk('q', quadClip(3), 160, 284),
     mk('w', wideQuad(), 320, 180),

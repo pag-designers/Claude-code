@@ -154,9 +154,11 @@ function ProjectCard({
             </span>
           )}
         </div>
-        <span className="absolute bottom-2 right-2 rounded-md bg-black/60 px-1.5 py-0.5 text-2xs font-semibold tabular-nums text-white backdrop-blur-sm">
-          {formatClock(project.durationSec)}
-        </span>
+        {project.durationSec > 0 ? (
+          <span className="absolute bottom-2 right-2 rounded-md bg-black/60 px-1.5 py-0.5 text-2xs font-semibold tabular-nums text-white backdrop-blur-sm">
+            {formatClock(project.durationSec)}
+          </span>
+        ) : null}
         <span className="absolute left-2 top-2 flex gap-1">
           <Badge
             variant="neutral"

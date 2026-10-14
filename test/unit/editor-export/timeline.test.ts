@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { itemFrames, makeGrid, trackFrames } from '../../../electron/main/services/editor-export/timeline';
+import {
+  itemFrames,
+  makeGrid,
+  trackFrames,
+} from '../../../electron/main/services/editor-export/timeline';
 import { isActive } from '../../../shared/editor-eval';
 import { makeProject, track, vitem } from './helpers';
 
@@ -18,7 +22,14 @@ describe('frame grid', () => {
 
   it('itemFrames follows the evaluator half-open rule exactly', () => {
     const g = makeGrid(30, 0, 5);
-    for (const [s, d] of [[0, 1], [0.5, 1], [0.41, 1], [1 / 30, 2 / 30], [2.2, 0.0667], [1.0 / 3, 1 / 3]] as const) {
+    for (const [s, d] of [
+      [0, 1],
+      [0.5, 1],
+      [0.41, 1],
+      [1 / 30, 2 / 30],
+      [2.2, 0.0667],
+      [1.0 / 3, 1 / 3],
+    ] as const) {
       const it0 = item(s, d);
       const fr = itemFrames(g, it0);
       const brute: number[] = [];
@@ -49,8 +60,15 @@ describe('frame grid', () => {
 describe('trackFrames (activeOnTrack + transitionOps per frame)', () => {
   const specs = [{ id: 'q', kind: 'video' as const, path: '/x.mp4', w: 10, h: 10 }];
   const build = (type: string) =>
-    makeProject([track('video', [vitem('a', 'q', 0, 1), vitem('b', 'q', 0.5, 1, { transitionIn: { type, durationSec: 0.5 } })])], specs)
-      .tracks[0]!;
+    makeProject(
+      [
+        track('video', [
+          vitem('a', 'q', 0, 1),
+          vitem('b', 'q', 0.5, 1, { transitionIn: { type, durationSec: 0.5 } }),
+        ]),
+      ],
+      specs,
+    ).tracks[0]!;
 
   it('crossfade: ops on both items only inside the overlap, p = (t - start)/dur', () => {
     const g = makeGrid(30, 0, 1.5);
@@ -84,7 +102,15 @@ describe('trackFrames (activeOnTrack + transitionOps per frame)', () => {
   });
 
   it('without an overlap nothing carries ops', () => {
-    const t = makeProject([track('video', [vitem('a', 'q', 0, 0.5), vitem('b', 'q', 0.5, 0.5, { transitionIn: { type: 'crossfade', durationSec: 0.3 } })])], specs).tracks[0]!;
+    const t = makeProject(
+      [
+        track('video', [
+          vitem('a', 'q', 0, 0.5),
+          vitem('b', 'q', 0.5, 0.5, { transitionIn: { type: 'crossfade', durationSec: 0.3 } }),
+        ]),
+      ],
+      specs,
+    ).tracks[0]!;
     const tf = trackFrames(t, makeGrid(30, 0, 1));
     expect(tf.items.get('a')!.ops.every((o) => o === null)).toBe(true);
     expect(tf.items.get('b')!.ops.every((o) => o === null)).toBe(true);

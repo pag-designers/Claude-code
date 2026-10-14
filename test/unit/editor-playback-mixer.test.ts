@@ -740,3 +740,87 @@ describe('snapshot', () => {
     expect(v.expectedGain).toBeCloseTo(0.4, 6);
   });
 });
+
+describe('transition crossfade in the audio graph', () => {
+  const a = asset({ id: 'a1', hasAudio: true });
+  const mk = (type: string) =>
+    project(
+      [
+        track({
+          id: 'v',
+          speech: true,
+          items: [
+            vItem({ id: 'one', startSec: 0, durationSec: 5 }),
+            vItem({
+              id: 'two',
+              startSec: 4,
+              durationSec: 5,
+              transitionIn: { type, durationSec: 1 },
+            }),
+          ],
+        }),
+      ],
+      [a],
+    );
+  const voiceGain = (h: Harness, i: number) => ({
+    gain: h.ctx.gains[1 + 2 * trackCount(h) + i]!.gain,
+  });
+
+  it('both voices ramp against each other across the overlap and sum to unity gain', () => {
+    const h = harness(mk('crossfade'));
+    const c0 = h.ctx.currentTime;
+    h.run({ from: 3, to: 5.2, step: 0.1 });
+    const g = (id: string) => (id === 'one' ? voiceGain(h, 0) : voiceGain(h, 1)).gain;
+    // voice gain nodes are created in order of appearance (one first, two second)
+    for (const t of [4.1, 4.25, 4.5, 4.75]) {
+      const o = g('one').valueAt(c0 + (t - 3));
+      const n = g('two').valueAt(c0 + (t - 3));
+      expect(o).toBeCloseTo(5 - 4 - (t - 4) > 0 ? 1 - (t - 4) : 0, 1);
+      expect(n).toBeCloseTo(t - 4, 1);
+      expect(o + n).toBeCloseTo(1, 1);
+    }
+  });
+  it('the snapshot reports the crossfade and an effective gain that includes it', () => {
+    const h = harness(mk('crossfade'));
+    h.run({ from: 3, to: 4.5, step: 0.1 });
+    const s = h.mixer.snapshot();
+    const one = s.voices.find((v) => v.itemId === 'one')!;
+    const two = s.voices.find((v) => v.itemId === 'two')!;
+    expect(one.transitionGain).toBeCloseTo(
+      1 - (s.anchor!.tl0 + (s.currentTime - s.anchor!.ctx0) - 4),
+      1,
+    );
+    expect(one.expectedGain).toBeCloseTo(one.transitionGain, 6);
+    expect(two.expectedGain).toBeCloseTo(two.transitionGain, 6);
+    expect(one.transitionGain + two.transitionGain).toBeCloseTo(1, 6);
+    expect(one.effectiveGain).toBeCloseTo(one.expectedGain, 1);
+  });
+  it('a cut overlap silences the outgoing voice from the incoming start', () => {
+    const h = harness(mk('cut'));
+    const c0 = h.ctx.currentTime;
+    h.run({ from: 3, to: 5.2, step: 0.1 });
+    expect(voiceGain(h, 0).gain.valueAt(c0 + 0.9)).toBeCloseTo(1, 6);
+    expect(voiceGain(h, 0).gain.valueAt(c0 + 1.2)).toBeCloseTo(0, 6);
+    expect(voiceGain(h, 1).gain.valueAt(c0 + 1.2)).toBeCloseTo(1, 6);
+  });
+  it('outside a transition the multiplier is 1', () => {
+    const h = harness(mk('crossfade'));
+    h.run({ from: 1, to: 2, step: 0.1 });
+    expect(h.mixer.snapshot().voices[0]!.transitionGain).toBe(1);
+  });
+  it('hidden tracks, muted tracks and freeze frames stay silent (exporter rules)', () => {
+    const base = mk('crossfade');
+    for (const patch of [{ hidden: true }, { muted: true }]) {
+      const h = harness(project([{ ...base.tracks[0]!, ...patch }], [a]));
+      h.mixer.sync({ tSec: 4.2, playing: true, rate: 1 });
+      expect(h.mixer.snapshot().voices).toHaveLength(0);
+    }
+    const frozen = project(
+      [track({ id: 'v', items: [vItem({ id: 'f', freezeAtSec: 1, durationSec: 5 })] })],
+      [a],
+    );
+    const h = harness(frozen);
+    h.mixer.sync({ tSec: 1, playing: true, rate: 1 });
+    expect(h.mixer.snapshot().voices).toHaveLength(0);
+  });
+});

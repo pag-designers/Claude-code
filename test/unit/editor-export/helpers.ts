@@ -124,7 +124,7 @@ export function sineWav(freq: number, dur: number, amp = 0.5, rate = 48000, ch =
   const hit = cache.get(key);
   if (hit) return hit;
   const out = path.join(tmp('media'), `${key}.wav`);
-  ff(['-f', 'lavfi', '-i', `sine=f=${freq}:r=${rate}:d=${dur}`, '-af', `volume=${amp * 2},aformat=channel_layouts=${ch === 1 ? 'mono' : 'stereo'}`, out]);
+  ff(['-f', 'lavfi', '-i', `sine=f=${freq}:r=${rate}:d=${dur}`, '-af', `volume=${amp * 8},aformat=channel_layouts=${ch === 1 ? 'mono' : 'stereo'}`, out]);
   cache.set(key, out);
   return out;
 }
@@ -138,7 +138,7 @@ export function avClip(color: string, freq: number, dur: number, amp = 0.5, w = 
   ff([
     '-f', 'lavfi', '-i', `color=c=0x${color}:s=${w}x${h}:r=30:d=${dur}`,
     '-f', 'lavfi', '-i', `sine=f=${freq}:r=48000:d=${dur}`,
-    '-vf', TO_YUV, '-af', `volume=${amp * 2}`, ...BT709,
+    '-vf', TO_YUV, '-af', `volume=${amp * 8}`, ...BT709,
     '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '10', '-c:a', 'aac', '-b:a', '192k', '-shortest', out,
   ]);
   cache.set(key, out);
@@ -376,3 +376,37 @@ export function contactSheet(file: string, out: string, cols: number, rows: numb
 }
 
 export { os };
+
+/* ------------------------------------------------------------------ audio decode ---------------- */
+
+export function decodeAudio(file: string): { rate: number; data: Float32Array } {
+  const buf = ff(['-i', file, '-vn', '-ac', '1', '-ar', '48000', '-f', 'f32le', '-']);
+  const copy = Buffer.from(buf);
+  return { rate: 48000, data: new Float32Array(copy.buffer, copy.byteOffset, Math.floor(copy.length / 4)) };
+}
+
+export function rmsDb(a: { rate: number; data: Float32Array }, t0: number, t1: number): number {
+  const i0 = Math.max(0, Math.floor(t0 * a.rate));
+  const i1 = Math.min(a.data.length, Math.floor(t1 * a.rate));
+  let s = 0;
+  for (let i = i0; i < i1; i++) s += (a.data[i] as number) ** 2;
+  const rms = Math.sqrt(s / Math.max(1, i1 - i0));
+  return 20 * Math.log10(Math.max(1e-9, rms));
+}
+
+/** Zero crossings per second (≈ 2 × frequency for a sine). */
+export function zcr(a: { rate: number; data: Float32Array }, t0: number, t1: number): number {
+  const i0 = Math.max(1, Math.floor(t0 * a.rate));
+  const i1 = Math.min(a.data.length, Math.floor(t1 * a.rate));
+  let z = 0;
+  for (let i = i0; i < i1; i++) if (((a.data[i - 1] as number) < 0) !== ((a.data[i] as number) < 0)) z++;
+  return z / Math.max(1e-6, (i1 - i0) / a.rate);
+}
+
+export function peak(a: { rate: number; data: Float32Array }, t0: number, t1: number): number {
+  const i0 = Math.max(0, Math.floor(t0 * a.rate));
+  const i1 = Math.min(a.data.length, Math.floor(t1 * a.rate));
+  let m = 0;
+  for (let i = i0; i < i1; i++) m = Math.max(m, Math.abs(a.data[i] as number));
+  return m;
+}

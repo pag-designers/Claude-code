@@ -168,13 +168,23 @@ describe('MasterClock', () => {
     audio.v = 50.016;
     expect(clock.step()).toBeCloseTo(0.016, 3);
   });
+  it('a slow frame (software GL, 250 ms) advances the full wall time, so the playhead never falls behind the sound', () => {
+    const { clock, perf } = make({ v: null });
+    clock.start();
+    let total = 0;
+    for (let i = 1; i <= 8; i++) {
+      perf.v = i * 250;
+      total += clock.step();
+    }
+    expect(total).toBeCloseTo(2, 5);
+  });
   it('caps a step after a stall at maxStepSec and keeps going afterwards', () => {
     const { clock, perf } = make({ v: null });
     clock.start();
     perf.v = 16;
     clock.step();
     perf.v = 5016; // 5 s stall (hidden tab)
-    expect(clock.step()).toBeCloseTo(0.1, 5);
+    expect(clock.step()).toBeCloseTo(0.5, 5);
     perf.v = 5032;
     expect(clock.step()).toBeCloseTo(0.016, 3);
   });

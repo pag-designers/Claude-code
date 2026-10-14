@@ -27,7 +27,8 @@ import {
 import { emptyProject, makeVideoItem } from '../../renderer/lib/editor/core';
 import { A, C, I, S, T, V, asset, item, items, proj, spans, track } from './editor-core-fixtures';
 
-const healthy = (p: Parameters<typeof projectProblems>[0]) => expect(projectProblems(p)).toEqual([]);
+const healthy = (p: Parameters<typeof projectProblems>[0]) =>
+  expect(projectProblems(p)).toEqual([]);
 
 describe('addItem', () => {
   it('uses the first compatible track and sets startSec', () => {
@@ -94,14 +95,21 @@ describe('addItem', () => {
 
   it('never creates a transition (drops transitionIn)', () => {
     const p = proj([track('v1', 'video', [V('a', 0, 5)])]);
-    const r = addItemOp(p, V('n', 5, 3, { transitionIn: { type: 'crossfade', durationSec: 1 } }), { trackId: 'v1' });
+    const r = addItemOp(p, V('n', 5, 3, { transitionIn: { type: 'crossfade', durationSec: 1 } }), {
+      trackId: 'v1',
+    });
     expect((r.project.tracks[0]?.items[1] as VideoItem).transitionIn).toBeNull();
   });
 
   it('ripple insert splits a straddling item and shifts the rest', () => {
     const p = proj([track('v1', 'video', [V('a', 0, 10), V('b', 10, 4)])]);
     const r = addItemOp(p, V('n', 4, 3, { inSec: 1 }), { trackId: 'v1', scope: 'track' });
-    expect(spans(r.project, 'v1')).toEqual([[0, 4], [4, 7], [7, 13], [13, 17]]);
+    expect(spans(r.project, 'v1')).toEqual([
+      [0, 4],
+      [4, 7],
+      [7, 13],
+      [13, 17],
+    ]);
     expect(items(r.project, 'v1').map((i) => i.id)[1]).toBe('n');
     healthy(r.project);
   });
@@ -109,11 +117,18 @@ describe('addItem', () => {
   it('ripple insert at a boundary shifts the later items', () => {
     const p = proj([track('v1', 'video', [V('a', 0, 5), V('b', 5, 5)])]);
     const r = addItemOp(p, V('n', 5, 2), { trackId: 'v1', scope: 'track' });
-    expect(spans(r.project, 'v1')).toEqual([[0, 5], [5, 7], [7, 12]]);
+    expect(spans(r.project, 'v1')).toEqual([
+      [0, 5],
+      [5, 7],
+      [7, 12],
+    ]);
   });
 
   it('ripple insert with scope all shifts other tracks', () => {
-    const p = proj([track('v1', 'video', [V('a', 0, 5), V('b', 5, 5)]), track('m', 'audio', [A('m1', 6, 2)])]);
+    const p = proj([
+      track('v1', 'video', [V('a', 0, 5), V('b', 5, 5)]),
+      track('m', 'audio', [A('m1', 6, 2)]),
+    ]);
     const r = addItemOp(p, V('n', 5, 2), { trackId: 'v1', scope: 'all' });
     expect(spans(r.project, 'm')).toEqual([[8, 10]]);
   });
@@ -139,7 +154,12 @@ describe('addAsset', () => {
     const p = proj([track('v1', 'video', []), track('m', 'audio', [])], { assets });
     const r = addAssetOp(p, 'vid', { startSec: 2 });
     const it = items(r.project, 'v1')[0] as VideoItem;
-    expect([it.startSec, it.durationSec, it.audioEnabled, it.assetId]).toEqual([2, 12, true, 'vid']);
+    expect([it.startSec, it.durationSec, it.audioEnabled, it.assetId]).toEqual([
+      2,
+      12,
+      true,
+      'vid',
+    ]);
     const s = addAssetOp(p, 'silent', { startSec: 0 });
     expect((items(s.project, 'v1')[0] as VideoItem).audioEnabled).toBe(false);
   });
@@ -178,7 +198,10 @@ describe('addAsset', () => {
     let p = proj([track('v1', 'video', [])], { assets });
     p = addAssetOp(p, 'vid', { startSec: 0 }).project;
     p = addAssetOp(p, 'silent', { startSec: 12 }).project;
-    expect(spans(p, 'v1')).toEqual([[0, 12], [12, 19]]);
+    expect(spans(p, 'v1')).toEqual([
+      [0, 12],
+      [12, 19],
+    ]);
   });
 });
 
@@ -191,38 +214,64 @@ describe('deleteItems', () => {
 
   it('removes items and leaves gaps without ripple', () => {
     const r = deleteItemsOp(base(), ['b']);
-    expect(spans(r, 'v1')).toEqual([[0, 5], [12, 15]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 5],
+      [12, 15],
+    ]);
   });
 
   it('ripple closes the gap the item occupied (track scope)', () => {
     const r = deleteItemsOp(base(), ['b'], 'track');
-    expect(spans(r, 'v1')).toEqual([[0, 5], [7, 10]]); // c keeps its original 2 s gap after b
-    expect(spans(r, 'm')).toEqual([[0, 20], [22, 25]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 5],
+      [7, 10],
+    ]); // c keeps its original 2 s gap after b
+    expect(spans(r, 'm')).toEqual([
+      [0, 20],
+      [22, 25],
+    ]);
   });
 
   it('ripple "all" leaves a track untouched when closing the gap would collide there', () => {
     const r = deleteItemsOp(base(), ['b'], 'all'); // m2 would land on top of m1
-    expect(spans(r, 'm')).toEqual([[0, 20], [22, 25]]);
-    expect(spans(r, 'v1')).toEqual([[0, 5], [7, 10]]);
+    expect(spans(r, 'm')).toEqual([
+      [0, 20],
+      [22, 25],
+    ]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 5],
+      [7, 10],
+    ]);
     healthy(r);
   });
 
   it('ripple "all": items fully after the cut move left by its length', () => {
-    const q = proj([track('v1', 'video', [V('a', 0, 5), V('b', 5, 5)]), track('t', 'text', [T('t1', 12, 2)])]);
+    const q = proj([
+      track('v1', 'video', [V('a', 0, 5), V('b', 5, 5)]),
+      track('t', 'text', [T('t1', 12, 2)]),
+    ]);
     const r = deleteItemsOp(q, ['a'], 'all');
     expect(spans(r, 'v1')).toEqual([[0, 5]]);
     expect(spans(r, 't')).toEqual([[7, 9]]);
   });
 
   it('deleting a grouped item deletes the whole group', () => {
-    const p = proj([track('v1', 'video', [V('a', 0, 2, { groupId: 'g' }), V('x', 3, 1)]), track('o', 'overlay', [S('s', 0, 2, { groupId: 'g' })])]);
+    const p = proj([
+      track('v1', 'video', [V('a', 0, 2, { groupId: 'g' }), V('x', 3, 1)]),
+      track('o', 'overlay', [S('s', 0, 2, { groupId: 'g' })]),
+    ]);
     const r = deleteItemsOp(p, ['a']);
     expect(items(r, 'v1').map((i) => i.id)).toEqual(['x']);
     expect(items(r, 'o')).toEqual([]);
   });
 
   it('a group left with one member (a locked one survived) is dissolved', () => {
-    const p = proj([track('v1', 'video', [V('a', 0, 2, { groupId: 'g', locked: true }), V('b', 2, 2, { groupId: 'g' })])]);
+    const p = proj([
+      track('v1', 'video', [
+        V('a', 0, 2, { groupId: 'g', locked: true }),
+        V('b', 2, 2, { groupId: 'g' }),
+      ]),
+    ]);
     const r = deleteItemsOp(p, ['b'], 'none');
     expect(r.tracks[0]?.items.map((i) => i.groupId)).toEqual([null]);
   });
@@ -236,15 +285,26 @@ describe('deleteItems', () => {
   });
 
   it('deleting several adjacent items with ripple closes up once', () => {
-    const p = proj([track('v1', 'video', [V('a', 0, 2), V('b', 2, 2), V('c', 4, 2), V('d', 6, 2)])]);
+    const p = proj([
+      track('v1', 'video', [V('a', 0, 2), V('b', 2, 2), V('c', 4, 2), V('d', 6, 2)]),
+    ]);
     const r = deleteItemsOp(p, ['b', 'c'], 'track');
-    expect(spans(r, 'v1')).toEqual([[0, 2], [2, 4]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 2],
+      [2, 4],
+    ]);
   });
 
   it('deleting non-adjacent items with ripple', () => {
-    const p = proj([track('v1', 'video', [V('a', 0, 2), V('b', 2, 2), V('c', 4, 2), V('d', 6, 2), V('e', 8, 2)])]);
+    const p = proj([
+      track('v1', 'video', [V('a', 0, 2), V('b', 2, 2), V('c', 4, 2), V('d', 6, 2), V('e', 8, 2)]),
+    ]);
     const r = deleteItemsOp(p, ['b', 'd'], 'track');
-    expect(spans(r, 'v1')).toEqual([[0, 2], [2, 4], [4, 6]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 2],
+      [2, 4],
+      [4, 6],
+    ]);
   });
 
   it('unknown ids change nothing', () => {
@@ -264,21 +324,40 @@ describe('deleteGaps', () => {
 
   it('closes the gaps on one track, first item stays', () => {
     const r = deleteGapsOp(p(), 'v1');
-    expect(spans(r, 'v1')).toEqual([[1, 3], [3, 5], [5, 6]]);
-    expect(spans(r, 'm')).toEqual([[0, 3], [8, 10]]);
+    expect(spans(r, 'v1')).toEqual([
+      [1, 3],
+      [3, 5],
+      [5, 6],
+    ]);
+    expect(spans(r, 'm')).toEqual([
+      [0, 3],
+      [8, 10],
+    ]);
   });
 
   it('with no track: all unlocked tracks', () => {
     const r = deleteGapsOp(p());
-    expect(spans(r, 'm')).toEqual([[0, 3], [3, 5]]);
-    expect(spans(r, 't')).toEqual([[4, 5], [9, 10]]);
+    expect(spans(r, 'm')).toEqual([
+      [0, 3],
+      [3, 5],
+    ]);
+    expect(spans(r, 't')).toEqual([
+      [4, 5],
+      [9, 10],
+    ]);
   });
 
   it('preserves transition overlaps', () => {
-    const base = proj([track('v1', 'video', [V('a', 0, 5), V('b', 5, 5, { inSec: 2 }), V('c', 14, 2)])]);
+    const base = proj([
+      track('v1', 'video', [V('a', 0, 5), V('b', 5, 5, { inSec: 2 }), V('c', 14, 2)]),
+    ]);
     const withX = setTransitionOp(base, 'b', { type: 'crossfade', durationSec: 1 }, false);
     const r = deleteGapsOp(withX, 'v1');
-    expect(spans(r, 'v1')).toEqual([[0, 5], [4, 9], [9, 11]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 5],
+      [4, 9],
+      [9, 11],
+    ]);
     healthy(r);
   });
 
@@ -292,7 +371,10 @@ describe('duplicate', () => {
   it('places the copy right after the original with new ids', () => {
     const p = proj([track('v1', 'video', [V('a', 2, 3)])]);
     const r = duplicateOp(p, ['a']);
-    expect(spans(r.project, 'v1')).toEqual([[2, 5], [5, 8]]);
+    expect(spans(r.project, 'v1')).toEqual([
+      [2, 5],
+      [5, 8],
+    ]);
     expect(r.newIds.length).toBe(1);
     expect(r.newIds[0]).not.toBe('a');
     expect(item(r.project, r.newIds[0] as string).startSec).toBe(5);
@@ -306,7 +388,10 @@ describe('duplicate', () => {
   });
 
   it('multi-selection keeps relative offsets; the block is placed after the whole selection', () => {
-    const p = proj([track('v1', 'video', [V('a', 0, 2), V('b', 3, 2)]), track('o', 'overlay', [S('s', 1, 2)])]);
+    const p = proj([
+      track('v1', 'video', [V('a', 0, 2), V('b', 3, 2)]),
+      track('o', 'overlay', [S('s', 1, 2)]),
+    ]);
     const r = duplicateOp(p, ['a', 'b', 's']);
     const ids = r.newIds;
     const starts = ids.map((id) => item(r.project, id).startSec);
@@ -315,7 +400,10 @@ describe('duplicate', () => {
   });
 
   it('gives copies new group ids (one per old group) and keeps them grouped', () => {
-    const p = proj([track('v1', 'video', [V('a', 0, 2, { groupId: 'g' })]), track('o', 'overlay', [S('s', 0, 2, { groupId: 'g' })])]);
+    const p = proj([
+      track('v1', 'video', [V('a', 0, 2, { groupId: 'g' })]),
+      track('o', 'overlay', [S('s', 0, 2, { groupId: 'g' })]),
+    ]);
     const r = duplicateOp(p, ['a']);
     const copies = r.newIds.map((id) => item(r.project, id));
     expect(copies.length).toBe(2);
@@ -330,7 +418,9 @@ describe('duplicate', () => {
     const withX = setTransitionOp(base, 'b', { type: 'crossfade', durationSec: 1 }, false);
     const both = duplicateOp(withX, ['a', 'b']);
     healthy(both.project);
-    const copyB = both.newIds.map((id) => item(both.project, id) as VideoItem).find((c) => c.transitionIn);
+    const copyB = both.newIds
+      .map((id) => item(both.project, id) as VideoItem)
+      .find((c) => c.transitionIn);
     expect(copyB?.transitionIn?.durationSec).toBeCloseTo(1);
     const onlyB = duplicateOp(withX, ['b']);
     healthy(onlyB.project);
@@ -411,7 +501,9 @@ describe('copy / paste', () => {
   it('pastes onto the selected compatible track first', () => {
     const q = proj([track('v1', 'video', [V('a', 0, 2)]), track('v2', 'video', [])]);
     const r = pasteOp(q, copyOp(q, ['a'])!, 0, 'v2');
-    expect(r.newIds.map((id) => r.project.tracks.find((t) => t.items.some((i) => i.id === id))?.id)).toEqual(['v2']);
+    expect(
+      r.newIds.map((id) => r.project.tracks.find((t) => t.items.some((i) => i.id === id))?.id),
+    ).toEqual(['v2']);
   });
 
   it('ignores an incompatible selected track', () => {
@@ -425,19 +517,26 @@ describe('copy / paste', () => {
     const q = proj([track('v1', 'video', [V('a', 0, 4)])]);
     const r = pasteOp(q, copyOp(q, ['a'])!, 1, 'v1');
     expect(r.project.tracks.length).toBe(2);
-    expect(r.project.tracks[1]?.kind === 'video' || r.project.tracks[0]?.kind === 'video').toBe(true);
+    expect(r.project.tracks[1]?.kind === 'video' || r.project.tracks[0]?.kind === 'video').toBe(
+      true,
+    );
     healthy(r.project);
   });
 
   it('different source tracks land on different tracks', () => {
     const q = proj([track('v1', 'video', [V('a', 0, 2)]), track('v2', 'video', [V('b', 0, 2)])]);
     const r = pasteOp(q, copyOp(q, ['a', 'b'])!, 10, null);
-    const where = r.newIds.map((id) => r.project.tracks.findIndex((t) => t.items.some((i) => i.id === id)));
+    const where = r.newIds.map((id) =>
+      r.project.tracks.findIndex((t) => t.items.some((i) => i.id === id)),
+    );
     expect(new Set(where).size).toBe(2);
   });
 
   it('pasted groups get new group ids', () => {
-    const q = proj([track('v1', 'video', [V('a', 0, 2, { groupId: 'g' })]), track('o', 'overlay', [S('s', 0, 2, { groupId: 'g' })])]);
+    const q = proj([
+      track('v1', 'video', [V('a', 0, 2, { groupId: 'g' })]),
+      track('o', 'overlay', [S('s', 0, 2, { groupId: 'g' })]),
+    ]);
     const r = pasteOp(q, copyOp(q, ['a'])!, 10, null);
     const gs = r.newIds.map((id) => item(r.project, id).groupId);
     expect(gs[0]).toBeTruthy();
@@ -458,7 +557,8 @@ describe('copy / paste', () => {
 });
 
 describe('updateItems', () => {
-  const p = () => proj([track('v1', 'video', [V('a', 0, 5), V('b', 5, 5)]), track('t', 'text', [T('t1', 0, 2)])]);
+  const p = () =>
+    proj([track('v1', 'video', [V('a', 0, 5), V('b', 5, 5)]), track('t', 'text', [T('t1', 0, 2)])]);
 
   it('deep-merges nested patches', () => {
     const r = updateItemsOp(p(), ['a'], { transform: { scale: { v: 1.5 } }, fit: 'contain' });
@@ -495,7 +595,7 @@ describe('updateItems', () => {
   it('skips locked items; a pure lock toggle is allowed on a locked item', () => {
     const q = proj([track('v1', 'video', [V('a', 0, 5, { locked: true })])]);
     expect(updateItemsOp(q, ['a'], { fit: 'native' })).toBe(q);
-    expect((item(updateItemsOp(q, ['a'], { locked: false }), 'a')).locked).toBe(false);
+    expect(item(updateItemsOp(q, ['a'], { locked: false }), 'a').locked).toBe(false);
   });
 
   it('skips items on locked tracks', () => {
@@ -509,11 +609,16 @@ describe('updateItems', () => {
     const ok = updateItemsOp(q, ['a'], { startSec: 0, durationSec: 4 });
     expect(item(ok, 'a').durationSec).toBe(4);
     const moved = updateItemsOp(q, ['b'], { startSec: 20 });
-    expect(spans(moved, 'v1')).toEqual([[0, 5], [20, 25]]);
+    expect(spans(moved, 'v1')).toEqual([
+      [0, 5],
+      [20, 25],
+    ]);
   });
 
   it('arrays are replaced (keyframes)', () => {
-    const r = updateItemsOp(p(), ['a'], { transform: { x: { v: 0, kf: [{ t: 1, v: 5, ease: 'linear' }] } } });
+    const r = updateItemsOp(p(), ['a'], {
+      transform: { x: { v: 0, kf: [{ t: 1, v: 5, ease: 'linear' }] } },
+    });
     expect((item(r, 'a') as VideoItem).transform.x.kf.length).toBe(1);
   });
 });
@@ -522,7 +627,13 @@ describe('tracks', () => {
   it('addTrack inserts by z-rank and names sensibly', () => {
     const p = emptyProject();
     const r = addTrackOp(p, 'overlay');
-    expect(r.project.tracks.map((t) => t.kind)).toEqual(['video', 'overlay', 'subtitle', 'text', 'audio']);
+    expect(r.project.tracks.map((t) => t.kind)).toEqual([
+      'video',
+      'overlay',
+      'subtitle',
+      'text',
+      'audio',
+    ]);
     const r2 = addTrackOp(r.project, 'video');
     expect(r2.project.tracks[1]?.name).toBe('Video 2');
     expect(r2.project.tracks[1]?.speech).toBe(true);
@@ -531,7 +642,9 @@ describe('tracks', () => {
   it('addTrack with an explicit index and name', () => {
     const r = addTrackOp(emptyProject(), 'audio', { index: 0, name: 'SFX bus' });
     expect(r.project.tracks[0]?.name).toBe('SFX bus');
-    expect(addTrackOp(emptyProject(), 'text', { index: 99 }).project.tracks.at(-1)?.kind).toBe('text');
+    expect(addTrackOp(emptyProject(), 'text', { index: 99 }).project.tracks.at(-1)?.kind).toBe(
+      'text',
+    );
   });
 
   it('removeTrack drops the track and its items; locked tracks are refused', () => {
@@ -543,7 +656,10 @@ describe('tracks', () => {
   });
 
   it('removing a track dissolves groups reduced to one member', () => {
-    const p = proj([track('v1', 'video', [V('a', 0, 1, { groupId: 'g' })]), track('o', 'overlay', [S('s', 0, 1, { groupId: 'g' })])]);
+    const p = proj([
+      track('v1', 'video', [V('a', 0, 1, { groupId: 'g' })]),
+      track('o', 'overlay', [S('s', 0, 1, { groupId: 'g' })]),
+    ]);
     expect(items(removeTrackOp(p, 'o'), 'v1')[0]?.groupId).toBeNull();
   });
 
@@ -584,7 +700,10 @@ describe('markers / assets / canvas', () => {
     expect(addMarkerOp(p, 5.001).id).toBe(a.id);
     expect(addMarkerOp(p, 5.001).project).toBe(p);
     p = updateMarkerOp(p, a.id, { atSec: 1, label: 'x' });
-    expect(p.markers.map((m) => [m.atSec, m.label])).toEqual([[1, 'x'], [2, 'Marker 2']]);
+    expect(p.markers.map((m) => [m.atSec, m.label])).toEqual([
+      [1, 'x'],
+      [2, 'Marker 2'],
+    ]);
     p = removeMarkerOp(p, a.id);
     expect(p.markers.length).toBe(1);
     expect(removeMarkerOp(p, 'nope')).toBe(p);
@@ -596,11 +715,16 @@ describe('markers / assets / canvas', () => {
     let p = emptyProject();
     p = addAssetsOp(p, [asset('x', 'video', 5), asset('y', 'audio', 3)]);
     p = addAssetsOp(p, [asset('x', 'video', 9)]);
-    expect(p.assets.map((a) => [a.id, a.durationSec])).toEqual([['y', 3], ['x', 9]]);
+    expect(p.assets.map((a) => [a.id, a.durationSec])).toEqual([
+      ['y', 3],
+      ['x', 9],
+    ]);
     p = updateAssetOp(p, 'y', { beats: [1, 2] });
     expect(p.assets.find((a) => a.id === 'y')?.beats).toEqual([1, 2]);
     expect(updateAssetOp(p, 'nope', { name: 'q' })).toBe(p);
-    expect(updateAssetOp(p, 'y', { id: 'other' } as never).assets.find((a) => a.id === 'y')).toBeTruthy();
+    expect(
+      updateAssetOp(p, 'y', { id: 'other' } as never).assets.find((a) => a.id === 'y'),
+    ).toBeTruthy();
   });
 
   it('setCanvas applies preset sizes for an aspect change and validates', () => {

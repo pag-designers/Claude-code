@@ -126,9 +126,8 @@ for (const theme of ['dark', 'light'] as const) {
     await shot(s, '15-audio-clip', theme);
     await s.select(LAB_IDS.s1);
     await shot(s, '16-shape', theme);
-    await s.read((st) =>
-      (st as unknown as { selectTrack: (id: string) => void }).selectTrack('tr_music'),
-    );
+    await s.read((st) => (st as unknown as { clearSelection: () => void }).clearSelection());
+    await s.selectTrack('tr_music');
     await p.getByTestId('duck-enabled').click();
     await shot(s, '17-track', theme);
     await s.close();

@@ -41,13 +41,22 @@ export function updateMarkerOp(
     atSec: patch.atSec === undefined ? cur.atSec : Math.max(0, patch.atSec),
   });
   if (!next.success) return p;
-  if (next.data.atSec === cur.atSec && next.data.label === cur.label && next.data.color === cur.color) return p;
-  const markers = p.markers.map((m) => (m.id === id ? next.data : m)).sort((a, b) => a.atSec - b.atSec);
+  if (
+    next.data.atSec === cur.atSec &&
+    next.data.label === cur.label &&
+    next.data.color === cur.color
+  )
+    return p;
+  const markers = p.markers
+    .map((m) => (m.id === id ? next.data : m))
+    .sort((a, b) => a.atSec - b.atSec);
   return { ...p, markers };
 }
 
 export function removeMarkerOp(p: Project, id: string): Project {
-  return p.markers.some((m) => m.id === id) ? { ...p, markers: p.markers.filter((m) => m.id !== id) } : p;
+  return p.markers.some((m) => m.id === id)
+    ? { ...p, markers: p.markers.filter((m) => m.id !== id) }
+    : p;
 }
 
 /** Add assets; an asset whose id already exists replaces the old entry. */
@@ -69,7 +78,12 @@ export function updateAssetOp(p: Project, assetId: string, patch: Partial<Asset>
 /** Canvas edit. Choosing a preset aspect also sets its pixel size unless width / height are given. */
 export function setCanvasOp(p: Project, patch: Partial<Project['canvas']>): Project {
   const merged: Record<string, unknown> = { ...p.canvas, ...patch };
-  if (patch.aspect && patch.aspect !== 'custom' && patch.width === undefined && patch.height === undefined) {
+  if (
+    patch.aspect &&
+    patch.aspect !== 'custom' &&
+    patch.width === undefined &&
+    patch.height === undefined
+  ) {
     const size = ASPECT_SIZES[patch.aspect];
     merged.width = size.width;
     merged.height = size.height;
@@ -78,7 +92,13 @@ export function setCanvasOp(p: Project, patch: Partial<Project['canvas']>): Proj
   if (!next.success) return p;
   const c = p.canvas;
   const d = next.data;
-  if (c.aspect === d.aspect && c.width === d.width && c.height === d.height && c.fps === d.fps && c.background === d.background)
+  if (
+    c.aspect === d.aspect &&
+    c.width === d.width &&
+    c.height === d.height &&
+    c.fps === d.fps &&
+    c.background === d.background
+  )
     return p;
   return { ...p, canvas: d };
 }

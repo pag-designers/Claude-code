@@ -62,6 +62,7 @@ export function PreviewPlayer({ className }: { className?: string }) {
       mq = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
       mq.addEventListener('change', onChange);
     };
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reading devicePixelRatio is only possible after mount
     setDpr(window.devicePixelRatio || 1);
     listen();
     return () => mq?.removeEventListener('change', onChange);
@@ -94,6 +95,7 @@ export function PreviewPlayer({ className }: { className?: string }) {
     }
     const detach = eng.attach();
     eng.warmup();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the engine is an external, effect-created resource
     setEngine(eng);
     return () => {
       detach();
@@ -118,6 +120,7 @@ export function PreviewPlayer({ className }: { className?: string }) {
       comp = createCompositor(canvas, { project: useEditorStore.getState().project });
     } catch (e) {
       canvas.remove();
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- surfaces a failure of the external GL context
       setGlError(e instanceof Error ? e.message : 'the compositor could not start');
       return;
     }

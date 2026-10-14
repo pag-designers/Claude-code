@@ -36,7 +36,10 @@ export interface StoreView {
 declare global {
   interface Window {
     __CLIPFERN_E2E__?: boolean;
-    __clipfernEditorStore?: { getState(): Record<string, unknown>; setState(p: Record<string, unknown>): void };
+    __clipfernEditorStore?: {
+      getState(): Record<string, unknown>;
+      setState(p: Record<string, unknown>): void;
+    };
   }
 }
 
@@ -52,7 +55,11 @@ export async function openEditor(
   h: Harness,
   open: (route: string, opts?: OpenOptions) => Promise<Session>,
   projectId = 'tl-demo',
-  opts: OpenOptions & { seed?: boolean; prepareState?: (s: StubState) => void; expect?: 'ready' | 'error' } = {},
+  opts: OpenOptions & {
+    seed?: boolean;
+    prepareState?: (s: StubState) => void;
+    expect?: 'ready' | 'error';
+  } = {},
 ): Promise<EditorSession> {
   const { seed = true, prepareState, expect = 'ready', ...rest } = opts;
   const s = await open('/settings/shortcuts/', {
@@ -79,7 +86,9 @@ export async function openEditor(
   await s.page.waitForFunction(() => !!window.__clipfernEditorStore?.getState().projectId);
   const ed = s as EditorSession;
   ed.store = () =>
-    s.page.evaluate(() => JSON.parse(JSON.stringify(window.__clipfernEditorStore!.getState())) as never);
+    s.page.evaluate(
+      () => JSON.parse(JSON.stringify(window.__clipfernEditorStore!.getState())) as never,
+    );
   ed.act = (name, ...args) =>
     s.page.evaluate(
       ([n, a]) => {
@@ -101,23 +110,35 @@ export async function openEditor(
 }
 
 /** Page-pixel position of a time on a track row (centre of the row vertically). */
-export async function laneXY(page: Page, trackId: string, sec: number, yFrac = 0.5): Promise<{ x: number; y: number }> {
+export async function laneXY(
+  page: Page,
+  trackId: string,
+  sec: number,
+  yFrac = 0.5,
+): Promise<{ x: number; y: number }> {
   return page.evaluate(
     ([id, t, f]) => {
       const scroller = document.querySelector('[data-testid="timeline-scroller"]') as HTMLElement;
-      const row = document.querySelector(`[data-testid="track-row"][data-track-id="${id}"]`) as HTMLElement;
+      const row = document.querySelector(
+        `[data-testid="track-row"][data-track-id="${id}"]`,
+      ) as HTMLElement;
       const st = window.__clipfernEditorStore!.getState() as { pxPerSec: number };
       const r = scroller.getBoundingClientRect();
       const rr = row.getBoundingClientRect();
       // lane origin = scroller left + header width (200) - scrollLeft
-      return { x: r.left + 200 - scroller.scrollLeft + (t as number) * st.pxPerSec, y: rr.top + rr.height * (f as number) };
+      return {
+        x: r.left + 200 - scroller.scrollLeft + (t as number) * st.pxPerSec,
+        y: rr.top + rr.height * (f as number),
+      };
     },
     [trackId, sec, yFrac] as const,
   );
 }
 
 export const itemBox = async (page: Page, itemId: string) => {
-  const box = await page.locator(`[data-testid="timeline"] [data-item-id="${itemId}"][role="option"]`).boundingBox();
+  const box = await page
+    .locator(`[data-testid="timeline"] [data-item-id="${itemId}"][role="option"]`)
+    .boundingBox();
   if (!box) throw new Error(`item ${itemId} is not rendered`);
   return box;
 };

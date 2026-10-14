@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Inspector } from '@/components/editor/inspector';
+import * as core from '@/lib/editor/core';
 import { useEditorStore } from '@/lib/editor/core';
 import { buildLabProject } from './lab-project';
 
@@ -19,6 +20,9 @@ export default function InspectorLabPage() {
       const st = useEditorStore.getState();
       st.load({ id: 'lab-project', name: 'Inspector lab', rev: 1, project: buildLabProject(), updatedAt: 0 });
     }
+    // the editor's global keyboard handler (real core only): keys the inspector handles must not also reach it
+    const handleKey = (core as unknown as { handleKey?: (e: KeyboardEvent, s: unknown) => boolean }).handleKey;
+    if (handleKey) window.addEventListener('keydown', (e) => handleKey(e, useEditorStore));
     // record every store action call (works with the real store and the fake) so tests can count what the inspector asked for
     const log: { fn: string; args: unknown[] }[] = [];
     const wrapped: Record<string, unknown> = {};

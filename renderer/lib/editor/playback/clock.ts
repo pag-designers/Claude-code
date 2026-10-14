@@ -44,10 +44,10 @@ export class MasterClock {
     private readonly deps: ClockDeps,
     opts: ClockOptions = {},
   ) {
-    this.maxStep = opts.maxStepSec ?? 0.1;
+    this.maxStep = opts.maxStepSec ?? 0.5;
     this.snapErr = opts.snapErrSec ?? 0.08;
     this.smoothing = opts.smoothing ?? 0.15;
-    this.stall = opts.stallSec ?? 0.5;
+    this.stall = opts.stallSec ?? 1;
   }
 
   get running(): boolean {

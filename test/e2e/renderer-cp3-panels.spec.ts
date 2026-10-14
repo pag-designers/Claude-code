@@ -201,7 +201,11 @@ test.describe('Media bin', () => {
     for (const c of unrendered) await expect(lib.locator(`[data-library-id="${c.id}"]`)).toHaveCount(0);
     for (const c of rendered) await expect(lib.locator(`[data-library-id="${c.id}"]`)).toHaveCount(1);
     // search
-    const target = rendered.find((c) => !s.state.clips.some((o) => o !== c && o.title === c.title))!;
+    // the seeded project already uses the first two rendered clips: pick another one
+    const used = s.state.clips.filter((c) => c.hasRender).slice(0, 2).map((c) => c.id);
+    const target = rendered.find(
+      (c) => !used.includes(c.id) && !s.state.clips.some((o) => o !== c && o.title === c.title),
+    )!;
     const word = target.title.split(' ').find((w) => w.length > 4)!;
     await lib.getByTestId('bin-library-search').fill(word);
     await expect(rows.filter({ hasText: target.title }).first()).toBeVisible();
@@ -515,7 +519,7 @@ test.describe('Export panel', () => {
   test('presets fill size, fps and the summary; limits warn; choices are remembered', async () => {
     const s = await host();
     await openExport(s);
-    await expect(panel(s.page).getByRole('radio')).toHaveCount(7 + 4); // 7 presets + 4 loudness chips
+    await expect(panel(s.page).getByRole('radio')).toHaveCount(7 + 2 + 4); // 7 presets, 2 rate modes, 4 loudness chips
     await expect(preset(s.page, 'tiktok')).toHaveAttribute('aria-checked', 'true'); // 9:16 canvas
     await expect(s.page.getByTestId('export-width')).toHaveValue('1080');
     await expect(s.page.getByTestId('export-dims')).toContainText('1080×1920 · 9:16');
@@ -752,7 +756,7 @@ test.describe('Export panel', () => {
   });
 
   test('an export that is still rendering is picked up when the panel is opened again', async () => {
-    const s = await host();
+    const s = await host({}, 'ep-video'); // the seeded running export belongs to this project
     await openExport(s);
     // seeded 'ex-run' belongs to ep-clip
     await expect(s.page.getByTestId('export-progress')).toBeVisible();

@@ -49,7 +49,9 @@ export function withStartCut(item: Item, cut: number, newStart: number, newDur: 
   if (isMedia(item)) next = cutStartMedia(item, cut, newDur);
   else if (item.type === 'subtitle') next = cutStartCue(item, cut, newDur);
   else
-    next = mapKeyframes({ ...item, durationSec: newDur }, (kf, fb) => keyframesAfterCut(kf, cut, fb));
+    next = mapKeyframes({ ...item, durationSec: newDur }, (kf, fb) =>
+      keyframesAfterCut(kf, cut, fb),
+    );
   return { ...next, startSec: Math.max(0, newStart) };
 }
 
@@ -61,7 +63,11 @@ export function withEndSet(item: Item, newDur: number): Item {
 }
 
 /** Room for the END edge of items[i] against its neighbours (ignores the asset limit). */
-function endBounds(items: readonly Item[], i: number, scope: RippleScope): { lower: number; upper: number } {
+function endBounds(
+  items: readonly Item[],
+  i: number,
+  scope: RippleScope,
+): { lower: number; upper: number } {
   const item = items[i] as Item;
   const dIn = overlapIn(items, i);
   const dOut = overlapOut(items, i);
@@ -82,7 +88,12 @@ function endBounds(items: readonly Item[], i: number, scope: RippleScope): { low
 /** Round an end position that leaves a sub-minimum transition overlap to the neighbour's start. */
 function collapseTinyOverlap(items: readonly Item[], i: number, end: number): number {
   const next = items[i + 1];
-  if (next && hasTransition(next) && next.transitionIn && next.startSec < itemEnd(items[i] as Item) - EPS) {
+  if (
+    next &&
+    hasTransition(next) &&
+    next.transitionIn &&
+    next.startSec < itemEnd(items[i] as Item) - EPS
+  ) {
     const o = end - next.startSec;
     if (o > EPS && o < MIN_TRANSITION) return next.startSec;
   }
@@ -243,7 +254,11 @@ export function setSpeedOp(
         inSec = 0;
         dur = top / s2;
       }
-    } else if (asset?.durationSec != null && item.inSec + s2 * dur > asset.durationSec + 1e-9) {
+    } else if (
+      asset?.durationSec !== null &&
+      asset?.durationSec !== undefined &&
+      item.inSec + s2 * dur > asset.durationSec + 1e-9
+    ) {
       dur = (asset.durationSec - item.inSec) / s2;
     }
     if (dur < MIN_DUR) return p;

@@ -60,7 +60,11 @@ export function ColorInput({
             style={empty ? undefined : { background: valid ? value : 'transparent' }}
           />
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-52 p-2.5">
+        <PopoverContent
+          align="start"
+          className="w-52 p-2.5"
+          onEscapeKeyDown={(e) => e.stopPropagation()}
+        >
           <div role="group" aria-label={`${label} swatches`} className="flex flex-wrap gap-1.5">
             {swatches.map((s) => {
               const active = valid && value.toLowerCase() === s.hex;

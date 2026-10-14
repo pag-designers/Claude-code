@@ -1,12 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import type { SubtitleItem, TextItem, VideoItem } from '@shared/editor';
 import { animatedAt, makeSourceTime, sourceSpan } from '@shared/editor-eval';
-import { freezeFrameOp, projectProblems, splitItemAt, splitOp } from '../../renderer/lib/editor/core/ops';
-import { A, C, T, V, I, item, items, proj, spans, track } from './editor-core-fixtures';
+import {
+  freezeFrameOp,
+  projectProblems,
+  splitItemAt,
+  splitOp,
+} from '../../renderer/lib/editor/core/ops';
+import { A, C, T, V, I, items, proj, spans, track } from './editor-core-fixtures';
 
 const kf = (t: number, v: number, ease: 'linear' | 'hold' = 'linear') => ({ t, v, ease });
 const anim = (v: number, ks: ReturnType<typeof kf>[] = []) => ({ v, kf: ks });
-const healthy = (p: Parameters<typeof projectProblems>[0]) => expect(projectProblems(p)).toEqual([]);
+const healthy = (p: Parameters<typeof projectProblems>[0]) =>
+  expect(projectProblems(p)).toEqual([]);
 
 describe('split — geometry and source mapping', () => {
   it('splits a clip into two adjacent pieces; the right half advances inSec', () => {
@@ -29,7 +35,8 @@ describe('split — geometry and source mapping', () => {
     const [l, rt] = items(r, 'v1') as VideoItem[];
     const orig = makeSourceTime(a);
     for (const t of [0.5, 2, 3.9]) expect(makeSourceTime(l as VideoItem)(t)).toBeCloseTo(orig(t));
-    for (const t of [4.1, 7, 9.9]) expect(makeSourceTime(rt as VideoItem)(t - 4)).toBeCloseTo(orig(t));
+    for (const t of [4.1, 7, 9.9])
+      expect(makeSourceTime(rt as VideoItem)(t - 4)).toBeCloseTo(orig(t));
   });
 
   it('speed ramps: both halves reproduce the original source times', () => {
@@ -39,7 +46,8 @@ describe('split — geometry and source mapping', () => {
     const [l, rt] = items(r, 'v1') as VideoItem[];
     const orig = makeSourceTime(a);
     for (const t of [1, 3, 5.5]) expect(makeSourceTime(l as VideoItem)(t)).toBeCloseTo(orig(t), 1);
-    for (const t of [6.5, 8, 9.9]) expect(makeSourceTime(rt as VideoItem)(t - 6)).toBeCloseTo(orig(t), 1);
+    for (const t of [6.5, 8, 9.9])
+      expect(makeSourceTime(rt as VideoItem)(t - 6)).toBeCloseTo(orig(t), 1);
     // total source span is preserved
     expect(sourceSpan(l as VideoItem) + sourceSpan(rt as VideoItem)).toBeCloseTo(sourceSpan(a), 1);
   });
@@ -132,44 +140,65 @@ describe('split — keyframes, fades, transitions, animations', () => {
 
   it('the animation continues unchanged across the cut', () => {
     const a = V('a', 0, 10, {
-      transform: { x: anim(0, [kf(0, 0), kf(5, 100), kf(10, -50)]), scale: anim(1, [kf(2, 1), kf(8, 2)]) },
+      transform: {
+        x: anim(0, [kf(0, 0), kf(5, 100), kf(10, -50)]),
+        scale: anim(1, [kf(2, 1), kf(8, 2)]),
+      },
     });
     const r = splitOp(proj([track('v1', 'video', [a])]), ['a'], 3.5).project;
     const [l, rt] = items(r, 'v1') as VideoItem[];
     for (const t of [0.5, 2, 3.4]) {
       expect(animatedAt((l as VideoItem).transform.x, t)).toBeCloseTo(animatedAt(a.transform.x, t));
-      expect(animatedAt((l as VideoItem).transform.scale, t)).toBeCloseTo(animatedAt(a.transform.scale, t));
+      expect(animatedAt((l as VideoItem).transform.scale, t)).toBeCloseTo(
+        animatedAt(a.transform.scale, t),
+      );
     }
     for (const t of [3.6, 5, 9.9]) {
-      expect(animatedAt((rt as VideoItem).transform.x, t - 3.5)).toBeCloseTo(animatedAt(a.transform.x, t));
-      expect(animatedAt((rt as VideoItem).transform.scale, t - 3.5)).toBeCloseTo(animatedAt(a.transform.scale, t));
+      expect(animatedAt((rt as VideoItem).transform.x, t - 3.5)).toBeCloseTo(
+        animatedAt(a.transform.x, t),
+      );
+      expect(animatedAt((rt as VideoItem).transform.scale, t - 3.5)).toBeCloseTo(
+        animatedAt(a.transform.scale, t),
+      );
     }
   });
 
   it('static properties are copied to both halves untouched', () => {
     const a = V('a', 0, 10, { transform: { x: anim(42) } });
-    const [l, rt] = items(splitOp(proj([track('v1', 'video', [a])]), ['a'], 5).project, 'v1') as VideoItem[];
+    const [l, rt] = items(
+      splitOp(proj([track('v1', 'video', [a])]), ['a'], 5).project,
+      'v1',
+    ) as VideoItem[];
     expect(l?.transform.x).toEqual(anim(42));
     expect(rt?.transform.x).toEqual(anim(42));
   });
 
   it('keyframes entirely on one side: the other side keeps a held value', () => {
     const a = V('a', 0, 10, { transform: { opacity: anim(1, [kf(8, 0), kf(9, 1)]) } });
-    const [l, rt] = items(splitOp(proj([track('v1', 'video', [a])]), ['a'], 4).project, 'v1') as VideoItem[];
+    const [l, rt] = items(
+      splitOp(proj([track('v1', 'video', [a])]), ['a'], 4).project,
+      'v1',
+    ) as VideoItem[];
     expect(animatedAt((l as VideoItem).transform.opacity, 2)).toBeCloseTo(0);
     expect((rt as VideoItem).transform.opacity.kf.map((k) => k.t)).toEqual([4, 5]);
   });
 
   it('fadeIn stays on the left half, fadeOut on the right half', () => {
     const a = V('a', 0, 10, { fadeInSec: 1, fadeOutSec: 2 });
-    const [l, rt] = items(splitOp(proj([track('v1', 'video', [a])]), ['a'], 5).project, 'v1') as VideoItem[];
+    const [l, rt] = items(
+      splitOp(proj([track('v1', 'video', [a])]), ['a'], 5).project,
+      'v1',
+    ) as VideoItem[];
     expect([l?.fadeInSec, l?.fadeOutSec]).toEqual([1, 0]);
     expect([rt?.fadeInSec, rt?.fadeOutSec]).toEqual([0, 2]);
   });
 
   it('transitionIn stays on the left half; the right half has none', () => {
     const p = proj([
-      track('v1', 'video', [V('x', 0, 5), V('a', 4, 10, { inSec: 3, transitionIn: { type: 'crossfade', durationSec: 1 } })]),
+      track('v1', 'video', [
+        V('x', 0, 5),
+        V('a', 4, 10, { inSec: 3, transitionIn: { type: 'crossfade', durationSec: 1 } }),
+      ]),
     ]);
     const r = splitOp(p, ['a'], 8).project;
     const [, l, rt] = items(r, 'v1') as VideoItem[];
@@ -180,16 +209,22 @@ describe('split — keyframes, fades, transitions, animations', () => {
 
   it('a split inside the transition overlap is refused', () => {
     const p = proj([
-      track('v1', 'video', [V('x', 0, 5), V('a', 4, 10, { inSec: 3, transitionIn: { type: 'crossfade', durationSec: 1 } })]),
+      track('v1', 'video', [
+        V('x', 0, 5),
+        V('a', 4, 10, { inSec: 3, transitionIn: { type: 'crossfade', durationSec: 1 } }),
+      ]),
     ]);
     expect(splitOp(p, ['a'], 4.5).project).toBe(p);
     expect(splitOp(p, ['x'], 4.5).project).toBe(p); // x's tail is the overlap too
     healthy(splitOp(p, ['x'], 3).project);
   });
 
-  it('the next item\'s transition attaches to the right half', () => {
+  it("the next item's transition attaches to the right half", () => {
     const p = proj([
-      track('v1', 'video', [V('a', 0, 10), V('b', 9, 5, { inSec: 3, transitionIn: { type: 'dip-black', durationSec: 1 } })]),
+      track('v1', 'video', [
+        V('a', 0, 10),
+        V('b', 9, 5, { inSec: 3, transitionIn: { type: 'dip-black', durationSec: 1 } }),
+      ]),
     ]);
     const r = splitOp(p, ['a'], 5).project;
     healthy(r);
@@ -197,15 +232,24 @@ describe('split — keyframes, fades, transitions, animations', () => {
   });
 
   it('text: animIn stays left, animOut goes right', () => {
-    const t = T('t', 0, 6, { animIn: { type: 'pop', durationSec: 0.4 }, animOut: { type: 'fade', durationSec: 0.5 } });
-    const [l, rt] = items(splitOp(proj([track('o', 'overlay', [t])]), ['t'], 3).project, 'o') as TextItem[];
+    const t = T('t', 0, 6, {
+      animIn: { type: 'pop', durationSec: 0.4 },
+      animOut: { type: 'fade', durationSec: 0.5 },
+    });
+    const [l, rt] = items(
+      splitOp(proj([track('o', 'overlay', [t])]), ['t'], 3).project,
+      'o',
+    ) as TextItem[];
     expect([l?.animIn.type, l?.animOut.type]).toEqual(['pop', 'none']);
     expect([rt?.animIn.type, rt?.animOut.type]).toEqual(['none', 'fade']);
   });
 
   it('long fades are clamped to the half they live on', () => {
     const a = V('a', 0, 10, { fadeInSec: 6, fadeOutSec: 6 });
-    const [l, rt] = items(splitOp(proj([track('v1', 'video', [a])]), ['a'], 2).project, 'v1') as VideoItem[];
+    const [l, rt] = items(
+      splitOp(proj([track('v1', 'video', [a])]), ['a'], 2).project,
+      'v1',
+    ) as VideoItem[];
     expect(l?.fadeInSec).toBeCloseTo(2);
     expect(rt?.fadeOutSec).toBeCloseTo(6);
   });
@@ -247,9 +291,21 @@ describe('split — subtitle cues', () => {
   });
 
   it('keeps style on both halves', () => {
-    const c2 = C('c2', 0, 4, [['a', 0, 1], ['b', 2, 3]], { styleId: 'bold-box' });
+    const c2 = C(
+      'c2',
+      0,
+      4,
+      [
+        ['a', 0, 1],
+        ['b', 2, 3],
+      ],
+      { styleId: 'bold-box' },
+    );
     const r = splitOp(proj([track('s', 'subtitle', [c2])]), ['c2'], 1.5).project;
-    expect((items(r, 's') as SubtitleItem[]).map((c) => c.styleId)).toEqual(['bold-box', 'bold-box']);
+    expect((items(r, 's') as SubtitleItem[]).map((c) => c.styleId)).toEqual([
+      'bold-box',
+      'bold-box',
+    ]);
   });
 });
 
@@ -262,7 +318,12 @@ describe('freezeFrame', () => {
 
   it('splits and inserts a still of holdSec, rippling later items on the track', () => {
     const { project: r, freezeId } = freezeFrameOp(base(), 'a', 4, 2);
-    expect(spans(r, 'v1')).toEqual([[0, 4], [4, 6], [6, 12], [12, 16]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 4],
+      [4, 6],
+      [6, 12],
+      [12, 16],
+    ]);
     const f = items(r, 'v1')[1] as VideoItem;
     expect(f.id).toBe(freezeId);
     expect(f.freezeAtSec).toBeCloseTo(9); // inSec 5 + 4
@@ -295,10 +356,16 @@ describe('freezeFrame', () => {
   it('at the very start the still goes before the item; at the end after it', () => {
     const p = proj([track('v1', 'video', [V('a', 2, 6, { inSec: 4 })])]);
     const s = freezeFrameOp(p, 'a', 2, 1).project;
-    expect(spans(s, 'v1')).toEqual([[2, 3], [3, 9]]);
+    expect(spans(s, 'v1')).toEqual([
+      [2, 3],
+      [3, 9],
+    ]);
     expect((items(s, 'v1')[0] as VideoItem).freezeAtSec).toBeCloseTo(4);
     const e = freezeFrameOp(p, 'a', 8, 1).project;
-    expect(spans(e, 'v1')).toEqual([[2, 8], [8, 9]]);
+    expect(spans(e, 'v1')).toEqual([
+      [2, 8],
+      [8, 9],
+    ]);
     expect((items(e, 'v1')[1] as VideoItem).freezeAtSec).toBeCloseTo(10);
     healthy(s);
     healthy(e);

@@ -176,7 +176,7 @@ function planItems(
       itemGainAt(item, T - item.startSec) *
       track.gain *
       (duck ? duckGainAt(ranges, track.ducking, T) : 1) *
-      crossFactor(track, item, T);
+      crossFactor(track, item, Math.min(T, itemEnd(item) - 1e-5));
     const breaks: number[] = [A, B];
     const eps = 1e-4;
     for (const k of item.volume.kf) breaks.push(item.startSec + k.t - eps, item.startSec + k.t, item.startSec + k.t + eps);
@@ -266,7 +266,7 @@ export async function buildAudio(a: {
   const plan = planItems(project, items, r0, r1, ranges, notes);
 
   const make = (base: number, filterTail: string | null): AudioBuild => {
-    const g = new Graph(base);
+    const g = new Graph(base, 'au');
     const labels = plan.build(g, base);
     const mixed =
       labels.length === 1

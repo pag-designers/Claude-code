@@ -294,6 +294,21 @@ export function SubtitleTimingSection() {
   );
 }
 
+/**
+ * While a dialog we opened is up, Escape closes it AND would reach the editor's global shortcuts (deselect). Radix handles
+ * Escape on a document capture listener; this one runs after it and stops the event from travelling further.
+ */
+function useConsumeEscape(active: boolean) {
+  React.useEffect(() => {
+    if (!active) return;
+    const stop = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') e.stopPropagation();
+    };
+    document.addEventListener('keydown', stop, true);
+    return () => document.removeEventListener('keydown', stop, true);
+  }, [active]);
+}
+
 /** Caption preset for this line (and every line on the track), with the Caption Style Studio for custom looks. */
 export function SubtitleStyleSection() {
   const ctx = useInspector();
@@ -302,6 +317,7 @@ export function SubtitleStyleSection() {
   const styles = stylesQ.data?.styles;
   const [pickOpen, setPickOpen] = React.useState(false);
   const [studio, setStudio] = React.useState(false);
+  useConsumeEscape(studio);
   const styleId = ctx.read((i) => cue(i).styleId);
   const current = styles?.find((s) => s.id === item.styleId);
   const override = !!item.styleOverride;
@@ -345,6 +361,7 @@ export function SubtitleStyleSection() {
                 align="start"
                 className="max-h-[60vh] w-[19rem] overflow-y-auto p-2"
                 data-testid="sub-style-gallery"
+                onEscapeKeyDown={(e) => e.stopPropagation()}
               >
                 <StyleGallery
                   styles={styles}

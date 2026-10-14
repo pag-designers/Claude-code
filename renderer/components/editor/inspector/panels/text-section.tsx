@@ -60,7 +60,12 @@ export function TextContentSection() {
               <Smile aria-hidden /> Emoji
             </Button>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-60 p-2" data-testid="emoji-grid">
+          <PopoverContent
+            align="start"
+            className="w-60 p-2"
+            data-testid="emoji-grid"
+            onEscapeKeyDown={(e) => e.stopPropagation()}
+          >
             <div role="group" aria-label="Emoji" className="grid grid-cols-8 gap-0.5">
               {COMMON_EMOJI.map((e) => (
                 <button

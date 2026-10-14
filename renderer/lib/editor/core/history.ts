@@ -74,7 +74,13 @@ export class History {
   }
 
   /** Record an edit. Returns true when it was merged into the previous step (coalesceKey within 600 ms). */
-  push(label: string, before: Snapshot, after: Snapshot, coalesceKey: string | null, now: number): boolean {
+  push(
+    label: string,
+    before: Snapshot,
+    after: Snapshot,
+    coalesceKey: string | null,
+    now: number,
+  ): boolean {
     this.future = [];
     const top = this.past[this.past.length - 1];
     if (

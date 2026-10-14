@@ -1,4 +1,4 @@
-import type { HandleKind, Point, TransformHandles } from '@/lib/editor/compositor/api';
+import type { HandleKind, Point, TransformHandles } from '../../../lib/editor/compositor/api';
 
 /** Pure layout / geometry helpers of the preview panel (unit-tested in node). */
 

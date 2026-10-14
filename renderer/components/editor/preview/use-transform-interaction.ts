@@ -44,9 +44,11 @@ export function useTransformInteraction(o: InteractionOptions) {
   const dragRef = React.useRef<Drag | null>(null);
   const [guides, setGuides] = React.useState<{ x?: number; y?: number }[]>([]);
   const [cursor, setCursor] = React.useState('default');
-  const [dragging, setDragging] = React.useState(false);
+  const [dragKind, setDragKind] = React.useState<HandleKind | null>(null);
   const opts = React.useRef(o);
-  opts.current = o;
+  React.useEffect(() => {
+    opts.current = o;
+  });
 
   const pointerOf = React.useCallback((e: { clientX: number; clientY: number }): Point | null => {
     const { surface, layout } = opts.current;
@@ -102,7 +104,7 @@ export function useTransformInteraction(o: InteractionOptions) {
     const d = dragRef.current;
     if (d?.keepalive) window.clearInterval(d.keepalive);
     dragRef.current = null;
-    setDragging(false);
+    setDragKind(null);
     setGuides([]);
   }, []);
 
@@ -162,7 +164,7 @@ export function useTransformInteraction(o: InteractionOptions) {
       };
       dragRef.current = d;
       e.currentTarget.setPointerCapture(e.pointerId);
-      setDragging(true);
+      setDragKind(kind);
       e.preventDefault();
     },
     [pointerOf],
@@ -238,12 +240,8 @@ export function useTransformInteraction(o: InteractionOptions) {
 
   return {
     guides,
-    cursor: dragging
-      ? dragRef.current
-        ? cursorFor(dragRef.current.kind === 'move' ? 'move' : dragRef.current.kind)
-        : cursor
-      : cursor,
-    dragging,
+    cursor: dragKind ? cursorFor(dragKind) : cursor,
+    dragging: dragKind !== null,
     handlers: {
       onPointerDown,
       onPointerMove,

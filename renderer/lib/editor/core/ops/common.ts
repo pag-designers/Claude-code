@@ -293,7 +293,12 @@ export function tryShiftTail(items: readonly Item[], from: number, delta: number
  * Cross-track ripple: shift, on every unlocked track except `exceptTi`, the items starting at or after `anchor`
  * by `delta` (best effort per track, see tryShiftTail).
  */
-export function rippleOtherTracks(d: Draft, exceptTi: number | null, anchor: number, delta: number): void {
+export function rippleOtherTracks(
+  d: Draft,
+  exceptTi: number | null,
+  anchor: number,
+  delta: number,
+): void {
   for (let ti = 0; ti < d.trackList.length; ti++) {
     if (ti === exceptTi || (d.trackList[ti] as Track).locked) continue;
     const cur = d.items(ti);

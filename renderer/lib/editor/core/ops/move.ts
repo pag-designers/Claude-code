@@ -37,7 +37,11 @@ export interface MovePlan {
  * Compute the project after `moves` (no history, no selection). `ok` is false when something is locked,
  * incompatible, missing, or the result would violate the overlap invariant (then `project` is the input).
  */
-export function planMoves(p: Project, moves: readonly MoveSpec[], opts: { insert?: boolean } = {}): MovePlan {
+export function planMoves(
+  p: Project,
+  moves: readonly MoveSpec[],
+  opts: { insert?: boolean } = {},
+): MovePlan {
   const fail: MovePlan = { project: p, ok: false };
   if (!moves.length) return fail;
   const byId = new Map<string, MoveSpec>();

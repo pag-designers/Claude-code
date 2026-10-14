@@ -12,7 +12,8 @@ import { EPS, MIN_DUR, isMedia, type MediaItem } from './common';
 export function offsetExt(item: MediaItem, tl: number): number {
   const off = makeSourceOffset(item);
   if (tl < 0) return tl * speedAt(item, 0);
-  if (tl > item.durationSec) return off(item.durationSec) + (tl - item.durationSec) * speedAt(item, item.durationSec);
+  if (tl > item.durationSec)
+    return off(item.durationSec) + (tl - item.durationSec) * speedAt(item, item.durationSec);
   return off(tl);
 }
 
@@ -25,7 +26,9 @@ export function offsetExt(item: MediaItem, tl: number): number {
 export function cutStartMedia<T extends MediaItem>(item: T, cut: number, newDur: number): T {
   const off0 = offsetExt(item, cut);
   const span = sourceSpan(item);
-  const shifted = mapKeyframes({ ...item, durationSec: newDur }, (kf, fb) => keyframesAfterCut(kf, cut, fb));
+  const shifted = mapKeyframes({ ...item, durationSec: newDur }, (kf, fb) =>
+    keyframesAfterCut(kf, cut, fb),
+  );
   if (item.freezeAtSec !== null) return shifted;
   if (!item.reverse) return { ...shifted, inSec: Math.max(0, item.inSec + off0) };
   const span2 = sourceSpan(shifted);
@@ -55,14 +58,16 @@ export function windowFits(item: MediaItem, asset: Asset | null): boolean {
  * not exist (≥ 0). Closed form for constant speed; bisection for speed ramps. Non-media / unknown → Infinity.
  */
 export function maxExtension(item: Item, edge: 'start' | 'end', asset: Asset | null): number {
-  if (!isMedia(item) || item.freezeAtSec !== null || !asset || asset.durationSec === null) return Infinity;
+  if (!isMedia(item) || item.freezeAtSec !== null || !asset || asset.durationSec === null)
+    return Infinity;
   const A = asset.durationSec;
   if (!item.speedCurve.length) {
     const s = item.speed;
     const forwardEnd = (A - item.inSec) / s - item.durationSec;
     const backwardStart = item.inSec / s;
     const fwd = !item.reverse;
-    const e = edge === 'start' ? (fwd ? backwardStart : forwardEnd) : fwd ? forwardEnd : backwardStart;
+    const e =
+      edge === 'start' ? (fwd ? backwardStart : forwardEnd) : fwd ? forwardEnd : backwardStart;
     return Math.max(0, e);
   }
   const fits = (e: number): boolean =>

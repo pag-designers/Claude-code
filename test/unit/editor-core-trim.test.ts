@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { VideoItem, AudioItem, TextItem } from '@shared/editor';
 import { makeSourceTime, sourceSpan, animatedAt } from '@shared/editor-eval';
 import { trimOp, setSpeedOp, splitOp, projectProblems } from '../../renderer/lib/editor/core/ops';
-import { A, T, V, asset, item, items, proj, spans, track, C } from './editor-core-fixtures';
+import { A, T, V, asset, item, proj, spans, track, C } from './editor-core-fixtures';
 
 const kf = (t: number, v: number, ease: 'linear' | 'hold' = 'linear') => ({ t, v, ease });
 const anim = (v: number, ks: ReturnType<typeof kf>[] = []) => ({ v, kf: ks });
-const healthy = (p: Parameters<typeof projectProblems>[0]) => expect(projectProblems(p)).toEqual([]);
+const healthy = (p: Parameters<typeof projectProblems>[0]) =>
+  expect(projectProblems(p)).toEqual([]);
 
 describe('trim — start edge', () => {
   it('changes startSec + inSec + duration so the content stays where it is', () => {
@@ -65,7 +66,7 @@ describe('trim — start edge', () => {
 
   it('images, text and shapes extend freely', () => {
     const p = proj([track('o', 'overlay', [T('t', 5, 2)])]);
-    const t = item(trimOp(p, 'o' === 'o' ? 't' : 't', 'start', 1), 't') as TextItem;
+    const t = item(trimOp(p, 't', 'start', 1), 't') as TextItem;
     expect(t.startSec).toBeCloseTo(1);
     expect(t.durationSec).toBeCloseTo(6);
   });
@@ -76,7 +77,9 @@ describe('trim — start edge', () => {
     expect(a.inSec).toBeCloseTo(20);
     expect(a.durationSec).toBeCloseTo(6);
     // frame at timeline 6 identical
-    expect(makeSourceTime(a)(6 - a.startSec)).toBeCloseTo(makeSourceTime(item(p, 'a') as VideoItem)(6));
+    expect(makeSourceTime(a)(6 - a.startSec)).toBeCloseTo(
+      makeSourceTime(item(p, 'a') as VideoItem)(6),
+    );
   });
 
   it('a locked track rejects the edit and returns the same project', () => {
@@ -126,15 +129,17 @@ describe('trim — keyframes shift with a start trim', () => {
   });
 
   it('extending the head shifts keyframes right', () => {
-    const q = proj([track('v1', 'video', [V('a', 5, 10, { inSec: 5, transform: { opacity: anim(1, [kf(0, 0), kf(4, 1)]) } })])]);
+    const q = proj([
+      track('v1', 'video', [
+        V('a', 5, 10, { inSec: 5, transform: { opacity: anim(1, [kf(0, 0), kf(4, 1)]) } }),
+      ]),
+    ]);
     const r = item(trimOp(q, 'a', 'start', 3), 'a') as VideoItem;
     expect(r.transform.opacity.kf.map((k) => k.t)).toEqual([2, 6]);
   });
 
   it('shifts the speed ramp too', () => {
-    const q = proj([
-      track('v1', 'video', [V('a', 0, 10, { speedCurve: [kf(0, 1), kf(10, 3)] })]),
-    ]);
+    const q = proj([track('v1', 'video', [V('a', 0, 10, { speedCurve: [kf(0, 1), kf(10, 3)] })])]);
     const r = item(trimOp(q, 'a', 'start', 5), 'a') as VideoItem;
     expect(r.speedCurve[0]?.t).toBe(0);
     expect(r.speedCurve[0]?.v).toBeCloseTo(2);
@@ -208,14 +213,27 @@ describe('trim — end edge', () => {
   });
 
   it('unknown asset duration means unlimited extension', () => {
-    const p = proj([track('v1', 'video', [V('a', 0, 5)])], { assets: [asset('av', 'video', null)] });
+    const p = proj([track('v1', 'video', [V('a', 0, 5)])], {
+      assets: [asset('av', 'video', null)],
+    });
     expect(item(trimOp(p, 'a', 'end', 500), 'a').durationSec).toBeCloseTo(500);
   });
 
   it('subtitle cue words are clamped when the cue shrinks', () => {
-    const p = proj([track('s', 'subtitle', [C('c', 0, 3, [['a', 0, 1], ['b', 1, 2], ['c', 2, 3]])])]);
+    const p = proj([
+      track('s', 'subtitle', [
+        C('c', 0, 3, [
+          ['a', 0, 1],
+          ['b', 1, 2],
+          ['c', 2, 3],
+        ]),
+      ]),
+    ]);
     const c = item(trimOp(p, 'c', 'end', 1.5), 'c');
-    expect(c.type === 'subtitle' && c.words.map((w) => [w.w, w.e])).toEqual([['a', 1], ['b', 1.5]]);
+    expect(c.type === 'subtitle' && c.words.map((w) => [w.w, w.e])).toEqual([
+      ['a', 1],
+      ['b', 1.5],
+    ]);
   });
 });
 
@@ -228,19 +246,33 @@ describe('trim — ripple', () => {
 
   it('end ripple shifts later items on the track (shrink)', () => {
     const r = trimOp(p0(), 'a', 'end', 3, { ripple: 'track' });
-    expect(spans(r, 'v1')).toEqual([[0, 3], [3, 8], [10, 13]]);
-    expect(spans(r, 'm')).toEqual([[0, 20], [22, 25]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 3],
+      [3, 8],
+      [10, 13],
+    ]);
+    expect(spans(r, 'm')).toEqual([
+      [0, 20],
+      [22, 25],
+    ]);
     healthy(r);
   });
 
   it('end ripple shifts later items (grow)', () => {
     const r = trimOp(p0(), 'a', 'end', 7, { ripple: 'track' });
-    expect(spans(r, 'v1')).toEqual([[0, 7], [7, 12], [14, 17]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 7],
+      [7, 12],
+      [14, 17],
+    ]);
   });
 
   it('ripple "all" shifts later items on other unlocked tracks too', () => {
     const r = trimOp(p0(), 'a', 'end', 3, { ripple: 'all' });
-    expect(spans(r, 'm')).toEqual([[0, 20], [20, 23]]);
+    expect(spans(r, 'm')).toEqual([
+      [0, 20],
+      [20, 23],
+    ]);
     healthy(r);
   });
 
@@ -259,7 +291,10 @@ describe('trim — ripple', () => {
       track('m', 'audio', [A('m1', 0, 6.5), A('m2', 7, 3)]),
     ]);
     const r = trimOp(q, 'a', 'end', 1, { ripple: 'all' }); // shift -4: m2 would land at 3 inside m1
-    expect(spans(r, 'm')).toEqual([[0, 6.5], [7, 10]]);
+    expect(spans(r, 'm')).toEqual([
+      [0, 6.5],
+      [7, 10],
+    ]);
     healthy(r);
   });
 
@@ -269,13 +304,23 @@ describe('trim — ripple', () => {
     expect(b.startSec).toBeCloseTo(5);
     expect(b.durationSec).toBeCloseTo(3);
     expect(b.inSec).toBeCloseTo(2);
-    expect(spans(r, 'v1')).toEqual([[0, 5], [5, 8], [10, 13]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 5],
+      [5, 8],
+      [10, 13],
+    ]);
   });
 
   it('head ripple can extend (earlier source) and pushes later items right', () => {
-    const q = proj([track('v1', 'video', [V('a', 0, 5), V('b', 5, 5, { inSec: 10 }), V('c', 10, 3)])]);
+    const q = proj([
+      track('v1', 'video', [V('a', 0, 5), V('b', 5, 5, { inSec: 10 }), V('c', 10, 3)]),
+    ]);
     const r = trimOp(q, 'b', 'start', 3, { ripple: 'track' });
-    expect(spans(r, 'v1')).toEqual([[0, 5], [5, 12], [12, 15]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 5],
+      [5, 12],
+      [12, 15],
+    ]);
     expect((item(r, 'b') as VideoItem).inSec).toBeCloseTo(8);
   });
 
@@ -288,9 +333,14 @@ describe('trim — ripple', () => {
 
 describe('trim — roll', () => {
   it('moves the shared boundary of two adjacent items', () => {
-    const p = proj([track('v1', 'video', [V('a', 0, 5, { inSec: 0 }), V('b', 5, 5, { inSec: 20 })])]);
+    const p = proj([
+      track('v1', 'video', [V('a', 0, 5, { inSec: 0 }), V('b', 5, 5, { inSec: 20 })]),
+    ]);
     const r = trimOp(p, 'a', 'end', 7, { roll: true });
-    expect(spans(r, 'v1')).toEqual([[0, 7], [7, 10]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 7],
+      [7, 10],
+    ]);
     const b = item(r, 'b') as VideoItem;
     expect(b.inSec).toBeCloseTo(22);
     healthy(r);
@@ -299,12 +349,17 @@ describe('trim — roll', () => {
   it('works from the start edge of the later item and backwards', () => {
     const p = proj([track('v1', 'video', [V('a', 0, 5), V('b', 5, 5, { inSec: 20 })])]);
     const r = trimOp(p, 'b', 'start', 3, { roll: true });
-    expect(spans(r, 'v1')).toEqual([[0, 3], [3, 10]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 3],
+      [3, 10],
+    ]);
     expect((item(r, 'b') as VideoItem).inSec).toBeCloseTo(18);
   });
 
   it('is limited by the source of the item that grows', () => {
-    const p = proj([track('v1', 'video', [V('a', 0, 5, { inSec: 55 }), V('b', 5, 5, { inSec: 20 })])]);
+    const p = proj([
+      track('v1', 'video', [V('a', 0, 5, { inSec: 55 }), V('b', 5, 5, { inSec: 20 })]),
+    ]);
     const r = trimOp(p, 'a', 'end', 9, { roll: true });
     expect(spans(r, 'v1')[0]?.[1]).toBeCloseTo(5);
   });
@@ -319,7 +374,10 @@ describe('trim — roll', () => {
   it('falls back to a plain trim when there is no adjacent neighbour', () => {
     const p = proj([track('v1', 'video', [V('a', 0, 5), V('b', 8, 5)])]);
     const r = trimOp(p, 'a', 'end', 3, { roll: true });
-    expect(spans(r, 'v1')).toEqual([[0, 3], [8, 13]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 3],
+      [8, 13],
+    ]);
   });
 
   it('rolls a transition pair keeping the overlap', () => {
@@ -330,7 +388,10 @@ describe('trim — roll', () => {
       ]),
     ]);
     const r = trimOp(p, 'a', 'end', 6, { roll: true });
-    expect(spans(r, 'v1')).toEqual([[0, 6], [5, 10]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 6],
+      [5, 10],
+    ]);
     expect((item(r, 'b') as VideoItem).transitionIn?.durationSec).toBeCloseTo(1);
     healthy(r);
   });
@@ -391,7 +452,11 @@ describe('trim — transitions stay consistent', () => {
 
   it('ripple end-trim moves the whole chain', () => {
     const r = trimOp(pair(), 'a', 'end', 3, { ripple: 'track' });
-    expect(spans(r, 'v1')).toEqual([[0, 3], [2, 8], [10, 13]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 3],
+      [2, 8],
+      [10, 13],
+    ]);
     expect((item(r, 'b') as VideoItem).transitionIn?.durationSec).toBeCloseTo(1);
     healthy(r);
   });
@@ -454,7 +519,10 @@ describe('setSpeed', () => {
   it('ripple moves later items with the new end', () => {
     const p = proj([track('v1', 'video', [V('a', 0, 10), V('b', 10, 4)])]);
     const r = setSpeedOp(p, 'a', 2, { ripple: 'track' });
-    expect(spans(r, 'v1')).toEqual([[0, 5], [5, 9]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 5],
+      [5, 9],
+    ]);
   });
 
   it('replaces a speed ramp by the constant speed', () => {
@@ -496,7 +564,7 @@ describe('trim — misc', () => {
 describe('property: trimming and splitting never move the picture', () => {
   // deterministic LCG
   let seed = 12345;
-  const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
   const f = (lo: number, hi: number) => lo + rnd() * (hi - lo);
 
   it('start trim, end trim and split keep the source frame at every surviving timeline time', () => {

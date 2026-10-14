@@ -29,7 +29,7 @@ function setup(opts: { assets?: ReturnType<typeof asset>[]; maxTotal?: number } 
       return e as unknown as HTMLImageElement;
     },
     urls: {
-      get: (id: string) => getUrl(id),
+      get: (id: string) => getUrl(id) as never,
       invalidate: (id: string) => void invalidated.push(id),
     },
     requestRender: () => void renders.n++,

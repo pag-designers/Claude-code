@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * The editor store: zustand state + actions implementing api.ts. Every mutating action runs ONE pure op from
  * ops/* and, if the project reference changed, records one undoable command (history.ts). A rejected edit (locked
@@ -114,26 +116,35 @@ function pruneSelection(sel: Selection, project: Project): Selection {
   const ids = new Set<string>();
   for (const tr of project.tracks) for (const it of tr.items) ids.add(it.id);
   const itemIds = sel.itemIds.filter((id) => ids.has(id));
-  const trackId = sel.trackId && project.tracks.some((t) => t.id === sel.trackId) ? sel.trackId : null;
+  const trackId =
+    sel.trackId && project.tracks.some((t) => t.id === sel.trackId) ? sel.trackId : null;
   const keyframe = sel.keyframe && ids.has(sel.keyframe.itemId) ? sel.keyframe : null;
-  if (itemIds.length === sel.itemIds.length && trackId === sel.trackId && keyframe === sel.keyframe) return sel;
+  if (itemIds.length === sel.itemIds.length && trackId === sel.trackId && keyframe === sel.keyframe)
+    return sel;
   return { itemIds, trackId, keyframe };
 }
 
 function isConflict(e: unknown): boolean {
   if (!e || typeof e !== 'object') return false;
   const o = e as { code?: unknown; message?: unknown; name?: unknown };
-  return o.code === 'CONFLICT' || o.name === 'CONFLICT' || (typeof o.message === 'string' && /\bCONFLICT\b/.test(o.message));
+  return (
+    o.code === 'CONFLICT' ||
+    o.name === 'CONFLICT' ||
+    (typeof o.message === 'string' && /\bCONFLICT\b/.test(o.message))
+  );
 }
 
-const errMessage = (e: unknown): string => (e instanceof Error ? e.message : typeof e === 'string' ? e : 'Save failed');
+const errMessage = (e: unknown): string =>
+  e instanceof Error ? e.message : typeof e === 'string' ? e : 'Save failed';
 
 /** An item "crosses" t when t is strictly inside it. */
 const crosses = (it: Item, t: number): boolean => it.startSec < t - EPS && itemEnd(it) > t + EPS;
 
 /* ------------------------------------------------------------------ the store ----------------- */
 
-type SetFn = (partial: Partial<FullEditorStore> | ((s: FullEditorStore) => Partial<FullEditorStore>)) => void;
+type SetFn = (
+  partial: Partial<FullEditorStore> | ((s: FullEditorStore) => Partial<FullEditorStore>),
+) => void;
 type GetFn = () => FullEditorStore;
 
 function initializer(opts: StoreOptions): (set: SetFn, get: GetFn) => FullEditorStore {
@@ -153,7 +164,8 @@ function initializer(opts: StoreOptions): (set: SetFn, get: GetFn) => FullEditor
     });
 
     const nextSaveState = (s: EditorState, project: Project): SaveState => {
-      if (s.saveState === 'conflict' || s.saveState === 'saving' || s.saveState === 'error') return s.saveState;
+      if (s.saveState === 'conflict' || s.saveState === 'saving' || s.saveState === 'error')
+        return s.saveState;
       if (project === savedProject) return s.lastSavedAt !== null ? 'saved' : 'idle';
       return 'dirty';
     };
@@ -197,7 +209,8 @@ function initializer(opts: StoreOptions): (set: SetFn, get: GetFn) => FullEditor
       const ok = (it: Item) => crosses(it, t) && (!filter || filter(it));
       const sel = new Set(s.selection.itemIds);
       const chosen: string[] = [];
-      for (const tr of s.project.tracks) if (!tr.locked) for (const it of tr.items) if (sel.has(it.id) && ok(it)) chosen.push(it.id);
+      for (const tr of s.project.tracks)
+        if (!tr.locked) for (const it of tr.items) if (sel.has(it.id) && ok(it)) chosen.push(it.id);
       if (chosen.length) return chosen;
       const tracks = s.project.tracks.filter((tr) => !tr.locked);
       const preferred = tracks.find((tr) => tr.id === s.selection.trackId);
@@ -371,7 +384,8 @@ function initializer(opts: StoreOptions): (set: SetFn, get: GetFn) => FullEditor
         const dir = key === 'L' ? 1 : -1;
         const faster = s.playing && Math.sign(s.rate) === dir;
         const mag = faster
-          ? ((TRANSPORT_RATES.find((r) => r > Math.abs(s.rate)) ?? TRANSPORT_RATES[TRANSPORT_RATES.length - 1]) as number)
+          ? ((TRANSPORT_RATES.find((r) => r > Math.abs(s.rate)) ??
+              TRANSPORT_RATES[TRANSPORT_RATES.length - 1]) as number)
           : 1;
         const end = projectDuration(s.project);
         const startOver = dir > 0 && end > 0 && s.playheadSec >= end - 1e-9;
@@ -456,7 +470,8 @@ function initializer(opts: StoreOptions): (set: SetFn, get: GetFn) => FullEditor
         const exp = expandGroups(s.project, ids);
         let next: string[];
         if (mode === 'replace') next = exp;
-        else if (mode === 'add') next = [...s.selection.itemIds, ...exp.filter((id) => !s.selection.itemIds.includes(id))];
+        else if (mode === 'add')
+          next = [...s.selection.itemIds, ...exp.filter((id) => !s.selection.itemIds.includes(id))];
         else {
           const cur = new Set(s.selection.itemIds);
           const allIn = exp.length > 0 && exp.every((id) => cur.has(id));
@@ -467,8 +482,12 @@ function initializer(opts: StoreOptions): (set: SetFn, get: GetFn) => FullEditor
         const clicked = exp[exp.length - 1];
         const loc = clicked ? locate(s.project, clicked) : null;
         const keyframe =
-          s.selection.keyframe && next.includes(s.selection.keyframe.itemId) ? s.selection.keyframe : null;
-        set({ selection: { itemIds: next, trackId: loc ? loc.track.id : s.selection.trackId, keyframe } });
+          s.selection.keyframe && next.includes(s.selection.keyframe.itemId)
+            ? s.selection.keyframe
+            : null;
+        set({
+          selection: { itemIds: next, trackId: loc ? loc.track.id : s.selection.trackId, keyframe },
+        });
       },
       selectTrack(trackId: string | null) {
         set((s) => ({ selection: { ...s.selection, trackId } }));
@@ -476,8 +495,11 @@ function initializer(opts: StoreOptions): (set: SetFn, get: GetFn) => FullEditor
       selectAll(trackId?: string) {
         const s = get();
         const ids: string[] = [];
-        for (const tr of s.project.tracks) if (!trackId || tr.id === trackId) for (const it of tr.items) ids.push(it.id);
-        set({ selection: { itemIds: ids, trackId: trackId ?? s.selection.trackId, keyframe: null } });
+        for (const tr of s.project.tracks)
+          if (!trackId || tr.id === trackId) for (const it of tr.items) ids.push(it.id);
+        set({
+          selection: { itemIds: ids, trackId: trackId ?? s.selection.trackId, keyframe: null },
+        });
       },
       clearSelection() {
         set((s) => ({ selection: { itemIds: [], trackId: s.selection.trackId, keyframe: null } }));
@@ -500,7 +522,12 @@ function initializer(opts: StoreOptions): (set: SetFn, get: GetFn) => FullEditor
       },
       updateTrack(trackId, patch) {
         const keys = Object.keys(patch);
-        const label = keys.length === 1 && keys[0] === 'locked' ? (patch.locked ? 'Lock track' : 'Unlock track') : 'Edit track';
+        const label =
+          keys.length === 1 && keys[0] === 'locked'
+            ? patch.locked
+              ? 'Lock track'
+              : 'Unlock track'
+            : 'Edit track';
         commit(label, updateTrackOp(get().project, trackId, patch), {
           coalesceKey: keys.some((k) => k === 'gain') ? `track:${trackId}:gain` : undefined,
         });
@@ -510,7 +537,8 @@ function initializer(opts: StoreOptions): (set: SetFn, get: GetFn) => FullEditor
       addItem(item, o) {
         const s = get();
         const r = addItemOp(s.project, item, { trackId: o?.trackId });
-        if (r.itemId) commit('Add item', r.project, { selection: selectIds([r.itemId], r.project, r.trackId) });
+        if (r.itemId)
+          commit('Add item', r.project, { selection: selectIds([r.itemId], r.project, r.trackId) });
         return r.itemId ?? '';
       },
       addAsset(assetId, o) {
@@ -574,11 +602,14 @@ function initializer(opts: StoreOptions): (set: SetFn, get: GetFn) => FullEditor
         } else {
           const sel = new Set(expandGroups(s.project, s.selection.itemIds));
           targets = [];
-          for (const tr of s.project.tracks) for (const it of tr.items) if (sel.has(it.id) && crosses(it, at)) targets.push(it.id);
+          for (const tr of s.project.tracks)
+            for (const it of tr.items) if (sel.has(it.id) && crosses(it, at)) targets.push(it.id);
           if (!targets.length) {
             const tracks = s.project.tracks.filter((t) => !t.locked);
             const preferred = tracks.find((t) => t.id === s.selection.trackId);
-            for (const tr of preferred ? [preferred, ...tracks.filter((x) => x !== preferred)] : tracks) {
+            for (const tr of preferred
+              ? [preferred, ...tracks.filter((x) => x !== preferred)]
+              : tracks) {
               const hit = tr.items.find((it) => crosses(it, at));
               if (hit) {
                 targets = expandGroups(s.project, [hit.id]).filter((id) => {
@@ -629,7 +660,12 @@ function initializer(opts: StoreOptions): (set: SetFn, get: GetFn) => FullEditor
       paste() {
         const s = get();
         if (!s.clipboard) return [];
-        const r = pasteOp(s.project, s.clipboard as ClipboardData, s.playheadSec, s.selection.trackId);
+        const r = pasteOp(
+          s.project,
+          s.clipboard as ClipboardData,
+          s.playheadSec,
+          s.selection.trackId,
+        );
         if (!r.newIds.length) return [];
         commit('Paste', r.project, { selection: selectIds(r.newIds, r.project) });
         return r.newIds;
@@ -650,7 +686,12 @@ function initializer(opts: StoreOptions): (set: SetFn, get: GetFn) => FullEditor
           else if (tin) {
             const l = locate(next, itemId);
             const cur = l && 'transitionIn' in l.item ? l.item.transitionIn : null;
-            const merged = { type: 'crossfade', durationSec: 0.5, ...(cur ?? {}), ...tin } as ItemTransition;
+            const merged = {
+              type: 'crossfade',
+              durationSec: 0.5,
+              ...(cur ?? {}),
+              ...tin,
+            } as ItemTransition;
             next = setTransitionOp(next, itemId, merged, s.rippleEnabled);
           }
         }
@@ -684,7 +725,9 @@ function initializer(opts: StoreOptions): (set: SetFn, get: GetFn) => FullEditor
         const same = k && k.itemId === itemId && k.prop === path && k.index === index;
         commit('Move keyframe', r.project, {
           coalesceKey: `mkf:${itemId}:${path}`,
-          selection: same ? { ...s.selection, keyframe: { itemId, prop: path, index: r.index } } : undefined,
+          selection: same
+            ? { ...s.selection, keyframe: { itemId, prop: path, index: r.index } }
+            : undefined,
         });
       },
       setKeyframeEase(itemId, path, index, ease) {
@@ -694,7 +737,10 @@ function initializer(opts: StoreOptions): (set: SetFn, get: GetFn) => FullEditor
         const s = get();
         const k = s.selection.keyframe;
         commit('Delete keyframe', removeKeyframeOp(s.project, itemId, path, index), {
-          selection: k && k.itemId === itemId && k.prop === path ? { ...s.selection, keyframe: null } : undefined,
+          selection:
+            k && k.itemId === itemId && k.prop === path
+              ? { ...s.selection, keyframe: null }
+              : undefined,
         });
       },
       clearKeyframes(itemId, path) {
@@ -702,22 +748,45 @@ function initializer(opts: StoreOptions): (set: SetFn, get: GetFn) => FullEditor
         const l = locate(s.project, itemId);
         if (!l) return;
         const k = s.selection.keyframe;
-        commit('Clear keyframes', clearKeyframesOp(s.project, itemId, path, s.playheadSec - l.item.startSec), {
-          selection: k && k.itemId === itemId && k.prop === path ? { ...s.selection, keyframe: null } : undefined,
-        });
+        commit(
+          'Clear keyframes',
+          clearKeyframesOp(s.project, itemId, path, s.playheadSec - l.item.startSec),
+          {
+            selection:
+              k && k.itemId === itemId && k.prop === path
+                ? { ...s.selection, keyframe: null }
+                : undefined,
+          },
+        );
       },
       setTransition(itemId, transition) {
         const s = get();
-        commit(transition ? 'Set transition' : 'Remove transition', setTransitionOp(s.project, itemId, transition, s.rippleEnabled));
+        commit(
+          transition ? 'Set transition' : 'Remove transition',
+          setTransitionOp(s.project, itemId, transition, s.rippleEnabled),
+        );
       },
       setSpeed(itemId, speed, o) {
-        commit('Change speed', setSpeedOp(get().project, itemId, speed, { keepDuration: o?.keepDuration, ripple: scopeFor(undefined) }), {
-          coalesceKey: `speed:${itemId}`,
-        });
+        commit(
+          'Change speed',
+          setSpeedOp(get().project, itemId, speed, {
+            keepDuration: o?.keepDuration,
+            ripple: scopeFor(undefined),
+          }),
+          {
+            coalesceKey: `speed:${itemId}`,
+          },
+        );
       },
       freezeFrame(itemId, atSec, holdSec) {
         const s = get();
-        const r = freezeFrameOp(s.project, itemId, atSec, holdSec, s.rippleEnabled ? 'all' : 'track');
+        const r = freezeFrameOp(
+          s.project,
+          itemId,
+          atSec,
+          holdSec,
+          s.rippleEnabled ? 'all' : 'track',
+        );
         commit('Freeze frame', r.project);
       },
       updateItems(itemIds, patch, o) {
@@ -726,7 +795,9 @@ function initializer(opts: StoreOptions): (set: SetFn, get: GetFn) => FullEditor
 
       /* ---------------- subtitles ---------------- */
       setCueText(itemId, text) {
-        commit('Edit caption', setCueTextOp(get().project, itemId, text), { coalesceKey: `cue:${itemId}` });
+        commit('Edit caption', setCueTextOp(get().project, itemId, text), {
+          coalesceKey: `cue:${itemId}`,
+        });
       },
       splitCue(itemId, atWordIndex) {
         const r = splitCueOp(get().project, itemId, atWordIndex);
@@ -737,7 +808,9 @@ function initializer(opts: StoreOptions): (set: SetFn, get: GetFn) => FullEditor
         commit('Merge captions', mergeCueWithNextOp(get().project, itemId));
       },
       retimeCue(itemId, startSec, endSec) {
-        commit('Retime caption', retimeCueOp(get().project, itemId, startSec, endSec), { coalesceKey: `retime:${itemId}` });
+        commit('Retime caption', retimeCueOp(get().project, itemId, startSec, endSec), {
+          coalesceKey: `retime:${itemId}`,
+        });
       },
       replaceCues(trackId, cues) {
         commit('Replace captions', replaceCuesOp(get().project, trackId, cues));
@@ -761,7 +834,9 @@ function initializer(opts: StoreOptions): (set: SetFn, get: GetFn) => FullEditor
         return r.id;
       },
       updateMarker(id, patch) {
-        commit('Edit marker', updateMarkerOp(get().project, id, patch), { coalesceKey: `marker:${id}` });
+        commit('Edit marker', updateMarkerOp(get().project, id, patch), {
+          coalesceKey: `marker:${id}`,
+        });
       },
       removeMarker(id) {
         commit('Delete marker', removeMarkerOp(get().project, id));
@@ -821,7 +896,13 @@ function initializer(opts: StoreOptions): (set: SetFn, get: GetFn) => FullEditor
         const s = get();
         const target = targetsAtPlayhead((it) => it.type === 'video')[0];
         if (!target) return;
-        const r = freezeFrameOp(s.project, target, s.playheadSec, holdSec, s.rippleEnabled ? 'all' : 'track');
+        const r = freezeFrameOp(
+          s.project,
+          target,
+          s.playheadSec,
+          holdSec,
+          s.rippleEnabled ? 'all' : 'track',
+        );
         commit('Freeze frame', r.project);
       },
       nudgeSelected(frames) {
@@ -832,7 +913,12 @@ function initializer(opts: StoreOptions): (set: SetFn, get: GetFn) => FullEditor
           s.selection.itemIds,
           frames / s.project.canvas.fps,
           null,
-          { enabled: false, playhead: s.playheadSec, pxPerSec: s.pxPerSec, fps: s.project.canvas.fps },
+          {
+            enabled: false,
+            playhead: s.playheadSec,
+            pxPerSec: s.pxPerSec,
+            fps: s.project.canvas.fps,
+          },
         );
         if (!prev.valid) return;
         commit('Nudge', applyMovesOp(s.project, prev.moves), { coalesceKey: 'nudge' });
@@ -858,4 +944,6 @@ export function createEditorStore(opts: StoreOptions = {}): StoreApi<FullEditorS
 }
 
 /** The app's editor store hook. */
-export const useEditorStore: UseBoundStore<StoreApi<FullEditorStore>> = create<FullEditorStore>()(initializer({}));
+export const useEditorStore: UseBoundStore<StoreApi<FullEditorStore>> = create<FullEditorStore>()(
+  initializer({}),
+);

@@ -1,26 +1,45 @@
 import { describe, expect, it } from 'vitest';
 import type { VideoItem } from '@shared/editor';
 import { activeOnTrack } from '@shared/editor-eval';
-import { projectProblems, setTransitionOp, deleteItemsOp, trimOp } from '../../renderer/lib/editor/core/ops';
+import {
+  projectProblems,
+  setTransitionOp,
+  deleteItemsOp,
+  trimOp,
+} from '../../renderer/lib/editor/core/ops';
 import { A, I, V, item, items, proj, spans, track } from './editor-core-fixtures';
 
-const healthy = (p: Parameters<typeof projectProblems>[0]) => expect(projectProblems(p)).toEqual([]);
-const xf = (d: number, type: 'crossfade' | 'slide-left' | 'dip-black' = 'crossfade') => ({ type, durationSec: d });
+const healthy = (p: Parameters<typeof projectProblems>[0]) =>
+  expect(projectProblems(p)).toEqual([]);
+const xf = (d: number, type: 'crossfade' | 'slide-left' | 'dip-black' = 'crossfade') => ({
+  type,
+  durationSec: d,
+});
 
 const three = () =>
-  proj([track('v1', 'video', [V('a', 0, 5), V('b', 5, 5, { inSec: 10 }), V('c', 10, 4, { inSec: 20 })])]);
+  proj([
+    track('v1', 'video', [V('a', 0, 5), V('b', 5, 5, { inSec: 10 }), V('c', 10, 4, { inSec: 20 })]),
+  ]);
 
 describe('setTransition — apply', () => {
   it('moves the later item earlier by the duration (no ripple: followers stay)', () => {
     const r = setTransitionOp(three(), 'b', xf(1), false);
-    expect(spans(r, 'v1')).toEqual([[0, 5], [4, 9], [10, 14]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 5],
+      [4, 9],
+      [10, 14],
+    ]);
     expect((item(r, 'b') as VideoItem).transitionIn).toEqual(xf(1));
     healthy(r);
   });
 
   it('ripple moves everything after it as well', () => {
     const r = setTransitionOp(three(), 'b', xf(1), true);
-    expect(spans(r, 'v1')).toEqual([[0, 5], [4, 9], [9, 13]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 5],
+      [4, 9],
+      [9, 13],
+    ]);
     healthy(r);
   });
 
@@ -36,7 +55,10 @@ describe('setTransition — apply', () => {
   it('closes a gap between the pair', () => {
     const p = proj([track('v1', 'video', [V('a', 0, 5), V('b', 8, 4, { inSec: 3 })])]);
     const r = setTransitionOp(p, 'b', xf(1), false);
-    expect(spans(r, 'v1')).toEqual([[0, 5], [4, 8]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 5],
+      [4, 8],
+    ]);
     healthy(r);
   });
 
@@ -94,13 +116,21 @@ describe('setTransition — change and remove', () => {
 
   it('lengthening moves the item earlier again', () => {
     const r = setTransitionOp(withX(), 'b', xf(2), true);
-    expect(spans(r, 'v1')).toEqual([[0, 5], [3, 8], [8, 12]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 5],
+      [3, 8],
+      [8, 12],
+    ]);
     healthy(r);
   });
 
   it('shortening moves it back later', () => {
     const r = setTransitionOp(withX(), 'b', xf(0.5), true);
-    expect(spans(r, 'v1')).toEqual([[0, 5], [4.5, 9.5], [9.5, 13.5]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 5],
+      [4.5, 9.5],
+      [9.5, 13.5],
+    ]);
     healthy(r);
   });
 
@@ -114,10 +144,18 @@ describe('setTransition — change and remove', () => {
   it('removing without ripple pushes only what now collides', () => {
     const noRipple = setTransitionOp(three(), 'b', xf(1), false); // a|b overlap, b..c gap of 1
     const r = setTransitionOp(noRipple, 'b', null, false);
-    expect(spans(r, 'v1')).toEqual([[0, 5], [5, 10], [10, 14]]); // c was exactly adjacent after b again
+    expect(spans(r, 'v1')).toEqual([
+      [0, 5],
+      [5, 10],
+      [10, 14],
+    ]); // c was exactly adjacent after b again
     healthy(r);
     const rippled = setTransitionOp(withX(), 'b', null, false); // c at 9 → pushed to 10
-    expect(spans(rippled, 'v1')).toEqual([[0, 5], [5, 10], [10, 14]]);
+    expect(spans(rippled, 'v1')).toEqual([
+      [0, 5],
+      [5, 10],
+      [10, 14],
+    ]);
     healthy(rippled);
   });
 
@@ -128,7 +166,11 @@ describe('setTransition — change and remove', () => {
 
   it('shortening without ripple cannot grow into the following item', () => {
     const p = proj([
-      track('v1', 'video', [V('a', 0, 5), V('b', 4, 5, { inSec: 10, transitionIn: xf(1) }), V('c', 9, 3, { inSec: 20 })]),
+      track('v1', 'video', [
+        V('a', 0, 5),
+        V('b', 4, 5, { inSec: 10, transitionIn: xf(1) }),
+        V('c', 9, 3, { inSec: 20 }),
+      ]),
     ]);
     healthy(p);
     const r = setTransitionOp(p, 'b', xf(0.5), false);
@@ -144,11 +186,15 @@ describe('moves, trims and deletes keep or cleanly drop transitions', () => {
 
   it('chain is healthy', () => {
     const c = chain();
-    expect(spans(c, 'v1')).toEqual([[0, 5], [4, 9], [8, 12]]);
+    expect(spans(c, 'v1')).toEqual([
+      [0, 5],
+      [4, 9],
+      [8, 12],
+    ]);
     healthy(c);
   });
 
-  it('deleting the earlier item removes the later item\'s transition', () => {
+  it("deleting the earlier item removes the later item's transition", () => {
     const r = deleteItemsOp(chain(), ['a']);
     expect((item(r, 'b') as VideoItem).transitionIn).toBeNull();
     healthy(r);
@@ -160,10 +206,13 @@ describe('moves, trims and deletes keep or cleanly drop transitions', () => {
     healthy(r);
   });
 
-  it('ripple deleting the middle item closes up to the neighbour\'s end', () => {
+  it("ripple deleting the middle item closes up to the neighbour's end", () => {
     const r = deleteItemsOp(chain(), ['b'], 'track');
     healthy(r);
-    expect(spans(r, 'v1')).toEqual([[0, 5], [5, 9]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 5],
+      [5, 9],
+    ]);
   });
 
   it('deleting the later item leaves the first intact', () => {

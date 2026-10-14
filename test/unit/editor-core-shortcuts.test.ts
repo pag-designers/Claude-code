@@ -47,7 +47,8 @@ describe('SHORTCUTS table', () => {
 
   it('has the required groups and the help entry', () => {
     const groups = new Set(SHORTCUTS.map((s) => s.group));
-    for (const g of ['Transport', 'Edit', 'Selection', 'Timeline', 'View', 'Project']) expect(groups.has(g as never)).toBe(true);
+    for (const g of ['Transport', 'Edit', 'Selection', 'Timeline', 'View', 'Project'])
+      expect(groups.has(g as never)).toBe(true);
     expect(SHORTCUTS.find((s) => s.id === 'help')?.keys).toEqual(['?']);
     for (const s of SHORTCUTS) {
       expect(s.keys.length).toBeGreaterThan(0);
@@ -134,7 +135,11 @@ describe('handleKey — editing', () => {
     st.getState().setPlayhead(2);
     st.getState().select(['a']);
     press(st, 's');
-    expect(spans(st.getState().project, 'v1')).toEqual([[0, 2], [2, 5], [5, 10]]);
+    expect(spans(st.getState().project, 'v1')).toEqual([
+      [0, 2],
+      [2, 5],
+      [5, 10],
+    ]);
   });
 
   it('Delete / Backspace delete; Shift+Delete ripple deletes', () => {
@@ -233,7 +238,9 @@ describe('handleKey — editing', () => {
     st.getState().setPlayhead(2);
     st.getState().select(['a']);
     press(st, 'f');
-    const still = items(st.getState().project, 'v1').find((i) => (i as VideoItem).freezeAtSec !== null);
+    const still = items(st.getState().project, 'v1').find(
+      (i) => (i as VideoItem).freezeAtSec !== null,
+    );
     expect(still).toBeTruthy();
   });
 

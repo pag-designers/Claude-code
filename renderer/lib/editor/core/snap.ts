@@ -66,7 +66,8 @@ export function baseSnapPoints(p: Project): SnapPoint[] {
       if (isMedia(it)) {
         const asset = p.assets.find((a) => a.id === it.assetId);
         if (asset?.beats?.length)
-          for (const t of beatTimesOnTimeline(it, asset.beats)) pts.push({ t, kind: 'beat', owner: it.id });
+          for (const t of beatTimesOnTimeline(it, asset.beats))
+            pts.push({ t, kind: 'beat', owner: it.id });
       }
     }
   for (const m of p.markers) pts.push({ t: m.atSec, kind: 'marker', owner: null });
@@ -193,7 +194,8 @@ export function snapDelta(
   if (q.grid !== false && edges.length && q.pxPerSec / q.fps >= GRID_MIN_FRAME_PX) {
     const e0 = (edges[0] as number) + delta;
     const g = Math.round(e0 * q.fps) / q.fps;
-    if (Math.abs(g - e0) <= snapThreshold(q.pxPerSec)) return { delta: delta + (g - e0), to: g, kind: 'grid' };
+    if (Math.abs(g - e0) <= snapThreshold(q.pxPerSec))
+      return { delta: delta + (g - e0), to: g, kind: 'grid' };
   }
   return { delta, to: null, kind: null };
 }

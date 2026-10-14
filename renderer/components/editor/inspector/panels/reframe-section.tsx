@@ -211,13 +211,6 @@ function ReframeMap({ item, srcW, srcH }: { item: VideoItem; srcW: number; srcH:
             />
           ) : null,
         )}
-        <rect
-          data-testid="reframe-rect"
-          {...rectProps(cur)}
-          strokeWidth={2}
-          className="cursor-move fill-primary/10 stroke-primary"
-          onPointerDown={(e) => begin(e, cur, lt.t)}
-        />
         {rects.map((k, i) => {
           const c = centre(k.r);
           const here = Math.abs(k.t - lt.t) <= tol;
@@ -241,6 +234,13 @@ function ReframeMap({ item, srcW, srcH }: { item: VideoItem; srcW: number; srcH:
             </g>
           );
         })}
+        <rect
+          data-testid="reframe-rect"
+          {...rectProps(cur)}
+          strokeWidth={2}
+          className="cursor-move fill-primary/10 stroke-primary"
+          onPointerDown={(e) => begin(e, cur, lt.t)}
+        />
       </svg>
     </div>
   );

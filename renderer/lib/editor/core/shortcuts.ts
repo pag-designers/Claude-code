@@ -26,9 +26,19 @@ export interface KeyEventLike {
 
 export const SHORTCUTS: ShortcutDef[] = [
   { id: 'play-pause', keys: ['Space'], label: 'Play / pause', group: 'Transport' },
-  { id: 'shuttle-reverse', keys: ['J'], label: 'Play backward (tap again: 2×, 4×, 8×)', group: 'Transport' },
+  {
+    id: 'shuttle-reverse',
+    keys: ['J'],
+    label: 'Play backward (tap again: 2×, 4×, 8×)',
+    group: 'Transport',
+  },
   { id: 'shuttle-stop', keys: ['K'], label: 'Pause', group: 'Transport' },
-  { id: 'shuttle-forward', keys: ['L'], label: 'Play forward (tap again: 2×, 4×, 8×)', group: 'Transport' },
+  {
+    id: 'shuttle-forward',
+    keys: ['L'],
+    label: 'Play forward (tap again: 2×, 4×, 8×)',
+    group: 'Transport',
+  },
   { id: 'frame-back', keys: ['←'], label: 'Back one frame', group: 'Transport' },
   { id: 'frame-forward', keys: ['→'], label: 'Forward one frame', group: 'Transport' },
   { id: 'frames-back-10', keys: ['Shift', '←'], label: 'Back 10 frames', group: 'Transport' },
@@ -56,8 +66,18 @@ export const SHORTCUTS: ShortcutDef[] = [
   { id: 'freeze', keys: ['F'], label: 'Freeze frame at playhead', group: 'Edit' },
   { id: 'nudge-back', keys: [','], label: 'Nudge selection back one frame', group: 'Edit' },
   { id: 'nudge-forward', keys: ['.'], label: 'Nudge selection forward one frame', group: 'Edit' },
-  { id: 'nudge-back-10', keys: ['Shift', ','], label: 'Nudge selection back 10 frames', group: 'Edit' },
-  { id: 'nudge-forward-10', keys: ['Shift', '.'], label: 'Nudge selection forward 10 frames', group: 'Edit' },
+  {
+    id: 'nudge-back-10',
+    keys: ['Shift', ','],
+    label: 'Nudge selection back 10 frames',
+    group: 'Edit',
+  },
+  {
+    id: 'nudge-forward-10',
+    keys: ['Shift', '.'],
+    label: 'Nudge selection forward 10 frames',
+    group: 'Edit',
+  },
 
   { id: 'select-all', keys: ['⌘', 'A'], label: 'Select all', group: 'Selection' },
   { id: 'deselect', keys: ['Esc'], label: 'Clear selection', group: 'Selection' },
@@ -93,28 +113,66 @@ interface Binding {
 }
 
 const plain = (e: KeyEventLike): boolean => !mod(e) && !e.altKey;
-const letter = (k: string) => (e: KeyEventLike): boolean => plain(e) && !shift(e) && lower(e) === k;
-const modLetter = (k: string, withShift: boolean) => (e: KeyEventLike): boolean =>
-  mod(e) && !e.altKey && shift(e) === withShift && lower(e) === k;
+const letter =
+  (k: string) =>
+  (e: KeyEventLike): boolean =>
+    plain(e) && !shift(e) && lower(e) === k;
+const modLetter =
+  (k: string, withShift: boolean) =>
+  (e: KeyEventLike): boolean =>
+    mod(e) && !e.altKey && shift(e) === withShift && lower(e) === k;
 
 const BINDINGS: Binding[] = [
-  { id: 'play-pause', match: (e) => plain(e) && (e.key === ' ' || e.code === 'Space'), run: (s) => s.togglePlay() },
+  {
+    id: 'play-pause',
+    match: (e) => plain(e) && (e.key === ' ' || e.code === 'Space'),
+    run: (s) => s.togglePlay(),
+  },
   { id: 'shuttle-reverse', match: letter('j'), run: (s) => s.shuttle('J') },
   { id: 'shuttle-stop', match: letter('k'), run: (s) => s.shuttle('K') },
   { id: 'shuttle-forward', match: letter('l'), run: (s) => s.shuttle('L') },
-  { id: 'frame-back', match: (e) => plain(e) && !shift(e) && e.key === 'ArrowLeft', run: (s) => s.stepFrames(-1), repeat: true },
-  { id: 'frame-forward', match: (e) => plain(e) && !shift(e) && e.key === 'ArrowRight', run: (s) => s.stepFrames(1), repeat: true },
-  { id: 'frames-back-10', match: (e) => plain(e) && shift(e) && e.key === 'ArrowLeft', run: (s) => s.stepFrames(-10), repeat: true },
-  { id: 'frames-forward-10', match: (e) => plain(e) && shift(e) && e.key === 'ArrowRight', run: (s) => s.stepFrames(10), repeat: true },
-  { id: 'edit-prev', match: (e) => plain(e) && !shift(e) && e.key === 'ArrowUp', run: (s) => s.jumpToEdit?.(-1) },
-  { id: 'edit-next', match: (e) => plain(e) && !shift(e) && e.key === 'ArrowDown', run: (s) => s.jumpToEdit?.(1) },
+  {
+    id: 'frame-back',
+    match: (e) => plain(e) && !shift(e) && e.key === 'ArrowLeft',
+    run: (s) => s.stepFrames(-1),
+    repeat: true,
+  },
+  {
+    id: 'frame-forward',
+    match: (e) => plain(e) && !shift(e) && e.key === 'ArrowRight',
+    run: (s) => s.stepFrames(1),
+    repeat: true,
+  },
+  {
+    id: 'frames-back-10',
+    match: (e) => plain(e) && shift(e) && e.key === 'ArrowLeft',
+    run: (s) => s.stepFrames(-10),
+    repeat: true,
+  },
+  {
+    id: 'frames-forward-10',
+    match: (e) => plain(e) && shift(e) && e.key === 'ArrowRight',
+    run: (s) => s.stepFrames(10),
+    repeat: true,
+  },
+  {
+    id: 'edit-prev',
+    match: (e) => plain(e) && !shift(e) && e.key === 'ArrowUp',
+    run: (s) => s.jumpToEdit?.(-1),
+  },
+  {
+    id: 'edit-next',
+    match: (e) => plain(e) && !shift(e) && e.key === 'ArrowDown',
+    run: (s) => s.jumpToEdit?.(1),
+  },
   { id: 'go-start', match: (e) => plain(e) && e.key === 'Home', run: (s) => s.setPlayhead(0) },
   {
     id: 'go-end',
     match: (e) => plain(e) && e.key === 'End',
     run: (s) => {
       let end = 0;
-      for (const tr of s.project.tracks) for (const it of tr.items) end = Math.max(end, it.startSec + it.durationSec);
+      for (const tr of s.project.tracks)
+        for (const it of tr.items) end = Math.max(end, it.startSec + it.durationSec);
       s.setPlayhead(end);
     },
   },
@@ -128,30 +186,79 @@ const BINDINGS: Binding[] = [
   {
     id: 'ripple-delete',
     match: (e) => plain(e) && shift(e) && (e.key === 'Delete' || e.key === 'Backspace'),
-    run: (s) => (s.deleteSelection ? s.deleteSelection({ ripple: true }) : s.deleteItems(s.selection.itemIds, { ripple: true })),
+    run: (s) =>
+      s.deleteSelection
+        ? s.deleteSelection({ ripple: true })
+        : s.deleteItems(s.selection.itemIds, { ripple: true }),
   },
-  { id: 'undo', match: (e) => mod(e) && !e.altKey && ((!shift(e) && lower(e) === 'z') ), run: (s) => s.undo(), repeat: true },
+  {
+    id: 'undo',
+    match: (e) => mod(e) && !e.altKey && !shift(e) && lower(e) === 'z',
+    run: (s) => s.undo(),
+    repeat: true,
+  },
   {
     id: 'redo',
-    match: (e) => mod(e) && !e.altKey && ((shift(e) && lower(e) === 'z') || (!shift(e) && lower(e) === 'y')),
+    match: (e) =>
+      mod(e) && !e.altKey && ((shift(e) && lower(e) === 'z') || (!shift(e) && lower(e) === 'y')),
     run: (s) => s.redo(),
     repeat: true,
   },
   { id: 'copy', match: modLetter('c', false), run: (s) => s.copy() },
   { id: 'cut', match: modLetter('x', false), run: (s) => s.cut() },
   { id: 'paste', match: modLetter('v', false), run: (s) => void s.paste() },
-  { id: 'duplicate', match: modLetter('d', false), run: (s) => void s.duplicateItems(s.selection.itemIds) },
+  {
+    id: 'duplicate',
+    match: modLetter('d', false),
+    run: (s) => void s.duplicateItems(s.selection.itemIds),
+  },
   { id: 'group', match: modLetter('g', false), run: (s) => s.group(s.selection.itemIds) },
   { id: 'ungroup', match: modLetter('g', true), run: (s) => s.ungroup(s.selection.itemIds) },
-  { id: 'trim-start', match: (e) => plain(e) && sym(e, ['[', '{'], 'BracketLeft') && !shift(e), run: (s) => s.trimToPlayhead?.('start') },
-  { id: 'trim-end', match: (e) => plain(e) && sym(e, [']', '}'], 'BracketRight') && !shift(e), run: (s) => s.trimToPlayhead?.('end') },
-  { id: 'ripple-trim-start', match: letter('q'), run: (s) => s.trimToPlayhead?.('start', { ripple: true }) },
-  { id: 'ripple-trim-end', match: letter('w'), run: (s) => s.trimToPlayhead?.('end', { ripple: true }) },
+  {
+    id: 'trim-start',
+    match: (e) => plain(e) && sym(e, ['[', '{'], 'BracketLeft') && !shift(e),
+    run: (s) => s.trimToPlayhead?.('start'),
+  },
+  {
+    id: 'trim-end',
+    match: (e) => plain(e) && sym(e, [']', '}'], 'BracketRight') && !shift(e),
+    run: (s) => s.trimToPlayhead?.('end'),
+  },
+  {
+    id: 'ripple-trim-start',
+    match: letter('q'),
+    run: (s) => s.trimToPlayhead?.('start', { ripple: true }),
+  },
+  {
+    id: 'ripple-trim-end',
+    match: letter('w'),
+    run: (s) => s.trimToPlayhead?.('end', { ripple: true }),
+  },
   { id: 'freeze', match: letter('f'), run: (s) => s.freezeAtPlayhead?.() },
-  { id: 'nudge-back', match: (e) => plain(e) && !shift(e) && sym(e, [','], 'Comma'), run: (s) => s.nudgeSelected?.(-1), repeat: true },
-  { id: 'nudge-forward', match: (e) => plain(e) && !shift(e) && sym(e, ['.'], 'Period'), run: (s) => s.nudgeSelected?.(1), repeat: true },
-  { id: 'nudge-back-10', match: (e) => plain(e) && shift(e) && sym(e, ['<'], 'Comma'), run: (s) => s.nudgeSelected?.(-10), repeat: true },
-  { id: 'nudge-forward-10', match: (e) => plain(e) && shift(e) && sym(e, ['>'], 'Period'), run: (s) => s.nudgeSelected?.(10), repeat: true },
+  {
+    id: 'nudge-back',
+    match: (e) => plain(e) && !shift(e) && sym(e, [','], 'Comma'),
+    run: (s) => s.nudgeSelected?.(-1),
+    repeat: true,
+  },
+  {
+    id: 'nudge-forward',
+    match: (e) => plain(e) && !shift(e) && sym(e, ['.'], 'Period'),
+    run: (s) => s.nudgeSelected?.(1),
+    repeat: true,
+  },
+  {
+    id: 'nudge-back-10',
+    match: (e) => plain(e) && shift(e) && sym(e, ['<'], 'Comma'),
+    run: (s) => s.nudgeSelected?.(-10),
+    repeat: true,
+  },
+  {
+    id: 'nudge-forward-10',
+    match: (e) => plain(e) && shift(e) && sym(e, ['>'], 'Period'),
+    run: (s) => s.nudgeSelected?.(10),
+    repeat: true,
+  },
 
   { id: 'select-all', match: modLetter('a', false), run: (s) => s.selectAll() },
   { id: 'deselect', match: (e) => plain(e) && e.key === 'Escape', run: (s) => s.clearSelection() },
@@ -172,7 +279,11 @@ const BINDINGS: Binding[] = [
     run: (s) => s.setZoom(s.pxPerSec / 1.25, s.playheadSec),
     repeat: true,
   },
-  { id: 'zoom-fit', match: (e) => plain(e) && shift(e) && lower(e) === 'z', run: (s) => s.zoomToFit(s.viewportPx ?? 1000) },
+  {
+    id: 'zoom-fit',
+    match: (e) => plain(e) && shift(e) && lower(e) === 'z',
+    run: (s) => s.zoomToFit(s.viewportPx ?? 1000),
+  },
   { id: 'help', match: (e) => plain(e) && e.key === '?', run: () => undefined },
 
   { id: 'save', match: modLetter('s', false), run: (s) => void s.saveNow() },
@@ -181,7 +292,11 @@ const BINDINGS: Binding[] = [
 /** Is the event coming from something the user is typing into? */
 export function isTextTarget(target: unknown): boolean {
   if (!target || typeof target !== 'object') return false;
-  const t = target as { tagName?: unknown; isContentEditable?: unknown; getAttribute?: (n: string) => string | null };
+  const t = target as {
+    tagName?: unknown;
+    isContentEditable?: unknown;
+    getAttribute?: (n: string) => string | null;
+  };
   const tag = typeof t.tagName === 'string' ? t.tagName.toUpperCase() : '';
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
   if (t.isContentEditable === true) return true;
@@ -208,7 +323,10 @@ export function handleKey(e: KeyEventLike, store: KeyStore | { getState(): KeySt
     e.preventDefault?.();
     return true;
   }
-  const s: KeyStore = 'getState' in store && typeof store.getState === 'function' ? store.getState() : (store as KeyStore);
+  const s: KeyStore =
+    'getState' in store && typeof store.getState === 'function'
+      ? store.getState()
+      : (store as KeyStore);
   b.run(s);
   e.preventDefault?.();
   return true;

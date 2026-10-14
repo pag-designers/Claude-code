@@ -23,6 +23,7 @@ export function SwitchRow({
   disabledReason,
   mixed,
   testId,
+  tooltip,
 }: {
   label: string;
   checked: boolean;
@@ -32,6 +33,8 @@ export function SwitchRow({
   disabledReason?: string;
   mixed?: boolean;
   testId?: string;
+  /** Explains the control on hover / focus (e.g. "Applied on export"). */
+  tooltip?: string;
 }) {
   const id = React.useId();
   const sw = (
@@ -51,7 +54,15 @@ export function SwitchRow({
         <span className="truncate">{label}</span>
         {hint ? <span className="text-2xs leading-4 text-subtle">{hint}</span> : null}
       </label>
-      {disabledReason ? <DisabledTip reason={disabledReason}>{sw}</DisabledTip> : sw}
+      {disabledReason ? (
+        <DisabledTip reason={disabledReason}>{sw}</DisabledTip>
+      ) : tooltip ? (
+        <Tip content={tooltip} side="left">
+          {sw}
+        </Tip>
+      ) : (
+        sw
+      )}
     </div>
   );
 }
@@ -92,7 +103,7 @@ export function DenseSelect<T extends string>({
       >
         <SelectValue placeholder={mixed ? 'Mixed' : undefined} />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent onEscapeKeyDown={(e) => e.stopPropagation()}>
         {options.map((o) => (
           <SelectItem key={o.value} value={o.value} className="min-h-7 text-xs">
             {o.label}

@@ -193,7 +193,11 @@ export function addAssetOp(
  * (net of any overlap a KEPT neighbour has with them) is closed on their own track; scope 'all' additionally
  * closes the same time on every other unlocked track where that is collision-free.
  */
-export function deleteItemsOp(p: Project, ids: readonly string[], scope: RippleScope = 'none'): Project {
+export function deleteItemsOp(
+  p: Project,
+  ids: readonly string[],
+  scope: RippleScope = 'none',
+): Project {
   const idx = indexItems(p);
   const removed = new Set<string>();
   let hadGroup = false;
@@ -230,7 +234,11 @@ export function deleteItemsOp(p: Project, ids: readonly string[], scope: RippleS
       const a = it.startSec;
       let b = itemEnd(it);
       let j = k + 1;
-      while (j < src.length && removed.has((src[j] as Item).id) && (src[j] as Item).startSec <= b + EPS) {
+      while (
+        j < src.length &&
+        removed.has((src[j] as Item).id) &&
+        (src[j] as Item).startSec <= b + EPS
+      ) {
         b = Math.max(b, itemEnd(src[j] as Item));
         j++;
       }
@@ -322,7 +330,10 @@ export function cloneItems(items: readonly Item[]): { copies: Item[]; idMap: Map
  * by the span of the selection, further right if that would collide. Locked items are not duplicated. New ids and
  * new group ids. A copy keeps its transition only when its predecessor was copied too.
  */
-export function duplicateOp(p: Project, ids: readonly string[]): { project: Project; newIds: string[] } {
+export function duplicateOp(
+  p: Project,
+  ids: readonly string[],
+): { project: Project; newIds: string[] } {
   const idx = indexItems(p);
   const src: { ti: number; item: Item }[] = [];
   for (const id of expandGroups(p, ids)) {
@@ -343,7 +354,8 @@ export function duplicateOp(p: Project, ids: readonly string[]): { project: Proj
     let next = off;
     for (const s of src) {
       const items = (p.tracks[s.ti] as Track).items;
-      const free = findFreeStart(items, s.item.startSec + off, s.item.durationSec) - s.item.startSec;
+      const free =
+        findFreeStart(items, s.item.startSec + off, s.item.durationSec) - s.item.startSec;
       next = Math.max(next, free);
     }
     if (next <= off + EPS) break;
@@ -392,7 +404,10 @@ export function ungroupOp(p: Project, ids: readonly string[]): Project {
 function setGroup(p: Project, members: Set<string>, groupId: string | null): Project {
   const tracks = p.tracks.map((tr) =>
     tr.items.some((it) => members.has(it.id))
-      ? { ...tr, items: tr.items.map((it) => (members.has(it.id) ? ({ ...it, groupId } as Item) : it)) }
+      ? {
+          ...tr,
+          items: tr.items.map((it) => (members.has(it.id) ? ({ ...it, groupId } as Item) : it)),
+        }
       : tr,
   );
   return cleanSingletonGroups({ ...p, tracks });
@@ -406,7 +421,8 @@ export function deepMerge(base: unknown, patch: unknown): unknown {
   if (patch === null || typeof patch !== 'object' || Array.isArray(patch)) return patch;
   if (!base || typeof base !== 'object' || Array.isArray(base)) return patch;
   const out: Record<string, unknown> = { ...(base as Record<string, unknown>) };
-  for (const [k, v] of Object.entries(patch as Record<string, unknown>)) out[k] = deepMerge(out[k], v);
+  for (const [k, v] of Object.entries(patch as Record<string, unknown>))
+    out[k] = deepMerge(out[k], v);
   return out;
 }
 
@@ -416,13 +432,16 @@ export function deepEqual(a: unknown, b: unknown): boolean {
   if (Array.isArray(a) !== Array.isArray(b)) return false;
   const ka = Object.keys(a);
   if (ka.length !== Object.keys(b).length) return false;
-  return ka.every((k) => deepEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
+  return ka.every((k) =>
+    deepEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]),
+  );
 }
 
 /** True when merging `patch` into `base` would change nothing. */
 function patchIsNoop(base: unknown, patch: unknown): boolean {
   if (patch === undefined) return true;
-  if (patch === null || typeof patch !== 'object' || Array.isArray(patch)) return deepEqual(base, patch);
+  if (patch === null || typeof patch !== 'object' || Array.isArray(patch))
+    return deepEqual(base, patch);
   if (!base || typeof base !== 'object' || Array.isArray(base)) return false;
   return Object.entries(patch as Record<string, unknown>).every(([k, v]) =>
     patchIsNoop((base as Record<string, unknown>)[k], v),
@@ -445,7 +464,11 @@ export function mergeItemPatch(item: Item, patch: DeepPartial<Item>): Item | nul
  * `locked` is allowed on a locked item). If the patch changes startSec / durationSec and that would break the
  * overlap invariant the whole call is refused.
  */
-export function updateItemsOp(p: Project, ids: readonly string[], patch: DeepPartial<Item>): Project {
+export function updateItemsOp(
+  p: Project,
+  ids: readonly string[],
+  patch: DeepPartial<Item>,
+): Project {
   const want = new Set(ids);
   const onlyLock = Object.keys(patch).every((k) => k === 'locked');
   const geometry = 'startSec' in patch || 'durationSec' in patch;

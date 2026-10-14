@@ -289,7 +289,7 @@ export function createExportCompiler(options: ExportCompilerOptions = {}): Expor
           }),
         );
       }
-      fin.push('setsar=1', filt('scale', { flags: 'accurate_rnd+full_chroma_int', out_color_matrix: 'bt709', out_range: 'tv' }), 'format=yuv420p');
+      fin.push('setsar=1', filt('scale', { out_color_matrix: 'bt709', out_range: 'tv' }), 'format=yuv420p');
       const vout = fin.flush();
 
       /* ------------------------------------------------------- audio ---- */

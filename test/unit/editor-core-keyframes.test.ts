@@ -22,7 +22,10 @@ const kf = (t: number, v: number, ease: 'linear' | 'hold' = 'linear') => ({ t, v
 const anim = (v: number, ks: ReturnType<typeof kf>[] = []) => ({ v, kf: ks });
 const P = () =>
   proj([
-    track('v1', 'video', [V('a', 0, 10, { transform: { opacity: anim(1, [kf(0, 0), kf(10, 1)]) } }), V('b', 10, 4)]),
+    track('v1', 'video', [
+      V('a', 0, 10, { transform: { opacity: anim(1, [kf(0, 0), kf(10, 1)]) } }),
+      V('b', 10, 4),
+    ]),
     track('o', 'overlay', [T('t', 0, 4), S('s', 4, 2)]),
     track('m', 'audio', [A('m1', 0, 8)]),
   ]);
@@ -63,7 +66,9 @@ describe('setProp', () => {
   });
 
   it('works on text, shapes and audio (volume)', () => {
-    expect((item(setPropOp(P(), 't', 'transform.y', 100, 1), 't') as TextItem).transform.y.v).toBe(100);
+    expect((item(setPropOp(P(), 't', 'transform.y', 100, 1), 't') as TextItem).transform.y.v).toBe(
+      100,
+    );
     expect((item(setPropOp(P(), 'm1', 'volume', 0.5, 1), 'm1') as AudioItem).volume.v).toBe(0.5);
   });
 
@@ -113,7 +118,10 @@ describe('add / move / ease / remove / clear', () => {
 
   it('moveKeyframe changes time and value, re-sorts, returns the new index', () => {
     const r = moveKeyframeOp(P(), 'a', 'transform.opacity', 0, 6, 0.3);
-    expect(vi(r.project).transform.opacity.kf.map((k) => [k.t, k.v])).toEqual([[6, 0.3], [10, 1]]);
+    expect(vi(r.project).transform.opacity.kf.map((k) => [k.t, k.v])).toEqual([
+      [6, 0.3],
+      [10, 1],
+    ]);
     expect(r.index).toBe(0);
     const r2 = moveKeyframeOp(P(), 'a', 'transform.opacity', 0, 12, 0.3);
     expect(r2.index).toBe(0); // clamped to the item end (10) → replaces the keyframe there
@@ -123,7 +131,10 @@ describe('add / move / ease / remove / clear', () => {
   it('moveKeyframe onto another keyframe replaces it', () => {
     const p = addKeyframeOp(P(), 'a', 'transform.opacity', 5, 0.7).project;
     const r = moveKeyframeOp(p, 'a', 'transform.opacity', 1, 10, 0.2);
-    expect(vi(r.project).transform.opacity.kf.map((k) => [k.t, k.v])).toEqual([[0, 0], [10, 0.2]]);
+    expect(vi(r.project).transform.opacity.kf.map((k) => [k.t, k.v])).toEqual([
+      [0, 0],
+      [10, 0.2],
+    ]);
   });
 
   it('moveKeyframe clamps time ≥ 0 and rejects bad indices', () => {

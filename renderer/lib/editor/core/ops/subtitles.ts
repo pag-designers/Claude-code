@@ -1,10 +1,27 @@
 /**
  * Subtitle cue operations (pure). A cue = one SubtitleItem whose words carry times LOCAL to the cue.
  */
-import { subtitleItemSchema, type Item, type Project, type SubtitleItem, type SubtitleWord, type Track } from '@shared/editor';
+import {
+  subtitleItemSchema,
+  type Item,
+  type Project,
+  type SubtitleItem,
+  type SubtitleWord,
+  type Track,
+} from '@shared/editor';
 import { itemEnd } from '@shared/editor-eval';
 import { newId } from '../helpers';
-import { Draft, EPS, MIN_DUR, clamp, isItemLocked, layoutProblem, locate, normalizeItems, trackIndexOf } from './common';
+import {
+  Draft,
+  EPS,
+  MIN_DUR,
+  clamp,
+  isItemLocked,
+  layoutProblem,
+  locate,
+  normalizeItems,
+  trackIndexOf,
+} from './common';
 import { replaceItem } from './keyframes';
 
 const MIN_WORD = 0.12;
@@ -22,7 +39,10 @@ function lcsPairs(a: readonly string[], b: readonly string[]): [number, number][
       (dp[i] as Uint16Array)[j] =
         a[i] === b[j]
           ? ((dp[i + 1] as Uint16Array)[j + 1] as number) + 1
-          : Math.max((dp[i + 1] as Uint16Array)[j] as number, (dp[i] as Uint16Array)[j + 1] as number);
+          : Math.max(
+              (dp[i + 1] as Uint16Array)[j] as number,
+              (dp[i] as Uint16Array)[j + 1] as number,
+            );
   const out: [number, number][] = [];
   let i = 0;
   let j = 0;
@@ -31,7 +51,10 @@ function lcsPairs(a: readonly string[], b: readonly string[]): [number, number][
       out.push([i, j]);
       i++;
       j++;
-    } else if (((dp[i + 1] as Uint16Array)[j] as number) >= ((dp[i] as Uint16Array)[j + 1] as number)) i++;
+    } else if (
+      ((dp[i + 1] as Uint16Array)[j] as number) >= ((dp[i] as Uint16Array)[j + 1] as number)
+    )
+      i++;
     else j++;
   }
   return out;
@@ -45,7 +68,12 @@ function spread(tokens: readonly string[], s: number, e: number): SubtitleWord[]
   let acc = s;
   return tokens.map((w, k) => {
     const dur = (span * (weights[k] as number)) / total;
-    const word: SubtitleWord = { w, s: acc, e: k === tokens.length - 1 ? s + span : acc + dur, color: null };
+    const word: SubtitleWord = {
+      w,
+      s: acc,
+      e: k === tokens.length - 1 ? s + span : acc + dur,
+      color: null,
+    };
     acc += dur;
     return word;
   });
@@ -56,7 +84,11 @@ function spread(tokens: readonly string[], s: number, e: number): SubtitleWord[]
  * words it replaces; inserted words share the gap between their neighbours, borrowing time from them when the gap
  * is too small; with no old words the new ones share the whole cue.
  */
-export function retimeWordsForText(old: readonly SubtitleWord[], text: string, cueDur: number): SubtitleWord[] {
+export function retimeWordsForText(
+  old: readonly SubtitleWord[],
+  text: string,
+  cueDur: number,
+): SubtitleWord[] {
   const nw = tokenize(text);
   if (!nw.length) return [];
   if (!old.length) return spread(nw, 0, cueDur);
@@ -134,9 +166,15 @@ export function setCueTextOp(p: Project, itemId: string, text: string): Project 
   const c = cueAt(p, itemId);
   if (!c) return p;
   const tokens = tokenize(text);
-  if (tokens.length === c.cue.words.length && tokens.every((t, k) => t === (c.cue.words[k] as SubtitleWord).w))
+  if (
+    tokens.length === c.cue.words.length &&
+    tokens.every((t, k) => t === (c.cue.words[k] as SubtitleWord).w)
+  )
     return p;
-  return replaceItem(p, c.loc, { ...c.cue, words: retimeWordsForText(c.cue.words, text, c.cue.durationSec) });
+  return replaceItem(p, c.loc, {
+    ...c.cue,
+    words: retimeWordsForText(c.cue.words, text, c.cue.durationSec),
+  });
 }
 
 /** Words [0, atWordIndex) stay; the rest become a new cue directly after (split at the gap between them). */
@@ -210,7 +248,7 @@ export function retimeCueOp(p: Project, itemId: string, startSec: number, endSec
   const lo = Math.max(0, prev ? itemEnd(prev) : 0);
   const hi = next ? next.startSec : Infinity;
   let s = clamp(startSec, lo, hi - MIN_DUR);
-  let e = clamp(endSec, s + MIN_DUR, hi);
+  const e = clamp(endSec, s + MIN_DUR, hi);
   if (e - s < MIN_DUR) {
     s = e - MIN_DUR;
     if (s < lo) return p;

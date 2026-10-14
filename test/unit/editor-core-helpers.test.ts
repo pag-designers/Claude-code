@@ -55,7 +55,10 @@ describe('emptyProject', () => {
   it('sizes the canvas for every aspect', () => {
     for (const a of ['9:16', '1:1', '16:9', '4:5'] as const) {
       const p = emptyProject(a);
-      expect([p.canvas.width, p.canvas.height]).toEqual([ASPECT_SIZES[a].width, ASPECT_SIZES[a].height]);
+      expect([p.canvas.width, p.canvas.height]).toEqual([
+        ASPECT_SIZES[a].width,
+        ASPECT_SIZES[a].height,
+      ]);
       expect(p.canvas.aspect).toBe(a);
     }
     expect(emptyProject('custom').canvas.aspect).toBe('custom');
@@ -76,8 +79,19 @@ describe('factories produce items that pass itemSchema', () => {
     ['image', makeImageItem(img, 2)],
     ['text', makeTextItem('Hello 👋\nworld', 1)],
     ['text style', makeTextItem('x', 0, { style: { size: 100, color: '#ff0000' } })],
-    ['subtitle', makeSubtitleItem([{ w: 'a', s: 0, e: 0.5 }, { w: 'b', s: 0.6, e: 1 }], 4)],
-    ...(['rect', 'ellipse', 'line', 'arrow', 'progress-bar'] as ShapeKind[]).map((k) => [`shape ${k}`, makeShapeItem(k, 0)] as const),
+    [
+      'subtitle',
+      makeSubtitleItem(
+        [
+          { w: 'a', s: 0, e: 0.5 },
+          { w: 'b', s: 0.6, e: 1 },
+        ],
+        4,
+      ),
+    ],
+    ...(['rect', 'ellipse', 'line', 'arrow', 'progress-bar'] as ShapeKind[]).map(
+      (k) => [`shape ${k}`, makeShapeItem(k, 0)] as const,
+    ),
   ] as const;
 
   for (const [name, it] of all) {
@@ -125,7 +139,12 @@ describe('factories produce items that pass itemSchema', () => {
 
 describe('time ↔ pixels, frames', () => {
   it('timeToPx / pxToTime are inverses', () => {
-    for (const [t, z, s] of [[0, 100, 0], [12.5, 37, 3], [100, 600, 99], [0.25, 1, 0]] as const) {
+    for (const [t, z, s] of [
+      [0, 100, 0],
+      [12.5, 37, 3],
+      [100, 600, 99],
+      [0.25, 1, 0],
+    ] as const) {
       expect(pxToTime(timeToPx(t, z, s), z, s)).toBeCloseTo(t, 10);
     }
     expect(timeToPx(5, 100, 2)).toBe(300);
@@ -150,7 +169,9 @@ describe('track compatibility', () => {
   it('trackAccepts mirrors TRACK_ACCEPTS', () => {
     const kinds = Object.keys(TRACK_ACCEPTS) as TrackKind[];
     const types: ItemType[] = ['video', 'image', 'audio', 'text', 'subtitle', 'shape'];
-    for (const k of kinds) for (const t of types) expect(trackAccepts({ kind: k }, t)).toBe(TRACK_ACCEPTS[k].includes(t));
+    for (const k of kinds)
+      for (const t of types)
+        expect(trackAccepts({ kind: k }, t)).toBe(TRACK_ACCEPTS[k].includes(t));
   });
 
   it('firstCompatibleTrack prefers the natural kind and skips locked tracks', () => {

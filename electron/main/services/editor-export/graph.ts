@@ -28,15 +28,18 @@ export class Graph {
   readonly inputs: string[][] = [];
   private seq = 0;
 
-  constructor(private readonly inputBase = 0) {}
+  constructor(
+    private readonly inputBase = 0,
+    private readonly prefix = 'n',
+  ) {}
 
   addInput(args: string[]): number {
     this.inputs.push(args);
     return this.inputBase + this.inputs.length - 1;
   }
 
-  label(prefix = 'n'): string {
-    return `${prefix}${this.seq++}`;
+  label(prefix?: string): string {
+    return `${prefix ?? this.prefix}${this.seq++}`;
   }
 
   /** `[in1][in2]f1,f2[out]`. Returns `out`. */

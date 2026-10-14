@@ -30,7 +30,9 @@ export const ANIMATED_PATHS: readonly AnimatedPath[] = [
 export const KF_MERGE_EPS = 0.005;
 
 function isAnimated(x: unknown): x is Animated {
-  return !!x && typeof x === 'object' && typeof (x as Rec).v === 'number' && Array.isArray((x as Rec).kf);
+  return (
+    !!x && typeof x === 'object' && typeof (x as Rec).v === 'number' && Array.isArray((x as Rec).kf)
+  );
 }
 
 /** The Animated at `path` or null when this item type has no such property. */
@@ -86,7 +88,11 @@ export function clampPropValue(path: AnimatedPath, v: number): number {
  * inserted at 0 so the animation continues unchanged (exact for linear/hold easing; the easing of the segment
  * being cut into is re-used for the remainder). A negative `cut` (extending the head) shifts everything right.
  */
-export function keyframesAfterCut(kf: readonly Keyframe[], cut: number, fallback: number): Keyframe[] {
+export function keyframesAfterCut(
+  kf: readonly Keyframe[],
+  cut: number,
+  fallback: number,
+): Keyframe[] {
   if (kf.length === 0) return [];
   if (Math.abs(cut) < EPS) return kf as Keyframe[];
   if (cut < 0) return kf.map((k) => ({ ...k, t: k.t - cut }));

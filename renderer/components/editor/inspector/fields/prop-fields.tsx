@@ -98,6 +98,7 @@ export function SwitchProp({
   patch,
   hint,
   disabledReason,
+  tooltip,
   testId,
 }: {
   label: string;
@@ -105,12 +106,14 @@ export function SwitchProp({
   patch: (v: boolean) => EditPatch;
   hint?: React.ReactNode;
   disabledReason?: string;
+  tooltip?: string;
   testId?: string;
 }) {
   const ctx = useInspector();
   const { value, mixed } = ctx.read(get);
   return (
     <SwitchRow
+      tooltip={tooltip}
       label={label}
       hint={hint}
       checked={value}

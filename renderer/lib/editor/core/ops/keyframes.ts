@@ -89,7 +89,9 @@ export function moveKeyframeOp(
     const t = clamp(tLocal, 0, item.durationSec);
     const v = clampPropValue(path, value);
     if (cur.t === t && cur.v === v) return null;
-    const rest = a.kf.filter((_, k) => k !== index && Math.abs((a.kf[k] as Keyframe).t - t) > KF_MERGE_EPS);
+    const rest = a.kf.filter(
+      (_, k) => k !== index && Math.abs((a.kf[k] as Keyframe).t - t) > KF_MERGE_EPS,
+    );
     const moved: Keyframe = { t, v, ease: cur.ease };
     let at = rest.findIndex((k) => k.t > t);
     if (at < 0) at = rest.length;
@@ -117,7 +119,12 @@ export function setKeyframeEaseOp(
 }
 
 /** Remove a keyframe; removing the last one leaves its value as the static value. */
-export function removeKeyframeOp(p: Project, itemId: string, path: AnimatedPath, index: number): Project {
+export function removeKeyframeOp(
+  p: Project,
+  itemId: string,
+  path: AnimatedPath,
+  index: number,
+): Project {
   return edit(p, itemId, path, (a) => {
     const cur = a.kf[index];
     if (!cur) return null;
@@ -127,6 +134,12 @@ export function removeKeyframeOp(p: Project, itemId: string, path: AnimatedPath,
 }
 
 /** Remove every keyframe; the value at `tLocal` becomes the static value. */
-export function clearKeyframesOp(p: Project, itemId: string, path: AnimatedPath, tLocal: number): Project {
-  return edit(p, itemId, path, (a) => (a.kf.length ? { v: animatedAt(a, tLocal), kf: [] } : null)).project;
+export function clearKeyframesOp(
+  p: Project,
+  itemId: string,
+  path: AnimatedPath,
+  tLocal: number,
+): Project {
+  return edit(p, itemId, path, (a) => (a.kf.length ? { v: animatedAt(a, tLocal), kf: [] } : null))
+    .project;
 }

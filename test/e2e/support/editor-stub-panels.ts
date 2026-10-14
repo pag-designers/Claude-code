@@ -355,7 +355,8 @@ export function seedExports(state: Cp1State): void {
   ed.exports = [
     mk({
       id: 'ex-run',
-      name: 'Founder story, rough cut',
+      name: 'Interview highlights',
+      projectId: 'ep-video',
       status: 'rendering',
       progress: 0.42,
       message: 'Encoding video',

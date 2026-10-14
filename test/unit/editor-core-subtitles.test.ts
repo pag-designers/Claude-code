@@ -12,15 +12,23 @@ import {
 } from '../../renderer/lib/editor/core/ops';
 import { C, T, V, item, items, proj, spans, track } from './editor-core-fixtures';
 
-const healthy = (p: Parameters<typeof projectProblems>[0]) => expect(projectProblems(p)).toEqual([]);
+const healthy = (p: Parameters<typeof projectProblems>[0]) =>
+  expect(projectProblems(p)).toEqual([]);
 const cue = (p: ReturnType<typeof proj>, id: string) => item(p, id) as SubtitleItem;
 const W = (...a: [string, number, number][]) => a.map(([w, s, e]) => ({ w, s, e, color: null }));
 
 const base = () =>
   proj([
     track('s', 'subtitle', [
-      C('c1', 0, 4, [['hello', 0, 0.8], ['big', 1, 1.5], ['world', 2, 3.5]]),
-      C('c2', 5, 3, [['second', 0, 1], ['cue', 1.2, 2]]),
+      C('c1', 0, 4, [
+        ['hello', 0, 0.8],
+        ['big', 1, 1.5],
+        ['world', 2, 3.5],
+      ]),
+      C('c2', 5, 3, [
+        ['second', 0, 1],
+        ['cue', 1.2, 2],
+      ]),
     ]),
   ]);
 
@@ -28,7 +36,11 @@ describe('setCueText', () => {
   it('unchanged words keep their timing', () => {
     const r = setCueTextOp(base(), 'c1', 'hello big world today');
     const w = cue(r, 'c1').words;
-    expect(w.slice(0, 3).map((x) => [x.w, x.s, x.e])).toEqual([['hello', 0, 0.8], ['big', 1, 1.5], ['world', 2, 3.5]]);
+    expect(w.slice(0, 3).map((x) => [x.w, x.s, x.e])).toEqual([
+      ['hello', 0, 0.8],
+      ['big', 1, 1.5],
+      ['world', 2, 3.5],
+    ]);
     expect(w[3]?.w).toBe('today');
     healthy(r);
   });
@@ -68,7 +80,14 @@ describe('setCueText', () => {
   });
 
   it('insertion with no gap borrows time from the neighbours', () => {
-    const p = proj([track('s', 'subtitle', [C('c', 0, 2, [['a', 0, 1], ['b', 1, 2]])])]);
+    const p = proj([
+      track('s', 'subtitle', [
+        C('c', 0, 2, [
+          ['a', 0, 1],
+          ['b', 1, 2],
+        ]),
+      ]),
+    ]);
     const r = setCueTextOp(p, 'c', 'a new b');
     const w = cue(r, 'c').words;
     expect(w.map((x) => x.w)).toEqual(['a', 'new', 'b']);
@@ -79,7 +98,14 @@ describe('setCueText', () => {
   });
 
   it('words appended at the end and inserted at the start get time too', () => {
-    const p = proj([track('s', 'subtitle', [C('c', 0, 2, [['a', 0, 1], ['b', 1, 2]])])]);
+    const p = proj([
+      track('s', 'subtitle', [
+        C('c', 0, 2, [
+          ['a', 0, 1],
+          ['b', 1, 2],
+        ]),
+      ]),
+    ]);
     const end = cue(setCueTextOp(p, 'c', 'a b c'), 'c').words;
     expect(end[2]!.w).toBe('c');
     expect(end[2]!.e - end[2]!.s).toBeGreaterThan(0.05);
@@ -91,7 +117,10 @@ describe('setCueText', () => {
 
   it('deleting words keeps the rest', () => {
     const r = setCueTextOp(base(), 'c1', 'hello world');
-    expect(cue(r, 'c1').words.map((x) => [x.w, x.s])).toEqual([['hello', 0], ['world', 2]]);
+    expect(cue(r, 'c1').words.map((x) => [x.w, x.s])).toEqual([
+      ['hello', 0],
+      ['world', 2],
+    ]);
   });
 
   it('completely new text spreads over the old span', () => {
@@ -113,14 +142,31 @@ describe('setCueText', () => {
     expect(cue(setCueTextOp(base(), 'c1', '   '), 'c1').words).toEqual([]);
   });
 
-  it('unchanged text → same project; extra spaces don\'t matter', () => {
+  it("unchanged text → same project; extra spaces don't matter", () => {
     const p = base();
     expect(setCueTextOp(p, 'c1', 'hello   big world')).toBe(p);
   });
 
   it('keeps per-word colour of retained words', () => {
-    const p = proj([track('s', 'subtitle', [C('c', 0, 2, [['a', 0, 1], ['b', 1, 2]])])]);
-    const coloured = { ...p, tracks: [{ ...p.tracks[0]!, items: [{ ...cue(p, 'c'), words: cue(p, 'c').words.map((w) => ({ ...w, color: '#FF0000' })) }] }] };
+    const p = proj([
+      track('s', 'subtitle', [
+        C('c', 0, 2, [
+          ['a', 0, 1],
+          ['b', 1, 2],
+        ]),
+      ]),
+    ]);
+    const coloured = {
+      ...p,
+      tracks: [
+        {
+          ...p.tracks[0]!,
+          items: [
+            { ...cue(p, 'c'), words: cue(p, 'c').words.map((w) => ({ ...w, color: '#FF0000' })) },
+          ],
+        },
+      ],
+    };
     const r = setCueTextOp(coloured as typeof p, 'c', 'a x b');
     expect(cue(r, 'c').words.map((w) => w.color)).toEqual(['#FF0000', null, '#FF0000']);
   });
@@ -134,7 +180,16 @@ describe('setCueText', () => {
 
   it('retimeWordsForText stays inside the cue and ordered (property sample)', () => {
     const old = W(['a', 0, 0.4], ['b', 0.4, 0.9], ['c', 1, 1.8], ['d', 1.8, 2.0]);
-    for (const text of ['a b c d', 'x a b', 'a b c d e f g h', 'd c b a', 'a q q q d', 'q', 'a', 'a b b b c d']) {
+    for (const text of [
+      'a b c d',
+      'x a b',
+      'a b c d e f g h',
+      'd c b a',
+      'a q q q d',
+      'q',
+      'a',
+      'a b b b c d',
+    ]) {
       const w = retimeWordsForText(old, text, 2);
       expect(w.map((x) => x.w)).toEqual(tokenize(text));
       let last = 0;
@@ -172,7 +227,20 @@ describe('splitCue', () => {
   });
 
   it('keeps the style on both cues', () => {
-    const p = proj([track('s', 'subtitle', [C('c', 0, 3, [['a', 0, 1], ['b', 1.5, 3]], { styleId: 'boxed' })])]);
+    const p = proj([
+      track('s', 'subtitle', [
+        C(
+          'c',
+          0,
+          3,
+          [
+            ['a', 0, 1],
+            ['b', 1.5, 3],
+          ],
+          { styleId: 'boxed' },
+        ),
+      ]),
+    ]);
     const r = splitCueOp(p, 'c', 1).project;
     expect((items(r, 's') as SubtitleItem[]).map((c) => c.styleId)).toEqual(['boxed', 'boxed']);
   });
@@ -250,12 +318,19 @@ describe('replaceCues', () => {
   it('sorts and resolves overlaps by shortening the earlier cue', () => {
     const r = replaceCuesOp(base(), 's', [C('b', 2, 3), C('a', 0, 2.5)]);
     expect(items(r, 's').map((i) => i.id)).toEqual(['a', 'b']);
-    expect(spans(r, 's')).toEqual([[0, 2], [2, 5]]);
+    expect(spans(r, 's')).toEqual([
+      [0, 2],
+      [2, 5],
+    ]);
     healthy(r);
   });
 
   it('drops non-subtitle / invalid entries and refuses non-subtitle or locked tracks', () => {
-    const r = replaceCuesOp(base(), 's', [C('a', 0, 1), T('t', 2, 1), { type: 'subtitle', id: 'bad' } as never]);
+    const r = replaceCuesOp(base(), 's', [
+      C('a', 0, 1),
+      T('t', 2, 1),
+      { type: 'subtitle', id: 'bad' } as never,
+    ]);
     expect(items(r, 's').map((i) => i.id)).toEqual(['a']);
     const p = proj([track('v1', 'video', [V('x', 0, 1)])]);
     expect(replaceCuesOp(p, 'v1', [C('a', 0, 1)])).toBe(p);

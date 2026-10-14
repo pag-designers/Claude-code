@@ -124,7 +124,8 @@ function cues(count: number, startAt = 0.4, per = 1.7): Item[] {
 }
 
 /** The "everything" project: 7 tracks, every item type, a transition, keyframes, speed, fades, beats, markers. */
-export function timelineProject(): Project {
+export function timelineProject(opts: { beats?: boolean } = {}): Project {
+  const withBeats = opts.beats ?? true;
   const video = (over: Record<string, unknown>) =>
     videoItemSchema.parse({ type: 'video', ...over });
   const tracks: Track[] = [
@@ -305,7 +306,7 @@ export function timelineProject(): Project {
   return projectSchema.parse({
     canvas: { aspect: '9:16', width: 1080, height: 1920, fps: 30 },
     tracks,
-    assets: TL_ASSETS,
+    assets: withBeats ? TL_ASSETS : TL_ASSETS.map((a) => ({ ...a, beats: null })),
     markers: [
       { id: 'mk_1', atSec: 12, label: 'Cut to b-roll', color: '#F5A524' },
       { id: 'mk_2', atSec: 33, label: 'Answer two', color: '#F5A524' },
@@ -407,6 +408,13 @@ export function seedTimeline(
     id: ids.demo ?? 'tl-demo',
     name: 'Morning habits — rough cut',
     project: timelineProject(),
+    rev: 1,
+  });
+  // same edit without detected beats: snapping tests need a timeline whose only snap points are edges, markers, playhead
+  addDoc(state, {
+    id: 'tl-plain',
+    name: 'Morning habits — rough cut',
+    project: timelineProject({ beats: false }),
     rev: 1,
   });
   if (ids.big !== false)

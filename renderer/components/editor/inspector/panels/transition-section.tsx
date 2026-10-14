@@ -54,7 +54,7 @@ function Glyph({ type, p }: { type: TransitionType; p: number }) {
       width={W}
       height={H}
       aria-hidden
-      className="overflow-hidden rounded-sm bg-field"
+      className="overflow-hidden rounded-sm border border-border bg-field"
     >
       <clipPath id={`gc-${type}`}>
         <rect width={W} height={H} rx={2} />
@@ -67,7 +67,11 @@ function Glyph({ type, p }: { type: TransitionType; p: number }) {
             width={W}
             height={H}
             opacity={ops.veil.alpha}
-            className={ops.veil.color === '#000000' ? 'fill-background' : 'fill-foreground'}
+            className={
+              ops.veil.color === '#000000'
+                ? 'fill-[var(--swatch-black)]'
+                : 'fill-[var(--swatch-white)]'
+            }
           />
         ) : null}
       </g>
@@ -131,7 +135,7 @@ function TransitionTile({
           width={W}
           height={H}
           aria-hidden
-          className="rounded-sm bg-field"
+          className="rounded-sm border border-border bg-field"
         >
           <rect x={4} y={5} width={16} height={18} rx={2} className="fill-border-strong" />
           <rect x={24} y={5} width={16} height={18} rx={2} className="fill-primary" />

@@ -2,14 +2,33 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { VideoItem } from '@shared/editor';
 import { projectDuration } from '@shared/editor-eval';
 import { createEditorStore, useEditorStore, emptyProject } from '../../renderer/lib/editor/core';
-import { A, C, S, T, V, asset, fakeClock, item, items, makeStore, proj, spans, track } from './editor-core-fixtures';
+import {
+  A,
+  C,
+  S,
+  T,
+  V,
+  asset,
+  fakeClock,
+  item,
+  items,
+  makeStore,
+  proj,
+  spans,
+  track,
+} from './editor-core-fixtures';
 
 const base = () =>
   proj([
     track('v1', 'video', [V('a', 0, 5), V('b', 5, 5, { inSec: 10 }), V('c', 12, 3, { inSec: 30 })]),
     track('m', 'audio', [A('m1', 0, 20)]),
     track('t', 'text', [T('t1', 1, 2)]),
-    track('s', 'subtitle', [C('c1', 0, 3, [['hello', 0, 1], ['world', 1.5, 2.5]])]),
+    track('s', 'subtitle', [
+      C('c1', 0, 3, [
+        ['hello', 0, 1],
+        ['world', 1.5, 2.5],
+      ]),
+    ]),
   ]);
 
 afterEach(() => {
@@ -21,7 +40,18 @@ describe('exports', () => {
     expect(typeof useEditorStore.getState).toBe('function');
     expect(typeof useEditorStore.subscribe).toBe('function');
     const s = useEditorStore.getState();
-    for (const k of ['load', 'saveNow', 'startAutosave', 'tick', 'split', 'trim', 'undo', 'redo', 'addAsset', 'setCueText'] as const)
+    for (const k of [
+      'load',
+      'saveNow',
+      'startAutosave',
+      'tick',
+      'split',
+      'trim',
+      'undo',
+      'redo',
+      'addAsset',
+      'setCueText',
+    ] as const)
       expect(typeof s[k]).toBe('function');
     const a = createEditorStore();
     const b = createEditorStore();
@@ -46,9 +76,23 @@ describe('load', () => {
     st.getState().setPlayhead(3);
     st.getState().split(null);
     expect(st.getState().canUndo).toBe(true);
-    st.getState().load({ id: 'p2', name: 'Other', rev: 7, project: emptyProject('16:9'), updatedAt: 99 });
+    st.getState().load({
+      id: 'p2',
+      name: 'Other',
+      rev: 7,
+      project: emptyProject('16:9'),
+      updatedAt: 99,
+    });
     const s = st.getState();
-    expect([s.projectId, s.name, s.rev, s.playheadSec, s.canUndo, s.canRedo, s.saveState]).toEqual(['p2', 'Other', 7, 0, false, false, 'idle']);
+    expect([s.projectId, s.name, s.rev, s.playheadSec, s.canUndo, s.canRedo, s.saveState]).toEqual([
+      'p2',
+      'Other',
+      7,
+      0,
+      false,
+      false,
+      'idle',
+    ]);
     expect(s.selection).toEqual({ itemIds: [], trackId: null, keyframe: null });
     expect(s.project.canvas.aspect).toBe('16:9');
     expect(s.lastSavedAt).toBe(99);
@@ -58,7 +102,14 @@ describe('load', () => {
 describe('history — undo / redo', () => {
   it('apply → undo → redo is exact for a spread of operations', () => {
     const ops: [string, (s: ReturnType<typeof createEditorStore>) => void][] = [
-      ['split', (s) => { s.getState().select(['a']); s.getState().setPlayhead(2); s.getState().split(null); }],
+      [
+        'split',
+        (s) => {
+          s.getState().select(['a']);
+          s.getState().setPlayhead(2);
+          s.getState().split(null);
+        },
+      ],
       ['trim', (s) => s.getState().trim('a', 'end', 3, { snap: false })],
       ['delete', (s) => s.getState().deleteItems(['b'])],
       ['ripple delete', (s) => s.getState().deleteItems(['b'], { ripple: true })],
@@ -68,7 +119,13 @@ describe('history — undo / redo', () => {
       ['transition', (s) => s.getState().setTransition('b', { type: 'crossfade', durationSec: 1 })],
       ['speed', (s) => s.getState().setSpeed('a', 2)],
       ['freeze', (s) => s.getState().freezeFrame('a', 2, 1)],
-      ['prop', (s) => { s.getState().select(['a']); s.getState().setProp('a', 'transform.x', 10); }],
+      [
+        'prop',
+        (s) => {
+          s.getState().select(['a']);
+          s.getState().setProp('a', 'transform.x', 10);
+        },
+      ],
       ['cue text', (s) => s.getState().setCueText('c1', 'hello brave new world')],
       ['marker', (s) => void s.getState().addMarker(2)],
       ['canvas', (s) => s.getState().setCanvas({ aspect: '1:1' })],
@@ -103,7 +160,11 @@ describe('history — undo / redo', () => {
     st.getState().undo();
     expect([st.getState().undoLabel, st.getState().redoLabel]).toEqual(['Split', 'Delete']);
     st.getState().undo();
-    expect([st.getState().undoLabel, st.getState().redoLabel, st.getState().canUndo]).toEqual([null, 'Split', false]);
+    expect([st.getState().undoLabel, st.getState().redoLabel, st.getState().canUndo]).toEqual([
+      null,
+      'Split',
+      false,
+    ]);
     st.getState().redo();
     expect(st.getState().undoLabel).toBe('Split');
   });
@@ -151,7 +212,10 @@ describe('history — undo / redo', () => {
   });
 
   it('rejected edits (locked track, invalid, no-op) leave no history entry and do not dirty the doc', () => {
-    const p = proj([track('v1', 'video', [V('a', 0, 5)], { locked: true }), track('o', 'overlay', [S('s', 0, 2)])]);
+    const p = proj([
+      track('v1', 'video', [V('a', 0, 5)], { locked: true }),
+      track('o', 'overlay', [S('s', 0, 2)]),
+    ]);
     const st = makeStore(p);
     const g = st.getState();
     g.trim('a', 'end', 2);
@@ -185,7 +249,11 @@ describe('history — coalescing', () => {
     const st = makeStore(base(), { clock });
     const orig = st.getState().project;
     for (const v of [0.9, 0.8, 0.7, 0.6]) {
-      st.getState().updateItem('a', { transform: { opacity: { v } } }, { coalesceKey: 'opacity:a' });
+      st.getState().updateItem(
+        'a',
+        { transform: { opacity: { v } } },
+        { coalesceKey: 'opacity:a' },
+      );
       clock.advance(200);
     }
     expect((item(st.getState().project, 'a') as VideoItem).transform.opacity.v).toBe(0.6);
@@ -288,7 +356,7 @@ describe('history — coalescing', () => {
     }
     st2.getState().undo();
     expect(st2.getState().canUndo).toBe(true); // the add itself
-    expect(((item(st2.getState().project, 'a') as VideoItem).transform.x.kf[0])?.t).toBeCloseTo(1);
+    expect((item(st2.getState().project, 'a') as VideoItem).transform.x.kf[0]?.t).toBeCloseTo(1);
     void st;
   });
 });
@@ -300,7 +368,12 @@ describe('item actions through the store', () => {
     // nothing selected, no track → first track with an item under the playhead (video)
     const ids = st.getState().split(null);
     expect(ids.length).toBe(1);
-    expect(spans(st.getState().project, 'v1')).toEqual([[0, 2], [2, 5], [5, 10], [12, 15]]);
+    expect(spans(st.getState().project, 'v1')).toEqual([
+      [0, 2],
+      [2, 5],
+      [5, 10],
+      [12, 15],
+    ]);
     // selected track audio
     st.getState().selectTrack('m');
     st.getState().split(null);
@@ -322,7 +395,10 @@ describe('item actions through the store', () => {
   });
 
   it('split of a grouped item splits the group members under the playhead', () => {
-    const p = proj([track('v1', 'video', [V('a', 0, 5, { groupId: 'g' })]), track('o', 'overlay', [S('s', 0, 5, { groupId: 'g' })])]);
+    const p = proj([
+      track('v1', 'video', [V('a', 0, 5, { groupId: 'g' })]),
+      track('o', 'overlay', [S('s', 0, 5, { groupId: 'g' })]),
+    ]);
     const st = makeStore(p);
     expect(st.getState().split('a', 2).length).toBe(2);
   });
@@ -331,7 +407,10 @@ describe('item actions through the store', () => {
     const st = makeStore(base());
     const ids = st.getState().split('c', 13);
     expect(ids.length).toBe(1);
-    expect(spans(st.getState().project, 'v1').slice(-2)).toEqual([[12, 13], [13, 15]]);
+    expect(spans(st.getState().project, 'v1').slice(-2)).toEqual([
+      [12, 13],
+      [13, 15],
+    ]);
     expect(st.getState().split('c', 100)).toEqual([]);
   });
 
@@ -351,7 +430,9 @@ describe('item actions through the store', () => {
     const st = makeStore(proj([track('v1', 'video', [])]));
     const id = st.getState().addItem(T('txt', 1, 2));
     expect(id).toBe('txt');
-    expect(st.getState().project.tracks.some((t) => t.kind === 'text' && t.items.length === 1)).toBe(true);
+    expect(
+      st.getState().project.tracks.some((t) => t.kind === 'text' && t.items.length === 1),
+    ).toBe(true);
   });
 
   it('duplicate selects the copies; paste selects the pasted items and works at the playhead', () => {
@@ -399,7 +480,10 @@ describe('item actions through the store', () => {
   });
 
   it('ripple flag on = all unlocked tracks shift; explicit ripple with the flag off = track only', () => {
-    const q = proj([track('v1', 'video', [V('a', 0, 5), V('b', 5, 5)]), track('t', 'text', [T('t1', 6, 2)])]);
+    const q = proj([
+      track('v1', 'video', [V('a', 0, 5), V('b', 5, 5)]),
+      track('t', 'text', [T('t1', 6, 2)]),
+    ]);
     const off = makeStore(q);
     off.getState().deleteItems(['a'], { ripple: true });
     expect(spans(off.getState().project, 't')).toEqual([[6, 8]]);
@@ -429,17 +513,24 @@ describe('item actions through the store', () => {
     expect(pv.snapKind).toBe('playhead');
     st.getState().toggleSnap();
     expect(st.getState().previewMove(['c'], -3.98, null).snappedTo).toBeNull();
-    expect(st.getState().previewMove(['c'], -3.98, null, { snap: true, pxPerSec: 100 }).snappedTo).toBe(8);
+    expect(
+      st.getState().previewMove(['c'], -3.98, null, { snap: true, pxPerSec: 100 }).snappedTo,
+    ).toBe(8);
   });
 
   it('updateItem with transitionIn routes through setTransition', () => {
     const st = makeStore(base());
-    st.getState().updateItem('b', { transitionIn: { type: 'slide-left', durationSec: 1 } } as never);
+    st.getState().updateItem('b', {
+      transitionIn: { type: 'slide-left', durationSec: 1 },
+    } as never);
     const b = item(st.getState().project, 'b') as VideoItem;
     expect(b.transitionIn).toEqual({ type: 'slide-left', durationSec: 1 });
     expect(b.startSec).toBe(4);
     st.getState().updateItem('b', { transitionIn: { durationSec: 0.5 } } as never);
-    expect((item(st.getState().project, 'b') as VideoItem).transitionIn).toEqual({ type: 'slide-left', durationSec: 0.5 });
+    expect((item(st.getState().project, 'b') as VideoItem).transitionIn).toEqual({
+      type: 'slide-left',
+      durationSec: 0.5,
+    });
     st.getState().updateItem('b', { transitionIn: null } as never);
     expect((item(st.getState().project, 'b') as VideoItem).transitionIn).toBeNull();
   });
@@ -448,15 +539,23 @@ describe('item actions through the store', () => {
     const st = makeStore(base());
     st.getState().setPlayhead(7);
     st.getState().setProp('b', 'transform.x', 5, { forceKeyframe: true });
-    expect((item(st.getState().project, 'b') as VideoItem).transform.x.kf).toEqual([{ t: 2, v: 5, ease: 'linear' }]);
+    expect((item(st.getState().project, 'b') as VideoItem).transform.x.kf).toEqual([
+      { t: 2, v: 5, ease: 'linear' },
+    ]);
     st.getState().setProp('b', 'transform.x', 9);
-    expect((item(st.getState().project, 'b') as VideoItem).transform.x.kf).toEqual([{ t: 2, v: 9, ease: 'linear' }]);
+    expect((item(st.getState().project, 'b') as VideoItem).transform.x.kf).toEqual([
+      { t: 2, v: 9, ease: 'linear' },
+    ]);
   });
 
   it('addKeyframe selects it; removing it clears the selection', () => {
     const st = makeStore(base());
     st.getState().addKeyframe('a', 'transform.x', 1, 5);
-    expect(st.getState().selection.keyframe).toEqual({ itemId: 'a', prop: 'transform.x', index: 0 });
+    expect(st.getState().selection.keyframe).toEqual({
+      itemId: 'a',
+      prop: 'transform.x',
+      index: 0,
+    });
     st.getState().removeKeyframe('a', 'transform.x', 0);
     expect(st.getState().selection.keyframe).toBeNull();
   });
@@ -498,7 +597,10 @@ describe('item actions through the store', () => {
     expect(st.getState().project.tracks.find((t) => t.id === id)?.name).toBe('FX');
     expect(st.getState().selection.trackId).toBe(id);
     st.getState().updateTrack(id, { muted: true, locked: true });
-    expect(st.getState().project.tracks.find((t) => t.id === id)).toMatchObject({ muted: true, locked: true });
+    expect(st.getState().project.tracks.find((t) => t.id === id)).toMatchObject({
+      muted: true,
+      locked: true,
+    });
     st.getState().removeTrack(id); // locked → refused
     expect(st.getState().project.tracks.some((t) => t.id === id)).toBe(true);
     st.getState().updateTrack(id, { locked: false });
@@ -541,7 +643,15 @@ describe('selection', () => {
   });
 
   it('selecting a grouped item selects the group; toggling removes the whole group', () => {
-    const st = makeStore(proj([track('v1', 'video', [V('a', 0, 2, { groupId: 'g' }), V('b', 2, 2, { groupId: 'g' }), V('c', 4, 2)])]));
+    const st = makeStore(
+      proj([
+        track('v1', 'video', [
+          V('a', 0, 2, { groupId: 'g' }),
+          V('b', 2, 2, { groupId: 'g' }),
+          V('c', 4, 2),
+        ]),
+      ]),
+    );
     st.getState().select(['a']);
     expect(st.getState().selection.itemIds).toEqual(['a', 'b']);
     st.getState().select(['b'], 'toggle');
@@ -822,14 +932,24 @@ describe('extras', () => {
     const st = makeStore(base());
     st.getState().setPlayhead(3);
     st.getState().trimToPlayhead('end', { ripple: true });
-    expect(spans(st.getState().project, 'v1')).toEqual([[0, 3], [3, 8], [10, 13]]);
+    expect(spans(st.getState().project, 'v1')).toEqual([
+      [0, 3],
+      [3, 8],
+      [10, 13],
+    ]);
   });
 
   it('freezeAtPlayhead freezes the video item under the playhead', () => {
     const st = makeStore(base());
     st.getState().setPlayhead(2);
     st.getState().freezeAtPlayhead(1.5);
-    expect(spans(st.getState().project, 'v1')).toEqual([[0, 2], [2, 3.5], [3.5, 6.5], [6.5, 11.5], [13.5, 16.5]]);
+    expect(spans(st.getState().project, 'v1')).toEqual([
+      [0, 2],
+      [2, 3.5],
+      [3.5, 6.5],
+      [6.5, 11.5],
+      [13.5, 16.5],
+    ]);
     const q = createEditorStore();
     q.getState().freezeAtPlayhead();
     expect(q.getState().canUndo).toBe(false);

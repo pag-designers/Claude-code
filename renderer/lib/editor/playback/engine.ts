@@ -57,6 +57,8 @@ export interface EngineDeps {
   ipc: EngineIpc;
   parseCube: CompositorExports['parseCube'];
   env: EngineEnv;
+  /** Resolves when the compositor may draw its first frame (editor fonts loaded). Default: immediately. */
+  ready?: Promise<unknown>;
   onDispose?(engine: PlaybackEngineExt): void;
 }
 
@@ -92,6 +94,7 @@ export class PlaybackEngineImpl implements PlaybackEngineExt {
   private lastPlaying = false;
   private lastRate = 1;
   private statusNotifyPending = false;
+  private ready = false;
 
   constructor(private readonly deps: EngineDeps) {
     this.projectId = deps.projectId;
@@ -121,6 +124,13 @@ export class PlaybackEngineImpl implements PlaybackEngineExt {
       decodeImage: (u) => this.env.decodeImage(u),
       now: () => Date.now(),
     });
+    const ready = deps.ready ?? Promise.resolve();
+    void ready
+      .catch(() => {})
+      .then(() => {
+        this.ready = true;
+        this.requestRender();
+      });
     this.clock = new MasterClock({
       perfNow: () => this.env.perfNow(),
       audioNow: () => {
@@ -423,6 +433,10 @@ export class PlaybackEngineImpl implements PlaybackEngineExt {
   };
 
   private renderFrame(s: EditorStore, t0: number): void {
+    if (!this.ready) {
+      this.dirty = false; // requestRender() fires when the fonts are in
+      return;
+    }
     const comp = this.compositor as Compositor;
     const project = this.project ?? s.project;
     const t = s.playheadSec;

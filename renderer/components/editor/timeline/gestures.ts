@@ -90,10 +90,12 @@ type Gesture = Base &
         edge: 'start' | 'end';
         item: Item;
         asset: Asset | undefined;
+        /** Pointer offset from the edge at grab time, so the edge does not jump under the cursor. */
+        grab: number;
         result: { startSec: number; durationSec: number } | null;
         mods: Mods;
       }
-    | { kind: 'marker'; id: string; orig: number; pts: SnapPoint[]; at: number }
+    | { kind: 'marker'; id: string; orig: number; grab: number; pts: SnapPoint[]; at: number }
     | {
         kind: 'kf';
         itemId: string;
@@ -265,7 +267,7 @@ export function createGestures(getScroller: () => HTMLDivElement | null): Gestur
         break;
       }
       case 'trim': {
-        const raw = snapToFrame(secAt(cx), fps);
+        const raw = snapToFrame(secAt(cx) - g.grab, fps);
         // the store owns the snapping rules (items, playhead, markers, beats, grid): ask it where this edge would land
         const pv = s.previewTrim(g.itemId, g.edge, raw, {
           snap: mods.mod ? false : undefined,
@@ -297,7 +299,7 @@ export function createGestures(getScroller: () => HTMLDivElement | null): Gestur
         break;
       }
       case 'marker': {
-        let t = snapToFrame(secAt(cx), fps);
+        let t = snapToFrame(secAt(cx) - g.grab, fps);
         let guide: { t: number; kind: SnapPoint['kind'] } | null = null;
         if (s.snapEnabled && !mods.mod) {
           const sn = snapValue(t, g.pts, SNAP_PX / px);
@@ -455,6 +457,7 @@ export function createGestures(getScroller: () => HTMLDivElement | null): Gestur
           kind: 'marker',
           id,
           orig: m.atSec,
+          grab: secAt(e.clientX) - m.atSec,
           at: m.atSec,
           pts: collectSnapPoints(
             { ...s.project, markers: s.project.markers.filter((x) => x.id !== id) },
@@ -477,7 +480,17 @@ export function createGestures(getScroller: () => HTMLDivElement | null): Gestur
       const v = keyframeValue(found, path, index);
       begin(
         { ...base, vertical: false, autoscroll: true },
-        { kind: 'kf', itemId, path, index, value: v, startT: t0, t: t0, item: found },
+        {
+          kind: 'kf',
+          itemId,
+          path,
+          index,
+          value: v,
+          startT: t0,
+          grab: secAt(e.clientX) - found.startSec - t0,
+          t: t0,
+          item: found,
+        },
       );
       return;
     }
@@ -500,6 +513,7 @@ export function createGestures(getScroller: () => HTMLDivElement | null): Gestur
           edge: trimEl.dataset.trim === 'end' ? 'end' : 'start',
           item,
           asset,
+          grab: secAt(e.clientX) - (trimEl.dataset.trim === 'end' ? item.startSec + item.durationSec : item.startSec),
           result: null,
           mods,
         },

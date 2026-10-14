@@ -1,6 +1,6 @@
 import { invoke } from '@/lib/ipc';
 import { PlaybackEngineImpl, type EngineDeps, type EngineEnv } from './engine';
-import { parseCube, useEditorStore } from './link';
+import { ensureEditorFonts, parseCube, useEditorStore } from './link';
 import type { PlaybackEngineExt } from './types';
 
 /** Browser implementation of the engine's environment (everything that touches `window` / `document`). */
@@ -68,6 +68,7 @@ export function createPlaybackEngine(opts: { projectId: string }): PlaybackEngin
     projectId: opts.projectId,
     ipc: ipcBackend(),
     parseCube,
+    ready: ensureEditorFonts(),
     env: browserEnv(),
     onDispose: (e) => {
       if (current === e) current = null;

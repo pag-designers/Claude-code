@@ -58,7 +58,12 @@ export function updateTrackOp(p: Project, trackId: string, patch: TrackPatch): P
     ducking: patch.ducking ? { ...tr.ducking, ...patch.ducking } : tr.ducking,
   };
   const keys = Object.keys(patch) as (keyof TrackPatch)[];
-  if (keys.every((k) => Object.is(next[k], tr[k]) || (k === 'ducking' && sameDucking(next.ducking, tr.ducking))))
+  if (
+    keys.every(
+      (k) =>
+        Object.is(next[k], tr[k]) || (k === 'ducking' && sameDucking(next.ducking, tr.ducking)),
+    )
+  )
     return p;
   if (!trackSchema.safeParse(next).success) return p;
   const tracks = p.tracks.slice();
@@ -79,7 +84,8 @@ function sameDucking(a: Track['ducking'], b: Track['ducking']): boolean {
 export function cleanSingletonGroups(p: Project): Project {
   const counts = new Map<string, number>();
   for (const tr of p.tracks)
-    for (const it of tr.items) if (it.groupId) counts.set(it.groupId, (counts.get(it.groupId) ?? 0) + 1);
+    for (const it of tr.items)
+      if (it.groupId) counts.set(it.groupId, (counts.get(it.groupId) ?? 0) + 1);
   let single = false;
   for (const n of counts.values()) if (n < 2) single = true;
   if (!single) return p;

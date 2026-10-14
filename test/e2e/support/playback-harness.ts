@@ -29,7 +29,7 @@ export const canRun = (): boolean => !!CHROME;
 export async function buildApp(): Promise<void> {
   fs.mkdirSync(BUILD_DIR, { recursive: true });
   await build({
-    entryPoints: [path.join(__dirname, 'playback-app/main.tsx')],
+    entryPoints: [path.join(ROOT, 'renderer/components/editor/preview/e2e-app/main.tsx')],
     bundle: true,
     format: 'iife',
     platform: 'browser',

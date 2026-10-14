@@ -345,6 +345,40 @@ test.describe('keyframes', () => {
   });
 });
 
+test.describe('keyframe graph keyboard', () => {
+  test('arrows nudge a focused keyframe, Delete removes it and never reaches the clip-delete shortcut', async () => {
+    const s = await open();
+    const p = s.page;
+    await s.select(LAB_IDS.v1);
+    for (const [t, v] of [
+      [0, '0'],
+      [4, '200'],
+      [8, '100'],
+    ] as const) {
+      await s.setPlayhead(t);
+      const x = num(p, 'field-transform.x');
+      await x.fill(v);
+      await x.press('Enter');
+      if (t === 0) await kfToggle(p, 'Position X').click();
+    }
+    await p.getByTestId('kf-chip-transform.x').click();
+    const pt = p.getByTestId('selected-keyframe-editor').getByTestId('graph-point').nth(1);
+    await pt.focus();
+    await expect(pt).toHaveAttribute('data-selected', 'true');
+    const v0 = (await tf(s, 'v1', 'x')).kf[1]!.v;
+    await p.keyboard.press('ArrowUp');
+    expect((await tf(s, 'v1', 'x')).kf[1]!.v).toBeGreaterThan(v0);
+    await p.keyboard.press('ArrowRight');
+    expect((await tf(s, 'v1', 'x')).kf[1]!.t).toBeCloseTo(4 + 1 / 30, 3);
+    await p.keyboard.press('Delete');
+    expect((await tf(s, 'v1', 'x')).kf).toHaveLength(2);
+    // the clip itself is untouched (the global Delete shortcut did not run)
+    expect(await s.item('v1')).not.toBeNull();
+    expect(await s.read((st) => st.selection.itemIds)).toEqual(['v1']);
+    await finish(s);
+  });
+});
+
 test.describe('video tabs', () => {
   test('speed: constant, ramp, collapse, reverse, freeze frame', async () => {
     const s = await open();
@@ -411,9 +445,11 @@ test.describe('video tabs', () => {
     await num(p, 'field-fadeInSec').fill('0.5');
     await num(p, 'field-fadeInSec').press('Enter');
     expect(((await s.item('v1')) as { fadeInSec: number }).fadeInSec).toBe(0.5);
+    await p.getByTestId('noise-gate').hover();
+    await expect(p.getByRole('tooltip').first()).toContainText('Applied on export');
     await p.getByTestId('noise-gate').click();
     expect(((await s.item('v1')) as { noiseGate: boolean }).noiseGate).toBe(true);
-    await expect(p.getByText('Applied on export')).toBeVisible();
+    await expect(p.getByText('Applied on export').first()).toBeVisible();
     await p.getByTestId('audio-enabled').click();
     expect(((await s.item('v1')) as { audioEnabled: boolean }).audioEnabled).toBe(false);
 
@@ -502,7 +538,7 @@ test.describe('video tabs', () => {
     expect(((await s.item('v2')) as { transitionIn: unknown }).transitionIn).toBeNull();
     // the first clip of a track cannot have one
     await s.select(LAB_IDS.v1);
-    await expect(p.getByTestId('transition-crossfade')).toBeDisabled();
+    await expect(p.getByTestId('transition-crossfade')).toHaveCount(0);
     await expect(p.getByText(/first clip on its track/)).toBeVisible();
     await finish(s);
   });

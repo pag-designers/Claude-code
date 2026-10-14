@@ -2,12 +2,7 @@
  * land on the same kind of track and keep different source tracks on different destination tracks. */
 import type { Item, Project, Track, TrackKind } from '@shared/editor';
 import { itemEnd } from '@shared/editor-eval';
-import {
-  defaultTrackIndex,
-  makeTrack,
-  nextTrackName,
-  trackAccepts,
-} from '../helpers';
+import { defaultTrackIndex, makeTrack, nextTrackName, trackAccepts } from '../helpers';
 import { Draft, EPS, expandGroups, hasTransition, indexItems, layoutProblem } from './common';
 import { cloneItems } from './items';
 
@@ -79,17 +74,20 @@ export function pasteOp(
       if (hasTransition(it) && it.transitionIn) {
         const prevK = ks[ks.indexOf(k) - 1];
         const prev = prevK === undefined ? undefined : (clip.items[prevK] as Item);
-        const ok = !!prev && Math.abs(itemEnd(prev) - orig.startSec - it.transitionIn.durationSec) <= 1e-5;
+        const ok =
+          !!prev && Math.abs(itemEnd(prev) - orig.startSec - it.transitionIn.durationSec) <= 1e-5;
         if (!ok) it = { ...it, transitionIn: null };
       }
       return it;
     });
     const types = placed.map((i) => i.type);
-    const accepts = (t: Track) => !t.locked && !usedTrackIds.has(t.id) && types.every((ty) => trackAccepts(t, ty));
+    const accepts = (t: Track) =>
+      !t.locked && !usedTrackIds.has(t.id) && types.every((ty) => trackAccepts(t, ty));
     const candidates: Track[] = [];
     const sel = selectedTrackId ? cur.tracks.find((t) => t.id === selectedTrackId) : undefined;
     if (sel && accepts(sel) && usedTrackIds.size === 0) candidates.push(sel);
-    for (const t of cur.tracks) if (t.kind === kind && accepts(t) && !candidates.includes(t)) candidates.push(t);
+    for (const t of cur.tracks)
+      if (t.kind === kind && accepts(t) && !candidates.includes(t)) candidates.push(t);
     for (const t of cur.tracks) if (accepts(t) && !candidates.includes(t)) candidates.push(t);
     let target = candidates.find((t) => fits(t.items, placed));
     if (!target) {

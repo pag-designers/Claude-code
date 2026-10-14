@@ -78,6 +78,7 @@ export function BezierEditor({
     else if (e.key === 'ArrowDown') ny -= step;
     else return;
     e.preventDefault();
+    e.stopPropagation();
     emit(moveHandle(cur, which, Math.min(1, Math.max(0, nx)), ny), true);
   };
 

@@ -3,10 +3,13 @@ import type { Project } from '@shared/editor';
 import type { AutosaveDeps } from '../../renderer/lib/editor/core';
 import { A, T, V, item, makeStore, proj, track } from './editor-core-fixtures';
 
-const base = () => proj([track('v1', 'video', [V('a', 0, 5), V('b', 5, 5)]), track('m', 'audio', [A('m1', 0, 20)])]);
+const base = () =>
+  proj([track('v1', 'video', [V('a', 0, 5), V('b', 5, 5)]), track('m', 'audio', [A('m1', 0, 20)])]);
 
 type SaveArgs = Parameters<AutosaveDeps['save']>[0];
-function mockSave(impl?: (args: SaveArgs, n: number) => Promise<{ rev: number; updatedAt: number }>) {
+function mockSave(
+  impl?: (args: SaveArgs, n: number) => Promise<{ rev: number; updatedAt: number }>,
+) {
   let n = 0;
   const calls: SaveArgs[] = [];
   const save = vi.fn(async (args: SaveArgs) => {
@@ -89,7 +92,8 @@ describe('autosave', () => {
     const st = makeStore(base());
     let release: () => void = () => undefined;
     const { save } = mockSave(
-      (args) => new Promise((res) => (release = () => res({ rev: args.baseRev + 1, updatedAt: 5 }))),
+      (args) =>
+        new Promise((res) => (release = () => res({ rev: args.baseRev + 1, updatedAt: 5 }))),
     );
     const stop = st.getState().startAutosave({ save, intervalMs: 1000 });
     st.getState().deleteItems(['b']);
@@ -197,7 +201,10 @@ describe('autosave', () => {
   it('saveNow waits for an in-flight save and then saves newer edits', async () => {
     const st = makeStore(base());
     const releases: (() => void)[] = [];
-    const { save } = mockSave((args) => new Promise((res) => releases.push(() => res({ rev: args.baseRev + 1, updatedAt: 1 }))));
+    const { save } = mockSave(
+      (args) =>
+        new Promise((res) => releases.push(() => res({ rev: args.baseRev + 1, updatedAt: 1 }))),
+    );
     const stop = st.getState().startAutosave({ save, intervalMs: 1000 });
     st.getState().deleteItems(['b']);
     await vi.advanceTimersByTimeAsync(1_000);
@@ -243,11 +250,19 @@ describe('autosave', () => {
   it('load() while a save is in flight ignores the stale completion', async () => {
     const st = makeStore(base());
     let release: () => void = () => undefined;
-    const { save } = mockSave((args) => new Promise((res) => (release = () => res({ rev: 99, updatedAt: 99 }))));
+    const { save } = mockSave(
+      () => new Promise((res) => (release = () => res({ rev: 99, updatedAt: 99 }))),
+    );
     const stop = st.getState().startAutosave({ save, intervalMs: 1000 });
     st.getState().deleteItems(['b']);
     await vi.advanceTimersByTimeAsync(1_000);
-    st.getState().load({ id: 'other', name: 'o', rev: 2, project: proj([track('v1', 'video', [])]), updatedAt: 5 });
+    st.getState().load({
+      id: 'other',
+      name: 'o',
+      rev: 2,
+      project: proj([track('v1', 'video', [])]),
+      updatedAt: 5,
+    });
     release();
     await vi.advanceTimersByTimeAsync(0);
     expect(st.getState().rev).toBe(2);

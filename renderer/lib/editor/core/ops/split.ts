@@ -84,7 +84,11 @@ export function splitItemAt(item: Item, at: number, rightId: string): [Item, Ite
   }
   if ('fadeInSec' in left) {
     left = { ...left, fadeInSec: Math.min(left.fadeInSec, a), fadeOutSec: 0 } as Item;
-    right = { ...right, fadeInSec: 0, fadeOutSec: Math.min((right as { fadeOutSec: number }).fadeOutSec, b) } as Item;
+    right = {
+      ...right,
+      fadeInSec: 0,
+      fadeOutSec: Math.min((right as { fadeOutSec: number }).fadeOutSec, b),
+    } as Item;
   }
   if (hasTransition(right)) right = { ...right, transitionIn: null };
   if (left.type === 'text' && right.type === 'text') {
@@ -127,7 +131,13 @@ export function splitOp(
 }
 
 /** A still copy of a video item showing the source frame at `srcTime`, with its pose frozen at local time `tl`. */
-function makeFreezeItem(item: VideoItem, startSec: number, hold: number, srcTime: number, tl: number): VideoItem {
+function makeFreezeItem(
+  item: VideoItem,
+  startSec: number,
+  hold: number,
+  srcTime: number,
+  tl: number,
+): VideoItem {
   let f: VideoItem = {
     ...item,
     id: newId('it'),

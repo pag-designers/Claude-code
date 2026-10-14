@@ -39,7 +39,8 @@ export function projectProblems(p: Project): string[] {
       for (const [name, kf] of keyframeLists(it)) {
         for (let k = 0; k < kf.length; k++) {
           const cur = kf[k] as { t: number };
-          if (cur.t < -1e-9 || !Number.isFinite(cur.t)) out.push(`${it.id}.${name} kf time ${cur.t}`);
+          if (cur.t < -1e-9 || !Number.isFinite(cur.t))
+            out.push(`${it.id}.${name} kf time ${cur.t}`);
           if (k > 0 && cur.t < (kf[k - 1] as { t: number }).t - 1e-9)
             out.push(`${it.id}.${name} keyframes unsorted`);
         }

@@ -17,8 +17,11 @@ import {
 } from '../../renderer/lib/editor/core/snap';
 import { A, T, V, asset, item, items, proj, spans, track } from './editor-core-fixtures';
 
-const healthy = (p: Parameters<typeof projectProblems>[0]) => expect(projectProblems(p)).toEqual([]);
-const ctx = (o: Partial<{ enabled: boolean; playhead: number; pxPerSec: number; fps: number }> = {}) => ({
+const healthy = (p: Parameters<typeof projectProblems>[0]) =>
+  expect(projectProblems(p)).toEqual([]);
+const ctx = (
+  o: Partial<{ enabled: boolean; playhead: number; pxPerSec: number; fps: number }> = {},
+) => ({
   enabled: true,
   playhead: 0,
   pxPerSec: 100,
@@ -68,7 +71,10 @@ describe('previewMove — basics', () => {
 
   it('rejects a track of the wrong kind or locked', () => {
     expect(previewMoveOp(p, ['a'], 0, 't', ctx({ enabled: false })).valid).toBe(false);
-    const locked = proj([track('v1', 'video', [V('a', 0, 5)]), track('v2', 'overlay', [], { locked: true })]);
+    const locked = proj([
+      track('v1', 'video', [V('a', 0, 5)]),
+      track('v2', 'overlay', [], { locked: true }),
+    ]);
     expect(previewMoveOp(locked, ['a'], 0, 'v2', ctx({ enabled: false })).valid).toBe(false);
     expect(previewMoveOp(p, ['a'], 0, 'nope', ctx({ enabled: false })).valid).toBe(false);
   });
@@ -81,7 +87,12 @@ describe('previewMove — basics', () => {
   });
 
   it('unknown ids give an empty invalid preview', () => {
-    expect(previewMoveOp(p, ['zzz'], 1, null, ctx())).toEqual({ moves: [], snappedTo: null, snapKind: null, valid: false });
+    expect(previewMoveOp(p, ['zzz'], 1, null, ctx())).toEqual({
+      moves: [],
+      snappedTo: null,
+      snapKind: null,
+      valid: false,
+    });
   });
 });
 
@@ -96,7 +107,7 @@ describe('previewMove — snapping', () => {
     markers: [{ id: 'm1', atSec: 30, label: 'x' }],
   });
 
-  it('snaps the start edge to another item\'s end within 8 px', () => {
+  it("snaps the start edge to another item's end within 8 px", () => {
     const r = previewMoveOp(p, ['b'], -14.95, null, ctx({ pxPerSec: 100 })); // start would be 5.05 → 0.05 s = 5 px from 5
     expect(r.snappedTo).toBe(5);
     expect(r.snapKind).toBe('item');
@@ -148,7 +159,7 @@ describe('previewMove — snapping', () => {
     expect(r.snappedTo).toBeNull();
   });
 
-  it('ignores the moving item\'s own edges', () => {
+  it("ignores the moving item's own edges", () => {
     const r = previewMoveOp(p, ['b'], 0.03, null, ctx({ pxPerSec: 100 }));
     expect(r.snappedTo).not.toBe(20);
   });
@@ -157,7 +168,10 @@ describe('previewMove — snapping', () => {
     const q = proj([track('v1', 'video', [V('a', 0.5, 2)])]);
     const fine = previewMoveOp(q, ['a'], 10.1, null, ctx({ pxPerSec: 600, fps: 30 })); // frame = 20 px
     expect(fine.snapKind).toBe('grid');
-    expect(Math.round((fine.moves[0]?.startSec as number) * 30)).toBeCloseTo((fine.moves[0]?.startSec as number) * 30, 6);
+    expect(Math.round((fine.moves[0]?.startSec as number) * 30)).toBeCloseTo(
+      (fine.moves[0]?.startSec as number) * 30,
+      6,
+    );
     const coarse = previewMoveOp(q, ['a'], 10.1, null, ctx({ pxPerSec: 20, fps: 30 })); // frame < 1 px
     expect(coarse.snapKind).toBeNull();
   });
@@ -169,7 +183,9 @@ describe('previewMove — snapping', () => {
       { assets: [music, asset('av', 'video', 60)] },
     );
     // beat 10 → 100 + (10-8) = 102; beat 14 → 106
-    const pts = baseSnapPoints(q).filter((s) => s.kind === 'beat').map((s) => s.t);
+    const pts = baseSnapPoints(q)
+      .filter((s) => s.kind === 'beat')
+      .map((s) => s.t);
     expect(pts).toEqual([102, 104, 106, 108]);
     const r = previewMoveOp(q, ['v'], 101.97, null, ctx({ pxPerSec: 100 }));
     expect(r.snappedTo).toBe(102);
@@ -184,7 +200,12 @@ describe('previewMove — snapping', () => {
   });
 
   it('beats follow a speed ramp', () => {
-    const ramp = A('m', 0, 10, { speedCurve: [{ t: 0, v: 1, ease: 'linear' }, { t: 10, v: 1, ease: 'linear' }] });
+    const ramp = A('m', 0, 10, {
+      speedCurve: [
+        { t: 0, v: 1, ease: 'linear' },
+        { t: 10, v: 1, ease: 'linear' },
+      ],
+    });
     expect(beatTimesOnTimeline(ramp, [3])[0]).toBeCloseTo(3, 2);
   });
 
@@ -201,9 +222,17 @@ describe('previewMove — snapping', () => {
   });
 
   it('snapTime/snapDelta helpers', () => {
-    expect(snapTime(p, 4.95, { playhead: null, pxPerSec: 100, fps: 30 })).toEqual({ t: 5, kind: 'item' });
+    expect(snapTime(p, 4.95, { playhead: null, pxPerSec: 100, fps: 30 })).toEqual({
+      t: 5,
+      kind: 'item',
+    });
     expect(snapTime(p, 100, { playhead: null, pxPerSec: 20, fps: 30 })).toBeNull();
-    const d = snapDelta(p, [20, 25], -14.97, { playhead: null, pxPerSec: 100, fps: 30, exclude: new Set(['b']) });
+    const d = snapDelta(p, [20, 25], -14.97, {
+      playhead: null,
+      pxPerSec: 100,
+      fps: 30,
+      exclude: new Set(['b']),
+    });
     expect(d.to).toBe(5);
     expect(d.delta).toBeCloseTo(-15);
   });
@@ -217,7 +246,10 @@ describe('groups move together', () => {
 
   it('previewMove expands the group', () => {
     const r = previewMoveOp(p, ['a'], 3, null, ctx({ enabled: false }));
-    expect(r.moves.map((m) => [m.itemId, m.startSec]).sort()).toEqual([['a', 3], ['b', 4]]);
+    expect(r.moves.map((m) => [m.itemId, m.startSec]).sort()).toEqual([
+      ['a', 3],
+      ['b', 4],
+    ]);
     expect(r.valid).toBe(true);
   });
 
@@ -266,7 +298,11 @@ describe('applyMoves', () => {
   });
 
   it('refuses incompatible and locked destinations', () => {
-    const p = proj([track('v1', 'video', [V('a', 0, 4)]), track('a1', 'audio', []), track('x', 'overlay', [], { locked: true })]);
+    const p = proj([
+      track('v1', 'video', [V('a', 0, 4)]),
+      track('a1', 'audio', []),
+      track('x', 'overlay', [], { locked: true }),
+    ]);
     expect(applyMovesOp(p, [{ itemId: 'a', trackId: 'x', startSec: 0 }])).toBe(p);
     const q = proj([track('v1', 'video', [V('a', 0, 4)]), track('t', 'text', [])]);
     expect(applyMovesOp(q, [{ itemId: 'a', trackId: 't', startSec: 0 }])).toBe(q);
@@ -284,23 +320,40 @@ describe('applyMoves', () => {
   });
 
   it('insert mode pushes existing items right instead of refusing', () => {
-    const p = proj([track('v1', 'video', [V('a', 0, 4), V('b', 6, 3), V('c', 9, 3)]), track('v2', 'overlay', [V('x', 0, 2)])]);
+    const p = proj([
+      track('v1', 'video', [V('a', 0, 4), V('b', 6, 3), V('c', 9, 3)]),
+      track('v2', 'overlay', [V('x', 0, 2)]),
+    ]);
     const r = applyMovesOp(p, [{ itemId: 'x', trackId: 'v1', startSec: 5 }], { insert: true });
-    expect(spans(r, 'v1')).toEqual([[0, 4], [5, 7], [7, 10], [10, 13]]);
+    expect(spans(r, 'v1')).toEqual([
+      [0, 4],
+      [5, 7],
+      [7, 10],
+      [10, 13],
+    ]);
     healthy(r);
   });
 
   it('insert mode cannot split a straddling item (refused)', () => {
     const p = proj([track('v1', 'video', [V('a', 0, 10)]), track('v2', 'overlay', [V('x', 0, 2)])]);
-    expect(applyMovesOp(p, [{ itemId: 'x', trackId: 'v1', startSec: 5 }], { insert: true })).toBe(p);
+    expect(applyMovesOp(p, [{ itemId: 'x', trackId: 'v1', startSec: 5 }], { insert: true })).toBe(
+      p,
+    );
   });
 
   it('moving a transition pair together keeps the transition', () => {
-    const base = proj([track('v1', 'video', [V('a', 0, 5), V('b', 5, 5, { inSec: 3 }), V('c', 20, 2)])]);
+    const base = proj([
+      track('v1', 'video', [V('a', 0, 5), V('b', 5, 5, { inSec: 3 }), V('c', 20, 2)]),
+    ]);
     const withX = setTransitionOp(base, 'b', { type: 'crossfade', durationSec: 1 }, false);
     const g = projectSchema.parse({
       ...withX,
-      tracks: [{ ...withX.tracks[0], items: items(withX, 'v1').map((i) => (i.id === 'c' ? i : { ...i, groupId: 'g' })) }],
+      tracks: [
+        {
+          ...withX.tracks[0],
+          items: items(withX, 'v1').map((i) => (i.id === 'c' ? i : { ...i, groupId: 'g' })),
+        },
+      ],
     });
     const r = applyMovesOp(g, [{ itemId: 'a', trackId: 'v1', startSec: 10 }]);
     healthy(r);
@@ -316,7 +369,7 @@ describe('applyMoves', () => {
     healthy(r);
   });
 
-  it('moving the earlier item away drops the later one\'s transition', () => {
+  it("moving the earlier item away drops the later one's transition", () => {
     const base = proj([track('v1', 'video', [V('a', 0, 5), V('b', 5, 5, { inSec: 3 })])]);
     const withX = setTransitionOp(base, 'b', { type: 'crossfade', durationSec: 1 }, false);
     const r = applyMovesOp(withX, [{ itemId: 'a', trackId: 'v1', startSec: 30 }]);
@@ -325,7 +378,9 @@ describe('applyMoves', () => {
   });
 
   it('dragging an item into a transition overlap is refused', () => {
-    const base = proj([track('v1', 'video', [V('a', 0, 5), V('b', 5, 5, { inSec: 3 }), V('c', 20, 4)])]);
+    const base = proj([
+      track('v1', 'video', [V('a', 0, 5), V('b', 5, 5, { inSec: 3 }), V('c', 20, 4)]),
+    ]);
     expect(applyMovesOp(base, [{ itemId: 'c', trackId: 'v1', startSec: 4 }])).toBe(base);
   });
 
@@ -340,7 +395,11 @@ describe('applyMoves', () => {
     const pv = previewMoveOp(p, ['a', 'b'], 4, null, ctx({ enabled: false }));
     expect(pv.valid).toBe(true);
     const r = applyMovesOp(p, pv.moves);
-    expect(spans(r, 'v1')).toEqual([[4, 6], [7, 9], [10, 12]]);
+    expect(spans(r, 'v1')).toEqual([
+      [4, 6],
+      [7, 9],
+      [10, 12],
+    ]);
   });
 
   it('moving a block over its own old position is allowed', () => {
@@ -349,6 +408,9 @@ describe('applyMoves', () => {
       { itemId: 'a', trackId: 'v1', startSec: 2 },
       { itemId: 'b', trackId: 'v1', startSec: 6 },
     ]);
-    expect(spans(r, 'v1')).toEqual([[2, 6], [6, 10]]);
+    expect(spans(r, 'v1')).toEqual([
+      [2, 6],
+      [6, 10],
+    ]);
   });
 });

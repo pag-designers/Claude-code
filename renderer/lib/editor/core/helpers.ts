@@ -161,7 +161,8 @@ export function makeVideoItem(
   opts: MakeOpts & { inSec?: number } = {},
 ): VideoItem {
   const inSec = Math.max(0, opts.inSec ?? 0);
-  const natural = asset.durationSec !== null ? Math.max(MIN_ITEM_SEC, asset.durationSec - inSec) : 5;
+  const natural =
+    asset.durationSec !== null ? Math.max(MIN_ITEM_SEC, asset.durationSec - inSec) : 5;
   return videoItemSchema.parse({
     type: 'video',
     id: opts.id ?? newId('it'),
@@ -180,7 +181,8 @@ export function makeAudioItem(
   opts: MakeOpts & { inSec?: number } = {},
 ): AudioItem {
   const inSec = Math.max(0, opts.inSec ?? 0);
-  const natural = asset.durationSec !== null ? Math.max(MIN_ITEM_SEC, asset.durationSec - inSec) : 5;
+  const natural =
+    asset.durationSec !== null ? Math.max(MIN_ITEM_SEC, asset.durationSec - inSec) : 5;
   return audioItemSchema.parse({
     type: 'audio',
     id: opts.id ?? newId('it'),

@@ -42,6 +42,7 @@ export function AudioSection() {
           get={(i) => (i as Media).noiseGate}
           patch={(v) => ({ noiseGate: v })}
           hint="Applied on export"
+          tooltip="Applied on export (not audible in the preview)"
         />
       </Section>
     </>

@@ -1,6 +1,6 @@
 import type { Project } from '@shared/editor';
 import { itemEnd } from '@shared/editor-eval';
-import type { AssetStatus } from '@/lib/editor/playback/pool';
+import type { AssetStatus } from '../../../lib/editor/playback/pool';
 
 /**
  * Which assets matter for the picture RIGHT NOW: video / image items on visible tracks whose span touches the window

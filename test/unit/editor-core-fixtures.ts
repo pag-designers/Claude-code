@@ -46,7 +46,12 @@ export const C = (
     ...o,
   });
 
-export const asset = (id: string, kind: Asset['kind'], durationSec: number | null, o: O = {}): Asset =>
+export const asset = (
+  id: string,
+  kind: Asset['kind'],
+  durationSec: number | null,
+  o: O = {},
+): Asset =>
   assetSchema.parse({
     id,
     kind,
@@ -101,7 +106,11 @@ export const spans = (p: Project, trackId: string): [number, number][] =>
 /** A clock tests can advance by hand. */
 export function fakeClock(start = 1_000_000) {
   let t = start;
-  return { now: () => t, advance: (ms: number) => void (t += ms), set: (v: number) => void (t = v) };
+  return {
+    now: () => t,
+    advance: (ms: number) => void (t += ms),
+    set: (v: number) => void (t = v),
+  };
 }
 
 export function makeStore(

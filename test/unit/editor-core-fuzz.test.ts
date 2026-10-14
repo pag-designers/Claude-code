@@ -30,7 +30,13 @@ type R = ReturnType<typeof rng>;
 const q = (v: number) => Math.round(v * 1000) / 1000;
 const kfs = (r: R, dur: number, lo: number, hi: number) =>
   r.chance(0.35)
-    ? Array.from({ length: r.int(1, 4) }, () => ({ t: q(r.float(0, dur)), v: q(r.float(lo, hi)), ease: r.pick(['linear', 'hold', 'ease-in-out'] as const) })).sort((a, b) => a.t - b.t).filter((k, i, arr) => i === 0 || k.t > (arr[i - 1] as { t: number }).t)
+    ? Array.from({ length: r.int(1, 4) }, () => ({
+        t: q(r.float(0, dur)),
+        v: q(r.float(lo, hi)),
+        ease: r.pick(['linear', 'hold', 'ease-in-out'] as const),
+      }))
+        .sort((a, b) => a.t - b.t)
+        .filter((k, i, arr) => i === 0 || k.t > (arr[i - 1] as { t: number }).t)
     : [];
 
 let uid = 0;
@@ -54,11 +60,20 @@ function randomProject(r: R): Project {
       speed: r.pick([1, 1, 1, 0.5, 2, 1.5]),
       reverse: r.chance(0.12),
       freezeAtSec: r.chance(0.05) ? q(r.float(0, 50)) : null,
-      speedCurve: r.chance(0.12) ? [{ t: 0, v: q(r.float(0.5, 2)), ease: 'linear' }, { t: q(dur), v: q(r.float(0.5, 3)), ease: 'linear' }] : [],
+      speedCurve: r.chance(0.12)
+        ? [
+            { t: 0, v: q(r.float(0.5, 2)), ease: 'linear' },
+            { t: q(dur), v: q(r.float(0.5, 3)), ease: 'linear' },
+          ]
+        : [],
       fadeInSec: r.chance(0.2) ? q(r.float(0, 1)) : 0,
       fadeOutSec: r.chance(0.2) ? q(r.float(0, 1)) : 0,
       groupId: null,
-      transform: { x: { v: 0, kf: kfs(r, dur, -200, 200) }, opacity: { v: 1, kf: kfs(r, dur, 0, 1) }, scale: { v: 1, kf: kfs(r, dur, 0.5, 2) } },
+      transform: {
+        x: { v: 0, kf: kfs(r, dur, -200, 200) },
+        opacity: { v: 1, kf: kfs(r, dur, 0, 1) },
+        scale: { v: 1, kf: kfs(r, dur, 0.5, 2) },
+      },
       volume: { v: 1, kf: kfs(r, dur, 0, 1.5) },
     });
   const trackKinds = r.pick([
@@ -72,27 +87,99 @@ function randomProject(r: R): Project {
     if (kind === 'video') tracks.push(track(id, 'video', mkRun(vid, r.int(2, 9), 0.4), { locked }));
     else if (kind === 'overlay')
       tracks.push(
-        track(id, 'overlay', mkRun((s, d) => (r.chance(0.5) ? I(nid('i'), s, d, { transform: { x: { v: 0, kf: kfs(r, d, -100, 100) } } }) : S(nid('s'), s, d)), r.int(1, 5), 0.5), { locked }),
+        track(
+          id,
+          'overlay',
+          mkRun(
+            (s, d) =>
+              r.chance(0.5)
+                ? I(nid('i'), s, d, { transform: { x: { v: 0, kf: kfs(r, d, -100, 100) } } })
+                : S(nid('s'), s, d),
+            r.int(1, 5),
+            0.5,
+          ),
+          { locked },
+        ),
       );
     else if (kind === 'audio')
-      tracks.push(track(id, 'audio', mkRun((s, d) => A(nid('a'), s, d, { inSec: q(r.float(0, 60)), speed: r.pick([1, 1, 2, 0.5]), reverse: r.chance(0.1), volume: { v: 1, kf: kfs(r, d, 0, 1) } }), r.int(1, 4), 0.5), { locked }));
-    else if (kind === 'text') tracks.push(track(id, 'text', mkRun((s, d) => T(nid('t'), s, d, { animIn: { type: 'pop', durationSec: 0.3 } }), r.int(1, 4), 0.6), { locked }));
+      tracks.push(
+        track(
+          id,
+          'audio',
+          mkRun(
+            (s, d) =>
+              A(nid('a'), s, d, {
+                inSec: q(r.float(0, 60)),
+                speed: r.pick([1, 1, 2, 0.5]),
+                reverse: r.chance(0.1),
+                volume: { v: 1, kf: kfs(r, d, 0, 1) },
+              }),
+            r.int(1, 4),
+            0.5,
+          ),
+          { locked },
+        ),
+      );
+    else if (kind === 'text')
+      tracks.push(
+        track(
+          id,
+          'text',
+          mkRun(
+            (s, d) => T(nid('t'), s, d, { animIn: { type: 'pop', durationSec: 0.3 } }),
+            r.int(1, 4),
+            0.6,
+          ),
+          { locked },
+        ),
+      );
     else
       tracks.push(
-        track(id, 'subtitle', mkRun((s, d) => {
-          const n = r.int(1, 6);
-          const words = Array.from({ length: n }, (_, k) => ['w' + k + 'x', q((d * k) / n), q((d * (k + 0.8)) / n)] as [string, number, number]);
-          return C(nid('c'), s, d, words);
-        }, r.int(1, 6), 0.5), { locked }),
+        track(
+          id,
+          'subtitle',
+          mkRun(
+            (s, d) => {
+              const n = r.int(1, 6);
+              const words = Array.from(
+                { length: n },
+                (_, k) =>
+                  ['w' + k + 'x', q((d * k) / n), q((d * (k + 0.8)) / n)] as [
+                    string,
+                    number,
+                    number,
+                  ],
+              );
+              return C(nid('c'), s, d, words);
+            },
+            r.int(1, 6),
+            0.5,
+          ),
+          { locked },
+        ),
       );
   });
-  let p = proj(tracks, { assets: [asset('av', 'video', 60), asset('aa', 'audio', 90, { beats: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] }), asset('ai', 'image', null)] });
+  let p = proj(tracks, {
+    assets: [
+      asset('av', 'video', 60),
+      asset('aa', 'audio', 90, { beats: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] }),
+      asset('ai', 'image', null),
+    ],
+  });
   // sprinkle transitions on video tracks
   for (const tr of p.tracks) {
     if (tr.kind !== 'video') continue;
     for (const it of tr.items.slice(1)) {
       if (r.chance(0.35))
-        p = setTransitionOp(p, it.id, { type: r.pick(['crossfade', 'slide-left', 'dip-black'] as const), durationSec: q(r.float(0.2, 1.2)) }, r.chance(0.5));
+        p = setTransitionOp(
+          p,
+          it.id,
+          {
+            type: r.pick(['crossfade', 'slide-left', 'dip-black'] as const),
+            durationSec: q(r.float(0.2, 1.2)),
+          },
+          r.chance(0.5),
+        );
     }
   }
   // groups across tracks
@@ -100,7 +187,14 @@ function randomProject(r: R): Project {
   if (ids.length > 4 && r.chance(0.5)) {
     const gid = nid('g');
     const chosen = new Set([r.pick(ids), r.pick(ids), r.pick(ids)]);
-    if (chosen.size >= 2) p = { ...p, tracks: p.tracks.map((t) => ({ ...t, items: t.items.map((i) => (chosen.has(i.id) ? { ...i, groupId: gid } : i)) })) };
+    if (chosen.size >= 2)
+      p = {
+        ...p,
+        tracks: p.tracks.map((t) => ({
+          ...t,
+          items: t.items.map((i) => (chosen.has(i.id) ? { ...i, groupId: gid } : i)),
+        })),
+      };
   }
   return projectSchema.parse(p);
 }
@@ -118,104 +212,325 @@ const pickItem = (st: Store, r: R) => {
 const timeNear = (st: Store, r: R) => q(r.float(-1, projectDuration(st.getState().project) + 3));
 
 const ACTIONS: [string, Act][] = [
-  ['trim', (st, r, log) => {
-    const it = pickItem(st, r); if (!it) return;
-    const edge = r.pick(['start', 'end'] as const);
-    const opts = { snap: r.chance(0.5), ripple: r.chance(0.3) ? true : undefined, roll: r.chance(0.25) };
-    const to = timeNear(st, r);
-    log.push(`trim ${it.id} ${edge} ${to} ${JSON.stringify(opts)}`);
-    st.getState().trim(it.id, edge, to, opts);
-  }],
+  [
+    'trim',
+    (st, r, log) => {
+      const it = pickItem(st, r);
+      if (!it) return;
+      const edge = r.pick(['start', 'end'] as const);
+      const opts = {
+        snap: r.chance(0.5),
+        ripple: r.chance(0.3) ? true : undefined,
+        roll: r.chance(0.25),
+      };
+      const to = timeNear(st, r);
+      log.push(`trim ${it.id} ${edge} ${to} ${JSON.stringify(opts)}`);
+      st.getState().trim(it.id, edge, to, opts);
+    },
+  ],
   ['ripple toggle', (st) => st.getState().toggleRipple()],
-  ['split', (st, r, log) => {
-    const it = pickItem(st, r);
-    const at = q(it ? it.startSec + r.float(-0.2, it.durationSec + 0.2) : 1);
-    log.push(`split ${it?.id} ${at}`);
-    if (r.chance(0.4)) { st.getState().setPlayhead(at); st.getState().select(it ? [it.id] : []); st.getState().split(null); }
-    else st.getState().split(it ? it.id : null, at);
-  }],
-  ['delete', (st, r, log) => {
-    const xs = allItems(st.getState().project); if (!xs.length) return;
-    const ids = Array.from({ length: r.int(1, 3) }, () => r.pick(xs).id);
-    const rp = r.chance(0.4);
-    log.push(`delete ${ids} ripple=${rp}`);
-    st.getState().deleteItems(ids, { ripple: rp });
-  }],
-  ['gaps', (st, r, log) => { const tr = r.pick(st.getState().project.tracks); log.push(`gaps ${tr.id}`); st.getState().deleteGaps(r.chance(0.5) ? tr.id : undefined); }],
-  ['duplicate', (st, r, log) => { const it = pickItem(st, r); if (it) { log.push(`dup ${it.id}`); st.getState().duplicateItems([it.id]); } }],
-  ['group', (st, r, log) => { const xs = allItems(st.getState().project); if (xs.length < 2) return; const ids = [r.pick(xs).id, r.pick(xs).id, r.pick(xs).id]; log.push(`group ${ids}`); st.getState().group(ids); }],
-  ['ungroup', (st, r, log) => { const it = pickItem(st, r); if (it) { log.push(`ungroup ${it.id}`); st.getState().ungroup([it.id]); } }],
-  ['move', (st, r, log) => {
-    const it = pickItem(st, r); if (!it) return;
-    const tracks = st.getState().project.tracks;
-    const target = r.chance(0.4) ? r.pick(tracks).id : null;
-    const delta = q(r.float(-5, 8));
-    const pv = st.getState().previewMove([it.id], delta, target, { snap: r.chance(0.7), pxPerSec: r.pick([20, 100, 600]) });
-    log.push(`move ${it.id} ${delta} -> ${target} valid=${pv.valid}`);
-    if (pv.valid || r.chance(0.3)) st.getState().applyMoves(pv.moves, { ripple: r.chance(0.2) });
-  }],
-  ['transition', (st, r, log) => {
-    const xs = allItems(st.getState().project).filter((i) => i.type === 'video' || i.type === 'image'); if (!xs.length) return;
-    const it = r.pick(xs);
-    const tr = r.chance(0.3) ? null : { type: r.pick(['crossfade', 'slide-right', 'zoom', 'glitch', 'cut'] as const), durationSec: q(r.float(0.05, 6)) };
-    log.push(`transition ${it.id} ${JSON.stringify(tr)}`);
-    st.getState().setTransition(it.id, tr);
-  }],
-  ['speed', (st, r, log) => { const it = pickItem(st, r); if (!it) return; const sp = q(r.float(0.05, 12)); log.push(`speed ${it.id} ${sp}`); st.getState().setSpeed(it.id, sp, { keepDuration: r.chance(0.3) }); }],
-  ['freeze', (st, r, log) => { const it = pickItem(st, r); if (!it) return; const at = q(it.startSec + r.float(-0.1, it.durationSec + 0.1)); log.push(`freeze ${it.id} ${at}`); st.getState().freezeFrame(it.id, at, q(r.float(0.01, 4))); }],
-  ['setProp', (st, r, log) => {
-    const it = pickItem(st, r); if (!it) return;
-    const path = r.pick(['transform.x', 'transform.opacity', 'transform.scale', 'volume', 'blur', 'crop.w', 'color.exposure'] as const);
-    st.getState().setPlayhead(q(it.startSec + r.float(-1, it.durationSec + 1)));
-    log.push(`setProp ${it.id} ${path}`);
-    st.getState().setProp(it.id, path, q(r.float(-2, 3)), { forceKeyframe: r.chance(0.4) });
-  }],
-  ['addKeyframe', (st, r, log) => { const it = pickItem(st, r); if (!it) return; const t = q(r.float(-1, it.durationSec + 1)); log.push(`addKf ${it.id} ${t}`); st.getState().addKeyframe(it.id, 'transform.x', t, q(r.float(-100, 100))); }],
-  ['moveKeyframe', (st, r, log) => { const it = pickItem(st, r); if (!it) return; log.push(`moveKf ${it.id}`); st.getState().moveKeyframe(it.id, 'transform.x', r.int(0, 3), q(r.float(-1, it.durationSec + 1)), q(r.float(-50, 50))); }],
-  ['removeKeyframe', (st, r, log) => { const it = pickItem(st, r); if (!it) return; log.push(`rmKf ${it.id}`); st.getState().removeKeyframe(it.id, 'transform.x', r.int(0, 3)); }],
-  ['clearKeyframes', (st, r) => { const it = pickItem(st, r); if (it) st.getState().clearKeyframes(it.id, 'transform.opacity'); }],
-  ['updateItem', (st, r, log) => {
-    const it = pickItem(st, r); if (!it) return;
-    log.push(`update ${it.id}`);
-    if (r.chance(0.3)) st.getState().updateItem(it.id, { startSec: q(r.float(0, 20)), durationSec: q(r.float(0.04, 6)) });
-    else st.getState().updateItem(it.id, { name: 'n' + r.int(0, 9) }, { coalesceKey: r.chance(0.5) ? 'name' : undefined });
-  }],
-  ['addAsset', (st, r, log) => { const id = r.pick(['av', 'aa', 'ai']); st.getState().setPlayhead(q(r.float(0, 30))); log.push(`addAsset ${id}`); st.getState().addAsset(id, { ripple: r.chance(0.3) }); }],
-  ['addItem', (st, r) => { st.getState().addItem(r.pick([T(nid('t'), q(r.float(0, 20)), 2), S(nid('s'), q(r.float(0, 20)), 2), V(nid('v'), q(r.float(0, 20)), 3)])); }],
-  ['copy/paste', (st, r, log) => {
-    const xs = allItems(st.getState().project); if (!xs.length) return;
-    st.getState().select([r.pick(xs).id, r.pick(xs).id]);
-    st.getState().copy();
-    st.getState().setPlayhead(q(r.float(0, 30)));
-    log.push('paste');
-    if (r.chance(0.3)) st.getState().cut(); else st.getState().paste();
-  }],
-  ['cue', (st, r, log) => {
-    const cues = allItems(st.getState().project).filter((i) => i.type === 'subtitle'); if (!cues.length) return;
-    const c = r.pick(cues);
-    log.push(`cue ${c.id}`);
-    const k = r.int(0, 3);
-    if (k === 0) st.getState().setCueText(c.id, Array.from({ length: r.int(0, 8) }, () => r.pick(['w0x', 'w1x', 'new', 'hello', 'w2x'])).join(' '));
-    else if (k === 1) st.getState().splitCue(c.id, r.int(0, 6));
-    else if (k === 2) st.getState().mergeCueWithNext(c.id);
-    else st.getState().retimeCue(c.id, q(c.startSec + r.float(-1, 1)), q(c.startSec + c.durationSec + r.float(-1, 1)));
-  }],
-  ['tracks', (st, r) => {
-    const g = st.getState();
-    const k = r.int(0, 3);
-    if (k === 0) g.addTrack(r.pick(['video', 'overlay', 'text', 'audio', 'subtitle', 'image', 'sfx'] as const));
-    else if (k === 1) g.updateTrack(r.pick(g.project.tracks).id, { locked: r.chance(0.3) });
-    else if (k === 2) g.moveTrack(r.pick(g.project.tracks).id, r.int(0, 6));
-    else g.removeTrack(r.pick(g.project.tracks).id);
-  }],
-  ['nudge', (st, r) => { const it = pickItem(st, r); if (it) { st.getState().select([it.id]); st.getState().nudgeSelected(r.pick([-10, -1, 1, 10])); } }],
-  ['markers', (st, r) => { st.getState().addMarker(q(r.float(0, 20))); }],
-  ['trimToPlayhead', (st, r) => { const it = pickItem(st, r); if (!it) return; st.getState().setPlayhead(q(it.startSec + r.float(0, it.durationSec))); st.getState().select([it.id]); st.getState().trimToPlayhead(r.pick(['start', 'end'] as const), { ripple: r.chance(0.5) }); }],
+  [
+    'split',
+    (st, r, log) => {
+      const it = pickItem(st, r);
+      const at = q(it ? it.startSec + r.float(-0.2, it.durationSec + 0.2) : 1);
+      log.push(`split ${it?.id} ${at}`);
+      if (r.chance(0.4)) {
+        st.getState().setPlayhead(at);
+        st.getState().select(it ? [it.id] : []);
+        st.getState().split(null);
+      } else st.getState().split(it ? it.id : null, at);
+    },
+  ],
+  [
+    'delete',
+    (st, r, log) => {
+      const xs = allItems(st.getState().project);
+      if (!xs.length) return;
+      const ids = Array.from({ length: r.int(1, 3) }, () => r.pick(xs).id);
+      const rp = r.chance(0.4);
+      log.push(`delete ${ids} ripple=${rp}`);
+      st.getState().deleteItems(ids, { ripple: rp });
+    },
+  ],
+  [
+    'gaps',
+    (st, r, log) => {
+      const tr = r.pick(st.getState().project.tracks);
+      log.push(`gaps ${tr.id}`);
+      st.getState().deleteGaps(r.chance(0.5) ? tr.id : undefined);
+    },
+  ],
+  [
+    'duplicate',
+    (st, r, log) => {
+      const it = pickItem(st, r);
+      if (it) {
+        log.push(`dup ${it.id}`);
+        st.getState().duplicateItems([it.id]);
+      }
+    },
+  ],
+  [
+    'group',
+    (st, r, log) => {
+      const xs = allItems(st.getState().project);
+      if (xs.length < 2) return;
+      const ids = [r.pick(xs).id, r.pick(xs).id, r.pick(xs).id];
+      log.push(`group ${ids}`);
+      st.getState().group(ids);
+    },
+  ],
+  [
+    'ungroup',
+    (st, r, log) => {
+      const it = pickItem(st, r);
+      if (it) {
+        log.push(`ungroup ${it.id}`);
+        st.getState().ungroup([it.id]);
+      }
+    },
+  ],
+  [
+    'move',
+    (st, r, log) => {
+      const it = pickItem(st, r);
+      if (!it) return;
+      const tracks = st.getState().project.tracks;
+      const target = r.chance(0.4) ? r.pick(tracks).id : null;
+      const delta = q(r.float(-5, 8));
+      const pv = st.getState().previewMove([it.id], delta, target, {
+        snap: r.chance(0.7),
+        pxPerSec: r.pick([20, 100, 600]),
+      });
+      log.push(`move ${it.id} ${delta} -> ${target} valid=${pv.valid}`);
+      if (pv.valid || r.chance(0.3)) st.getState().applyMoves(pv.moves, { ripple: r.chance(0.2) });
+    },
+  ],
+  [
+    'transition',
+    (st, r, log) => {
+      const xs = allItems(st.getState().project).filter(
+        (i) => i.type === 'video' || i.type === 'image',
+      );
+      if (!xs.length) return;
+      const it = r.pick(xs);
+      const tr = r.chance(0.3)
+        ? null
+        : {
+            type: r.pick(['crossfade', 'slide-right', 'zoom', 'glitch', 'cut'] as const),
+            durationSec: q(r.float(0.05, 6)),
+          };
+      log.push(`transition ${it.id} ${JSON.stringify(tr)}`);
+      st.getState().setTransition(it.id, tr);
+    },
+  ],
+  [
+    'speed',
+    (st, r, log) => {
+      const it = pickItem(st, r);
+      if (!it) return;
+      const sp = q(r.float(0.05, 12));
+      log.push(`speed ${it.id} ${sp}`);
+      st.getState().setSpeed(it.id, sp, { keepDuration: r.chance(0.3) });
+    },
+  ],
+  [
+    'freeze',
+    (st, r, log) => {
+      const it = pickItem(st, r);
+      if (!it) return;
+      const at = q(it.startSec + r.float(-0.1, it.durationSec + 0.1));
+      log.push(`freeze ${it.id} ${at}`);
+      st.getState().freezeFrame(it.id, at, q(r.float(0.01, 4)));
+    },
+  ],
+  [
+    'setProp',
+    (st, r, log) => {
+      const it = pickItem(st, r);
+      if (!it) return;
+      const path = r.pick([
+        'transform.x',
+        'transform.opacity',
+        'transform.scale',
+        'volume',
+        'blur',
+        'crop.w',
+        'color.exposure',
+      ] as const);
+      st.getState().setPlayhead(q(it.startSec + r.float(-1, it.durationSec + 1)));
+      log.push(`setProp ${it.id} ${path}`);
+      st.getState().setProp(it.id, path, q(r.float(-2, 3)), { forceKeyframe: r.chance(0.4) });
+    },
+  ],
+  [
+    'addKeyframe',
+    (st, r, log) => {
+      const it = pickItem(st, r);
+      if (!it) return;
+      const t = q(r.float(-1, it.durationSec + 1));
+      log.push(`addKf ${it.id} ${t}`);
+      st.getState().addKeyframe(it.id, 'transform.x', t, q(r.float(-100, 100)));
+    },
+  ],
+  [
+    'moveKeyframe',
+    (st, r, log) => {
+      const it = pickItem(st, r);
+      if (!it) return;
+      log.push(`moveKf ${it.id}`);
+      st.getState().moveKeyframe(
+        it.id,
+        'transform.x',
+        r.int(0, 3),
+        q(r.float(-1, it.durationSec + 1)),
+        q(r.float(-50, 50)),
+      );
+    },
+  ],
+  [
+    'removeKeyframe',
+    (st, r, log) => {
+      const it = pickItem(st, r);
+      if (!it) return;
+      log.push(`rmKf ${it.id}`);
+      st.getState().removeKeyframe(it.id, 'transform.x', r.int(0, 3));
+    },
+  ],
+  [
+    'clearKeyframes',
+    (st, r) => {
+      const it = pickItem(st, r);
+      if (it) st.getState().clearKeyframes(it.id, 'transform.opacity');
+    },
+  ],
+  [
+    'updateItem',
+    (st, r, log) => {
+      const it = pickItem(st, r);
+      if (!it) return;
+      log.push(`update ${it.id}`);
+      if (r.chance(0.3))
+        st.getState().updateItem(it.id, {
+          startSec: q(r.float(0, 20)),
+          durationSec: q(r.float(0.04, 6)),
+        });
+      else
+        st.getState().updateItem(
+          it.id,
+          { name: 'n' + r.int(0, 9) },
+          { coalesceKey: r.chance(0.5) ? 'name' : undefined },
+        );
+    },
+  ],
+  [
+    'addAsset',
+    (st, r, log) => {
+      const id = r.pick(['av', 'aa', 'ai']);
+      st.getState().setPlayhead(q(r.float(0, 30)));
+      log.push(`addAsset ${id}`);
+      st.getState().addAsset(id, { ripple: r.chance(0.3) });
+    },
+  ],
+  [
+    'addItem',
+    (st, r) => {
+      st.getState().addItem(
+        r.pick([
+          T(nid('t'), q(r.float(0, 20)), 2),
+          S(nid('s'), q(r.float(0, 20)), 2),
+          V(nid('v'), q(r.float(0, 20)), 3),
+        ]),
+      );
+    },
+  ],
+  [
+    'copy/paste',
+    (st, r, log) => {
+      const xs = allItems(st.getState().project);
+      if (!xs.length) return;
+      st.getState().select([r.pick(xs).id, r.pick(xs).id]);
+      st.getState().copy();
+      st.getState().setPlayhead(q(r.float(0, 30)));
+      log.push('paste');
+      if (r.chance(0.3)) st.getState().cut();
+      else st.getState().paste();
+    },
+  ],
+  [
+    'cue',
+    (st, r, log) => {
+      const cues = allItems(st.getState().project).filter((i) => i.type === 'subtitle');
+      if (!cues.length) return;
+      const c = r.pick(cues);
+      log.push(`cue ${c.id}`);
+      const k = r.int(0, 3);
+      if (k === 0)
+        st.getState().setCueText(
+          c.id,
+          Array.from({ length: r.int(0, 8) }, () =>
+            r.pick(['w0x', 'w1x', 'new', 'hello', 'w2x']),
+          ).join(' '),
+        );
+      else if (k === 1) st.getState().splitCue(c.id, r.int(0, 6));
+      else if (k === 2) st.getState().mergeCueWithNext(c.id);
+      else
+        st.getState().retimeCue(
+          c.id,
+          q(c.startSec + r.float(-1, 1)),
+          q(c.startSec + c.durationSec + r.float(-1, 1)),
+        );
+    },
+  ],
+  [
+    'tracks',
+    (st, r) => {
+      const g = st.getState();
+      const k = r.int(0, 3);
+      if (k === 0)
+        g.addTrack(
+          r.pick(['video', 'overlay', 'text', 'audio', 'subtitle', 'image', 'sfx'] as const),
+        );
+      else if (k === 1) g.updateTrack(r.pick(g.project.tracks).id, { locked: r.chance(0.3) });
+      else if (k === 2) g.moveTrack(r.pick(g.project.tracks).id, r.int(0, 6));
+      else g.removeTrack(r.pick(g.project.tracks).id);
+    },
+  ],
+  [
+    'nudge',
+    (st, r) => {
+      const it = pickItem(st, r);
+      if (it) {
+        st.getState().select([it.id]);
+        st.getState().nudgeSelected(r.pick([-10, -1, 1, 10]));
+      }
+    },
+  ],
+  [
+    'markers',
+    (st, r) => {
+      st.getState().addMarker(q(r.float(0, 20)));
+    },
+  ],
+  [
+    'trimToPlayhead',
+    (st, r) => {
+      const it = pickItem(st, r);
+      if (!it) return;
+      st.getState().setPlayhead(q(it.startSec + r.float(0, it.durationSec)));
+      st.getState().select([it.id]);
+      st.getState().trimToPlayhead(r.pick(['start', 'end'] as const), { ripple: r.chance(0.5) });
+    },
+  ],
 ];
 
 function checkHealthy(p: Project, where: string, log: string[], deep: boolean) {
   const problems = projectProblems(p);
-  if (problems.length) throw new Error(`invariant violated after ${where}:\n${problems.slice(0, 5).join('\n')}\nlog:\n${log.slice(-12).join('\n')}`);
+  if (problems.length)
+    throw new Error(
+      `invariant violated after ${where}:\n${problems.slice(0, 5).join('\n')}\nlog:\n${log.slice(-12).join('\n')}`,
+    );
   // media never plays footage that does not exist (the generated assets are long enough for the generated items)
   for (const t of p.tracks)
     for (const it of t.items) {
@@ -223,13 +538,18 @@ function checkHealthy(p: Project, where: string, log: string[], deep: boolean) {
       const a = p.assets.find((x) => x.id === it.assetId);
       if (!a || a.durationSec === null) continue;
       if (it.inSec < -1e-6 || it.inSec + sourceSpan(it) > a.durationSec + 1e-3)
-        throw new Error(`${it.id} runs off its asset after ${where}: in=${it.inSec} span=${sourceSpan(it)} asset=${a.durationSec}\nlog:\n${log.slice(-8).join('\n')}`);
+        throw new Error(
+          `${it.id} runs off its asset after ${where}: in=${it.inSec} span=${sourceSpan(it)} asset=${a.durationSec}\nlog:\n${log.slice(-8).join('\n')}`,
+        );
     }
   if (deep) {
     for (const t of p.tracks)
       for (const it of t.items) {
         const res = itemSchema.safeParse(it);
-        if (!res.success) throw new Error(`item ${it.id} fails the schema after ${where}: ${res.error.message.slice(0, 300)}\nlog:\n${log.slice(-8).join('\n')}`);
+        if (!res.success)
+          throw new Error(
+            `item ${it.id} fails the schema after ${where}: ${res.error.message.slice(0, 300)}\nlog:\n${log.slice(-8).join('\n')}`,
+          );
       }
   }
 }
@@ -255,9 +575,17 @@ describe('fuzz: random op sequences keep every invariant', () => {
           tried.set(name, (tried.get(name) ?? 0) + 1);
           if (st.getState().project !== before) effective.set(name, (effective.get(name) ?? 0) + 1);
         } catch (e) {
-          throw new Error(`seed ${seed} step ${step} (${name}) threw: ${(e as Error).stack}\nlog:\n${log.slice(-10).join('\n')}`);
+          throw new Error(
+            `seed ${seed} step ${step} (${name}) threw: ${(e as Error).stack}\nlog:\n${log.slice(-10).join('\n')}`,
+            { cause: e },
+          );
         }
-        checkHealthy(st.getState().project, `seed ${seed} step ${step} (${name})`, log, step % 3 === 0);
+        checkHealthy(
+          st.getState().project,
+          `seed ${seed} step ${step} (${name})`,
+          log,
+          step % 3 === 0,
+        );
       }
       // undo everything → the original project object; redo everything → the final one
       const finalProject = st.getState().project;
@@ -270,10 +598,29 @@ describe('fuzz: random op sequences keep every invariant', () => {
     }
     // The fuzzer must actually exercise the operations (not just have them rejected).
     const rate = (n: string) => (effective.get(n) ?? 0) / Math.max(1, tried.get(n) ?? 0);
-    for (const n of ['trim', 'split', 'delete', 'duplicate', 'move', 'transition', 'speed', 'freeze', 'setProp', 'copy/paste', 'cue', 'addAsset', 'gaps', 'group'])
+    for (const n of [
+      'trim',
+      'split',
+      'delete',
+      'duplicate',
+      'move',
+      'transition',
+      'speed',
+      'freeze',
+      'setProp',
+      'copy/paste',
+      'cue',
+      'addAsset',
+      'gaps',
+      'group',
+    ])
       expect(effective.get(n) ?? 0, `${n} was effective`).toBeGreaterThan(10);
     expect(rate('trim')).toBeGreaterThan(0.3);
-    if (process.env.EDITOR_FUZZ_STATS) writeFileSync(process.env.EDITOR_FUZZ_STATS, [...tried].map(([k, v]) => `${k}: ${effective.get(k) ?? 0}/${v}`).join('\n'));
+    if (process.env.EDITOR_FUZZ_STATS)
+      writeFileSync(
+        process.env.EDITOR_FUZZ_STATS,
+        [...tried].map(([k, v]) => `${k}: ${effective.get(k) ?? 0}/${v}`).join('\n'),
+      );
   });
 
   it('history is exact at every step: undo then redo restores the same project object', () => {
@@ -316,7 +663,10 @@ describe('fuzz: random op sequences keep every invariant', () => {
     st.getState().split(target.id);
     const after = st.getState().project;
     const changed = after.tracks.filter((t, i) => t !== p.tracks[i]);
-    expect(changed.length).toBeLessThanOrEqual(p.tracks.filter((t) => t.items.some((i) => i.groupId && i.groupId === target.groupId)).length + 1);
+    expect(changed.length).toBeLessThanOrEqual(
+      p.tracks.filter((t) => t.items.some((i) => i.groupId && i.groupId === target.groupId))
+        .length + 1,
+    );
     expect(after.tracks.length).toBe(p.tracks.length);
     void itemEnd;
   });

@@ -194,7 +194,9 @@ export function KeyframeGraph({
       default:
         return;
     }
+    // keep Delete / arrows from also reaching the editor's global shortcuts (delete clip, step frame)
     e.preventDefault();
+    e.stopPropagation();
   };
 
   const ticks = axisTicks(domain);

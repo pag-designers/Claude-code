@@ -43,7 +43,7 @@ export const TOL = {
   time: 0.0004,
 } as const;
 
-const MAX_PIECES = 24;
+const MAX_PIECES = 90;
 /** Slot-timestamp bias: with `fps round=near` a frame lands on slot ceil(τ·F − 0.0001), i.e. "last source frame at or before". */
 const SLOT_BIAS = 0.4999;
 /** Reverse is buffered in memory: chunks of at most this many source seconds. */
@@ -151,7 +151,7 @@ function matrixFor(file: FileInfo): string | undefined {
 }
 
 /** Hold the last frame, cut to exactly `n` frames starting at slot `ja`. */
-function holdAndCut(c: Chain, n: number, fps: number): void {
+function holdAndCut(c: Chain, n: number): void {
   c.push(filt('tpad', { stop_mode: 'clone', stop: n + 30 }), filt('trim', { end_frame: n }));
 }
 
@@ -188,10 +188,7 @@ function timeChain(ctx: Ctx, item: VideoItem, file: FileInfo, info: ItemFrameInf
     return stillChain(ctx, file, Math.max(0, item.freezeAtSec - 1e-4), ja, n);
   }
   const period = 1 / Math.max(1, file.fps ?? 30);
-  const span = s.c[n - 1] as number;
-  const total = (s.c[n - 1] as number) + 0; // consumed seconds up to the last frame
-  void total;
-  const parts: { label: string; j0: number; j1: number }[] = [];
+  const parts: string[] = [];
 
   // frame index ranges per chunk (forward = one chunk)
   const ranges: [number, number][] = [];
@@ -230,14 +227,12 @@ function timeChain(ctx: Ctx, item: VideoItem, file: FileInfo, info: ItemFrameInf
     const c = new Chain(ctx.g, `${idx}:v:0`);
     if (item.reverse) c.push('setpts=PTS-STARTPTS', 'reverse');
     // G(c) → absolute output time of that source frame; T = pts (s) of the frame in this chain
-    const kn: { t: number; v: number }[] = [];
     const times: number[] = [];
     const vals: number[] = [];
     for (let k = k0; k < k1; k++) {
       times.push((s.c[k] as number) - cOff);
       vals.push((s.tOut[k] as number) + SLOT_BIAS / F);
     }
-    void kn;
     const g = toSeries(times, vals, TOL.time);
     // a series with a single knot (m === 1) is constant: build a unit-slope line instead
     const gx =
@@ -255,18 +250,13 @@ function timeChain(ctx: Ctx, item: VideoItem, file: FileInfo, info: ItemFrameInf
       }),
       filt('trim', { start_frame: 1, end_frame: m + 1 }),
     );
-    holdAndCut(c, m, F);
+    holdAndCut(c, m);
     if (ranges.length > 1) c.push(`setpts=PTS-${num(j0 / F, 6)}/TB`);
-    parts.push({ label: c.flush(), j0, j1: j0 + m });
+    parts.push(c.flush());
   }
-  if (parts.length === 1) return (parts[0] as { label: string }).label;
+  if (parts.length === 1) return parts[0] as string;
   // reverse chunks: concat in order, then re-base to the item's first slot
-  const cat = ctx.g.add(
-    parts.map((p) => p.label),
-    [`concat=n=${parts.length}:v=1:a=0`, `setpts=PTS+${num(ja / F, 6)}/TB`],
-  );
-  void span;
-  return cat;
+  return ctx.g.add(parts, [`concat=n=${parts.length}:v=1:a=0`, `setpts=PTS+${num(ja / F, 6)}/TB`]);
 }
 
 /* ------------------------------------------------------------------------------ colour ---------- */
@@ -427,7 +417,7 @@ function buildNatural(
     );
   }
   const matrix = matrixFor(file);
-  const scaleBase = { flags: 'lanczos+accurate_rnd', in_color_matrix: matrix, out_range: 'pc' };
+  const scaleBase = { flags: 'bicubic', in_color_matrix: matrix, out_range: 'pc' };
   let scaledW: number;
   let scaledH: number;
   if (isConst(fS)) {

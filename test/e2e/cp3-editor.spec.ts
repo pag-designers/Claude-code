@@ -157,7 +157,15 @@ test.beforeAll(async () => {
   const exe = process.env.CLIPFERN_E2E_EXE;
   app = await electron.launch({
     ...(exe ? { executablePath: exe } : {}),
-    args: exe ? ['--no-sandbox'] : ['--no-sandbox', '.'],
+    // software GL: the xvfb CI box has no GPU, and the editor preview needs WebGL2 (real machines use their GPU)
+    args: [
+      '--no-sandbox',
+      '--use-gl=angle',
+      '--use-angle=swiftshader',
+      '--enable-unsafe-swiftshader',
+      '--autoplay-policy=no-user-gesture-required',
+      ...(exe ? [] : ['.']),
+    ],
     cwd: path.resolve(__dirname, '../..'),
     env: {
       ...process.env,
@@ -695,6 +703,10 @@ test('export: a REAL FFmpeg render of an edited multi-track project', async () =
   // sidecar captions came along
   const srt = await invoke<{ url: string | null }>('exports:url', { id: exportId, kind: 'thumb' });
   expect(srt.url).toBeTruthy();
+  // the import test left the open-dialog stub returning files; downloads need a folder
+  await app.evaluate(({ dialog }, dir) => {
+    dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [dir] })) as never;
+  }, OUT);
   const dl = await invoke<{ saved: number; dir: string }>('exports:download', { ids: [exportId] });
   expect(dl.saved).toBe(1);
   const files = fs.readdirSync(dl.dir);
@@ -777,6 +789,17 @@ test('Library → Edited lists the project and Exported lists the render', async
   await page.screenshot({ path: path.join(OUT, 'library-edited.png') });
   await page.goto('app://clipfern/library/?tab=exported');
   await expect(page.getByText(/shorts|Done|Ready/i).first()).toBeVisible({ timeout: 30_000 });
+  // the export card shows a real poster frame (not an empty grey box)
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const im = document.querySelector('img');
+          return im ? im.naturalWidth : 0;
+        }),
+      { timeout: 20_000 },
+    )
+    .toBeGreaterThan(0);
   await page.screenshot({ path: path.join(OUT, 'library-exported.png') });
   // deleting the project keeps its exports
   const before = (await invoke<{ items: unknown[] }>('exports:list', { limit: 10 })).items.length;

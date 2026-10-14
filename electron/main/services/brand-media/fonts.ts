@@ -114,8 +114,9 @@ export function woffToSfnt(buf: Buffer): Buffer {
 
 /** WOFF2 -> sfnt through wawoff2 (WASM, no native code, works offline). */
 export async function woff2ToSfnt(buf: Buffer): Promise<Buffer> {
-  const mod = (await import('wawoff2')) as { decompress: (b: Uint8Array) => Promise<Uint8Array> };
-  const out = await mod.decompress(new Uint8Array(buf.buffer, buf.byteOffset, buf.length));
+  // only the decompressor: the package's index also pulls in the 1 MB compressor
+  const mod = await import('wawoff2/decompress');
+  const out = await mod.default(new Uint8Array(buf.buffer, buf.byteOffset, buf.length));
   return Buffer.from(out.buffer, out.byteOffset, out.length);
 }
 
@@ -295,7 +296,7 @@ export async function processFont(ctx: FfCtx, a: FontArgs): Promise<ProcessedBra
     if (fellBackToSystemFont(stderr, [n.family, n.fullName])) {
       ctx.log(`[brand-media] libass could not use ${baseName(a.file)}: ${stderr.slice(-400)}`);
       throw new BrandMediaError(
-        `'${baseName(a.file)}' cannot be used for captions: the font file loads but its text could not be drawn. Try a different file of this font.`,
+        `'${baseName(a.file)}' cannot be used for captions: the caption renderer refused this font file. Try another file of the same font.`,
       );
     }
   } catch (e) {

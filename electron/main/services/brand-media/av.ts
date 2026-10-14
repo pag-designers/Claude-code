@@ -2,6 +2,7 @@
  * Videos (intros, outros, B-roll) and audio (music beds, SFX): validation, probing, 480p previews, thumbnails and
  * EBU R128 loudness (measure + a normalised audition copy).
  */
+import fs from 'node:fs';
 import path from 'node:path';
 import type { ProcessedBrandAsset } from '../../pipeline/contracts4';
 import { proxyHeight } from '../media/ffmpeg';
@@ -12,6 +13,7 @@ import {
   makeThumbJpeg,
   measureLoudness,
   probeFile,
+  rmQuiet,
   runFf,
   unreadable,
   type FfCtx,
@@ -222,17 +224,26 @@ function loudnormFilter(m: Loudness, targetI: number, tp: number): string {
 }
 
 /**
- * Renders the −14 LUFS / TP ≤ −1 AAC audition copy with a measured (two-pass) linear loudnorm, then MEASURES the result
- * and re-renders once with the error folded into the target when it is off by more than ±1 LU or peaks too high (AAC
- * can overshoot the limiter slightly). Silent input is just encoded.
+ * Renders the −14 LUFS / TP ≤ −1 AAC audition copy, then MEASURES the result and tries again (up to 5 renders) when it
+ * is off by more than ±1 LU or peaks above the ceiling (AAC can overshoot a limiter by a dB on short hits):
+ *   1-2  measured linear loudnorm (one constant gain, no pumping);
+ *   3-5  the exact gain plus a peak limiter whose ceiling is lowered by the observed overshoot. Material whose
+ *        peaks sit too far above its loudness cannot reach −14 LUFS under a −1 dBTP ceiling at all.
+ * The best render wins: the peak ceiling is a hard limit (a copy over it is only used when nothing else is), then
+ * the smallest loudness error. Silent input is just encoded.
  */
 async function normaliseTo(
   ctx: FfCtx,
   a: AvArgs,
   p: { src: string; out: string; measured: Loudness | null; duration: number },
 ): Promise<void> {
-  const render = (filter: string | null, onFrac: (f: number | null) => void): Promise<void> =>
-    atomicOut(p.out, (tmp) =>
+  const candidate = (k: number): string => p.out.replace(/\.m4a$/, `.try${k}.m4a`);
+  const render = (
+    to: string,
+    filter: string | null,
+    onFrac: (f: number | null) => void,
+  ): Promise<void> =>
+    atomicOut(to, (tmp) =>
       runFf(
         ctx,
         [
@@ -259,27 +270,52 @@ async function normaliseTo(
     );
 
   if (!p.measured) {
-    await render(null, (f) => a.stage('Creating preview', f));
+    await render(p.out, null, (f) => a.stage('Creating preview', f));
     return;
   }
+  const MAX_ATTEMPTS = 5;
   let targetI = TARGET_LUFS;
   let tp = TARGET_TP - 0.5;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    await render(loudnormFilter(p.measured, targetI, tp), (f) => a.stage('Creating preview', f));
-    a.stage('Verifying loudness', 0);
-    const got = await measureLoudness(ctx, p.out, {
-      durationSec: p.duration,
-      signal: a.signal,
-      onFraction: (f) => a.stage('Verifying loudness', f),
-    });
-    if (!got) return;
-    const err = got.inputI - TARGET_LUFS;
-    ctx.log(
-      `[brand-media] audition copy ${baseName(p.src)}: ${got.inputI.toFixed(1)} LUFS, ${got.inputTp.toFixed(1)} dBTP (attempt ${attempt + 1})`,
-    );
-    if (Math.abs(err) <= LOUDNESS_TOLERANCE && got.inputTp <= TARGET_TP) return;
-    // fold the error into the target and leave more headroom for the AAC overshoot
-    targetI = Math.max(-40, Math.min(-6, targetI - err));
-    tp = Math.max(-6, tp - Math.max(0.5, got.inputTp - TARGET_TP + 0.5));
+  let gainDb = TARGET_LUFS - p.measured.inputI;
+  let ceilingDb = TARGET_TP - 1;
+  let best: { file: string; cost: number } | null = null;
+  const tried: string[] = [];
+  try {
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const file = candidate(attempt);
+      tried.push(file);
+      const filter =
+        attempt < 2
+          ? loudnormFilter(p.measured, targetI, tp)
+          : `volume=${gainDb.toFixed(2)}dB,alimiter=limit=${(10 ** (ceilingDb / 20)).toFixed(4)}:attack=2:release=60:level=disabled`;
+      await render(file, filter, (f) => a.stage('Creating preview', f));
+      a.stage('Verifying loudness', 0);
+      const got = await measureLoudness(ctx, file, {
+        durationSec: p.duration,
+        signal: a.signal,
+        onFraction: (f) => a.stage('Verifying loudness', f),
+      });
+      if (!got) {
+        best = { file, cost: 0 };
+        break;
+      }
+      const err = got.inputI - TARGET_LUFS;
+      const over = Math.max(0, got.inputTp - TARGET_TP);
+      ctx.log(
+        `[brand-media] audition copy ${baseName(p.src)}: ${got.inputI.toFixed(1)} LUFS, ${got.inputTp.toFixed(1)} dBTP (attempt ${attempt + 1})`,
+      );
+      const cost = Math.abs(err) + 10 * over;
+      if (!best || cost < best.cost) best = { file, cost };
+      if (Math.abs(err) <= LOUDNESS_TOLERANCE && over === 0) break;
+      // fold the observation into the next attempt
+      targetI = Math.max(-40, Math.min(-6, targetI - err));
+      tp = Math.max(-6, tp - Math.max(0.5, over + 0.5));
+      gainDb = Math.min(60, gainDb - err * (attempt < 2 ? 0 : 0.9));
+      if (over > 0) ceilingDb = Math.max(-12, ceilingDb - over - 0.3);
+    }
+    if (!best) throw new BrandMediaError('Audio normalisation produced no output.');
+    await fs.promises.rename(best.file, p.out);
+  } finally {
+    await rmQuiet(...tried.filter((t) => t !== best?.file));
   }
 }

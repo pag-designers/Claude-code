@@ -494,7 +494,7 @@ export function ColorsSection() {
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap gap-x-8 gap-y-4">
           {groups.map((g) => (
             <div key={g.group} className="flex flex-col gap-1.5" data-testid="color-group">
               <SubHeading>

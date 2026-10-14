@@ -97,8 +97,6 @@ export async function processImage(
   const what = LABEL[a.ext] ?? a.ext.toUpperCase();
   const kind = sniffImage(a.file);
   if (kind === 'unknown' || kind === 'truncated') throw unreadable(a.file, what);
-  // An .svg that is really a bitmap (or the reverse) is still decoded by content, but a "svg" ext needs svg text.
-  if (a.ext === 'svg' && kind !== 'svg') throw unreadable(a.file, what);
 
   let source = a.file;
   let usable: ProcessedBrandAsset['usable'] = null;

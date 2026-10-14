@@ -99,7 +99,7 @@ export function SubtitleStylesSection() {
           aria-label="Loading subtitle styles"
         >
           {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="aspect-[9/16] w-full rounded-lg" />
+            <Skeleton key={i} className="aspect-[16/11] w-full rounded-xl" />
           ))}
         </div>
       ) : q.isError ? (
@@ -126,7 +126,7 @@ export function SubtitleStylesSection() {
         </div>
       ) : (
         <ul
-          className="grid grid-cols-[repeat(auto-fill,minmax(132px,1fr))] gap-3"
+          className="grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-3"
           aria-label="Subtitle styles of this kit"
         >
           {styles.map((st) => {
@@ -147,7 +147,7 @@ export function SubtitleStylesSection() {
                     onClick={() => setDialog({ editing: st })}
                     className="overflow-hidden rounded-lg border border-border-strong outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <StyleThumb style={st} />
+                    <StyleThumb style={st} band />
                   </button>
                   <div className="flex items-center gap-1 px-1">
                     <span className="min-w-0 flex-1 truncate text-xs font-medium" title={st.name}>

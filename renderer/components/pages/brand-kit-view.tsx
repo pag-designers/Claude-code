@@ -112,10 +112,10 @@ export function BrandKitView() {
   };
 
   return (
-    <Page wide>
+    <Page wide className="gap-5 py-6">
       <PageHeader
         title="Brand Kit"
-        description="One kit per creator or campaign: logos, fonts, colors and caption styles that every clip picks up automatically."
+        description="One kit per creator or campaign: logos, fonts, colors and caption styles for every clip."
         actions={
           kits && kits.length > 0 ? (
             <Button variant="primary" onClick={() => setNewOpen(true)}>

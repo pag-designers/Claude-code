@@ -298,6 +298,49 @@ describe('audio', () => {
     expect(measureEbur(f('loud.mp3')).lufs).toBeGreaterThan(measureEbur(f('quiet.wav')).lufs + 12);
   });
 
+  it('a short SFX stinger (decaying hit, high crest factor) still lands on -14 LUFS under the peak ceiling', async () => {
+    ff([
+      '-f',
+      'lavfi',
+      '-i',
+      "aevalsrc='0.9*exp(-5*t)*sin(2*PI*800*t)+0.3*exp(-9*t)*sin(2*PI*130*t)':s=44100:d=1.5",
+      '-c:a',
+      'pcm_s16le',
+      f('stinger.wav'),
+    ]);
+    const res = await svc.process({
+      kind: 'audio',
+      file: f('stinger.wav'),
+      ext: 'wav',
+      outDir: outDir(),
+    });
+    checkNormalised((res.preview as { path: string }).path);
+  });
+
+  it('material that cannot reach -14 LUFS under the ceiling never breaks the peak ceiling', async () => {
+    // quiet pad with sparse full-scale clicks: gain alone cannot get this to -14 LUFS without clipping
+    ff([
+      '-f',
+      'lavfi',
+      '-i',
+      "aevalsrc='0.02*sin(2*PI*220*t)+0.95*sin(2*PI*1000*t)*lt(mod(t,2),0.03)':s=48000:d=10",
+      '-c:a',
+      'pcm_s16le',
+      f('crest.wav'),
+    ]);
+    const res = await svc.process({
+      kind: 'audio',
+      file: f('crest.wav'),
+      ext: 'wav',
+      outDir: outDir(),
+    });
+    const m = measureEbur((res.preview as { path: string }).path);
+    expect(m.truePeak).toBeLessThanOrEqual(-1);
+    // the best a -1 dBTP ceiling allows is about -1 - (peak-to-loudness 14.7) = -15.7 LUFS: we land within ~1 LU of it
+    expect(m.lufs).toBeGreaterThan(-17.5);
+    expect(m.lufs).toBeLessThan(-14);
+  });
+
   it('digital silence: no loudness value, still gets a preview', async () => {
     const res = await svc.process({
       kind: 'audio',

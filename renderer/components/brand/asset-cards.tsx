@@ -108,6 +108,7 @@ function CardShell({
   className,
   editing,
   setEditing,
+  layout = 'overlay',
   testId = 'asset-card',
 }: {
   asset: BrandAssetView;
@@ -119,9 +120,57 @@ function CardShell({
   className?: string;
   editing: boolean;
   setEditing: (v: boolean) => void;
+  /** `overlay`: controls float over the preview and the name sits underneath. `header`: a title row on top (audio). */
+  layout?: 'overlay' | 'header';
   testId?: string;
 }) {
   const { freshIds } = useKitSession();
+  const select = (
+    <span
+      className={cn(
+        'transition-opacity duration-(--duration-fast) focus-within:opacity-100 group-hover/card:opacity-100',
+        actions.anySelected || actions.selected ? 'opacity-100' : 'opacity-0',
+      )}
+    >
+      <Checkbox
+        checked={actions.selected}
+        aria-label={`Select ${asset.name}`}
+        onCheckedChange={(v, e) => actions.onSelect(asset.id, v, e)}
+        className="shadow-xs"
+      />
+    </span>
+  );
+  const menu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Actions for ${asset.name}`}
+          className={cn(
+            'flex size-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-[opacity,background-color] duration-(--duration-fast) hover:text-foreground focus-visible:opacity-100 group-hover/card:opacity-100 data-[state=open]:opacity-100',
+            layout === 'overlay'
+              ? 'bg-card/90 shadow-xs backdrop-blur-sm hover:bg-card'
+              : 'hover:bg-accent',
+          )}
+        >
+          <MoreHorizontal className="size-4" aria-hidden />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuItem onSelect={() => setEditing(true)}>
+          <Pencil /> Rename
+        </DropdownMenuItem>
+        {menuExtra}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="text-danger [&_svg]:!text-danger"
+          onSelect={() => actions.onDelete(asset)}
+        >
+          <Trash2 /> Delete…
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
   return (
     <div
       data-testid={testId}
@@ -135,53 +184,37 @@ function CardShell({
         className,
       )}
     >
-      {children}
-      <div className="absolute left-2 top-2 flex items-center gap-1.5">
-        <span
-          className={cn(
-            'transition-opacity duration-(--duration-fast) focus-within:opacity-100 group-hover/card:opacity-100',
-            actions.anySelected || actions.selected ? 'opacity-100' : 'opacity-0',
-          )}
-        >
-          <Checkbox
-            checked={actions.selected}
-            aria-label={`Select ${asset.name}`}
-            onCheckedChange={(v, e) => actions.onSelect(asset.id, v, e)}
-            className="shadow-xs"
-          />
-        </span>
-        {badges}
-      </div>
-      <div className="absolute right-2 top-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label={`Actions for ${asset.name}`}
-              className="flex size-7 items-center justify-center rounded-md bg-card/90 text-muted-foreground opacity-0 shadow-xs backdrop-blur-sm transition-[opacity,background-color] duration-(--duration-fast) hover:bg-card hover:text-foreground focus-visible:opacity-100 group-hover/card:opacity-100 data-[state=open]:opacity-100"
-            >
-              <MoreHorizontal className="size-4" aria-hidden />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem onSelect={() => setEditing(true)}>
-              <Pencil /> Rename
-            </DropdownMenuItem>
-            {menuExtra}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-danger [&_svg]:!text-danger"
-              onSelect={() => actions.onDelete(asset)}
-            >
-              <Trash2 /> Delete…
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-      <div className="flex min-w-0 flex-col gap-0.5 border-t px-2.5 py-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <NameEditor asset={asset} editing={editing} setEditing={setEditing} />
+      {layout === 'header' ? (
+        <div className="flex min-w-0 items-center gap-2 px-2.5 pt-2.5">
+          {select}
+          <div className="flex min-w-0 flex-1 items-center">
+            <NameEditor asset={asset} editing={editing} setEditing={setEditing} />
+          </div>
+          {badges}
+          {menu}
         </div>
+      ) : null}
+      {children}
+      {layout === 'overlay' ? (
+        <>
+          <div className="absolute left-2 top-2 flex items-center gap-1.5">
+            {select}
+            {badges}
+          </div>
+          <div className="absolute right-2 top-2">{menu}</div>
+        </>
+      ) : null}
+      <div
+        className={cn(
+          'flex min-w-0 flex-col gap-0.5 px-2.5 py-2',
+          layout === 'overlay' && 'border-t',
+        )}
+      >
+        {layout === 'overlay' ? (
+          <div className="flex min-w-0 items-center gap-2">
+            <NameEditor asset={asset} editing={editing} setEditing={setEditing} />
+          </div>
+        ) : null}
         {footer}
       </div>
     </div>
@@ -311,7 +344,7 @@ export function VideoCard({ asset, actions }: { asset: BrandAssetView; actions: 
             {[
               dims,
               asset.durationSec ? formatDur(asset.durationSec) : null,
-              humanBytes(asset.bytes),
+              credit ? null : humanBytes(asset.bytes),
             ]
               .filter(Boolean)
               .join(' · ')}
@@ -402,8 +435,7 @@ export function AudioCard({ asset, actions }: { asset: BrandAssetView; actions: 
       actions={actions}
       editing={editing}
       setEditing={setEditing}
-      testId="asset-card"
-      badges={null}
+      layout="header"
       menuExtra={
         <DropdownMenuItem
           onSelect={() =>
@@ -436,7 +468,7 @@ export function AudioCard({ asset, actions }: { asset: BrandAssetView; actions: 
         </span>
       }
     >
-      <div className="flex flex-1 items-center px-3 pb-1 pl-12 pr-12 pt-2.5">
+      <div className="flex flex-1 items-center px-3 pt-2">
         <MiniPlayer
           className="w-full"
           src={asset.previewUrl}
@@ -477,10 +509,10 @@ export function FontCard({
         </Meta>
       }
     >
-      <div className="flex min-h-0 flex-1 items-center overflow-hidden px-4 pb-1 pt-8">
+      <div className="flex min-h-0 flex-1 items-center overflow-hidden px-4 pb-1 pt-7">
         <p
           data-testid="font-sample"
-          className="line-clamp-2 w-full break-words text-[28px] leading-[1.15] text-foreground"
+          className="line-clamp-2 w-full break-words text-[26px] leading-[1.15] text-foreground"
           style={{
             fontFamily: f ? `"${f.family}", var(--font-sans)` : undefined,
             fontWeight: f?.weight ?? 400,

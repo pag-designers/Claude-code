@@ -204,7 +204,7 @@ export function decodeWithFfmpeg(file: string): Decoded {
 /* ------------------------------------------------------------------------------------- fonts ----- */
 
 /** Minimal WOFF 1.0 encoder (zlib per table, falls back to raw when it does not shrink). */
-export function encodeWoff1(sfnt: Buffer): Buffer {
+export function encodeWoff1(sfnt: Buffer, opts: { reverse?: boolean } = {}): Buffer {
   const n = sfnt.readUInt16BE(4);
   const flavor = sfnt.readUInt32BE(0);
   const tables: { tag: string; checksum: number; data: Buffer; comp: Buffer }[] = [];
@@ -221,6 +221,7 @@ export function encodeWoff1(sfnt: Buffer): Buffer {
       comp: z.length < data.length ? z : data,
     });
   }
+  if (opts.reverse) tables.reverse();
   const dirEnd = 44 + n * 20;
   let pos = dirEnd;
   const offsets = tables.map((t) => {

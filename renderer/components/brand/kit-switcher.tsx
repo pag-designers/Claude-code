@@ -38,7 +38,7 @@ function KitCard({
   onDelete: () => void;
 }) {
   return (
-    <li className="w-[252px] flex-none" data-testid="kit-card" data-kit-id={kit.id}>
+    <li className="w-[272px] flex-none" data-testid="kit-card" data-kit-id={kit.id}>
       <div
         className={cn(
           'group/kit relative rounded-xl border bg-card transition-[border-color,box-shadow,transform] duration-(--duration-base) ease-(--ease-standard)',
@@ -52,7 +52,7 @@ function KitCard({
           onClick={onSelect}
           aria-current={selected ? 'true' : undefined}
           aria-label={`${kit.name}${kit.isDefault ? ' (default kit)' : ''}`}
-          className="flex w-full items-center gap-3 rounded-xl p-3 pr-[72px] text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex w-full items-center gap-3 rounded-xl p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted text-subtle">
             {kit.logoThumbUrl ? (
@@ -67,7 +67,7 @@ function KitCard({
             )}
           </span>
           <span className="flex min-w-0 flex-1 flex-col gap-1">
-            <span className="truncate text-sm font-semibold text-foreground">{kit.name}</span>
+            <span className="truncate pr-14 text-sm font-semibold text-foreground">{kit.name}</span>
             <span className="truncate text-xs text-muted-foreground">{countsLine(kit)}</span>
             <span className="flex h-3 items-center -space-x-1" aria-hidden>
               {kit.swatches.slice(0, 5).map((c, i) => (

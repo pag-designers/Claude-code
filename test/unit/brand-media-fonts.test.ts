@@ -206,6 +206,18 @@ describe('WOFF / WOFF2 are converted to a real sfnt', () => {
     expect([...tags].sort()).toEqual(tags);
   });
 
+  it('a WOFF whose directory is not in tag order is rebuilt in sorted order', async () => {
+    const sfnt = fs.readFileSync(shipped('Anton-Regular.ttf'));
+    const woff = path.join(dir, 'reversed.woff');
+    fs.writeFileSync(woff, encodeWoff1(sfnt, { reverse: true }));
+    const res = await svc.process({ kind: 'font', file: woff, ext: 'woff', outDir: outDir() });
+    const rebuilt = fs.readFileSync((res.font as { sfntPath: string }).sfntPath);
+    const tags = [...tablesOf(rebuilt).keys()];
+    expect(tags).toEqual([...tags].sort());
+    for (const [tag, data] of tablesOf(sfnt))
+      expect(tablesOf(rebuilt).get(tag)?.equals(data), tag).toBe(true);
+  });
+
   it('truncated / corrupt WOFF and WOFF2', async () => {
     const woff = encodeWoff1(fs.readFileSync(shipped('Anton-Regular.ttf')));
     fs.writeFileSync(path.join(dir, 'cut.woff'), woff.subarray(0, Math.floor(woff.length / 2)));
@@ -283,6 +295,21 @@ describe('rejections', () => {
     fs.writeFileSync(path.join(dir, 'cut.ttf'), full.subarray(0, 200));
     await expect(run(path.join(dir, 'cut.ttf'), 'ttf')).rejects.toThrow(
       /could not read 'cut\.ttf'/,
+    );
+  });
+
+  it('a font the caption renderer (libass) cannot load is rejected instead of silently falling back', async () => {
+    // intact tables, but head.unitsPerEm = 0: FreeType refuses the face, libass would substitute a system font
+    const bad = Buffer.from(fs.readFileSync(shipped('Anton-Regular.ttf')));
+    const n = bad.readUInt16BE(4);
+    for (let i = 0; i < n; i++) {
+      const o = 12 + i * 16;
+      if (bad.toString('latin1', o, o + 4) === 'head')
+        bad.writeUInt16BE(0, bad.readUInt32BE(o + 8) + 18);
+    }
+    fs.writeFileSync(path.join(dir, 'badupm.ttf'), bad);
+    await expect(run(path.join(dir, 'badupm.ttf'), 'ttf')).rejects.toThrow(
+      /'badupm\.ttf' cannot be used for captions/,
     );
   });
 

@@ -89,18 +89,6 @@ export function MusicSection() {
               }
             />
           </FieldRow>
-          {asset ? (
-            <div className="rounded-lg border bg-muted/30 p-3">
-              <MiniPlayer
-                src={asset.previewUrl}
-                name={asset.name}
-                durationSec={asset.durationSec}
-              />
-              <p className="mt-1.5 text-xs text-muted-foreground">
-                You hear the loudness-normalised preview; the level below is applied on top.
-              </p>
-            </div>
-          ) : null}
           <SliderRow
             label="Level"
             value={bed.gainDb}
@@ -167,6 +155,18 @@ export function MusicSection() {
             Level over time
           </h3>
           <BedCurve bed={bed} />
+          {asset ? (
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <MiniPlayer
+                src={asset.previewUrl}
+                name={asset.name}
+                durationSec={asset.durationSec}
+              />
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                You hear the loudness-normalised preview; the level below is applied on top.
+              </p>
+            </div>
+          ) : null}
         </div>
       </div>
     </Section>

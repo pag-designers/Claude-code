@@ -83,7 +83,10 @@ function wavDataUrl(freq: number, seconds = 3): string {
   buf.writeUInt32LE(n * 2, 40);
   for (let i = 0; i < n; i++) {
     const env = Math.min(1, i / 800, (n - i) / 800);
-    buf.writeInt16LE(Math.round(Math.sin((2 * Math.PI * freq * i) / rate) * 9000 * env), 44 + i * 2);
+    buf.writeInt16LE(
+      Math.round(Math.sin((2 * Math.PI * freq * i) / rate) * 9000 * env),
+      44 + i * 2,
+    );
   }
   return `data:audio/wav;base64,${buf.toString('base64')}`;
 }
@@ -248,7 +251,11 @@ export function seedBrand(state: Cp1State, opts: SeedOptions = {}): BrandStubSta
   const mode = opts.kits ?? 'full';
   if (mode === 'empty') return b;
   const now = Date.now();
-  const mkKit = (name: string, isDefault: boolean, spec: BrandKitSpec = defaultBrandSpec()): BrandKit => {
+  const mkKit = (
+    name: string,
+    isDefault: boolean,
+    spec: BrandKitSpec = defaultBrandSpec(),
+  ): BrandKit => {
     const id = nextId(b, 'kit');
     const kit: BrandKit = {
       id,
@@ -371,7 +378,13 @@ export function seedBrand(state: Cp1State, opts: SeedOptions = {}): BrandStubSta
     ext: 'ttf',
     bytes: 164_000,
     url: FONT_FILES.poppins,
-    font: { family: 'Acme Display', assName: 'Acme Display', weight: 700, italic: false, file: 'Acme-Display-Bold.ttf' },
+    font: {
+      family: 'Acme Display',
+      assName: 'Acme Display',
+      weight: 700,
+      italic: false,
+      file: 'Acme-Display-Bold.ttf',
+    },
   });
   push({
     kitId,
@@ -380,7 +393,13 @@ export function seedBrand(state: Cp1State, opts: SeedOptions = {}): BrandStubSta
     ext: 'otf',
     bytes: 98_000,
     url: FONT_FILES.serif,
-    font: { family: 'Acme Serif', assName: 'Acme Serif', weight: 400, italic: false, file: 'Acme-Serif-Regular.ttf' },
+    font: {
+      family: 'Acme Serif',
+      assName: 'Acme Serif',
+      weight: 400,
+      italic: false,
+      file: 'Acme-Serif-Regular.ttf',
+    },
   });
   b.palettes.set(logoMain.id, ['#6A4BF2', '#FFFFFF', '#2EE6D6', '#FF5FB0', '#101114']);
 
@@ -392,15 +411,35 @@ export function seedBrand(state: Cp1State, opts: SeedOptions = {}): BrandStubSta
       { id: 'c4', name: 'Paper', hex: '#F6F6FA', group: 'Neutral' },
       { id: 'c5', name: 'Mint', hex: '#2EE6D6', group: 'Accent' },
     ],
-    watermark: { assetId: logoMain.id, position: 'top-right', sizePct: 16, opacity: 0.85, marginPct: 4, safeArea: 'all' },
+    watermark: {
+      assetId: logoMain.id,
+      position: 'top-right',
+      sizePct: 16,
+      opacity: 0.85,
+      marginPct: 4,
+      safeArea: 'all',
+    },
     introAssetId: intro.id,
-    musicBed: { assetId: bed.id, gainDb: -18, duckEnabled: true, duckAmountDb: 12, fadeInSec: 0.8, fadeOutSec: 1.5 },
+    musicBed: {
+      assetId: bed.id,
+      gainDb: -18,
+      duckEnabled: true,
+      duckAmountDb: 12,
+      fadeInSec: 0.8,
+      fadeOutSec: 1.5,
+    },
     textStyles: [
       {
         id: 'ts1',
         name: 'Hook Card',
         kind: 'hook',
-        style: { fontFamily: 'Montserrat', weight: 800, size: 76, color: '#101114', box: { color: '#FFFFFF', opacity: 1, padding: 30, radius: 28 } },
+        style: {
+          fontFamily: 'Montserrat',
+          weight: 800,
+          size: 76,
+          color: '#101114',
+          box: { color: '#FFFFFF', opacity: 1, padding: 30, radius: 28 },
+        },
         animIn: { type: 'pop', durationSec: 0.35 },
         animOut: { type: 'fade', durationSec: 0.25 },
         yPct: 18,
@@ -409,7 +448,14 @@ export function seedBrand(state: Cp1State, opts: SeedOptions = {}): BrandStubSta
         id: 'ts2',
         name: 'Name Plate',
         kind: 'lower-third',
-        style: { fontFamily: 'Poppins', weight: 600, size: 44, color: '#FFFFFF', align: 'left', box: { color: '#0C0C13', opacity: 0.72, padding: 24, radius: 16 } },
+        style: {
+          fontFamily: 'Poppins',
+          weight: 600,
+          size: 44,
+          color: '#FFFFFF',
+          align: 'left',
+          box: { color: '#0C0C13', opacity: 0.72, padding: 24, radius: 16 },
+        },
         animIn: { type: 'slide', durationSec: 0.45 },
         animOut: { type: 'slide', durationSec: 0.35 },
         yPct: 68,
@@ -421,8 +467,12 @@ export function seedBrand(state: Cp1State, opts: SeedOptions = {}): BrandStubSta
       watermarkOn: true,
       introOn: true,
       platforms: ['tiktok', 'shorts'],
-      hashtagSets: [{ id: 'hs1', name: 'Podcast clips', tags: ['podcast', 'interview', 'founders'] }],
-      postingWindows: [{ id: 'pw1', platform: null, days: [1, 2, 3, 4, 5], start: '09:00', end: '12:00' }],
+      hashtagSets: [
+        { id: 'hs1', name: 'Podcast clips', tags: ['podcast', 'interview', 'founders'] },
+      ],
+      postingWindows: [
+        { id: 'pw1', platform: null, days: [1, 2, 3, 4, 5], start: '09:00', end: '12:00' },
+      ],
     },
   });
   for (let i = 0; i < (opts.manyImages ?? 0); i++)
@@ -471,9 +521,13 @@ export function seedBrand(state: Cp1State, opts: SeedOptions = {}): BrandStubSta
 
 function summary(b: BrandStubState, k: BrandKit): BrandKitSummary {
   const assets = b.assets.get(k.id) ?? [];
-  const counts = { logo: 0, image: 0, video: 0, audio: 0, font: 0 } as Record<BrandAssetKind, number>;
+  const counts = { logo: 0, image: 0, video: 0, audio: 0, font: 0 } as Record<
+    BrandAssetKind,
+    number
+  >;
   for (const a of assets) counts[a.kind] += 1;
-  const wm = assets.find((a) => a.id === k.spec.watermark.assetId) ?? assets.find((a) => a.kind === 'logo');
+  const wm =
+    assets.find((a) => a.id === k.spec.watermark.assetId) ?? assets.find((a) => a.kind === 'logo');
   return {
     id: k.id,
     name: k.name,
@@ -568,7 +622,13 @@ async function ingest(
     }
     if (f.name.startsWith('broken')) {
       errors.push({ name: f.name, message: 'ffprobe could not read this file. Is it corrupted?' });
-      await state.emit?.('brand:progress', { kitId, name: f.name, fraction: null, stage: 'probe', done: true });
+      await state.emit?.('brand:progress', {
+        kitId,
+        name: f.name,
+        fraction: null,
+        stage: 'probe',
+        done: true,
+      });
       continue;
     }
     const idx = b.counter + 1;
@@ -590,13 +650,25 @@ async function ingest(
     if (kind === 'audio') o.previewUrl = wavDataUrl(330);
     if (kind === 'font') {
       o.url = FONT_FILES.anton;
-      o.font = { family: f.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' '), assName: f.name, weight: 400, italic: false, file: f.name };
+      o.font = {
+        family: f.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' '),
+        assName: f.name,
+        weight: 400,
+        italic: false,
+        file: f.name,
+      };
     }
     const asset = makeAsset(b, state, o);
     b.assets.get(kitId)!.push(asset);
     b.palettes.set(asset.id, [bg, fg, '#2EE6D6']);
     out.push(asset);
-    await state.emit?.('brand:progress', { kitId, name: f.name, fraction: 1, stage: 'done', done: true });
+    await state.emit?.('brand:progress', {
+      kitId,
+      name: f.name,
+      fraction: 1,
+      stage: 'done',
+      done: true,
+    });
   }
   if (out.length) await state.emit?.('brand:changed', { kitId });
   return { assets: out, errors };
@@ -804,7 +876,14 @@ export async function handleBrand(
       return { value: { colors: pal.slice(0, count) } };
     }
     case 'brand:fonts': {
-      const fonts: { assetId: string; kitId: string; family: string; weight: number; italic: boolean; url: string }[] = [];
+      const fonts: {
+        assetId: string;
+        kitId: string;
+        family: string;
+        weight: number;
+        italic: boolean;
+        url: string;
+      }[] = [];
       for (const list of b.assets.values())
         for (const a of list)
           if (a.kind === 'font' && a.font && a.url)
@@ -855,7 +934,12 @@ export async function handleBrand(
       return { value: { queries: [] } };
     case 'broll:importToKit': {
       const kitId = p.kitId as string;
-      const item = p.item as { title: string; author: string | null; pageUrl: string | null; durationSec: number };
+      const item = p.item as {
+        title: string;
+        author: string | null;
+        pageUrl: string | null;
+        durationSec: number;
+      };
       kitOrThrow(b, kitId);
       const asset = makeAsset(b, state, {
         kitId,
@@ -945,7 +1029,8 @@ export interface DropSpec {
 /** Fires dragenter / dragover / drop with real `File` objects on `target`. */
 export async function dropFiles(s: Session, target: Locator, files: DropSpec[]): Promise<void> {
   const b = brand(s.state);
-  for (const f of files) b.fileSizes.set(f.path ?? `/Users/demo/Brand/${f.name}`, f.size ?? 150_000);
+  for (const f of files)
+    b.fileSizes.set(f.path ?? `/Users/demo/Brand/${f.name}`, f.size ?? 150_000);
   const dt = await target.page().evaluateHandle((specs) => {
     const w = window as unknown as { __dropPaths?: Map<File, string> };
     w.__dropPaths ??= new Map();

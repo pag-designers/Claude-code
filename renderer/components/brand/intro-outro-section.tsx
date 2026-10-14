@@ -22,7 +22,7 @@ function Slot({ which }: { which: 'intro' | 'outro' }) {
       <h3 className="font-sans text-sm font-semibold">{Word}</h3>
       <div
         className={cn(
-          'relative aspect-video w-full overflow-hidden rounded-lg border bg-muted',
+          'relative aspect-video w-full overflow-hidden rounded-lg border bg-neutral-950',
           !asset && 'border-dashed border-border-strong',
         )}
       >
@@ -44,7 +44,7 @@ function Slot({ which }: { which: 'intro' | 'outro' }) {
                   <img
                     src={asset.thumbUrl}
                     alt=""
-                    className="size-full object-cover"
+                    className="size-full object-contain"
                     draggable={false}
                   />
                 ) : (

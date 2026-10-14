@@ -155,7 +155,8 @@ export function KitHeader({
         value={k.name}
         maxLength={60}
         onValue={s.rename}
-        className="h-9 max-w-[22rem] border-transparent bg-transparent font-display text-xl font-semibold shadow-none hover:bg-field focus-visible:bg-field"
+        style={{ width: `${Math.min(32, Math.max(10, k.name.length + 3))}ch` }}
+        className="h-9 max-w-[min(30rem,100%)] border-transparent bg-transparent font-display text-xl font-semibold shadow-none hover:bg-field focus-visible:bg-field"
       />
       {k.isDefault ? (
         <span

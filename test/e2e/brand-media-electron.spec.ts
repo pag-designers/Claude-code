@@ -162,6 +162,26 @@ test('SVG with script and external references: nothing executes, nothing is fetc
   expect(await windowCount()).toBe(0);
 });
 
+test('an animated SVG still produces a frame (it never "settles", so the renderer gives up waiting)', async () => {
+  const t0 = Date.now();
+  const { size, png } = await rasterize(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#ff0000"><animate attributeName="x" from="0" to="50" dur="0.5s" repeatCount="indefinite"/></rect></svg>`,
+  );
+  expect(size).toEqual({ width: 1024, height: 1024 });
+  expect(png.at(900, 500)[3]).toBeGreaterThan(0);
+  expect(Date.now() - t0).toBeLessThan(8000);
+  expect(await windowCount()).toBe(0);
+});
+
+test('a genuinely empty SVG gives a fully transparent PNG of the right size', async () => {
+  const { size, png } = await rasterize(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20"></svg>`,
+  );
+  expect(size).toEqual({ width: 1024, height: 512 });
+  expect([png.width, png.height]).toEqual([1024, 512]);
+  expect(png.rgba.every((b) => b === 0)).toBe(true);
+});
+
 test('invalid input rejects and still leaves no window behind', async () => {
   await expect(rasterize('this is not svg', 2048)).rejects.toThrow();
   expect(await windowCount()).toBe(0);

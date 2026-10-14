@@ -51,8 +51,8 @@ const GRID: Record<BrandAssetKind, { min: number; row: number }> = {
   logo: { min: 168, row: 188 },
   image: { min: 168, row: 188 },
   video: { min: 220, row: 196 },
-  audio: { min: 340, row: 112 },
-  font: { min: 290, row: 138 },
+  audio: { min: 340, row: 124 },
+  font: { min: 290, row: 152 },
 };
 
 /** One asset section: upload panel, progress rows, a (virtualised) grid, selection + delete with a "what it clears" warning. */

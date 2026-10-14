@@ -151,7 +151,7 @@ function WindowRow({ w }: { w: PostingWindow }) {
     commit({ ...cur, days });
   };
   const inputCls =
-    'h-8 w-[96px] rounded-md border border-input bg-field px-2 font-mono text-xs tabular-nums outline-none transition-[border-color,box-shadow] duration-(--duration-fast) hover:border-border-strong focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25 aria-invalid:border-danger';
+    'h-8 w-[116px] rounded-md border border-input bg-field px-2 font-mono text-xs tabular-nums outline-none transition-[border-color,box-shadow] duration-(--duration-fast) hover:border-border-strong focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25 aria-invalid:border-danger';
   return (
     <li
       data-testid="posting-window"

@@ -7,6 +7,7 @@
  * deny-all permission handler, a hard timeout, and the window is always destroyed. Needs `app` to be ready; this module
  * must only be imported from the main process (never from vitest: `electron` is not loadable there).
  */
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -132,6 +133,7 @@ async function render(
 
   let win: BrowserWindow | null = null;
   let timer: NodeJS.Timeout | null = null;
+  let pump: NodeJS.Timeout | null = null;
   try {
     win = new BrowserWindow({
       show: false,
@@ -160,33 +162,53 @@ async function render(
     const wc = win.webContents;
     wc.setWindowOpenHandler(() => ({ action: 'deny' }));
     wc.on('will-navigate', (e) => e.preventDefault());
-    wc.setFrameRate(5);
+    wc.setFrameRate(30);
 
+    // Page scripts are off, so the page cannot tell us when the image has been painted, and the load event can fire a
+    // few frames before the SVG shows up (those frames are fully transparent). So: after the load event keep forcing
+    // repaints and accept the first frame that (a) is not the blank transparent frame and (b) equals the frame before
+    // it. An animated SVG never settles (the latest frame is taken after SETTLE_MAX_MS) and a genuinely empty SVG
+    // stays blank (accepted after BLANK_GRACE_MS).
+    const SETTLE_MAX_MS = 1500;
+    const BLANK_GRACE_MS = 2500;
     const png = await new Promise<Buffer>((resolve, reject) => {
       timer = setTimeout(
         () => reject(new Error(`SVG rendering timed out after ${RENDER_TIMEOUT_MS / 1000}s`)),
         RENDER_TIMEOUT_MS,
       );
-      let loaded = false;
-      let settle: NodeJS.Timeout | null = null;
-      let last: Electron.NativeImage | null = null;
-      const finish = (): void => {
-        if (!last) return reject(new Error('SVG produced no frame'));
-        resolve(last.toPNG());
+      let loadedAt = 0;
+      let frames = 0;
+      let prev: string | null = null;
+      let blankHash: string | null = null;
+      const done = (image: Electron.NativeImage): void => {
+        if (pump) clearInterval(pump);
+        resolve(image.toPNG());
       };
       wc.on('paint', (_e, _dirty, image) => {
-        last = image;
-        if (!loaded) return;
-        // the first frame after the load event has the decoded image; wait for the repaint to go quiet
-        if (settle) clearTimeout(settle);
-        settle = setTimeout(finish, 120);
+        if (!loadedAt) return; // frames before the load event are not the SVG yet
+        frames++;
+        const bitmap = image.toBitmap();
+        const hash = createHash('sha1').update(bitmap).digest('hex');
+        blankHash ??= createHash('sha1').update(Buffer.alloc(bitmap.length)).digest('hex');
+        const age = Date.now() - loadedAt;
+        const blank = hash === blankHash;
+        if (hash === prev && (!blank || age > BLANK_GRACE_MS)) return done(image);
+        prev = hash;
+        if (frames >= 3 && age > SETTLE_MAX_MS && !blank) done(image);
       });
       wc.once('did-fail-load', (_e, code, desc) =>
         reject(new Error(`SVG failed to load: ${desc} (${code})`)),
       );
       wc.once('did-finish-load', () => {
-        loaded = true;
-        settle = setTimeout(finish, 400);
+        loadedAt = Date.now();
+        pump = setInterval(() => {
+          try {
+            wc.invalidate();
+          } catch {
+            /* window already gone */
+          }
+        }, 40);
+        wc.invalidate();
       });
       wc.loadFile(page).catch(reject);
     });
@@ -205,6 +227,7 @@ async function render(
     return { width: size.width, height: size.height };
   } finally {
     if (timer) clearTimeout(timer);
+    if (pump) clearInterval(pump);
     try {
       if (win && !win.isDestroyed()) win.destroy();
     } catch {

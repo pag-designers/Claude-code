@@ -20,25 +20,39 @@ import { cn } from '@/lib/utils';
 export interface SectionDef {
   id: string;
   label: string;
+  /** Shorter text for the side navigation. */
+  nav: string;
   icon: LucideIcon;
   group: 'Assets' | 'Style' | 'Branding' | 'Defaults';
 }
 
 /** Order = page order = navigation order. */
 export const SECTIONS: readonly SectionDef[] = [
-  { id: 'logos', label: 'Logos / Watermarks', icon: Stamp, group: 'Assets' },
-  { id: 'images', label: 'Images', icon: ImageIcon, group: 'Assets' },
-  { id: 'videos', label: 'Videos', icon: Film, group: 'Assets' },
-  { id: 'audio', label: 'Audio', icon: AudioLines, group: 'Assets' },
-  { id: 'fonts', label: 'Fonts', icon: Type, group: 'Assets' },
-  { id: 'colors', label: 'Colors', icon: Palette, group: 'Style' },
-  { id: 'subtitle-styles', label: 'Subtitle Styles', icon: Subtitles, group: 'Style' },
-  { id: 'text-styles', label: 'Text Styles', icon: Type, group: 'Style' },
-  { id: 'hook', label: 'Hook card', icon: Quote, group: 'Style' },
-  { id: 'watermark', label: 'Watermark', icon: Layers, group: 'Branding' },
-  { id: 'intro-outro', label: 'Intro / Outro', icon: Film, group: 'Branding' },
-  { id: 'music', label: 'Music bed', icon: Music2, group: 'Branding' },
-  { id: 'defaults', label: 'Defaults', icon: Sliders, group: 'Defaults' },
+  { id: 'logos', label: 'Logos / Watermarks', nav: 'Logos', icon: Stamp, group: 'Assets' },
+  { id: 'images', label: 'Images', nav: 'Images', icon: ImageIcon, group: 'Assets' },
+  { id: 'videos', label: 'Videos', nav: 'Videos', icon: Film, group: 'Assets' },
+  { id: 'audio', label: 'Audio', nav: 'Audio', icon: AudioLines, group: 'Assets' },
+  { id: 'fonts', label: 'Fonts', nav: 'Fonts', icon: Type, group: 'Assets' },
+  { id: 'colors', label: 'Colors', nav: 'Colors', icon: Palette, group: 'Style' },
+  {
+    id: 'subtitle-styles',
+    label: 'Subtitle Styles',
+    nav: 'Subtitle styles',
+    icon: Subtitles,
+    group: 'Style',
+  },
+  { id: 'text-styles', label: 'Text Styles', nav: 'Text styles', icon: Type, group: 'Style' },
+  { id: 'hook', label: 'Hook card', nav: 'Hook card', icon: Quote, group: 'Style' },
+  { id: 'watermark', label: 'Watermark', nav: 'Watermark', icon: Layers, group: 'Branding' },
+  {
+    id: 'intro-outro',
+    label: 'Intro / Outro',
+    nav: 'Intro / Outro',
+    icon: Film,
+    group: 'Branding',
+  },
+  { id: 'music', label: 'Music bed', nav: 'Music bed', icon: Music2, group: 'Branding' },
+  { id: 'defaults', label: 'Defaults', nav: 'Defaults', icon: Sliders, group: 'Defaults' },
 ];
 
 export const sectionDef = (id: string): SectionDef => SECTIONS.find((s) => s.id === id)!;
@@ -172,7 +186,7 @@ export function SectionNav({
                       )}
                     >
                       <s.icon className="size-4 shrink-0 max-[1100px]:hidden" aria-hidden />
-                      <span className="min-w-0 flex-1 truncate">{s.label}</span>
+                      <span className="min-w-0 flex-1 truncate">{s.nav}</span>
                       {n ? (
                         <span
                           className={cn(

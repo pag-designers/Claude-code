@@ -133,6 +133,11 @@ export function createBrandMedia(opts: BrandMediaOptions): BrandMediaService {
   async function extractColors(imagePath: string, count: number): Promise<string[]> {
     const want = Math.max(0, Math.min(32, Math.floor(count)));
     if (want === 0) return [];
+    if (!fs.existsSync(imagePath)) {
+      throw new BrandMediaError(
+        `Clipfern could not find '${baseName(imagePath)}'. Was it moved or deleted?`,
+      );
+    }
     let source = imagePath;
     let tmpDir: string | null = null;
     try {

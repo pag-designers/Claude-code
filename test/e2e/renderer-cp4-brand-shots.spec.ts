@@ -10,7 +10,8 @@ import { brandControls, dropFiles, openBrand } from './support/brand-stub';
  *   test/e2e/support/brand-build.sh <work> <out>     # private static export
  *   CLIPFERN_E2E_OUT=<out> CLIPFERN_SHOTS_DIR=<dir> npx playwright test test/e2e/renderer-cp4-brand-shots.spec.ts
  */
-const SHOTS = process.env.CLIPFERN_SHOTS_DIR ?? path.resolve(__dirname, '../../.tmp/shots-cp4-brand');
+const SHOTS =
+  process.env.CLIPFERN_SHOTS_DIR ?? path.resolve(__dirname, '../../.tmp/shots-cp4-brand');
 test.use({ trace: 'off', video: 'off', screenshot: 'off' });
 
 let h: Harness;

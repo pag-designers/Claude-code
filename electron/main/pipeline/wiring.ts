@@ -296,7 +296,8 @@ export function createPipeline(svc: Services, sidecar: SidecarManager, host: Pip
   editor.registerJobs();
 
   const brollService = createBrollService({
-    getKey: (p) => svc.secrets.get(p === 'pexels' ? 'pexels.apiKey' : 'pixabay.apiKey'),
+    getKey: (p) =>
+      svc.secrets.get(p === 'pexels' ? 'pexels.apiKey' : 'pixabay.apiKey')?.trim() || null,
     // Dev/test only: point at a fake provider.
     baseUrls: {
       pexels: process.env.CLIPFERN_PEXELS_BASE_URL || undefined,

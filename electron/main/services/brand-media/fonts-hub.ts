@@ -55,6 +55,8 @@ export function createFontsHub(opts: FontsHubOptions): FontsHub {
       fs.linkSync(src, tmp);
     } catch {
       fs.copyFileSync(src, tmp);
+      const st = fs.statSync(src);
+      fs.utimesSync(tmp, st.atime, st.mtime);
     }
     fs.renameSync(tmp, dest);
   }

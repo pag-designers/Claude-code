@@ -162,6 +162,8 @@ const mediaCommon = {
   freezeAtSec: z.number().min(0).nullable().default(null),
   /** Keep pitch when speed ≠ 1 (audio). */
   preservePitch: z.boolean().default(true),
+  /** Gate out low-level noise (export: ffmpeg agate, threshold −45 dB, 10 ms attack, 120 ms release; preview: not applied). */
+  noiseGate: z.boolean().default(false),
   volume: anim(1),
   fadeInSec: z.number().min(0).default(0),
   fadeOutSec: z.number().min(0).default(0),

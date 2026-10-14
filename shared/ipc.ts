@@ -414,6 +414,16 @@ export const invokeContract = {
       faceCoverage: z.number(),
     }),
   ),
+  /** "Re-sync with AI": re-transcribes [srcStartSec, srcEndSec) of a video/audio asset (faster-whisper) and returns fresh word timings in SOURCE time. */
+  'editor:resyncSubtitles': ch(
+    z.object({
+      projectId: z.string(),
+      assetId: z.string(),
+      srcStartSec: z.number().min(0),
+      srcEndSec: z.number().min(0),
+    }),
+    z.object({ words: z.array(z.object({ w: z.string(), s: z.number(), e: z.number() })) }),
+  ),
   'editor:export': ch(
     z.object({ projectId: z.string(), settings: exportSettingsSchema.partial() }),
     z.object({ exportId: z.string() }),
@@ -468,7 +478,7 @@ export const EVENT_CHANNELS = Object.keys(eventContract) as EventChannel[];
 
 /** Serialised error shape crossing the bridge (never a raw stack, never secrets). */
 export const ipcErrorSchema = z.object({
-  code: z.enum(['VALIDATION', 'NOT_FOUND', 'UNAVAILABLE', 'FAILED', 'UNKNOWN_CHANNEL']),
+  code: z.enum(['VALIDATION', 'NOT_FOUND', 'UNAVAILABLE', 'CONFLICT', 'FAILED', 'UNKNOWN_CHANNEL']),
   message: z.string(),
 });
 export type IpcError = z.infer<typeof ipcErrorSchema>;

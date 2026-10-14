@@ -7,6 +7,7 @@ import type { LibraryService } from '../pipeline/library';
 import type { ChatService } from '../pipeline/chat';
 import type { Cp2Service } from '../pipeline/cp2';
 import type { StyleRegistry } from '../pipeline/styles';
+import type { EditorService } from '../pipeline/editor';
 import type { CaptionService } from '../pipeline/contracts';
 import type { PipelineOrchestrator } from '../pipeline/orchestrator';
 import type { UrlInfo } from '@shared/pipeline';
@@ -21,6 +22,7 @@ export interface HostApi {
   library: LibraryService;
   cp2: Cp2Service;
   chat: ChatService;
+  editor: EditorService;
   styles: StyleRegistry;
   captions: Pick<CaptionService, 'fonts'>;
   fontsDir(): string | null;
@@ -175,7 +177,8 @@ export function buildHandlers(svc: Services, host: HostApi): Handlers {
     'subtitles:save': ({ videoId, edits }) => host.cp2.subtitlesSave(videoId, edits),
     'subtitles:export': (a) => host.cp2.subtitlesExport(a),
 
-    'moments:find': ({ videoId, prompt, options }) => host.pipeline.startMomentsRun(videoId, prompt, options),
+    'moments:find': ({ videoId, prompt, options }) =>
+      host.pipeline.startMomentsRun(videoId, prompt, options),
     'moments:runs': async ({ videoId }) => ({ items: await host.pipeline.listRuns(videoId) }),
     'moments:cancel': async ({ runId }) => {
       await host.pipeline.cancelRun(runId);
@@ -203,7 +206,9 @@ export function buildHandlers(svc: Services, host: HostApi): Handlers {
     },
     'thumbs:url': async ({ clipId, index }) => ({ url: await host.cp2.thumbUrl(clipId, index) }),
 
-    'chat:threads': async ({ videoId, clipId }) => ({ items: await host.chat.threads(videoId, clipId) }),
+    'chat:threads': async ({ videoId, clipId }) => ({
+      items: await host.chat.threads(videoId, clipId),
+    }),
     'chat:messages': async ({ threadId }) => ({ items: await host.chat.messages(threadId) }),
     'chat:send': (a) => host.chat.send(a),
     'chat:cancel': async ({ threadId }) => {
@@ -221,6 +226,46 @@ export function buildHandlers(svc: Services, host: HostApi): Handlers {
       await host.cp2.deleteMarker(id);
       return ok;
     },
+
+    /* ---- CP3: editor ---- */
+    'editor:list': async () => ({ items: await host.editor.list() }),
+    'editor:create': ({ name, from }) => host.editor.create(name, from),
+    'editor:get': ({ id }) => host.editor.get(id),
+    'editor:save': ({ id, project, baseRev }) => host.editor.save(id, project, baseRev),
+    'editor:rename': async ({ id, name }) => {
+      await host.editor.rename(id, name);
+      return ok;
+    },
+    'editor:duplicate': ({ id }) => host.editor.duplicate(id),
+    'editor:delete': async ({ id }) => {
+      await host.editor.delete(id);
+      return ok;
+    },
+    'editor:versions': async ({ id }) => ({ items: await host.editor.versions(id) }),
+    'editor:saveVersion': ({ id, label }) => host.editor.saveVersion(id, label),
+    'editor:restoreVersion': ({ id, versionId }) => host.editor.restoreVersion(id, versionId),
+    'editor:previewUrl': ({ projectId, assetId }) => host.editor.previewUrl(projectId, assetId),
+    'editor:importAssets': ({ projectId, kinds }) => host.editor.importAssets(projectId, kinds),
+    'editor:waveform': ({ projectId, assetId }) => host.editor.waveform(projectId, assetId),
+    'editor:beats': async ({ projectId, assetId }) => ({
+      beats: await host.editor.beats(projectId, assetId),
+    }),
+    'editor:thumbStrip': (a) => host.editor.thumbStrip(a),
+    'editor:reframe': (a) => host.editor.reframeAsset(a),
+    'editor:resyncSubtitles': ({ projectId, assetId, srcStartSec, srcEndSec }) =>
+      host.editor.resyncSubtitles(projectId, assetId, srcStartSec, srcEndSec),
+    'editor:export': ({ projectId, settings }) => host.editor.startExport(projectId, settings),
+    'editor:exportCancel': async ({ id }) => {
+      await host.editor.cancelExport(id);
+      return ok;
+    },
+    'exports:list': async ({ limit }) => ({ items: await host.editor.listExports(limit) }),
+    'exports:url': async ({ id, kind }) => ({ url: await host.editor.exportUrl(id, kind) }),
+    'exports:delete': async ({ ids }) => {
+      await host.editor.deleteExports(ids);
+      return ok;
+    },
+    'exports:download': ({ ids }) => host.editor.downloadExports(ids),
 
     'shell:openExternal': async ({ url }) => {
       if (!/^https?:\/\//i.test(url)) throw new Error('Only http(s) links can be opened');

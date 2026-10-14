@@ -12,11 +12,11 @@ import {
 } from '@shared/pipeline';
 import { PipelineOrchestrator, WINDOW_SEC, type PipelineDeps } from '@main/pipeline/orchestrator';
 import { StyleRegistry } from '@main/pipeline/styles';
-import { captionStyleSchema, subtitleEditsSchema, type CaptionStyle, type MomentRun } from '@shared/cp2';
+import { subtitleEditsSchema, type MomentRun } from '@shared/cp2';
 import { BudgetExceededError, IngestError, type LlmService } from '@main/pipeline/contracts';
 import { MemoryStorageProvider } from '@main/services/storage/memory';
 import { JOB_KINDS } from '@main/services/context';
-import { makeServices } from './helpers';
+import { FAKE_STYLE, makeServices } from './helpers';
 
 const URL1 = 'https://www.youtube.com/watch?v=abcdefghijk';
 const DURATION = 1500; // 3 windows: 600 + 600 + 300
@@ -69,21 +69,6 @@ interface Env {
   };
   cleanup: () => Promise<void>;
 }
-
-export const FAKE_STYLE: CaptionStyle = captionStyleSchema.parse({
-  id: 'clean-pop',
-  name: 'Clean Pop',
-  builtin: true,
-  font: { family: 'Montserrat ExtraBold' },
-  fill: '#FFFFFF',
-  stroke: { color: '#000000' },
-  shadow: { color: '#000000' },
-  box: { color: '#000000' },
-  highlight: { color: '#FFD60A', boxColor: '#FFD60A' },
-  keywordColor: '#FFD60A',
-  layout: {},
-  chunking: {},
-});
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -144,7 +129,9 @@ async function makeEnv(): Promise<Env> {
           candidateId: null,
           startSec: a.s,
           endSec: b.e,
-          title: input.options.prompt ? `Steered ${input.window.startSec}` : `Moment ${input.window.startSec}-${n}`,
+          title: input.options.prompt
+            ? `Steered ${input.window.startSec}`
+            : `Moment ${input.window.startSec}-${n}`,
           hook: 'Wait for it',
           whyItWorks: 'because',
           captionStyle: 'clean-pop',
@@ -367,7 +354,19 @@ async function makeEnv(): Promise<Env> {
   const orch = new PipelineOrchestrator(deps);
   orch.registerJobs();
   await svc.queue.start();
-  const env: Env = { svc, orch, storage, dir, events, clipsSeen, runs, prompts, calls, hooks, cleanup: m.cleanup };
+  const env: Env = {
+    svc,
+    orch,
+    storage,
+    dir,
+    events,
+    clipsSeen,
+    runs,
+    prompts,
+    calls,
+    hooks,
+    cleanup: m.cleanup,
+  };
   cleanups.push(m.cleanup);
   return env;
 }
@@ -576,7 +575,6 @@ describe('pipeline options patch', () => {
   });
 });
 
-
 describe('CP2: analysis-only mode and steered runs', () => {
   it('analysis mode transcribes and understands but never ranks or renders', async () => {
     const e = await makeEnv();
@@ -601,8 +599,12 @@ describe('CP2: analysis-only mode and steered runs', () => {
     const asrCalls = e.calls.transcribe;
     const before = await e.svc.dbHandle.prisma.clip.count({ where: { videoId } });
 
-    const { runId } = await e.orch.startMomentsRun(videoId, 'only the funny parts', { clipCount: 2 });
-    await waitFor(async () => (await e.orch.listRuns(videoId)).every((r) => r.status !== 'running'));
+    const { runId } = await e.orch.startMomentsRun(videoId, 'only the funny parts', {
+      clipCount: 2,
+    });
+    await waitFor(async () =>
+      (await e.orch.listRuns(videoId)).every((r) => r.status !== 'running'),
+    );
     const [run] = await e.orch.listRuns(videoId);
     expect(run?.id).toBe(runId);
     expect(run?.status).toBe('done');

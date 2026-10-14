@@ -14,6 +14,7 @@
  *     forwards pointer edits to the store (`setProp` on transform.*, one undo step per drag).
  * It must stay at ~60 fps for a 1080×1920 canvas drawn at ≤ 540×960 with 3–4 simultaneous layers on a laptop GPU.
  */
+import type { ComponentType } from 'react';
 import type { Waveform } from '@shared/editor';
 
 export interface PlaybackEngine {
@@ -44,7 +45,7 @@ export interface ThumbStrip {
 export interface PlaybackExports {
   createPlaybackEngine(opts: { projectId: string }): PlaybackEngine;
   /** The preview panel. */
-  PreviewPlayer: React.ComponentType<{ className?: string }>;
+  PreviewPlayer: ComponentType<{ className?: string }>;
   /** Singleton access for the timeline (waveform/thumbnails); null before the editor mounted. */
   getEngine(): PlaybackEngine | null;
 }

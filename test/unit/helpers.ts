@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createServices, type Emitters, type Services } from '@main/services/context';
 import { FileKeyCipher } from '@main/services/secrets';
+import { captionStyleSchema, type CaptionStyle } from '@shared/cp2';
 
 export function tmpDir(prefix = 'clipfern-test-'): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -40,3 +41,19 @@ export async function makeServices(
     },
   };
 }
+
+/** A complete valid caption preset for tests that need one. */
+export const FAKE_STYLE: CaptionStyle = captionStyleSchema.parse({
+  id: 'clean-pop',
+  name: 'Clean Pop',
+  builtin: true,
+  font: { family: 'Montserrat ExtraBold' },
+  fill: '#FFFFFF',
+  stroke: { color: '#000000' },
+  shadow: { color: '#000000' },
+  box: { color: '#000000' },
+  highlight: { color: '#FFD60A', boxColor: '#FFD60A' },
+  keywordColor: '#FFD60A',
+  layout: {},
+  chunking: {},
+});

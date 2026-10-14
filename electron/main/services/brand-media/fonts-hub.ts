@@ -55,8 +55,6 @@ export function createFontsHub(opts: FontsHubOptions): FontsHub {
       fs.linkSync(src, tmp);
     } catch {
       fs.copyFileSync(src, tmp);
-      const st = fs.statSync(src);
-      fs.utimesSync(tmp, st.atime, st.mtime);
     }
     fs.renameSync(tmp, dest);
   }
@@ -168,12 +166,10 @@ export function createFontsHub(opts: FontsHubOptions): FontsHub {
         if (shippedNames.has(name)) throw new Error(`'${name}' collides with a bundled font.`);
         const dest = path.join(merged, name);
         const incoming = await fs.promises.readFile(sfntPath);
-        let same = false;
-        try {
-          same = (await fs.promises.readFile(dest)).equals(incoming);
-        } catch {
-          same = false;
-        }
+        const same = await fs.promises
+          .readFile(dest)
+          .then((cur) => cur.equals(incoming))
+          .catch(() => false);
         if (!same) {
           const tmp = `${dest}.${process.pid}.tmp`;
           await fs.promises.writeFile(tmp, incoming);

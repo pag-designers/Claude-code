@@ -6,13 +6,7 @@ import {
   type OpenB,
   type SessionB,
 } from './support/cp2b-harness';
-import {
-  brandLib,
-  installBrandLib,
-  KIT_ACME,
-  KIT_NEON,
-  type StubKit,
-} from './support/brand-library-stub';
+import { brandLib, installBrandLib, type StubKit } from './support/brand-library-stub';
 
 /**
  * CP4 "apply a Brand Kit" behaviour tests (start option, clip drawer, clip cards, selection bar, video page, new
@@ -339,7 +333,6 @@ test.describe('Clips grid: Branded badge', () => {
       'Branded with Acme Studio (rev 2)',
     );
     // while it re-renders the status pill takes the spot, then the new brand shows
-    const lib = brandLib(s.state);
     await s.state.emit?.('clips:updated', {
       ...clipOf(s, C2),
       status: 'rendering',
@@ -347,7 +340,6 @@ test.describe('Clips grid: Branded badge', () => {
     });
     await expect(card(s.page, C2).getByTestId('clip-branded-badge')).toHaveCount(0);
     clean(s);
-    void lib;
     await s.close();
   });
 
@@ -513,7 +505,7 @@ test.describe('Look and feel', () => {
   for (const theme of ['dark', 'light'] as const) {
     test(`drawer section, popover and start option fit and stay readable (${theme})`, async () => {
       const s = await open(VIDEO, { theme, prepare: seedBranded });
-      const { dlg, sec } = await openBrandSection(s.page, C2);
+      const { sec } = await openBrandSection(s.page, C2);
       await noOverflow(s.page, '[data-testid="brand-section"]');
       await expect(sec.getByTestId('brand-select')).toBeVisible();
       if (process.env.CP4_SHOTS) {
@@ -527,7 +519,6 @@ test.describe('Look and feel', () => {
       await s.page.keyboard.press('ArrowDown');
       await s.page.keyboard.press('Enter');
       await expect(s.page.getByRole('listbox')).toHaveCount(0);
-      void dlg;
       clean(s);
       await s.close();
     });
@@ -544,5 +535,3 @@ test.describe('Look and feel', () => {
     await s.close();
   });
 });
-
-export { KIT_ACME, KIT_NEON };

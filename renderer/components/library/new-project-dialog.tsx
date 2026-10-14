@@ -65,7 +65,7 @@ export function NewProjectDialog({
   const submit = () => {
     const trimmed = name.trim();
     create.mutate(
-      { from: { blank: true, aspect }, ...(trimmed ? { name: trimmed } : {}) },
+      { from: { blank: true, aspect }, brandKitId, ...(trimmed ? { name: trimmed } : {}) },
       {
         onSuccess: async (doc) => {
           try {

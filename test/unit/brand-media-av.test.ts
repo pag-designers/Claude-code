@@ -271,10 +271,10 @@ describe('audio', () => {
   };
 
   it.each([
-    ['quiet.wav', 'wav', -30],
-    ['loud.mp3', 'mp3', null],
-    ['mid.aac', 'aac', null],
-    ['mid.m4a', 'm4a', null],
+    ['quiet.wav', 'wav'],
+    ['loud.mp3', 'mp3'],
+    ['mid.aac', 'aac'],
+    ['mid.m4a', 'm4a'],
   ] as const)(
     '%s: loudness of the original reported, audition copy normalised',
     async (file, ext) => {

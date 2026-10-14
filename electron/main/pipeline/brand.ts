@@ -730,8 +730,8 @@ export class BrandService {
     let queued = 0;
     let skipped = 0;
     for (const c of clips) {
-      if (c.status === 'candidate') {
-        // not rendered yet: it just remembers the choice and picks it up when it renders
+      if (c.status === 'candidate' || c.status === 'queued' || c.status === 'rendering') {
+        // not rendered yet (or already rendering): it remembers the choice and a queued render picks it up
         await this.d.db.clip.update({
           where: { id: c.id },
           data: { brandKitId: args.kitId, ...styleData },

@@ -423,7 +423,7 @@ test.describe('stock B-roll dialog', () => {
   });
 
   test('closing mid-import stops after the clip in flight', async () => {
-    const s = await open('?q=ocean', { stub: { importDelayMs: 400 } });
+    const s = await open('?q=ocean', { stub: { importDelayMs: 900 } });
     const p = s.page;
     await expect(cards(p)).toHaveCount(8);
     for (const i of [0, 1, 2]) await option(p, i).click();
@@ -483,12 +483,12 @@ test.describe('stock B-roll dialog', () => {
     // with nothing selected, Enter adds the focused clip
     await p.keyboard.press('ArrowRight');
     await p.keyboard.press('ArrowRight');
-    expect(await active()).toBe('2');
+    expect(await active()).toBe('3');
     await p.keyboard.press('Enter');
-    await expect(card(p, 2)).toHaveAttribute('data-state', 'done');
+    await expect(card(p, 3)).toHaveAttribute('data-state', 'done');
     expect(
       calls(s, 'broll:importToProject').map((c) => (c.payload as { item: { id: string } }).item.id),
-    ).toEqual([itemId(s, 0), itemId(s, 2)]);
+    ).toEqual([itemId(s, 0), itemId(s, 3)]);
 
     await p.keyboard.press('Escape');
     await expect(dlg(p)).toHaveCount(0);

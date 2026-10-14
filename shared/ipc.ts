@@ -534,8 +534,9 @@ export const invokeContract = {
     captionStyleSchema,
   ),
   /**
-   * Apply a kit to rendered clips: sets `Clip.brandKitId` (null = remove branding) and re-renders them through the
-   * pipeline. Pass `clipIds` (a selection / one clip) or `videoId` (every clip of a video).
+   * Apply a kit to rendered clips: sets `Clip.brandKitId` and re-renders them through the pipeline.
+   * `kitId`: a kit id = brand with it (and adopt its subtitle style), 'none' = strip branding, null = inherit the run's setting.
+   * Pass `clipIds` (a selection / one clip) or `videoId` (every rendered clip of a video).
    */
   'brand:apply': ch(
     z.object({

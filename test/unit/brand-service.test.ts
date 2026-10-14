@@ -416,6 +416,18 @@ describe('Applying a kit', () => {
     expect(row.captionStyleId).toBe('clean-pop');
   });
 
+  it('a clip that is queued or rendering remembers the override but is not re-queued twice', async () => {
+    const { svc, db, video, rerendered } = await withClips();
+    const k = await svc.create('Acme');
+    const busy = await db.clip.create({
+      data: { videoId: video.id, title: 'busy', startSec: 0, endSec: 20, status: 'rendering' },
+    });
+    const r = await svc.apply({ kitId: k.id, clipIds: [busy.id] });
+    expect(r).toEqual({ queued: 0, skipped: 1 });
+    expect(rerendered).toEqual([]);
+    expect((await db.clip.findUniqueOrThrow({ where: { id: busy.id } })).brandKitId).toBe(k.id);
+  });
+
   it('rejects an unknown kit', async () => {
     const { svc, rendered } = await withClips();
     await expect(svc.apply({ kitId: 'nope', clipIds: [rendered.id] })).rejects.toMatchObject({

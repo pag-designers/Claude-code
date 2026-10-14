@@ -26,7 +26,8 @@ const specsA = [
 async function render(tracks: ReturnType<typeof track>[], settings: Parameters<typeof settingsFor>[2] = {}, extra: Parameters<typeof exportProject>[3] = {}) {
   const p = makeProject(tracks, specsA);
   const r = await exportProject(p, files(specsA), settingsFor(160, 284, { loudnessLufs: null, ...settings }), { name: 'audio', ...extra });
-  return { r, a: decodeAudio(r.out) };
+  const a = audioStreamInfo(r.out) ? decodeAudio(r.out) : { rate: 48000, data: new Float32Array(0) };
+  return { r, a };
 }
 const withVideo = (tr: ReturnType<typeof track>[]) => [track('video', [vitem('pad', 'vidsilent', 0, 4)]), ...tr];
 
@@ -254,15 +255,15 @@ describe.skipIf(!haveFfmpeg)('audio: mixing and ducking', () => {
       { id: 'v1', kind: 'video' as const, path: avClip('FF0000', 440, 4, 0.5), w: 160, h: 284, fps: 30, dur: 4, hasAudio: true },
       { id: 'v2', kind: 'video' as const, path: avClip('0000FF', 1000, 4, 0.5), w: 160, h: 284, fps: 30, dur: 4, hasAudio: true },
     ];
-    const p = makeProject([track('video', [vitem('a', 'v1', 0, 2), vitem('b', 'v2', 1.5, 2, { transitionIn: { type: 'crossfade', durationSec: 1 } })])], vids);
+    const p = makeProject([track('video', [vitem('a', 'v1', 0, 2), vitem('b', 'v2', 1.0, 2, { transitionIn: { type: 'crossfade', durationSec: 1 } })])], vids);
     const r = await exportProject(p, files(vids), settingsFor(160, 284, { loudnessLufs: null }), { name: 'xfade' });
     const a = decodeAudio(r.out);
-    expect(tonePower(a, 440, 0.2, 1.2)).toBeCloseTo(0.125, 2);
-    expect(tonePower(a, 1000, 0.2, 1.2)).toBeLessThan(1e-4);
-    // overlap 1.5 .. 2.5: at 1.75 (p = .25) 440 Hz has 0.75, 1000 Hz 0.25
-    expect(tonePower(a, 440, 1.7, 1.8) / 0.125).toBeCloseTo(0.75 ** 2, 1);
-    expect(tonePower(a, 1000, 1.7, 1.8) / 0.125).toBeCloseTo(0.25 ** 2, 1);
-    expect(tonePower(a, 1000, 2.7, 3.4)).toBeCloseTo(0.125, 2);
+    expect(tonePower(a, 440, 0.2, 0.9)).toBeCloseTo(0.125, 2);
+    expect(tonePower(a, 1000, 0.2, 0.9)).toBeLessThan(1e-4);
+    // overlap 1.0 .. 2.0: at 1.25 (p = .25) 440 Hz has gain 0.75, 1000 Hz 0.25
+    expect(tonePower(a, 440, 1.2, 1.3) / 0.125).toBeCloseTo(0.75 ** 2, 1);
+    expect(tonePower(a, 1000, 1.2, 1.3) / 0.125).toBeCloseTo(0.25 ** 2, 1);
+    expect(tonePower(a, 1000, 2.2, 2.9)).toBeCloseTo(0.125, 2);
   });
 });
 

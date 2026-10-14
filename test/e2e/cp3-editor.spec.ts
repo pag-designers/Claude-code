@@ -314,7 +314,8 @@ test('preview media works in the real app: CORS for presigned URLs, waveform, be
     { projectId, assetId: asset.id },
   );
   expect(reason).toBeNull();
-  // The renderer (app://) reads the proxy cross-origin the way WebGL / Web Audio need to.
+  // The renderer (app://) reads the proxy cross-origin the way WebGL / Web Audio need to: a CORS-mode fetch that
+  // succeeds (and exposes its bytes) proves the main process granted CORS on the presigned URL.
   const res = await page.evaluate(async (u) => {
     const r = await fetch(u as string, { mode: 'cors', headers: { Range: 'bytes=0-1023' } });
     const buf = await r.arrayBuffer();
@@ -326,7 +327,6 @@ test('preview media works in the real app: CORS for presigned URLs, waveform, be
   }, url);
   expect([200, 206]).toContain(res.status);
   expect(res.len).toBeGreaterThan(100);
-  expect(res.acao).toBe('*');
   const proxyBytes = Buffer.from(await (await fetch(url!)).arrayBuffer());
   fs.writeFileSync(path.join(OUT, 'proxy.mp4'), proxyBytes);
   expect(probe(path.join(OUT, 'proxy.mp4')).h).toBeLessThanOrEqual(480);

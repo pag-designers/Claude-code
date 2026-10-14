@@ -22,6 +22,8 @@ export function Toaster(props: ToasterProps) {
         loading: <LoaderCircle className="size-4 animate-spin text-primary-text" aria-hidden />,
       }}
       toastOptions={{
+        // Radix modals set pointer-events:none on <body>; toasts (e.g. an "Open" action) must stay clickable.
+        style: { pointerEvents: 'auto' },
         classNames: {
           toast:
             '!rounded-xl !border !border-border-strong !bg-popover !text-foreground !shadow-lg !font-sans !text-sm !gap-3 !p-3.5',

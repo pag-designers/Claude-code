@@ -1,6 +1,6 @@
 # Clipfern module graph
 
-Generated from the real `import`s of 621 TypeScript files (`shared/`, `electron/`, `renderer/`; tests, the generated migration file and the Python sidecar excluded). Numbers on an arrow are the count of import statements from one module group to another. Regenerate with the script in the PR description or by asking for a refresh.
+Generated from the real `import`s of 621 TypeScript files (`shared/`, `electron/`, `renderer/`; tests, the generated migration file and the Python sidecar excluded). Numbers on an arrow are the count of import statements from one module group to another. It is a snapshot of the code at the commit that added it; ask for a refresh after large changes (there is no checked-in generator).
 
 ## Layers
 

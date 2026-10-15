@@ -15,7 +15,7 @@ test.skip(!canRunB() || !DIR, 'needs a Chromium binary, a built renderer and CP5
 let h: HarnessB;
 test.beforeAll(async () => {
   test.setTimeout(300_000);
-  h = await (await import('./support/publish-harness')).createHarnessB();
+  h = await createHarnessB();
   fs.mkdirSync(DIR!, { recursive: true });
 });
 test.afterAll(async () => {

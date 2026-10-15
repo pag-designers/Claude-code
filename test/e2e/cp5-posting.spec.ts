@@ -88,7 +88,7 @@ async function waitPost(id: string, status: PostView['status'], ms = 60_000): Pr
         last = await invoke<PostView>('posts:get', { id });
         return last.status;
       },
-      { timeout: ms, intervals: [400], message: () => `post ${id} last=${JSON.stringify(last)}` },
+      { timeout: ms, intervals: [400], message: `waiting for post ${id} to be ${status}` },
     )
     .toBe(status);
   return last!;
@@ -246,9 +246,9 @@ test('a real run produces a rendered clip to post', async () => {
 
 test('connect YouTube, Instagram and TikTok through the real loopback OAuth flow', async () => {
   // before any credentials: connecting says what is missing
-  const before = await invoke<{ setup: { platform: string; configured: boolean; redirectUri: string }[] }>(
-    'accounts:list',
-  );
+  const before = await invoke<{
+    setup: { platform: string; configured: boolean; redirectUri: string }[];
+  }>('accounts:list');
   expect(before.setup.every((s) => !s.configured)).toBe(true);
   expect(before.setup.find((s) => s.platform === 'shorts')!.redirectUri).toBe(
     `http://127.0.0.1:${LOOPBACK_PORT}/oauth/shorts`,
@@ -314,10 +314,9 @@ test('prefill gives the clip’s own title and hashtags; YouTube "post now" uplo
   expect(pre.title.length).toBeGreaterThan(0);
   expect(pre.fields.platform).toBe('shorts');
 
-  const validate = await invoke<{ report: { ok: boolean; media: { width: number; height: number } } }>(
-    'publish:validate',
-    { source: { clipId }, platform: 'shorts' },
-  );
+  const validate = await invoke<{
+    report: { ok: boolean; media: { width: number; height: number } };
+  }>('publish:validate', { source: { clipId }, platform: 'shorts' });
   expect(validate.report.ok).toBe(true);
   expect(validate.report.media.height).toBeGreaterThan(validate.report.media.width);
 
@@ -393,7 +392,14 @@ test('TikTok (unaudited app): never public; the platform’s limit is explained,
   };
   const wantPublic = await invoke<{ posts: PostView[]; refused: { reason: string }[] }>(
     'posts:create',
-    { items: [{ ...base, fields: { platform: 'tiktok', title: 'E2E tt', privacyLevel: 'PUBLIC_TO_EVERYONE' } }] },
+    {
+      items: [
+        {
+          ...base,
+          fields: { platform: 'tiktok', title: 'E2E tt', privacyLevel: 'PUBLIC_TO_EVERYONE' },
+        },
+      ],
+    },
   );
   if (wantPublic.refused.length) {
     expect(wantPublic.refused[0]!.reason).toMatch(/only me|private|audit|SELF_ONLY|privacy/i);
@@ -404,7 +410,12 @@ test('TikTok (unaudited app): never public; the platform’s limit is explained,
   expect(tt.state.published.every((u) => u.postInfo?.privacy_level === 'SELF_ONLY')).toBe(true);
 
   const priv = await invoke<{ posts: PostView[]; refused: unknown[] }>('posts:create', {
-    items: [{ ...base, fields: { platform: 'tiktok', title: 'E2E tt private', privacyLevel: 'SELF_ONLY' } }],
+    items: [
+      {
+        ...base,
+        fields: { platform: 'tiktok', title: 'E2E tt private', privacyLevel: 'SELF_ONLY' },
+      },
+    ],
   });
   expect(priv.refused).toEqual([]);
   await waitPost(priv.posts[0]!.id, 'published');
@@ -535,15 +546,34 @@ test('restart: a post that came due while closed is published (within grace) or 
   const stillFuture = await mk('E2E still future');
   const before = yt.state.videos.length;
 
+  const pid = app.process().pid!;
   await app.close();
+  expect(() => process.kill(pid, 0)).toThrow(); // really gone: nothing else holds the database
   // The app is closed. Time passes: edit the stored schedule directly.
   const db = createClient({ url: `file:${path.join(userData, 'clipfern.db')}` });
-  const sample = await db.execute({ sql: 'SELECT scheduledAt FROM Post WHERE id = ?', args: [late] });
+  expect((await db.execute('PRAGMA integrity_check')).rows[0]![0]).toBe('ok'); // a clean shutdown leaves a sound file
+  const sample = await db.execute({
+    sql: 'SELECT scheduledAt FROM Post WHERE id = ?',
+    args: [late],
+  });
   const raw = sample.rows[0]!.scheduledAt;
-  const enc = (ms: number) => (typeof raw === 'number' || typeof raw === 'bigint' ? ms : new Date(ms).toISOString());
-  await db.execute({ sql: 'UPDATE Post SET scheduledAt = ? WHERE id = ?', args: [enc(Date.now() - 10 * 60_000), late] });
-  await db.execute({ sql: 'UPDATE Post SET scheduledAt = ? WHERE id = ?', args: [enc(Date.now() - 5 * 3_600_000), tooLate] });
+  const enc = (ms: number) =>
+    typeof raw === 'number' || typeof raw === 'bigint' ? ms : new Date(ms).toISOString();
+  await db.execute({
+    sql: 'UPDATE Post SET scheduledAt = ? WHERE id = ?',
+    args: [enc(Date.now() - 10 * 60_000), late],
+  });
+  await db.execute({
+    sql: 'UPDATE Post SET scheduledAt = ? WHERE id = ?',
+    args: [enc(Date.now() - 5 * 3_600_000), tooLate],
+  });
+  expect((await db.execute('PRAGMA integrity_check')).rows[0]![0]).toBe('ok');
+  // leave no -wal/-shm of this (different) SQLite build behind for the app to inherit
+  await db.execute('PRAGMA wal_checkpoint(TRUNCATE)');
   db.close();
+  const walFile = path.join(userData, 'clipfern.db-wal');
+  expect(fs.existsSync(walFile) ? fs.statSync(walFile).size : 0).toBe(0);
+  fs.rmSync(path.join(userData, 'clipfern.db-shm'), { force: true }); // nobody has the database open
 
   await launch();
   await waitPost(late, 'published', 90_000);

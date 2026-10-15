@@ -368,7 +368,9 @@ function TimeGrid(p: CalendarProps & { days: Date[] }) {
         : 8;
     firstHour.current = target;
     const row = el.querySelector<HTMLElement>(`[data-hour-row="${Math.max(0, target - 1)}"]`);
-    if (row) el.scrollTop = row.offsetTop - 40;
+    if (row)
+      el.scrollTop =
+        row.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop;
     // run when the visible days change, not on every minute tick
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [days[0]?.getTime(), cols]);

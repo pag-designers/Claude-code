@@ -38,7 +38,7 @@ export function PlatformMark({
 }: {
   platform: Platform;
   className?: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
 }) {
   const s = PLATFORM_STYLE[platform];
   return (
@@ -49,11 +49,20 @@ export function PlatformMark({
         'flex shrink-0 items-center justify-center rounded-lg',
         s.soft,
         s.text,
-        size === 'sm' ? 'size-6 rounded-md' : size === 'lg' ? 'size-10' : 'size-8',
+        size === 'xs'
+          ? 'size-[18px] rounded-full'
+          : size === 'sm'
+            ? 'size-6 rounded-md'
+            : size === 'lg'
+              ? 'size-10'
+              : 'size-8',
         className,
       )}
     >
-      <PlatformGlyph platform={platform} className={size === 'sm' ? 'size-3.5' : 'size-[18px]'} />
+      <PlatformGlyph
+        platform={platform}
+        className={size === 'xs' ? 'size-2.5' : size === 'sm' ? 'size-3.5' : 'size-[18px]'}
+      />
     </span>
   );
 }

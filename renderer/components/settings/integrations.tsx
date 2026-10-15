@@ -9,6 +9,7 @@ import { Banner } from '@/components/ui/banner';
 import { Badge } from '@/components/ui/badge';
 import { InstagramGlyph, TiktokGlyph, YoutubeGlyph } from '@/components/ui/brand-icons';
 import { SecretInput } from '@/components/ui/secret-input';
+import { useAccounts } from '@/lib/publish/queries';
 import { useSecretActions, useSecrets } from '@/lib/settings';
 import { cn } from '@/lib/utils';
 import { SettingsCard, openExternal } from './common';
@@ -234,6 +235,19 @@ function Guide({ steps }: { steps: Step[] }) {
 export function IntegrationsSettings() {
   const { keys, loading } = useSecrets();
   const { save, clear } = useSecretActions();
+  // deep links such as /settings/integrations/#tiktok-audit: the cards fill in after the page loads (accounts, quota),
+  // so scroll once they have, or the target would move away again
+  const accountsReady = useAccounts().isSuccess;
+  const scrolled = React.useRef(false);
+  React.useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (!id || !accountsReady || scrolled.current) return;
+    const t = window.setTimeout(() => {
+      scrolled.current = true;
+      document.getElementById(id)?.scrollIntoView({ block: 'start' });
+    }, 80);
+    return () => window.clearTimeout(t);
+  }, [accountsReady]);
   return (
     <>
       <SettingsHeading

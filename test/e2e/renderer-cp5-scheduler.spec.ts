@@ -68,7 +68,8 @@ test.describe('status bar and top-bar indicator', () => {
     const ind = s.page.getByTestId('scheduler-indicator');
     await expect(ind).toHaveAttribute('data-tone', 'active');
     await expect(ind).toContainText('Scheduler active');
-    await expect(ind).toContainText('next post in 8 h');
+    await expect(ind).toContainText('next in 8 h');
+    await expect(ind).toHaveAttribute('aria-label', /next post in 8 h/);
     await expect(ind).toContainText('1 missed');
     await expect(ind).toHaveAttribute('href', /\/scheduler\/$/);
 
@@ -390,17 +391,19 @@ test.describe('drag to reschedule', () => {
   test('week: dropping on an hour sets that hour', async () => {
     const s = await open();
     await view(s.page, 'Week');
-    const target = s.page.locator('[data-testid="hour-cell"][data-slot="2026-10-16-15"]');
+    const target = s.page.locator('[data-testid="hour-cell"][data-slot="2026-10-16-14"]');
+    // bring the whole grid into view first: Playwright cannot scroll in the middle of a native drag
+    await s.page.evaluate(() => document.querySelector('main')!.scrollTo(0, 99999));
     await chip(s.page, 'p-tom-ig').dragTo(target, { targetPosition: { x: 40, y: 2 } });
     await expect.poll(() => s.lib.log.updates.length).toBe(1);
     const u = lastUpdate(s);
     expect(u.id).toBe('p-tom-ig');
     const d = new Date(u.scheduledAt as number);
-    expect([d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()]).toEqual([2026, 9, 16, 15]);
+    expect([d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()]).toEqual([2026, 9, 16, 14]);
     expect(d.getMinutes()).toBeLessThan(10);
     await expect(
       s.page.locator(
-        '[data-testid="hour-cell"][data-slot="2026-10-16-15"] [data-post-id="p-tom-ig"]',
+        '[data-testid="hour-cell"][data-slot="2026-10-16-14"] [data-post-id="p-tom-ig"]',
       ),
     ).toHaveCount(1);
     clean(s);
@@ -732,6 +735,9 @@ test.describe('post drawer', () => {
     await expect(rep.locator('[data-severity="error"]')).toContainText('3:12 long');
     await expect(rep.locator('[data-severity="warning"]')).toContainText('Bitrate is low');
     await expect(rep.getByTestId('media-facts')).toContainText('1080×1920');
+    await expect(rep.getByTestId('spec-summary')).toContainText(
+      'YouTube Shorts accepts: up to 3 min',
+    );
     const sw = d.getByRole('switch', { name: 'Auto-fix' });
     await expect(sw).toBeChecked();
     await sw.click();

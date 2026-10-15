@@ -126,7 +126,7 @@ export function SchedulerStatusBar({
             >
               {title}
             </p>
-            <p className="max-w-[34rem] text-xs text-muted-foreground">{detail}</p>
+            <p className="max-w-[22rem] text-xs text-muted-foreground">{detail}</p>
           </div>
         </div>
         <dl className="flex min-w-0 flex-1 flex-wrap items-center gap-x-8 gap-y-2">

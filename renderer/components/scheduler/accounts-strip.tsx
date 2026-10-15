@@ -98,8 +98,8 @@ function AccountCard({
           <AccountAvatar account={account} className="size-9" />
           <PlatformMark
             platform={account.platform}
-            size="sm"
-            className="absolute -bottom-1 -right-1 border-2 border-card"
+            size="xs"
+            className="absolute -bottom-1 -right-1.5 border-2 border-card bg-card"
           />
         </div>
         <div className="min-w-0 flex-1">

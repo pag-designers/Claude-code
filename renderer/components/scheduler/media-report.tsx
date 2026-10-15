@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { CircleAlert, CircleCheck, FileVideo, TriangleAlert, Wand2 } from 'lucide-react';
 import type { Platform } from '@shared/cp2';
+import { SPEC_SUMMARY } from '@shared/platform-specs';
 import type { MediaReport } from '@shared/publish';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -92,6 +93,9 @@ export function MediaReportView({
           >
             <FileVideo className="size-3.5 shrink-0" aria-hidden />
             <span className="min-w-0 truncate">{describeMedia(report.media)}</span>
+          </p>
+          <p className="mt-1 text-2xs text-subtle" data-testid="spec-summary">
+            {name} accepts: {SPEC_SUMMARY[platform]}
           </p>
         </div>
       </div>

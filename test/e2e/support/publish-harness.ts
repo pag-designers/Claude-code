@@ -14,6 +14,7 @@ import type { Page } from '@playwright/test';
 import type { StubState } from './clipfern-stub';
 
 export { canRunB, createHarnessB, FIXED_NOW };
+export type { HarnessB };
 
 export interface PubSession {
   page: Page;

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   CalendarClock,
   CalendarDays,
@@ -46,17 +47,7 @@ type Mode = 'calendar' | 'queue';
 const MODES = ['calendar', 'queue'] as const;
 const VIEWS = ['month', 'week', 'day'] as const;
 
-/** `?post=<id>` (notification / tray deep link) opens that post's panel on arrival. */
-function initialPostId(): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return new URLSearchParams(window.location.search).get('post');
-  } catch {
-    return null;
-  }
-}
-
-export function SchedulerView() {
+function SchedulerPage() {
   const nowMs = useNowMs();
   const accountsQ = useAccounts();
   const postsQ = usePosts();
@@ -74,7 +65,15 @@ export function SchedulerView() {
   );
   const [cursorMs, setCursorMs] = React.useState<number | null>(null);
   const [filters, setFilters] = React.useState<PostFilters>(NO_FILTERS);
-  const [openId, setOpenId] = React.useState<string | null>(initialPostId);
+  // `?post=<id>` (a notification, the tray, or "Posted to … view" in the Library) opens that post's panel
+  const paramId = useSearchParams().get('post');
+  const [pickedId, setPickedId] = React.useState<string | null>(null);
+  const [closedParam, setClosedParam] = React.useState<string | null>(null);
+  const openId = pickedId ?? (paramId && paramId !== closedParam ? paramId : null);
+  const setOpenId = (id: string | null) => {
+    setPickedId(id);
+    if (id === null) setClosedParam(paramId);
+  };
   const [pickOpen, setPickOpen] = React.useState(false);
   const [sched, setSched] = React.useState<{ sources: PostSource[]; at: number | null } | null>(
     null,
@@ -297,4 +296,13 @@ export function SchedulerView() {
 function withTimeOfDay(day: Date, now: number): number {
   const noon = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 12, 0, 0, 0).getTime();
   return noon > now + 15 * 60_000 ? noon : now + 60 * 60_000;
+}
+
+/** The page; `useSearchParams` needs a Suspense boundary in a static export. */
+export function SchedulerView() {
+  return (
+    <React.Suspense fallback={null}>
+      <SchedulerPage />
+    </React.Suspense>
+  );
 }

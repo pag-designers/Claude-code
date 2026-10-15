@@ -1,10 +1,26 @@
+import fs from 'node:fs';
 import { PrismaClient } from '@prisma/client';
 import { PrismaLibSQL } from '@prisma/adapter-libsql';
 import { MIGRATIONS } from './migrations.generated';
+import { isDbFault } from './faults';
 
 export type Db = PrismaClient;
 
+/** What happened when the database file was found damaged at startup (see `recoverDatabase`). */
+export interface RecoveryReport {
+  /** Why the file was rejected (the SQLite message). */
+  reason: string;
+  /** Where the damaged file (and its -wal/-shm) were moved to; nothing is deleted. */
+  quarantinedTo: string;
+  /** Rows copied into the fresh database, per table. */
+  recovered: Record<string, number>;
+  /** Rows that could not be read or inserted, per table (tables with none are omitted). */
+  lost: Record<string, number>;
+}
+
 export interface DbHandle {
+  /** Set when the previous file was damaged and has been rebuilt on this start. */
+  recovery: RecoveryReport | null;
   /** A stable handle: after `reconnect()` it transparently talks to the new connection. */
   prisma: Db;
   close(): Promise<void>;
@@ -26,6 +42,11 @@ export interface DbHandle {
  */
 export async function openDatabase(filePath: string): Promise<DbHandle> {
   const url = filePath === ':memory:' ? 'file::memory:' : `file:${filePath}`;
+  let recovery: RecoveryReport | null = null;
+  if (filePath !== ':memory:' && fs.existsSync(filePath)) {
+    const problem = await findProblem(url);
+    if (problem) recovery = await recoverDatabase(filePath, problem);
+  }
   let current = await connect(url);
   try {
     await applyMigrations(current);
@@ -47,7 +68,10 @@ export async function openDatabase(filePath: string): Promise<DbHandle> {
   const RETIRE_AFTER_MS = 5_000;
   return {
     prisma,
+    recovery,
     close: async () => {
+      // Fold the write-ahead log into the main file so a closed database is one self-contained file.
+      await current.$queryRawUnsafe('PRAGMA wal_checkpoint(TRUNCATE)').catch(() => {});
       const all = [current, ...retired];
       retired.clear();
       await Promise.allSettled(all.map((c) => c.$disconnect()));
@@ -66,6 +90,115 @@ export async function openDatabase(filePath: string): Promise<DbHandle> {
       return swapping;
     },
   };
+}
+
+/**
+ * `null` when the database is sound, else the SQLite message. Runs BEFORE the real connection is opened and uses the
+ * same SQLite build (ADR-022), so no locks of another build are involved.
+ */
+async function findProblem(url: string): Promise<string | null> {
+  const prisma = new PrismaClient({ adapter: new PrismaLibSQL({ url }) });
+  try {
+    await prisma.$connect();
+    const rows = await prisma.$queryRawUnsafe<Record<string, unknown>[]>('PRAGMA quick_check');
+    const msgs = rows.map((r) => String(Object.values(r)[0]));
+    return msgs.length === 1 && msgs[0] === 'ok' ? null : msgs.slice(0, 3).join('; ');
+  } catch (e) {
+    if (isDbFault(e)) return e instanceof Error ? e.message : String(e);
+    throw e;
+  } finally {
+    await prisma.$disconnect().catch(() => {});
+  }
+}
+
+const q = (id: string): string => `"${id.replace(/"/g, '""')}"`;
+
+/**
+ * A damaged database is moved aside (never deleted), a fresh one is created and migrated, and every row that can still
+ * be read is copied over table by table, row by row (a bad page costs only the rows on it).
+ */
+export async function recoverDatabase(filePath: string, reason: string): Promise<RecoveryReport> {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const quarantined = `${filePath}.corrupt-${stamp}`;
+  for (const ext of ['', '-wal', '-shm'])
+    if (fs.existsSync(filePath + ext)) fs.renameSync(filePath + ext, quarantined + ext);
+  const url = `file:${filePath}`;
+  const fresh = await connect(url);
+  await applyMigrations(fresh);
+  const old = new PrismaClient({ adapter: new PrismaLibSQL({ url: `file:${quarantined}` }) });
+  const recovered: Record<string, number> = {};
+  const lost: Record<string, number> = {};
+  try {
+    const tables = (
+      await fresh.$queryRawUnsafe<{ name: string }[]>(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != '_clipfern_migrations'",
+      )
+    ).map((t) => t.name);
+    const retry: { table: string; cols: string[]; values: unknown[] }[] = [];
+    for (const t of tables) {
+      recovered[t] = 0;
+      let cols: string[] = [];
+      try {
+        const mine = (
+          await fresh.$queryRawUnsafe<{ name: string }[]>(`PRAGMA table_info(${q(t)})`)
+        ).map((c) => c.name);
+        const theirs = new Set(
+          (await old.$queryRawUnsafe<{ name: string }[]>(`PRAGMA table_info(${q(t)})`)).map(
+            (c) => c.name,
+          ),
+        );
+        cols = mine.filter((c) => theirs.has(c));
+      } catch {
+        lost[t] = (lost[t] ?? 0) + 1; // the whole table definition was unreadable
+        continue;
+      }
+      if (!cols.length) continue;
+      const list = cols.map(q).join(', ');
+      const insert = `INSERT OR IGNORE INTO ${q(t)} (${list}) VALUES (${cols.map(() => '?').join(', ')})`;
+      let last = -1n;
+      let failures = 0;
+      for (;;) {
+        let rows: Record<string, unknown>[];
+        try {
+          rows = await old.$queryRawUnsafe<Record<string, unknown>[]>(
+            `SELECT rowid AS __rid, ${list} FROM ${q(t)} WHERE rowid > ${last} ORDER BY rowid LIMIT 100`,
+          );
+        } catch {
+          // an unreadable page: step over it one rowid at a time (bounded)
+          last += 1n;
+          lost[t] = (lost[t] ?? 0) + 1;
+          if (++failures > 2000) break;
+          continue;
+        }
+        if (!rows.length) break;
+        for (const r of rows) {
+          last = BigInt(r.__rid as bigint | number);
+          const values = cols.map((c) => r[c]);
+          try {
+            await fresh.$executeRawUnsafe(insert, ...values);
+            recovered[t] = (recovered[t] ?? 0) + 1;
+          } catch {
+            retry.push({ table: t, cols, values }); // often a foreign key whose parent comes later
+          }
+        }
+      }
+    }
+    for (const { table, cols, values } of retry) {
+      try {
+        await fresh.$executeRawUnsafe(
+          `INSERT OR IGNORE INTO ${q(table)} (${cols.map(q).join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`,
+          ...values,
+        );
+        recovered[table] = (recovered[table] ?? 0) + 1;
+      } catch {
+        lost[table] = (lost[table] ?? 0) + 1;
+      }
+    }
+  } finally {
+    await old.$disconnect().catch(() => {});
+    await fresh.$disconnect().catch(() => {});
+  }
+  return { reason, quarantinedTo: quarantined, recovered, lost };
 }
 
 async function connect(url: string): Promise<Db> {

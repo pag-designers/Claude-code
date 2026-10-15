@@ -88,6 +88,18 @@ export async function createServices(opts: {
     lastHeal = now;
     log.warn(`database fault (${String(e)}); reopening the connection (#${healStreak})`);
     await dbHandle.reconnect();
+    if (healStreak === 3) {
+      opts.emit.osNotify({
+        id: 'db-fault',
+        kind: 'system',
+        level: 'error',
+        title: 'Clipfern has a database problem',
+        body: 'Quit and reopen Clipfern: it checks its database at startup and repairs it if it is damaged.',
+        href: null,
+        createdAt: Date.now(),
+        readAt: null,
+      });
+    }
     if (healStreak === 3)
       log.error(
         'The database keeps failing after reconnecting: the file may be damaged, on a volume that does not support SQLite locking (network / cloud-synced folder), or open in another Clipfern process. Quit every Clipfern instance (also the one in the menu bar) and, as a last resort, move clipfern.db* out of the app data folder (your clips stay in storage).',
@@ -178,6 +190,23 @@ export async function createServices(opts: {
     },
     { concurrency: 1, maxAttempts: 4 },
   );
+
+  if (dbHandle.recovery) {
+    const r = dbHandle.recovery;
+    const n = Object.values(r.recovered).reduce((a, b) => a + b, 0);
+    const lostN = Object.values(r.lost).reduce((a, b) => a + b, 0);
+    log.error(
+      `database was damaged (${r.reason}); rebuilt it, ${n} rows recovered, ${lostN} lost; damaged file kept at ${r.quarantinedTo}`,
+    );
+    await notifications.create({
+      kind: 'system',
+      level: 'warning',
+      title: 'Clipfern repaired its database',
+      body: `The database file was damaged, so it was rebuilt: ${n} entries were recovered${lostN ? `, ${lostN} could not be read` : ''}. Your API keys and the files in storage are untouched. If something is missing, check Settings. The damaged file is kept next to the new one (${path.basename(r.quarantinedTo)}).`,
+      href: '/settings/storage/',
+      os: true,
+    });
+  }
 
   log.info('services ready');
   return {

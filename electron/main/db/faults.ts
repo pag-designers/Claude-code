@@ -7,7 +7,7 @@ export function isDbFault(e: unknown): boolean {
     e instanceof Error
       ? `${e.message} ${String((e as { code?: unknown }).code ?? '')} ${String((e as { cause?: unknown }).cause ?? '')}`
       : String(e);
-  return /SQLITE_IOERR|disk I\/O error|malformed|SQLITE_CORRUPT|SQLITE_NOTADB|SQLITE_PROTOCOL|SQLITE_CANTOPEN|unable to open database/i.test(
+  return /SQLITE_IOERR|disk I\/O error|malformed|SQLITE_CORRUPT|SQLITE_NOTADB|SQLITE_PROTOCOL|SQLITE_CANTOPEN|file is not a database|unable to open database/i.test(
     m,
   );
 }

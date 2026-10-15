@@ -34,6 +34,7 @@ import {
   isCancelable,
   isEditable,
   isTiktokUnaudited,
+  localFieldIssues,
   needsReconnect,
   reportBlocks,
 } from '@/lib/publish/model';
@@ -138,7 +139,8 @@ function Body({ post, onClose }: { post: PostView; onClose: () => void }) {
   const validation = useValidate(source, post.platform, debouncedFields, editable);
   const report = validation.data?.report;
   const fieldIssues = validation.data?.fieldIssues ?? [];
-  const blocked = reportBlocks(report, draft.autoFix);
+  const hasIssues = fieldIssues.length > 0 || localFieldIssues(draft.fields).length > 0;
+  const blocked = reportBlocks(report, draft.autoFix) || hasIssues;
 
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const update = useUpdatePost();

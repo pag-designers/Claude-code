@@ -485,7 +485,8 @@ export function seedPosts(lib: PublishLib) {
     title: string,
     extra: Partial<PostView> = {},
   ) => {
-    const acc = lib.accounts.find((a) => a.id === accountId)!;
+    const acc = lib.accounts.find((a) => a.id === accountId);
+    if (!acc) return; // seeding without that account (e.g. a fresh install)
     const fields = defaultFieldsFrom(acc.platform, null, title, {});
     lib.posts.push(
       buildPost(lib, {

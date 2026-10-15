@@ -266,7 +266,6 @@ function MonthGrid(p: CalendarProps) {
                 aria-current={isToday ? 'date' : undefined}
                 onDragOver={(e) => {
                   if (!dnd.dragging) return;
-                  if (past) return;
                   e.preventDefault();
                   e.dataTransfer.dropEffect = 'move';
                   if (dnd.over !== key) dnd.setOver(key);
@@ -283,7 +282,10 @@ function MonthGrid(p: CalendarProps) {
                   di < 6 && 'border-r',
                   !inMonth && 'bg-muted/30',
                   past && inMonth && 'bg-muted/15',
-                  dropping && 'bg-primary-soft ring-2 ring-inset ring-primary/70',
+                  dropping &&
+                    (past
+                      ? 'bg-danger-soft ring-2 ring-inset ring-danger/60'
+                      : 'bg-primary-soft ring-2 ring-inset ring-primary/70'),
                 )}
               >
                 <div className="flex items-center justify-between px-0.5">
@@ -450,7 +452,7 @@ function TimeGrid(p: CalendarProps & { days: Date[] }) {
                   aria-label={`${d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}, ${hourLabel(h) || '12 AM'}${list.length ? `, ${list.length} ${list.length === 1 ? 'post' : 'posts'}` : ''}`}
                   onDoubleClick={() => !past && p.onAdd(d, Math.max(slotStart, p.now + 5 * 60_000))}
                   onDragOver={(e) => {
-                    if (!dnd.dragging || past) return;
+                    if (!dnd.dragging) return;
                     e.preventDefault();
                     e.dataTransfer.dropEffect = 'move';
                     if (dnd.over !== key) dnd.setOver(key);
@@ -467,7 +469,10 @@ function TimeGrid(p: CalendarProps & { days: Date[] }) {
                   className={cn(
                     'relative flex min-h-14 flex-col gap-1 border-l border-t p-1 transition-colors duration-(--duration-fast)',
                     past && 'bg-muted/20',
-                    dnd.over === key && 'bg-primary-soft ring-2 ring-inset ring-primary/70',
+                    dnd.over === key &&
+                      (past
+                        ? 'bg-danger-soft ring-2 ring-inset ring-danger/60'
+                        : 'bg-primary-soft ring-2 ring-inset ring-primary/70'),
                   )}
                 >
                   {list.map((post) => (

@@ -5,8 +5,14 @@ import { MIGRATIONS } from './migrations.generated';
 export type Db = PrismaClient;
 
 export interface DbHandle {
+  /** A stable handle: after `reconnect()` it transparently talks to the new connection. */
   prisma: Db;
   close(): Promise<void>;
+  /**
+   * Opens a fresh Prisma client + SQLite connection and retires the old one. The answer to a connection that went bad
+   * (`disk I/O error`, file locks dropped by the OS): every later call uses the new connection.
+   */
+  reconnect(): Promise<void>;
 }
 
 /**
@@ -20,18 +26,55 @@ export interface DbHandle {
  */
 export async function openDatabase(filePath: string): Promise<DbHandle> {
   const url = filePath === ':memory:' ? 'file::memory:' : `file:${filePath}`;
+  let current = await connect(url);
+  try {
+    await applyMigrations(current);
+  } catch (e) {
+    await current.$disconnect();
+    throw e;
+  }
+  // One stable object for every service; `reconnect()` swaps what it forwards to.
+  const prisma = new Proxy({} as Db, {
+    get(_t, prop) {
+      const v = Reflect.get(current as object, prop) as unknown;
+      return typeof v === 'function' ? (v as (...a: unknown[]) => unknown).bind(current) : v;
+    },
+    has: (_t, prop) => prop in (current as object),
+  });
+  let swapping: Promise<void> = Promise.resolve();
+  // The retired connection stays open for a moment so queries already running on it can finish.
+  const retired = new Set<Db>();
+  const RETIRE_AFTER_MS = 5_000;
+  return {
+    prisma,
+    close: async () => {
+      const all = [current, ...retired];
+      retired.clear();
+      await Promise.allSettled(all.map((c) => c.$disconnect()));
+    },
+    reconnect: () => {
+      swapping = swapping.then(async () => {
+        const fresh = await connect(url);
+        const old = current;
+        current = fresh;
+        retired.add(old);
+        const t = setTimeout(() => {
+          if (retired.delete(old)) void old.$disconnect().catch(() => {});
+        }, RETIRE_AFTER_MS);
+        t.unref?.();
+      });
+      return swapping;
+    },
+  };
+}
+
+async function connect(url: string): Promise<Db> {
   const adapter = new PrismaLibSQL({ url });
   const prisma = new PrismaClient({ adapter });
   await prisma.$connect();
   await prisma.$queryRawUnsafe('PRAGMA journal_mode = WAL');
   await prisma.$queryRawUnsafe('PRAGMA foreign_keys = ON');
-  try {
-    await applyMigrations(prisma);
-  } catch (e) {
-    await prisma.$disconnect();
-    throw e;
-  }
-  return { prisma, close: () => prisma.$disconnect() };
+  return prisma;
 }
 
 /** Splits an embedded migration into single statements (comments dropped). */

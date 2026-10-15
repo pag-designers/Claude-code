@@ -77,7 +77,26 @@ export async function createServices(opts: {
     osNotify: opts.emit.osNotify,
   });
 
+  // Self-healing (ADR-022): a database I/O fault reopens the connection, at most once per 10 s; if it keeps coming
+  // back the file itself is the problem and the log says so once.
+  let lastHeal = 0;
+  let healStreak = 0;
+  const heal = async (e: unknown): Promise<void> => {
+    const now = Date.now();
+    if (now - lastHeal < 10_000) return;
+    healStreak = now - lastHeal < 120_000 ? healStreak + 1 : 1;
+    lastHeal = now;
+    log.warn(`database fault (${String(e)}); reopening the connection (#${healStreak})`);
+    await dbHandle.reconnect();
+    if (healStreak === 3)
+      log.error(
+        'The database keeps failing after reconnecting: the file may be damaged, on a volume that does not support SQLite locking (network / cloud-synced folder), or open in another Clipfern process. Quit every Clipfern instance (also the one in the menu bar) and, as a last resort, move clipfern.db* out of the app data folder (your clips stay in storage).',
+      );
+  };
+  settings.onFault = heal;
+
   const queue = new JobQueue(db, {
+    onFault: heal,
     // One pipeline job + two renders must be able to run together regardless of a low saved value.
     concurrency: () => Math.max(currentConcurrency, 3),
     onUpdate: opts.emit.job,

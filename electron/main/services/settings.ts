@@ -23,6 +23,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export class SettingsService {
   private cache: Settings | null = null;
   private listeners = new Set<(s: Settings) => void>();
+  /** Set by the host: reopens the database connection after an I/O fault (see context.ts). */
+  onFault: ((e: unknown) => Promise<void> | void) | null = null;
 
   constructor(private readonly db: Db) {}
 
@@ -82,6 +84,7 @@ export class SettingsService {
         const keys = entries.map(([k]) => k).join(',');
         log.warn(`settings write failed (attempt ${attempt + 1}, keys: ${keys}): ${String(e)}`);
         if (attempt >= 2 || !isTransientDbError(e)) throw e;
+        await Promise.resolve(this.onFault?.(e)).catch(() => {});
         await sleep(150 * (attempt + 1));
       }
     }

@@ -1,5 +1,6 @@
 import type { JobView } from '@shared/domain';
 import type { Db } from '../db/client';
+import { isDbFault } from '../db/faults';
 
 type JobRow = Awaited<ReturnType<Db['job']['findFirstOrThrow']>>;
 
@@ -53,6 +54,8 @@ export interface QueueOptions {
   pollMs?: number;
   /** Backoff base in ms for retry n: base * 2^(n-1). */
   backoffBaseMs?: number;
+  /** Called when a poll fails with a database fault (I/O error, corruption): the host may reopen the connection. */
+  onFault?: (e: unknown) => void | Promise<void>;
 }
 
 /**
@@ -67,6 +70,7 @@ export class JobQueue {
   private timer: NodeJS.Timeout | null = null;
   private stopped = true;
   private ticking = false;
+  private failStreak = 0;
   private rekick = false;
 
   constructor(
@@ -130,7 +134,18 @@ export class JobQueue {
     }
     this.ticking = true;
     this.tickPromise = this.tick()
-      .catch((e) => this.opts.log?.(`queue tick failed: ${String(e)}`))
+      .then(() => {
+        this.failStreak = 0;
+      })
+      .catch((e) => {
+        this.failStreak += 1;
+        // A broken database would otherwise log every 1.5 s forever: the first failure, then one line a minute.
+        if (this.failStreak === 1 || this.failStreak % 40 === 0)
+          this.opts.log?.(
+            `queue tick failed${this.failStreak > 1 ? ` (${this.failStreak} in a row)` : ''}: ${String(e)}`,
+          );
+        if (isDbFault(e)) void Promise.resolve(this.opts.onFault?.(e)).catch(() => {});
+      })
       .finally(() => {
         this.ticking = false;
         if (this.rekick) {

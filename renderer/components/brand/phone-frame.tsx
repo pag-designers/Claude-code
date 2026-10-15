@@ -29,7 +29,7 @@ export function PhoneFrame({
       data-testid={testId}
       data-canvas={`${width}x${height}`}
       className={cn(
-        'relative overflow-hidden rounded-[18px] border border-border-strong bg-neutral-900 shadow-md',
+        'relative overflow-hidden rounded-[18px] border border-border-strong shadow-md',
         className,
       )}
       style={{

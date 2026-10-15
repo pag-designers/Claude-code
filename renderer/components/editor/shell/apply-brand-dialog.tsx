@@ -29,6 +29,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DisabledTip } from '@/components/ui/tooltip';
 import { useBrandKit, useBrandKits, useDefaultBrandKitId } from '@/lib/brand/queries';
 import { newId, useEditorStore } from '@/lib/editor/core';
+import { syncNewAssets } from '@/lib/editor-panels/brand-sync';
 import {
   PART_LABEL,
   PART_ORDER,
@@ -114,7 +115,9 @@ function ApplyBrandContent({ onOpenChange }: { onOpenChange: (open: boolean) => 
       });
       return;
     }
+    const had = new Set(st.project.assets.map((a) => a.id));
     st.replaceProject(`Apply Brand Kit “${kit.name}”`, r.project);
+    void syncNewAssets(r.project.assets.map((a) => a.id).filter((id) => !had.has(id)));
     const names = r.applied.map((p) => PART_LABEL[p].label.toLowerCase()).join(', ');
     toast.success(`Applied ${kit.name}`, {
       description:
@@ -174,7 +177,7 @@ function ApplyBrandContent({ onOpenChange }: { onOpenChange: (open: boolean) => 
             }}
           >
             <SelectTrigger id="apply-brand-kit" data-testid="apply-brand-kit" className="h-8">
-              <SelectValue />
+              <SelectValue>{kit.name}</SelectValue>
             </SelectTrigger>
             <SelectContent onEscapeKeyDown={(e) => e.stopPropagation()}>
               {items.map((k) => (

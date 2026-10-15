@@ -92,7 +92,7 @@ export function Section({
         <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary-text">
           <Icon className="size-[18px]" aria-hidden />
         </span>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-[1_1_20rem]">
           <h2
             tabIndex={-1}
             className="flex items-center gap-2 font-display text-lg font-semibold outline-none"

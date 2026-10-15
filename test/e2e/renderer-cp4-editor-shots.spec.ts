@@ -102,3 +102,17 @@ for (const theme of ['dark', 'light'] as const) {
     });
   });
 }
+
+test('top bar at the minimum width keeps every control reachable', async () => {
+  const s = await edit('br-1', {}, { width: 1280, height: 720 });
+  const bar = s.page.getByTestId('editor-topbar');
+  await shot(s, 'topbar-1280');
+  const box = await bar.boundingBox();
+  const overflow = await bar.evaluate((el) => el.scrollWidth - el.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+  for (const id of ['open-apply-brand', 'open-versions', 'open-export']) {
+    const b = await s.page.getByTestId(id).boundingBox();
+    expect(b!.x + b!.width).toBeLessThanOrEqual(box!.x + box!.width + 0.5);
+  }
+  await s.close();
+});

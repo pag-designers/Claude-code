@@ -21,6 +21,7 @@ import { SectionNav } from '@/components/brand/section';
 import { SubtitleStylesSection } from '@/components/brand/subtitle-styles-section';
 import { TextStylesSection } from '@/components/brand/text-styles-section';
 import { WatermarkSection } from '@/components/brand/watermark-section';
+import { useBrandFonts } from '@/lib/brand/fonts';
 import { KitSessionProvider, useKitSession } from '@/lib/brand/kit-session';
 import { useBrandKits } from '@/lib/brand/queries';
 import { useKitActions, useSelectedKit } from '@/lib/brand/use-kits';
@@ -58,6 +59,8 @@ function KitEditor({
   onMakeDefault: () => void;
 }) {
   const s = useKitSession();
+  // register every uploaded font with document.fonts once for the whole page (cards, previews and pickers use them)
+  useBrandFonts();
   const counts = {
     logos: s.byKind.logo.length,
     images: s.byKind.image.length,
@@ -97,7 +100,29 @@ function KitEditor({
   );
 }
 
+/**
+ * A file dropped anywhere but on an upload panel would make Electron navigate to it (replacing the whole app window).
+ * Swallow stray file drags on this page; the panels handle their own drops.
+ */
+function useBlockStrayFileDrops() {
+  React.useEffect(() => {
+    const isFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files');
+    const stop = (e: DragEvent) => {
+      if (!isFiles(e)) return;
+      e.preventDefault();
+      if (e.type === 'dragover' && e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+    };
+    window.addEventListener('dragover', stop);
+    window.addEventListener('drop', stop);
+    return () => {
+      window.removeEventListener('dragover', stop);
+      window.removeEventListener('drop', stop);
+    };
+  }, []);
+}
+
 export function BrandKitView() {
+  useBlockStrayFileDrops();
   const kitsQ = useBrandKits();
   const kits = kitsQ.data?.items;
   const [selectedId, select] = useSelectedKit(kits);

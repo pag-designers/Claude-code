@@ -129,7 +129,9 @@ function CardShell({
     <span
       className={cn(
         'transition-opacity duration-(--duration-fast) focus-within:opacity-100 group-hover/card:opacity-100',
-        actions.anySelected || actions.selected ? 'opacity-100' : 'opacity-0',
+        layout === 'header' || actions.anySelected || actions.selected
+          ? 'opacity-100'
+          : 'opacity-0',
       )}
     >
       <Checkbox
@@ -287,6 +289,7 @@ export function ImageCard({ asset, actions }: { asset: BrandAssetView; actions: 
             loading="lazy"
             decoding="async"
             draggable={false}
+            onError={s.reportAssetError}
             className="size-full object-contain p-3"
           />
         ) : (
@@ -380,6 +383,7 @@ export function VideoCard({ asset, actions }: { asset: BrandAssetView; actions: 
             alt=""
             loading="lazy"
             draggable={false}
+            onError={s.reportAssetError}
             className="size-full object-cover"
           />
         ) : (

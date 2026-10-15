@@ -23,10 +23,10 @@ import { BufferedInput, FieldRow, SelectField, SubHeading, SwitchRow } from './c
 import { Section } from './section';
 
 const ASPECTS = [
-  { value: '9:16', label: '9:16 Vertical' },
-  { value: '1:1', label: '1:1 Square' },
-  { value: '4:5', label: '4:5 Portrait' },
-  { value: '16:9', label: '16:9 Wide' },
+  { value: '9:16', label: '9:16', hint: 'Vertical: TikTok, Reels, Shorts' },
+  { value: '1:1', label: '1:1', hint: 'Square' },
+  { value: '4:5', label: '4:5', hint: 'Portrait feed' },
+  { value: '16:9', label: '16:9', hint: 'Wide: YouTube' },
 ] as const;
 
 /* ---------------------------------------------------------------------------------------- hashtags ---- */
@@ -264,14 +264,14 @@ export function DefaultsSection() {
 
   return (
     <Section id="defaults" description="What a new project starts with when this kit is selected.">
-      <div className="grid gap-x-8 gap-y-5 @3xl:grid-cols-2">
+      <div className="grid gap-x-8 gap-y-5 @2xl:grid-cols-2">
         <FieldRow label="Aspect ratio">
           <Segmented
             size="sm"
             label="Default aspect ratio"
             value={d.aspect}
             onValueChange={(aspect) => set({ aspect })}
-            options={ASPECTS.map((a) => ({ value: a.value, label: a.label }))}
+            options={ASPECTS.map((a) => ({ value: a.value, label: a.label, hint: a.hint }))}
             className="flex-wrap"
           />
         </FieldRow>
@@ -331,7 +331,7 @@ export function DefaultsSection() {
         </FieldRow>
       </div>
 
-      <div className="grid gap-2.5 @3xl:grid-cols-2">
+      <div className="grid gap-2.5 @2xl:grid-cols-2">
         <SwitchRow
           label="Watermark on by default"
           checked={d.watermarkOn}
@@ -378,7 +378,7 @@ export function DefaultsSection() {
           </Button>
         </div>
         {d.hashtagSets.length ? (
-          <ul className="grid gap-3 @3xl:grid-cols-2" aria-label="Hashtag sets">
+          <ul className="grid gap-3 @2xl:grid-cols-2" aria-label="Hashtag sets">
             {d.hashtagSets.map((h) => (
               <TagSetCard key={h.id} set={h} />
             ))}

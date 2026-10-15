@@ -15,6 +15,7 @@ import { invoke, IpcCallError } from '@/lib/ipc';
 import { useEditorStore } from '@/lib/editor/core';
 import { groupBrandAssets, selectionTranscript, videoRole } from '@/lib/editor-panels/brand';
 import { useBrandPanelKit } from '@/lib/editor-panels/brand-hooks';
+import { syncNewAssets } from '@/lib/editor-panels/brand-sync';
 import { startAssetDrag } from '@/lib/editor-panels/drag';
 import { cn } from '@/lib/utils';
 import { addBrandClip, ensureBrandAsset } from './brand-actions';
@@ -153,6 +154,7 @@ function adoptImported(asset: Asset): void {
   const st = useEditorStore.getState();
   if (st.project.assets.some((a) => a.id === asset.id)) return;
   st.addAssets([asset]);
+  void syncNewAssets([asset.id]);
   toast.success('Stock clip added to project media', { description: asset.name });
 }
 
@@ -223,7 +225,7 @@ export function StockFootageSection() {
       data-testid="bin-stock-suggest"
       className="w-full justify-start"
     >
-      <Lightbulb /> Suggest B-roll for selection
+      <Lightbulb /> Suggest B-roll
     </Button>
   );
 
@@ -238,7 +240,9 @@ export function StockFootageSection() {
         </DisabledTip>
       )}
       {canSuggest ? (
-        suggestBtn
+        <Tip content="Claude suggests what to search for, from the words in the selection">
+          {suggestBtn}
+        </Tip>
       ) : (
         <DisabledTip
           reason="Select caption lines, or a clip that has captions under it, and Claude suggests what to search for."

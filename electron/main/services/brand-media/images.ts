@@ -96,7 +96,10 @@ export async function processImage(
 ): Promise<ProcessedBrandAsset> {
   const what = LABEL[a.ext] ?? a.ext.toUpperCase();
   const kind = sniffImage(a.file);
-  if (kind === 'unknown' || kind === 'truncated') throw unreadable(a.file, what);
+  if (kind === 'unknown' || kind === 'truncated') {
+    ctx.log(`[brand-media] ${baseName(a.file)} is not a readable ${what} (looks ${kind})`);
+    throw unreadable(a.file, what);
+  }
 
   let source = a.file;
   let usable: ProcessedBrandAsset['usable'] = null;
@@ -114,7 +117,10 @@ export async function processImage(
         `Clipfern could not render '${baseName(a.file)}'. Is it a valid SVG?`,
       );
     }
-    if (!fs.existsSync(out) || fs.statSync(out).size === 0) throw unreadable(a.file, 'SVG');
+    if (!fs.existsSync(out) || fs.statSync(out).size === 0) {
+      ctx.log(`[brand-media] the SVG rasteriser produced no file for ${baseName(a.file)}`);
+      throw unreadable(a.file, 'SVG');
+    }
     source = out;
     usable = { path: out, ext: 'png', contentType: 'image/png' };
   }
@@ -123,7 +129,12 @@ export async function processImage(
   const probed = await probeFile(ctx, source, a.signal);
   const w = probed?.info.width ?? 0;
   const h = probed?.info.height ?? 0;
-  if (!probed?.info.hasVideo || w <= 0 || h <= 0) throw unreadable(a.file, what);
+  if (!probed?.info.hasVideo || w <= 0 || h <= 0) {
+    ctx.log(
+      `[brand-media] ffprobe could not read ${baseName(source)} (${w}x${h}, video=${String(probed?.info.hasVideo)})`,
+    );
+    throw unreadable(a.file, what);
+  }
   if (w * h > MAX_PIXELS) {
     throw new BrandMediaError(
       `'${baseName(a.file)}' is too large (${w}x${h} px). Use an image under 100 megapixels.`,

@@ -363,6 +363,7 @@ export class RenderWorker {
       if (a.ctx.signal.aborted) throw e;
       throw new Error(
         `The Brand Kit “${a.kit.name}” could not be applied: ${e instanceof Error ? e.message : String(e)}`,
+        { cause: e },
       );
     }
   }

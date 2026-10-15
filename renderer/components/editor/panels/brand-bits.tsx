@@ -35,7 +35,7 @@ export function BrandKitSelect({ panel }: { panel: BrandPanelKit }) {
         data-testid="brand-kit-select"
         className="h-6 w-auto max-w-[10rem] gap-1 px-2 text-2xs"
       >
-        <SelectValue />
+        <SelectValue>{panel.kit.name}</SelectValue>
       </SelectTrigger>
       <SelectContent align="end" onEscapeKeyDown={(e) => e.stopPropagation()}>
         {panel.kits.map((k) => (

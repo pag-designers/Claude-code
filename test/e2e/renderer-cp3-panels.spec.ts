@@ -456,11 +456,8 @@ test.describe('Media bin', () => {
     await s.page.locator('[data-cta="follow"]').click();
     await s.page.locator('[data-cta="link-in-bio"]').click();
     await expect(itemRows(s.page)).toHaveCount(2 + 5 + 6);
-    // Brand Kit images are CP4
-    const chip = s.page.getByTestId('bin-brandkit-images');
-    await expect(chip).toBeDisabled();
-    const t = await tip(s.page, s.page.locator('span[tabindex="0"]').filter({ has: chip }));
-    await expect(t).toContainText('Arrives in checkpoint 4');
+    // Brand Kit images are a real section since CP4 (its content is covered by renderer-cp4-editor.spec.ts)
+    await expect(s.page.getByTestId('bin-brandkit-images')).toHaveAttribute('data-state', /.+/);
     expect(problems(s)).toEqual([]);
     await s.close();
   });
@@ -1092,8 +1089,9 @@ test.describe('Library → Edited', () => {
     await dlg.getByTestId('new-project-name').fill('Carousel opener');
     await dlg.getByTestId('new-project-create').click();
     await expect(s.page).toHaveURL(/\/editor\/\?id=ep-new-1$/);
+    // the dialog also sends the Brand Kit choice (null = no kit: this stub has no kits)
     expect(ed(s).log.creates).toEqual([
-      { name: 'Carousel opener', from: { blank: true, aspect: '4:5' } },
+      { name: 'Carousel opener', from: { blank: true, aspect: '4:5' }, brandKitId: null },
     ]);
     expect(problems(s)).toEqual([]);
     await s.close();

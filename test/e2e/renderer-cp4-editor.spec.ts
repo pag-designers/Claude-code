@@ -222,6 +222,25 @@ test.describe('Apply Brand Kit (top bar)', () => {
     await s.close();
   });
 
+  test('new brand assets are saved at once, so the preview can load them (no error until the next autosave)', async () => {
+    const s = await edit();
+    const p = s.page;
+    await s.act('setPlayhead', 6);
+    const dlg = await openApply(s);
+    await ready(s);
+    await dlg.getByTestId('apply-brand-go').click();
+    await expect(dlg).toBeHidden();
+    // main only knows assets that are in the SAVED project: the save is not left to the 5 s autosave
+    await expect.poll(async () => (await s.store()).saveState, { timeout: 4000 }).toBe('saved');
+    const asked =
+      (await p.evaluate(() => true)) &&
+      s.state.calls.filter((c) => c.channel === 'editor:save').length;
+    expect(asked).toBeGreaterThan(0);
+    await expect(p.getByText(/Preview unavailable/)).toHaveCount(0);
+    expect(realProblems(s)).toEqual([]);
+    await s.close();
+  });
+
   test('part toggles; a part that cannot apply is reported and skipped (no captions in the project)', async () => {
     const s = await edit('br-bare');
     const p = s.page;
@@ -409,7 +428,7 @@ test.describe('media bin: Brand Kit videos, images, audio', () => {
     await expect(rows).toHaveCount(2);
     const music = rows.filter({ hasText: 'Sunny bed' });
     await expect(music).toContainText('-16 LUFS');
-    await expect(music).toContainText('Music bed');
+    await expect(music).toContainText('music bed');
     const play = music.getByTestId('bin-brand-audition');
     await play.click();
     await expect(play).toHaveAttribute('aria-pressed', 'true');

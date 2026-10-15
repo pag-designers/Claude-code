@@ -371,6 +371,7 @@ describe('start options', () => {
       clipCount: 7,
       minScore: 60,
       aspect: '1:1',
+      brandKitId: 'default',
       captions: true,
       hookCard: true,
       prompt: 'funny moments',

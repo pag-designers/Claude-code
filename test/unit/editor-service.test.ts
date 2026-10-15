@@ -580,6 +580,22 @@ describe('EditorService: exports', () => {
     expect(await editor.exportUrl(exportId, 'video')).toContain('video.mp4');
   });
 
+  it('caption presets created AFTER startup (e.g. a Brand Kit style) are known to the compiler', async () => {
+    const { editor, calls, m } = await makeEnv();
+    const { id: _id, name: _n, builtin: _b, ...spec } = FAKE_STYLE;
+    void _id;
+    void _n;
+    void _b;
+    const preset = await m.svc.dbHandle.prisma.captionStylePreset.create({
+      data: { name: 'Late preset', spec: JSON.stringify(spec) },
+    });
+    const doc = await projectWithClip(editor);
+    await editor.startExport(doc.id, { preset: 'shorts' });
+    await waitFor(async () => (await editor.listExports(10))[0]?.status === 'done');
+    const { getStyle } = calls.compile[0] as { getStyle(id: string): { name: string } };
+    expect(getStyle(preset.id).name).toBe('Late preset');
+  });
+
   it('a compile error fails the export with the message and a notification, and keeps nothing', async () => {
     const { editor, hooks, m } = await makeEnv();
     hooks.compileError = new Error('Asset “x” is missing');

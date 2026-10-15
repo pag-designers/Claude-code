@@ -78,7 +78,7 @@ export function BrandImagesSection() {
       emptyTitle="No images in this kit"
       emptyHint="Upload logos, stickers or end cards in the kit and they show up here."
     >
-      <ul className="grid grid-cols-3 gap-2" aria-label="Brand Kit images">
+      <ul className="grid grid-cols-2 gap-2" aria-label="Brand Kit images">
         {images.map((a) => (
           <BrandImageTile
             key={a.id}

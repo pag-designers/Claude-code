@@ -153,7 +153,7 @@ export function WatermarkSection() {
       id="watermark"
       description="Your logo on every clip: position, size and opacity, kept clear of each platform’s buttons and captions."
     >
-      <div className="grid gap-6 @3xl:grid-cols-[minmax(0,1fr)_minmax(240px,300px)]">
+      <div className="grid gap-6 @2xl:grid-cols-[minmax(0,1fr)_minmax(240px,300px)]">
         <div className="flex min-w-0 flex-col gap-5">
           <FieldRow label="Logo">
             {candidates.length ? (

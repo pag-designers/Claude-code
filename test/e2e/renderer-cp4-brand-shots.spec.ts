@@ -70,8 +70,32 @@ for (const theme of ['dark', 'light'] as const) {
         test(`section ${id}`, async () => {
           const sec = s.page.getByTestId(`section-${id}`);
           await sec.scrollIntoViewIfNeeded();
-          await s.page.waitForTimeout(350);
-          await sec.screenshot({ path: path.join(SHOTS, `${theme}-${size.w}-${id}.png`) });
+          // line the section up under the sticky kit bar, then capture the viewport; tall sections get more shots
+          await s.page.evaluate((sid) => {
+            const el = document.getElementById(sid)!;
+            const main = document.getElementById('main')!;
+            main.scrollTo({ top: main.scrollTop + el.getBoundingClientRect().top - 150 });
+          }, id);
+          await s.page.waitForTimeout(400);
+          await s.page.screenshot({ path: path.join(SHOTS, `${theme}-${size.w}-${id}.png`) });
+          for (let part = 2; part <= 4; part++) {
+            const more = await s.page.evaluate(
+              ([sid, step]) => {
+                const el = document.getElementById(sid as string)!;
+                const main = document.getElementById('main')!;
+                const room = el.getBoundingClientRect().bottom - (window.innerHeight - 24);
+                if (room <= 0) return false;
+                main.scrollBy({ top: Math.min(room, step as number) });
+                return true;
+              },
+              [id, size.h - 190],
+            );
+            if (!more) break;
+            await s.page.waitForTimeout(300);
+            await s.page.screenshot({
+              path: path.join(SHOTS, `${theme}-${size.w}-${id}-${part}.png`),
+            });
+          }
         });
       }
 
@@ -133,7 +157,7 @@ test.describe('Brand Kit / states and dialogs', () => {
       await s.page.waitForTimeout(900);
       await s.page.screenshot({ path: path.join(SHOTS, `${theme}-uploading.png`) });
       await s.page.waitForTimeout(3500);
-      await c.saveElsewhereAndNotify(c.kit().id, {}, 'Renamed elsewhere');
+      c.saveElsewhere(c.kit().id, {}, 'Renamed elsewhere'); // another window saved; this one has not heard yet
       await s.page.getByLabel('Kit name').fill('My local name');
       await s.page.waitForTimeout(900);
       await s.page.screenshot({ path: path.join(SHOTS, `${theme}-conflict.png`) });

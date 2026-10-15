@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Pause, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDur } from '@/lib/brand/helpers';
+import { useKitSession } from '@/lib/brand/kit-session';
 
 /** Only one preview sounds at a time. */
 let current: HTMLAudioElement | null = null;
@@ -25,11 +26,14 @@ export function MiniPlayer({
   className?: string;
   size?: 'sm' | 'md';
 }) {
+  const { reportAssetError } = useKitSession();
   const ref = React.useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = React.useState(false);
   const [t, setT] = React.useState(0);
   const [dur, setDur] = React.useState(durationSec ?? 0);
-  const [failed, setFailed] = React.useState(false);
+  // a failure belongs to one URL: when the kit is refetched with a fresh URL the player is usable again
+  const [failedSrc, setFailedSrc] = React.useState<string | null>(null);
+  const failed = failedSrc !== null && failedSrc === src;
 
   React.useEffect(() => {
     const a = ref.current;
@@ -45,7 +49,7 @@ export function MiniPlayer({
     if (a.paused) {
       if (current && current !== a) current.pause();
       current = a;
-      void a.play().catch(() => setFailed(true));
+      void a.play().catch(() => setFailedSrc(src));
     } else a.pause();
   };
 
@@ -112,7 +116,10 @@ export function MiniPlayer({
           onLoadedMetadata={(e) => {
             if (Number.isFinite(e.currentTarget.duration)) setDur(e.currentTarget.duration);
           }}
-          onError={() => setFailed(true)}
+          onError={() => {
+            setFailedSrc(src);
+            reportAssetError(); // a presigned URL may have expired: the kit is refetched with fresh ones
+          }}
         />
       ) : null}
     </div>

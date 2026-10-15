@@ -773,9 +773,8 @@ test.describe('text, shapes', () => {
 
     await tab(p, 'text');
     const chip = p.getByTestId('brand-style-chip');
-    await expect(chip).toBeDisabled();
-    await chip.locator('..').hover();
-    await expect(p.getByRole('tooltip').first()).toContainText('Arrives in checkpoint 4');
+    // CP4: the Brand Kit style chip is live (its popover is covered by renderer-cp4-editor.spec.ts)
+    await expect(chip).toBeEnabled();
     await finish(s);
   });
 

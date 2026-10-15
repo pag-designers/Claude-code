@@ -1208,6 +1208,8 @@ export class EditorService {
       if (!storage) throw new Error('Object storage is not connected (Settings → Storage).');
       fs.mkdirSync(workDir, { recursive: true });
       await set({ status: 'rendering', progress: 0, message: 'Preparing media…', error: null });
+      // presets created (or a Brand Kit's styles saved) after startup must be known to the compiler
+      await this.primeStyles();
       const files = await this.resolveFiles(
         project,
         workDir,

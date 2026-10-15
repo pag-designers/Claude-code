@@ -22,7 +22,7 @@ function Slot({ which }: { which: 'intro' | 'outro' }) {
       <h3 className="font-sans text-sm font-semibold">{Word}</h3>
       <div
         className={cn(
-          'relative aspect-video w-full overflow-hidden rounded-lg border bg-neutral-950',
+          'relative aspect-video w-full overflow-hidden rounded-lg border bg-black',
           !asset && 'border-dashed border-border-strong',
         )}
       >
@@ -36,7 +36,7 @@ function Slot({ which }: { which: 'intro' | 'outro' }) {
                 playsInline
                 aria-label={`${Word} preview`}
                 onEnded={() => setPlaying(false)}
-                className="size-full bg-neutral-950 object-contain"
+                className="size-full bg-black object-contain"
               />
             ) : (
               <>
@@ -108,7 +108,7 @@ export function IntroOutroSection() {
       id="intro-outro"
       description="Short videos from this kit played before and after the clip. Switch them on per project or by default."
     >
-      <div className="grid gap-6 @3xl:grid-cols-2">
+      <div className="grid gap-6 @2xl:grid-cols-2">
         <Slot which="intro" />
         <Slot which="outro" />
       </div>

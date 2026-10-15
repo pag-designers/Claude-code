@@ -114,7 +114,12 @@ export function NumberBox({
             e.preventDefault();
             const d = (e.key === 'ArrowUp' ? 1 : -1) * step * (e.shiftKey ? 10 : 1);
             setText(null);
-            onChange(Math.min(max, Math.max(min, Math.round((value + d) / step) * step)));
+            onChange(
+              Math.min(
+                max,
+                Math.max(min, Number((Math.round((value + d) / step) * step).toFixed(6))),
+              ),
+            );
           } else if (e.key === 'Escape') setText(null);
         }}
         className={cn(
@@ -396,20 +401,6 @@ export function HexField({
         </div>
       ) : null}
     </div>
-  );
-}
-
-/** A coloured dot for lists of swatches. */
-export function Dot({ color, className }: { color: string; className?: string }) {
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        'inline-block size-3 shrink-0 rounded-full border border-border-strong',
-        className,
-      )}
-      style={{ background: color }}
-    />
   );
 }
 

@@ -10,7 +10,6 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { KIND_NOUN, refsOfAssets } from '@/lib/brand/helpers';
 import { useKitSession } from '@/lib/brand/kit-session';
-import { useBrandFonts } from '@/lib/brand/fonts';
 import { StockBrollDialog } from '@/components/broll/stock-dialog';
 import { AudioCard, FontCard, ImageCard, VideoCard, type CardActions } from './asset-cards';
 import { Section } from './section';
@@ -67,9 +66,6 @@ export function AssetSection({ kind }: { kind: BrandAssetKind }) {
   const [stockOpen, setStockOpen] = React.useState(false);
   const [sample, setSample] = React.useState('Pack my box with five dozen liquor jugs');
   const lastIdx = React.useRef<number | null>(null);
-
-  // fonts: register every uploaded font with document.fonts so the cards render in their own typeface
-  useBrandFonts();
 
   // ids of assets that vanished (deleted elsewhere) drop out of the selection
   const selected = React.useMemo(() => {

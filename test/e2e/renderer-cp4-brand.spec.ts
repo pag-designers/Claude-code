@@ -53,7 +53,10 @@ const imgsLoaded = (l: Locator) =>
 
 /** An h2 whose name is the section title, optionally followed by the item-count badge. */
 const sectionHeading = (p: Page, title: string) =>
-  p.getByRole('heading', { level: 2, name: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}( \\d+)?$`) });
+  p.getByRole('heading', {
+    level: 2,
+    name: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}( \\d+)?$`),
+  });
 
 const SECTION_TITLES = [
   'Logos / Watermarks',
@@ -115,7 +118,7 @@ test.describe('Page', () => {
   test('shows skeletons while loading and a retry banner when the list fails', async () => {
     const s = await open({
       prepare: (st) => {
-        brand(st).readDelayMs = 1200;
+        brand(st).readDelayMs = 600;
         brand(st).failures.set('brand:list', { message: 'Disk unavailable', times: 2 }); // the query client retries once
       },
       settle: 0,
@@ -125,7 +128,7 @@ test.describe('Page', () => {
     await expect(
       p.getByRole('alert').filter({ hasText: 'Could not load your brand kits' }),
     ).toBeVisible({
-      timeout: 8000,
+      timeout: 20_000, // two failed attempts, with the query client's retry delay in between
     });
     await expect(p.getByText('Disk unavailable')).toBeVisible();
     await p.getByRole('button', { name: 'Try again' }).click();
@@ -409,6 +412,23 @@ test.describe('Upload panels', () => {
       }),
     });
     await expect(panel).not.toHaveAttribute('data-over', 'true');
+    await s.close();
+  });
+
+  test('a file dropped outside every upload panel is swallowed (Electron would otherwise navigate to it)', async () => {
+    const s = await open();
+    const p = s.page;
+    const prevented = await p.evaluate(() => {
+      const dt = new DataTransfer();
+      dt.items.add(new File(['x'], 'stray.png'));
+      const ev = new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true });
+      document.body.dispatchEvent(ev);
+      const over = new DragEvent('dragover', { dataTransfer: dt, bubbles: true, cancelable: true });
+      document.querySelector('h1')!.dispatchEvent(over);
+      return [ev.defaultPrevented, over.defaultPrevented];
+    });
+    expect(prevented).toEqual([true, true]);
+    expect(brand(s.state).log.added).toHaveLength(0);
     await s.close();
   });
 
@@ -1087,7 +1107,7 @@ test.describe('Hook card', () => {
         return Math.round(((c.y + c.height / 2 - f.y) / f.height) * 100);
       })
       .toBe(60);
-    await hook.getByRole('combobox', { name: 'Hook font' }).click();
+    await hook.getByRole('combobox', { name: 'Hook font', exact: true }).click();
     await p.getByRole('option', { name: /Anton/ }).click();
     await saved(p);
     expect(specOf(s).hook).toMatchObject({
@@ -1129,24 +1149,24 @@ test.describe('Hook card', () => {
 test.describe('Watermark', () => {
   /** The preview's logo box as measured in the DOM, as % of the frame, vs watermarkRect for the same numbers. */
   async function geometry(p: Page) {
-    const frame = (await p.getByTestId('watermark-preview').boundingBox())!;
-    const box = (await p.getByTestId('watermark-box').boundingBox())!;
-    const [cw, ch] = (
-      (await p.getByTestId('watermark-preview').getAttribute('data-canvas')) as string
-    )
-      .split('x')
-      .map(Number) as [number, number];
-    return {
-      canvas: { width: cw, height: ch },
-      // DOM -> canvas px
-      x: ((box.x - frame.x) / frame.width) * cw,
-      y: ((box.y - frame.y) / frame.height) * ch,
-      w: (box.width / frame.width) * cw,
-      h: (box.height / frame.height) * ch,
-      rect: (await p.getByTestId('watermark-box').getAttribute('data-rect'))!
-        .split(',')
-        .map(Number) as [number, number, number, number],
-    };
+    return p.evaluate(() => {
+      const f = document.querySelector('[data-testid=watermark-preview]') as HTMLElement;
+      const b = document.querySelector('[data-testid=watermark-box]') as HTMLElement;
+      const fr = f.getBoundingClientRect();
+      const br = b.getBoundingClientRect();
+      const [cw, ch] = f.dataset.canvas!.split('x').map(Number) as [number, number];
+      // the box is positioned inside the frame's border, so measure against the padding box
+      const ix = fr.left + f.clientLeft;
+      const iy = fr.top + f.clientTop;
+      return {
+        canvas: { width: cw, height: ch },
+        x: ((br.left - ix) / f.clientWidth) * cw,
+        y: ((br.top - iy) / f.clientHeight) * ch,
+        w: (br.width / f.clientWidth) * cw,
+        h: (br.height / f.clientHeight) * ch,
+        rect: b.dataset.rect!.split(',').map(Number) as [number, number, number, number],
+      };
+    });
   }
   const near = (a: number, b: number, tol = 3) => expect(Math.abs(a - b)).toBeLessThanOrEqual(tol);
 
@@ -1194,7 +1214,7 @@ test.describe('Watermark', () => {
       'All platforms (TikTok, Reels, Shorts)',
     ]) {
       await wm.getByRole('combobox', { name: 'Safe area' }).click();
-      await p.getByRole('option', { name: safe }).click();
+      await p.getByRole('option', { name: safe, exact: true }).click();
       const id = {
         'None (margin only)': 'none',
         TikTok: 'tiktok',
@@ -1399,7 +1419,7 @@ test.describe('Defaults', () => {
     const s = await open();
     const p = s.page;
     const d = sec(p, 'defaults');
-    await d.getByRole('radio', { name: '1:1 Square' }).click();
+    await d.getByRole('radio', { name: '1:1' }).click();
     await d.getByRole('combobox', { name: 'Default caption preset' }).click();
     await expect(p.getByRole('option', { name: 'Acme Punch (this kit)' })).toBeVisible();
     await p.getByRole('option', { name: 'Hormozi Bold' }).click();
@@ -1646,7 +1666,7 @@ test.describe('Accessibility', () => {
       await expect(p.getByRole('region', { name: t, exact: true })).toBeAttached();
     await expect(p.getByRole('radiogroup', { name: 'Watermark position' })).toBeAttached();
     await expect(p.getByRole('radiogroup', { name: 'Default aspect ratio' })).toBeAttached();
-    await expect(p.getByRole('slider', { name: 'Size' })).toBeAttached();
+    await expect(sec(p, 'watermark').getByRole('slider', { name: 'Size' })).toBeAttached();
     await expect(p.getByRole('switch', { name: 'Duck under speech' })).toBeAttached();
     await expect(p.getByRole('switch', { name: 'Intro on by default' })).toBeAttached();
     await expect(p.getByRole('group', { name: 'Target platforms' })).toBeAttached();
@@ -1654,8 +1674,10 @@ test.describe('Accessibility', () => {
     const unnamed = await p.evaluate(() => {
       const out: string[] = [];
       const main = document.getElementById('main')!;
-      for (const el of main.querySelectorAll(
-        'button, input, select, [role=button], [role=switch], [role=radio], [role=checkbox], [role=combobox]',
+      for (const el of Array.from(
+        main.querySelectorAll(
+          'button, input, select, [role=button], [role=switch], [role=radio], [role=checkbox], [role=combobox]',
+        ),
       )) {
         const e = el as HTMLElement;
         const name =

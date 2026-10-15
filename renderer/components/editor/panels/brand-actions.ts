@@ -6,7 +6,7 @@
 import { toast } from 'sonner';
 import type { Asset } from '@shared/editor';
 import type { BrandAssetView, BrandKit, BrandTextStyle } from '@shared/brand';
-import { applyBrandToProject } from '@shared/brand-apply';
+import { applyBrandToProject, brandProjectAssetId } from '@shared/brand-apply';
 import { newId, useEditorStore } from '@/lib/editor/core';
 import {
   brandRestylePatch,
@@ -14,6 +14,7 @@ import {
   brandTextItem,
   projectAssetFor,
 } from '@/lib/editor-panels/brand';
+import { syncNewAssets } from '@/lib/editor-panels/brand-sync';
 import { addAssetToTimeline } from './actions';
 
 const store = () => useEditorStore.getState();
@@ -27,8 +28,15 @@ export function ensureBrandAsset(view: BrandAssetView, opts: { defer?: boolean }
   const st = store();
   const { asset, exists } = projectAssetFor(st.project, view);
   if (exists) return asset;
-  if (opts.defer) setTimeout(() => store().addAssets([asset]), 0);
-  else st.addAssets([asset]);
+  if (opts.defer)
+    setTimeout(() => {
+      store().addAssets([asset]);
+      void syncNewAssets([asset.id]);
+    }, 0);
+  else {
+    st.addAssets([asset]);
+    void syncNewAssets([asset.id]);
+  }
   return asset;
 }
 
@@ -84,6 +92,7 @@ export function setAsMusicBed(
   // the project's kit stays whatever it was: only the music bed came from this kit
   const next = { ...r.project, brandKitId: st.project.brandKitId };
   st.replaceProject('Add brand music', next);
+  void syncNewAssets([view.id].map(brandProjectAssetId));
   return { ok: true as const, detail: r.details.music ?? 'Music bed added' };
 }
 

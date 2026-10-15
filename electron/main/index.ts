@@ -89,7 +89,7 @@ function installSecurity(): void {
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob: https:${extraMedia}`,
     `media-src 'self' blob: https:${extraMedia}`,
-    "font-src 'self' data:",
+    `font-src 'self' data: blob: https:${extraMedia}`,
     `connect-src ${connect}`,
     "object-src 'none'",
     "base-uri 'none'",

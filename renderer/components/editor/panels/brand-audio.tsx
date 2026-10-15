@@ -5,7 +5,6 @@ import { Pause, Play, Plus, Volume2, Waves } from 'lucide-react';
 import { toast } from 'sonner';
 import type { BrandAssetView } from '@shared/brand';
 import { brandProjectAssetId } from '@shared/brand-apply';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tip } from '@/components/ui/tooltip';
 import { formatClock } from '@/lib/format';
@@ -114,17 +113,18 @@ function BrandAudioRow({
           <p className="truncate text-xs font-medium" title={asset.name}>
             {asset.name}
           </p>
-          <p className="flex items-center gap-1.5 text-2xs tabular-nums text-subtle">
+          <p className="whitespace-nowrap text-2xs tabular-nums text-subtle">
             {asset.durationSec !== null ? formatClock(asset.durationSec) : '—'}
-            {asset.loudnessLufs !== null ? (
-              <span>{Math.round(asset.loudnessLufs)} LUFS</span>
-            ) : null}
-            {role ? (
-              <Badge variant="primary" className="h-4 px-1.5">
-                Music bed
-              </Badge>
-            ) : null}
+            {asset.loudnessLufs !== null ? ` · ${Math.round(asset.loudnessLufs)} LUFS` : ''}
           </p>
+          {role ? (
+            <p
+              className="text-2xs font-medium text-primary-text"
+              data-testid="bin-brand-audio-role"
+            >
+              The kit&apos;s music bed
+            </p>
+          ) : null}
         </div>
         <Tip content="Add at playhead">
           <Button

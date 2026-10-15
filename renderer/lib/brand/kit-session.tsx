@@ -55,6 +55,8 @@ export interface KitSession {
   /** Deletes assets; resolves with the kit references that were cleared. */
   deleteAssets: (ids: string[]) => Promise<string[] | null>;
   refreshAssets: () => void;
+  /** An asset URL failed to load (probably expired): refetch the kit so the URLs are fresh (throttled). */
+  reportAssetError: () => void;
 }
 
 const Ctx = React.createContext<KitSession | null>(null);
@@ -83,15 +85,17 @@ export function KitSessionProvider({
   children: React.ReactNode;
 }) {
   const q = useBrandKit(kitId);
-  if (q.isPending) return <>{loading}</>;
-  if (q.isError || !q.data) {
-    return <>{error(q.error?.message ?? 'This kit could not be found.', () => void q.refetch())}</>;
+  // a failed BACKGROUND refetch keeps the data on screen; only "no data at all" is an error state
+  if (q.data) {
+    return (
+      <SessionInner kitId={kitId} data={q.data}>
+        {children}
+      </SessionInner>
+    );
   }
-  return (
-    <SessionInner kitId={kitId} data={q.data}>
-      {children}
-    </SessionInner>
-  );
+  if (q.isError)
+    return <>{error(q.error?.message ?? 'This kit could not be found.', () => void q.refetch())}</>;
+  return <>{loading}</>;
 }
 
 function SessionInner({
@@ -190,6 +194,15 @@ function SessionInner({
   const refreshAssets = React.useCallback(() => {
     void qc.invalidateQueries({ queryKey: getKey });
     void qc.invalidateQueries({ queryKey: ['brand:list'] });
+    void qc.invalidateQueries({ queryKey: ['brand:fonts'] });
+  }, [qc, getKey]);
+
+  const lastRefresh = React.useRef(0);
+  const reportAssetError = React.useCallback(() => {
+    const now = performance.now();
+    if (now - lastRefresh.current < 20_000) return;
+    lastRefresh.current = now;
+    void qc.invalidateQueries({ queryKey: getKey });
     void qc.invalidateQueries({ queryKey: ['brand:fonts'] });
   }, [qc, getKey]);
 
@@ -360,6 +373,7 @@ function SessionInner({
       renameAsset,
       deleteAssets,
       refreshAssets,
+      reportAssetError,
     }),
     [
       snap,
@@ -376,6 +390,7 @@ function SessionInner({
       renameAsset,
       deleteAssets,
       refreshAssets,
+      reportAssetError,
     ],
   );
 

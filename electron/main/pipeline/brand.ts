@@ -664,14 +664,14 @@ export class BrandService {
     for (const r of rows) {
       const a = this.assetOf(r);
       if (!a?.font) continue;
-      // the ORIGINAL file: Chromium loads ttf/otf/woff/woff2 alike
+      // the sfnt (TTF/OTF) copy when there is one (WOFF/WOFF2 uploads are converted): the editor reads its metrics
       out.push({
         assetId: a.id,
         kitId: a.kitId,
         family: a.font.family,
         weight: a.font.weight,
         italic: a.font.italic,
-        url: await storage.presignGet(a.storageKey, 3600),
+        url: await storage.presignGet(a.usableKey ?? a.storageKey, 3600),
       });
     }
     return { fonts: out };

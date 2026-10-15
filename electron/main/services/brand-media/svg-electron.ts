@@ -86,10 +86,14 @@ let queue: Promise<unknown> = Promise.resolve();
 
 export function createElectronSvgRasterizer(): SvgRasterizer {
   return (svgPath, outPng, maxPx) => {
-    const run = queue.then(
-      () => render(svgPath, outPng, maxPx),
-      () => render(svgPath, outPng, maxPx),
-    );
+    // A capture can come back empty when the first frames race the compositor: one more try is cheap.
+    const once = (): Promise<{ width: number; height: number }> =>
+      render(svgPath, outPng, maxPx).catch((e: unknown) =>
+        e instanceof Error && e.message.startsWith('SVG capture was empty')
+          ? render(svgPath, outPng, maxPx)
+          : Promise.reject(e),
+      );
+    const run = queue.then(once, once);
     queue = run.catch(() => undefined);
     return run;
   };
@@ -220,6 +224,10 @@ async function render(
       image = image.resize({ width: size.width, height: size.height, quality: 'best' });
     }
     const out = image.toPNG();
+    if (out.length === 0)
+      throw new Error(
+        `SVG capture was empty (captured ${png.length} bytes, ${got.width}x${got.height}, planned ${size.width}x${size.height})`,
+      );
     await fs.promises.mkdir(path.dirname(outPng), { recursive: true });
     const tmp = `${outPng}.partial`;
     await fs.promises.writeFile(tmp, out);

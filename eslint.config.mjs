@@ -10,6 +10,7 @@ export default tseslint.config(
       'node_modules/**',
       'dist-electron/**',
       'release/**',
+      '.tmp/**',
       'renderer/out/**',
       'renderer/.next/**',
       'renderer/next-env.d.ts',

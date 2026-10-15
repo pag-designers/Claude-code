@@ -75,7 +75,7 @@ export function MusicSection() {
       id="music"
       description="A track under the clip that dips automatically while someone is speaking, with fades at both ends."
     >
-      <div className="grid gap-6 @3xl:grid-cols-[minmax(0,1fr)_minmax(260px,400px)]">
+      <div className="grid gap-6 @2xl:grid-cols-[minmax(0,1fr)_minmax(260px,400px)]">
         <div className="flex min-w-0 flex-col gap-4">
           <FieldRow label="Track">
             <AssetPicker

@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/dialog';
 import { Segmented } from '@/components/ui/segmented';
 import { Switch } from '@/components/ui/switch';
-import { cn } from '@/lib/utils';
 import { newId } from '@/lib/brand/helpers';
 import { useFontChoices } from '@/lib/brand/use-fonts';
 import {
@@ -263,8 +262,17 @@ function Editor({
       </DialogHeader>
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(340px,400px)]">
         <div className="flex min-h-0 flex-col items-center gap-3 bg-background/50 p-5">
-          <div className="flex min-h-0 w-full flex-1 items-center justify-center">
-            <div className={cn('w-full', aspect === '9:16' ? 'max-w-[300px]' : 'max-w-[520px]')}>
+          {/* the frame is sized from the space left (container units), so it never runs into the controls below */}
+          <div className="relative min-h-0 w-full flex-1" style={{ containerType: 'size' }}>
+            <div
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+              style={{
+                width:
+                  aspect === '9:16'
+                    ? 'min(100cqw, calc(100cqh * 9 / 16))'
+                    : 'min(100cqw, calc(100cqh * 16 / 9), 560px)',
+              }}
+            >
               <TextStylePreview
                 style={st}
                 text={text}

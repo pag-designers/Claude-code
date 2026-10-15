@@ -95,11 +95,11 @@ export function HookSection() {
         </Button>
       }
     >
-      <div className="grid gap-6 @3xl:grid-cols-[220px_minmax(0,1fr)]">
-        <div className="mx-auto w-[200px] @3xl:w-full">
+      <div className="grid gap-6 @2xl:grid-cols-[220px_minmax(0,1fr)]">
+        <div className="mx-auto w-[200px] @2xl:w-full">
           <HookCardPreview hook={hook} />
         </div>
-        <div className="grid content-start gap-x-6 gap-y-4 @3xl:grid-cols-2">
+        <div className="grid content-start gap-x-6 gap-y-4 @2xl:grid-cols-2">
           <FieldRow label="Font" htmlFor="hook-font">
             <SelectField
               id="hook-font"
@@ -126,7 +126,7 @@ export function HookSection() {
               onChange={(w) => set({ weight: Number(w) })}
             />
           </FieldRow>
-          <FieldRow label="Letter case" className="@3xl:col-span-2">
+          <FieldRow label="Letter case" className="@2xl:col-span-2">
             <Segmented
               size="sm"
               label="Hook text case"

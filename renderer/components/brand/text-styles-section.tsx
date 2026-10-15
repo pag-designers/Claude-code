@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { newId } from '@/lib/brand/helpers';
-import { useBrandFonts } from '@/lib/brand/fonts';
 import { useKitSession } from '@/lib/brand/kit-session';
 import { TEXT_KIND_LABEL, TEXT_KIND_SAMPLE } from '@/lib/brand/text-presets';
 import { Section } from './section';
@@ -49,7 +48,6 @@ export function TextStylesSection() {
   const s = useKitSession();
   const styles = s.spec.textStyles;
   const hookId = s.spec.defaults.hookTextStyleId;
-  useBrandFonts();
   const [dialog, setDialog] = React.useState<{ editing: BrandTextStyle | null } | null>(null);
   const [del, setDel] = React.useState<BrandTextStyle | null>(null);
 

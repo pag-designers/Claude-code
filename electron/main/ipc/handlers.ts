@@ -39,6 +39,10 @@ export interface HostApi {
   };
 }
 
+const notWired = (): never => {
+  throw new Error('Posting is not available yet');
+};
+
 export function buildHandlers(svc: Services, host: HostApi): Handlers {
   const ok = { ok: true as const };
   const handlers: Handlers = {
@@ -307,6 +311,27 @@ export function buildHandlers(svc: Services, host: HostApi): Handlers {
     'broll:importToProject': ({ projectId, item }) => host.broll.importToProject(projectId, item),
     'broll:importToKit': ({ kitId, item }) => host.broll.importToKit(kitId, item),
     'broll:suggest': async ({ text }) => ({ queries: await host.broll.suggest(text) }),
+
+    // CP5 INTERIM: replaced by the real posting handlers during integration.
+    'accounts:list': notWired,
+    'accounts:connect': notWired,
+    'accounts:cancelConnect': notWired,
+    'accounts:disconnect': notWired,
+    'accounts:test': notWired,
+    'publish:prefill': notWired,
+    'publish:validate': notWired,
+    'posts:create': notWired,
+    'posts:list': notWired,
+    'posts:get': notWired,
+    'posts:update': notWired,
+    'posts:postNow': notWired,
+    'posts:cancel': notWired,
+    'posts:retry': notWired,
+    'posts:delete': notWired,
+    'posts:refreshStats': notWired,
+    'scheduler:status': notWired,
+    'scheduler:setPaused': notWired,
+    'scheduler:digestNow': notWired,
 
     'shell:openExternal': async ({ url }) => {
       if (!/^https?:\/\//i.test(url)) throw new Error('Only http(s) links can be opened');

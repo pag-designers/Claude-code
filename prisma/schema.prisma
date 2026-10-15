@@ -290,3 +290,65 @@ model BrandAsset {
 
   @@index([kitId])
 }
+
+// ---- CP5 ----
+
+model SocialAccount {
+  id            String   @id @default(cuid())
+  ownerId       String   @default("local")
+  platform      String // shorts | reels | tiktok
+  externalId    String // channel id / IG business account id / TikTok open_id
+  displayName   String
+  handle        String?
+  avatarUrl     String?
+  status        String   @default("connected") // connected | needs-reauth | error
+  statusMessage String?
+  scopes        String   @default("[]") // JSON string[]
+  info          String   @default("{}") // JSON platform extras
+  connectedAt   DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([platform, externalId])
+}
+
+model Post {
+  id            String    @id @default(cuid())
+  ownerId       String    @default("local")
+  accountId     String
+  platform      String
+  clipId        String?
+  exportId      String?
+  title         String
+  status        String    @default("draft") // draft | scheduled | queued | publishing | published | failed | missed | canceled
+  scheduledAt   DateTime?
+  publishedAt   DateTime?
+  nextAttemptAt DateTime?
+  attempts      Int       @default(0)
+  fields        String // JSON PostFields
+  media         String? // JSON PostMediaInfo of the file that will be uploaded
+  mediaKey      String // storage key of the source mp4
+  fixedMediaKey String? // storage key of the auto-fixed (re-encoded) copy
+  autoFix       Boolean   @default(true)
+  error         String? // JSON PostError
+  result        String? // JSON { platformPostId, url, outcome, note }
+  stats         String? // JSON PostStats
+  groupId       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status, scheduledAt])
+  @@index([accountId])
+  @@index([clipId])
+}
+
+model QuotaUsage {
+  id        String   @id @default(cuid())
+  ownerId   String   @default("local")
+  accountId String
+  day       String // YYYY-MM-DD in the platform's quota time zone
+  units     Int      @default(0)
+  posts     Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([accountId, day])
+}

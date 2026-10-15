@@ -65,7 +65,7 @@ describe('migrations 0003 (CP2), 0004 (CP3) and 0005 (CP4) on an existing CP1 da
     c.close();
 
     const applied = await runMigrations(url);
-    expect(applied).toEqual(['0003_cp2', '0004_editor', '0005_brand_kit']);
+    expect(applied).toEqual(['0003_cp2', '0004_editor', '0005_brand_kit', '0006_posting']);
 
     const db = await openDatabase(file);
     try {
@@ -107,6 +107,19 @@ describe('migrations 0003 (CP2), 0004 (CP3) and 0005 (CP4) on an existing CP1 da
         data: { kitId: kit.id, kind: 'logo', name: 'l', ext: 'png' },
       });
       expect(await db.prisma.brandAsset.count()).toBe(1);
+      // CP5 tables
+      const acc = await db.prisma.socialAccount.create({
+        data: { platform: 'shorts', externalId: 'UC1', displayName: 'Me' },
+      });
+      await db.prisma.post.create({
+        data: { accountId: acc.id, platform: 'shorts', title: 't', fields: '{}', mediaKey: 'k' },
+      });
+      await db.prisma.quotaUsage.create({ data: { accountId: acc.id, day: '2026-10-15' } });
+      await expect(
+        db.prisma.socialAccount.create({
+          data: { platform: 'shorts', externalId: 'UC1', displayName: 'dup' },
+        }),
+      ).rejects.toThrow();
       await db.prisma.clip.update({ where: { id: 'c1' }, data: { brandKitId: kit.id } });
     } finally {
       await db.close();

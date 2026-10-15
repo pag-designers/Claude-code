@@ -58,6 +58,18 @@ import {
   brollProviderSchema,
   brollSearchResultSchema,
 } from './brand';
+import {
+  fieldIssueSchema,
+  mediaReportSchema,
+  platformSetupSchema,
+  postDraftSchema,
+  postFieldsSchema,
+  postSourceSchema,
+  postStatusSchema,
+  postViewSchema,
+  schedulerStatusSchema,
+  socialAccountSchema,
+} from './publish';
 import { secretKeySchema, secretsBackendSchema, secretStatusSchema } from './secrets';
 import { settingsPatchSchema, settingsSchema } from './settings';
 
@@ -549,6 +561,109 @@ export const invokeContract = {
   /** The kit used for new projects / runs (the default kit's id, null when there are no kits). */
   'brand:defaultKit': ch(none, z.object({ id: z.string().nullable() })),
 
+  /* ---- CP5: accounts, posting, scheduler ---- */
+  'accounts:list': ch(
+    none,
+    z.object({
+      accounts: z.array(socialAccountSchema),
+      setup: z.array(platformSetupSchema),
+    }),
+  ),
+  /**
+   * Opens the system browser for the platform's OAuth consent (loopback redirect + PKCE) and resolves when the account
+   * is connected. Rejects with a plain message on denial/timeout (5 min) or when the developer-app credentials are missing.
+   */
+  'accounts:connect': ch(
+    z.object({ platform: platformSchema }),
+    z.object({ account: socialAccountSchema }),
+  ),
+  'accounts:cancelConnect': ch(z.object({ platform: platformSchema }), ok),
+  /** Revokes the token at the platform (best effort) and forgets the account; its scheduled posts become drafts. */
+  'accounts:disconnect': ch(z.object({ id: z.string() }), ok),
+  /** A cheap authenticated call (channel / IG account / TikTok creator info) that proves the token works. */
+  'accounts:test': ch(
+    z.object({ id: z.string() }),
+    z.object({
+      ok: z.boolean(),
+      message: z.string(),
+      detail: z.string().nullable(),
+      account: socialAccountSchema.nullable(),
+    }),
+  ),
+  /** Default fields for a clip/export on a platform (CP2 metadata + the default Brand Kit's hashtag sets) and a suggested time. */
+  'publish:prefill': ch(
+    z.object({ source: postSourceSchema, platform: platformSchema }),
+    z.object({
+      title: z.string(),
+      fields: postFieldsSchema,
+      /** Next occurrence of the CP2 posting-time suggestion / kit window (epoch ms), null when there is none. */
+      suggestedAt: z.number().nullable(),
+      hashtagSets: z.array(
+        z.object({ id: z.string(), name: z.string(), tags: z.array(z.string()) }),
+      ),
+    }),
+  ),
+  /** Media spec check (ffprobe of the rendered file) + field validation, before anything is queued. */
+  'publish:validate': ch(
+    z.object({
+      source: postSourceSchema,
+      platform: platformSchema,
+      fields: postFieldsSchema.optional(),
+    }),
+    z.object({ report: mediaReportSchema, fieldIssues: z.array(fieldIssueSchema) }),
+  ),
+  /** Creates posts (scheduledAt null = publish now). Items that fail validation are refused individually. */
+  'posts:create': ch(
+    z.object({ items: z.array(postDraftSchema).min(1).max(200) }),
+    z.object({
+      posts: z.array(postViewSchema),
+      refused: z.array(
+        z.object({
+          index: z.number().int(),
+          reason: z.string(),
+          report: mediaReportSchema.nullable(),
+          fieldIssues: z.array(fieldIssueSchema),
+        }),
+      ),
+    }),
+  ),
+  'posts:list': ch(
+    z.object({
+      from: z.number().optional(),
+      to: z.number().optional(),
+      statuses: z.array(postStatusSchema).optional(),
+      accountId: z.string().optional(),
+      clipId: z.string().optional(),
+      limit: z.number().int().min(1).max(2000).default(500),
+    }),
+    z.object({ items: z.array(postViewSchema) }),
+  ),
+  'posts:get': ch(z.object({ id: z.string() }), postViewSchema),
+  /** Editable while draft / scheduled / failed / missed. `scheduledAt` null turns a scheduled post into a draft. */
+  'posts:update': ch(
+    z.object({
+      id: z.string(),
+      fields: postFieldsSchema.optional(),
+      scheduledAt: z.number().nullable().optional(),
+      autoFix: z.boolean().optional(),
+    }),
+    postViewSchema,
+  ),
+  'posts:postNow': ch(z.object({ id: z.string() }), postViewSchema),
+  'posts:cancel': ch(z.object({ id: z.string() }), postViewSchema),
+  /** failed / missed → scheduled for now (resets the attempt counter). */
+  'posts:retry': ch(z.object({ id: z.string() }), postViewSchema),
+  'posts:delete': ch(z.object({ ids: z.array(z.string()).min(1) }), ok),
+  /** Pulls views/likes/comments from the platform for published posts (YouTube, Instagram; TikTok when the scope allows). */
+  'posts:refreshStats': ch(
+    z.object({ ids: z.array(z.string()).min(1).max(50) }),
+    z.object({ items: z.array(postViewSchema) }),
+  ),
+  'scheduler:status': ch(none, schedulerStatusSchema),
+  'scheduler:setPaused': ch(z.object({ paused: z.boolean() }), schedulerStatusSchema),
+  /** Sends the daily digest notification now (also used by tests). */
+  'scheduler:digestNow': ch(none, z.object({ sent: z.boolean() })),
+
   /* ---- CP4: stock B-roll (Pexels / Pixabay official APIs; keys in Settings → API Keys) ---- */
   'broll:status': ch(none, z.object({ pexels: z.boolean(), pixabay: z.boolean() })),
   'broll:search': ch(
@@ -597,6 +712,9 @@ export const eventContract = {
   'chat:event': chatEventSchema,
   'editor:export': exportJobSchema,
   'moments:run': momentRunSchema,
+  'posts:updated': postViewSchema,
+  'accounts:changed': z.object({ platform: platformSchema.nullable() }),
+  'scheduler:status': schedulerStatusSchema,
   /** A kit or its assets changed (kitId null = the kit list changed). */
   'brand:changed': z.object({ kitId: z.string().nullable() }),
   /** Progress of an asset being processed (probe, previews, loudness, conversion). */

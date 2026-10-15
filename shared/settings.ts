@@ -47,6 +47,20 @@ export const settingsSchema = z.object({
   defaultClipPreset: z.enum(['15-30', '30-60', '60-90', 'custom']).default('30-60'),
   defaultClipCount: z.number().int().min(1).max(50).default(10),
   defaultAspect: z.enum(['9:16', '1:1', '4:5', '16:9']).default('9:16'),
+
+  // Scheduler & posting (CP5)
+  /** Closing the window keeps the scheduler alive in the tray / menu bar. */
+  schedulerTrayMode: z.boolean().default(true),
+  /** Posts that were due while the app was closed are still published if they are at most this late (minutes). */
+  schedulerGraceMinutes: z.number().int().min(5).max(1440).default(120),
+  /** Smart spacing for bulk scheduling. */
+  schedulerMinGapMinutes: z.number().int().min(15).max(1440).default(180),
+  schedulerMaxPerDay: z.number().int().min(1).max(20).default(3),
+  digestEnabled: z.boolean().default(true),
+  /** Local hour (0-23) of the daily digest notification. */
+  digestHour: z.number().int().min(0).max(23).default(8),
+  /** Re-encode out-of-spec media automatically before posting. */
+  autoFixMedia: z.boolean().default(true),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 export type SettingKey = keyof Settings;

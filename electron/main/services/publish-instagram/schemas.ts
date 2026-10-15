@@ -22,10 +22,7 @@ const lenNumber = z
 const lenIdString = z
   .preprocess(
     (v) => (typeof v === 'number' ? (Number.isSafeInteger(v) ? String(v) : undefined) : v),
-    z
-      .string()
-      .regex(/^\d+$/)
-      .optional(),
+    z.string().regex(/^\d+$/).optional(),
   )
   .catch(undefined);
 
@@ -53,7 +50,9 @@ const shortTokenRow = z.object({
 export function parseShortToken(
   json: unknown,
 ): { accessToken: string; permissions: string[] } | null {
-  const wrapped = z.object({ data: z.array(z.unknown()).optional().catch(undefined) }).safeParse(json);
+  const wrapped = z
+    .object({ data: z.array(z.unknown()).optional().catch(undefined) })
+    .safeParse(json);
   const first = wrapped.success ? wrapped.data.data?.[0] : undefined;
   const row = shortTokenRow.safeParse(first ?? json);
   if (!row.success || !row.data.access_token) return null;
@@ -67,7 +66,9 @@ const longTokenSchema = z.object({
 });
 
 /** `GET /access_token?grant_type=ig_exchange_token` and `GET /refresh_access_token`. */
-export function parseLongToken(json: unknown): { accessToken: string; expiresInSec: number | null } | null {
+export function parseLongToken(
+  json: unknown,
+): { accessToken: string; expiresInSec: number | null } | null {
   const r = longTokenSchema.safeParse(json);
   if (!r.success || !r.data.access_token) return null;
   const e = r.data.expires_in;
@@ -168,7 +169,9 @@ const insightRow = z.object({
 
 /** `GET /{media-id}/insights` → metric name → number (metrics Instagram did not return are absent). */
 export function parseInsights(json: unknown): Record<string, number> {
-  const outer = z.object({ data: z.array(z.unknown()).optional().catch(undefined) }).safeParse(json);
+  const outer = z
+    .object({ data: z.array(z.unknown()).optional().catch(undefined) })
+    .safeParse(json);
   const out: Record<string, number> = {};
   for (const el of outer.success ? (outer.data.data ?? []) : []) {
     const r = insightRow.safeParse(el);

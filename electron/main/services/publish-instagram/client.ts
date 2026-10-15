@@ -37,7 +37,11 @@ export function createClient(d: ClientDeps) {
     for (const [k, v] of compact(a.query)) url.searchParams.set(k, v);
     const timeout = AbortSignal.timeout(d.timeoutMs);
     const combined = a.signal ? AbortSignal.any([a.signal, timeout]) : timeout;
-    const init: RequestInit = { method: a.method, signal: combined, headers: { accept: 'application/json' } };
+    const init: RequestInit = {
+      method: a.method,
+      signal: combined,
+      headers: { accept: 'application/json' },
+    };
     if (a.form) {
       init.body = new URLSearchParams(compact(a.form)).toString();
       init.headers = { ...init.headers, 'content-type': 'application/x-www-form-urlencoded' };
@@ -49,14 +53,22 @@ export function createClient(d: ClientDeps) {
       if (a.signal?.aborted) throw abortError();
       if (timeout.aborted) {
         d.log(`instagram: ${a.label} timed out`);
-        throw new PublishError('network', 'Instagram did not answer in time. Check your connection and try again.', {
-          cause: e,
-        });
+        throw new PublishError(
+          'network',
+          'Instagram did not answer in time. Check your connection and try again.',
+          {
+            cause: e,
+          },
+        );
       }
       d.log(`instagram: ${a.label} failed: ${d.secrets.redact(errText(e))}`);
-      throw new PublishError('network', 'Could not reach Instagram. Check your internet connection and try again.', {
-        cause: e,
-      });
+      throw new PublishError(
+        'network',
+        'Could not reach Instagram. Check your internet connection and try again.',
+        {
+          cause: e,
+        },
+      );
     }
     let text: string;
     try {
@@ -92,7 +104,10 @@ export function createClient(d: ClientDeps) {
       });
     }
     if (!parsedOk)
-      throw new PublishError('platform', 'Instagram sent a response Clipfern could not read. Try again in a moment.');
+      throw new PublishError(
+        'platform',
+        'Instagram sent a response Clipfern could not read. Try again in a moment.',
+      );
     return body ?? {};
   };
 }
@@ -101,7 +116,9 @@ function errText(e: unknown): string {
   if (e instanceof Error) {
     const c = (e as { cause?: unknown }).cause;
     const code =
-      c && typeof c === 'object' && 'code' in c ? ` (${String((c as { code: unknown }).code)})` : '';
+      c && typeof c === 'object' && 'code' in c
+        ? ` (${String((c as { code: unknown }).code)})`
+        : '';
     return `${e.message}${code}`;
   }
   return String(e);

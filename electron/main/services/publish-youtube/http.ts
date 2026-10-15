@@ -24,7 +24,10 @@ export class TransportError extends Error {
     readonly timedOut: boolean,
     cause?: unknown,
   ) {
-    super(timedOut ? 'request timed out' : 'network error', cause !== undefined ? { cause } : undefined);
+    super(
+      timedOut ? 'request timed out' : 'network error',
+      cause !== undefined ? { cause } : undefined,
+    );
   }
 }
 

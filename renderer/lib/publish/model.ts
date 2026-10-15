@@ -11,6 +11,7 @@ import {
   type PostMediaInfo,
   type PostStatus,
   type PostView,
+  type PublishErrorCode,
   type QuotaInfo,
   type SocialAccount,
 } from '@shared/publish';
@@ -412,3 +413,20 @@ export function describeMedia(m: PostMediaInfo): string {
     .filter(Boolean)
     .join(' · ');
 }
+
+/* ---------------------------------------------------------------------------------- errors ----- */
+
+
+export const ERROR_LABEL: Record<PublishErrorCode, string> = {
+  auth: 'Sign-in problem',
+  'rate-limit': 'Rate limited',
+  quota: 'Daily quota reached',
+  validation: 'Rejected by the platform',
+  media: 'Video problem',
+  network: 'Network problem',
+  platform: 'Platform error',
+  unknown: 'Unknown error',
+};
+
+/** Does fixing this error need the account to be reconnected? */
+export const needsReconnect = (code: PublishErrorCode): boolean => code === 'auth';

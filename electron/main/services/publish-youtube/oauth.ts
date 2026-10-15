@@ -111,10 +111,14 @@ export async function exchangeAuthCode(
     throw mapTokenError(reply, 'exchange', secrets, ctx.now());
   const { tokens, gotRefreshToken } = readTokens(reply.text, ctx.now(), null);
   if (!gotRefreshToken)
-    throw new PublishError('auth', 'Google did not issue a long-lived sign-in (no refresh token).', {
-      retryable: false,
-      hint: 'Remove Clipfern at myaccount.google.com/permissions and connect again so Google asks for consent anew.',
-    });
+    throw new PublishError(
+      'auth',
+      'Google did not issue a long-lived sign-in (no refresh token).',
+      {
+        retryable: false,
+        hint: 'Remove Clipfern at myaccount.google.com/permissions and connect again so Google asks for consent anew.',
+      },
+    );
   return tokens;
 }
 

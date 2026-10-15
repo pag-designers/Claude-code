@@ -15,12 +15,7 @@ import {
   type PostFields,
   type ShortsFields,
 } from '@shared/publish';
-import {
-  DESCRIPTION_MAX_BYTES,
-  TAGS_MAX_CHARS,
-  TAG_MAX_CHARS,
-  TITLE_MAX_CHARS,
-} from './constants';
+import { DESCRIPTION_MAX_BYTES, TAGS_MAX_CHARS, TAG_MAX_CHARS, TITLE_MAX_CHARS } from './constants';
 
 export const codePoints = (s: string): number => Array.from(s).length;
 export const utf8Bytes = (s: string): number => Buffer.byteLength(s, 'utf8');
@@ -28,7 +23,9 @@ export const utf8Bytes = (s: string): number => Buffer.byteLength(s, 'utf8');
 const HAS_SHORTS_TAG = /(^|[^\p{L}\p{N}_])#shorts(?![\p{L}\p{N}_])/iu;
 
 /** The description that is actually sent: "#Shorts" appended when requested and not already there. */
-export function effectiveDescription(f: Pick<ShortsFields, 'description' | 'addShortsTag'>): string {
+export function effectiveDescription(
+  f: Pick<ShortsFields, 'description' | 'addShortsTag'>,
+): string {
   const d = f.description;
   if (!f.addShortsTag || HAS_SHORTS_TAG.test(d)) return d;
   const body = d.trimEnd();
@@ -80,7 +77,10 @@ export function validateShortsFields(fields: PostFields): FieldIssue[] {
     });
   }
   if (/[<>]/.test(f.description))
-    issues.push({ field: 'description', message: 'YouTube does not allow < or > in the description.' });
+    issues.push({
+      field: 'description',
+      message: 'YouTube does not allow < or > in the description.',
+    });
 
   f.tags.forEach((t, idx) => {
     if (!t.trim()) issues.push({ field: `tags.${idx}`, message: 'A tag is empty.' });
@@ -102,7 +102,8 @@ export function validateShortsFields(fields: PostFields): FieldIssue[] {
   if (!/^\d{1,4}$/.test(f.categoryId))
     issues.push({
       field: 'categoryId',
-      message: 'The category must be a number (for example 22 = People & Blogs, 24 = Entertainment).',
+      message:
+        'The category must be a number (for example 22 = People & Blogs, 24 = Entertainment).',
     });
 
   return issues;

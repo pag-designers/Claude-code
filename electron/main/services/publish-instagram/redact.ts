@@ -18,7 +18,10 @@ export class SecretSet {
     // Longest first so that a signed URL is replaced before the token that is part of it.
     const sorted = [...this.values].sort((a, b) => b.length - a.length);
     for (const s of sorted) out = out.split(s).join('***');
-    out = out.replace(/\b(access_token|client_secret|ig_exchange_token|code)=[^&\s"'<>]+/gi, '$1=***');
+    out = out.replace(
+      /\b(access_token|client_secret|ig_exchange_token|code)=[^&\s"'<>]+/gi,
+      '$1=***',
+    );
     // Query strings of URLs (S3/R2 presigned signatures live there).
     out = out.replace(/(https?:\/\/[^\s"'<>?#]+)\?[^\s"'<>]*/g, '$1?…');
     // Instagram / Facebook user-token shapes (IGAA…, IGQV…, EAA…).

@@ -150,10 +150,14 @@ export function mapApiError(
     );
   }
   if (has(VALIDATION_REASONS)) {
-    return new PublishError('validation', `YouTube: ${apiMsg ?? reason ?? 'the fields were refused'}`, {
-      retryable: false,
-      hint: 'Edit the post (title, description, tags, category) and schedule it again.',
-    });
+    return new PublishError(
+      'validation',
+      `YouTube: ${apiMsg ?? reason ?? 'the fields were refused'}`,
+      {
+        retryable: false,
+        hint: 'Edit the post (title, description, tags, category) and schedule it again.',
+      },
+    );
   }
   if (has(MEDIA_REASONS) || status === 413 || status === 415) {
     return new PublishError('media', `YouTube: ${apiMsg ?? 'the video file was refused'}`, {
@@ -176,9 +180,13 @@ export function mapApiError(
     });
   }
   if (status >= 500) {
-    return new PublishError('platform', `YouTube is having trouble (HTTP ${status}). Clipfern will try again.`, {
-      retryable: true,
-    });
+    return new PublishError(
+      'platform',
+      `YouTube is having trouble (HTTP ${status}). Clipfern will try again.`,
+      {
+        retryable: true,
+      },
+    );
   }
   if (status === 408) {
     return new PublishError('network', 'YouTube timed out. Clipfern will try again.', {
@@ -202,16 +210,22 @@ export function mapTokenError(
   const desc = g.message ? clip(scrub(g.message, secrets), 200) : null;
   if (code === 'invalid_grant') {
     if (kind === 'refresh')
-      return new PublishError('auth', 'Google no longer accepts the saved sign-in for this channel.', {
-        retryable: false,
-        hint:
-          'Connect the channel again. If your Google OAuth consent screen is still in "Testing" mode, Google expires ' +
-          'refresh tokens after 7 days: open Google Cloud Console → "OAuth consent screen" and publish the app to ' +
-          '"In production" (fine for personal use, no review needed for your own account), then reconnect.',
-      });
+      return new PublishError(
+        'auth',
+        'Google no longer accepts the saved sign-in for this channel.',
+        {
+          retryable: false,
+          hint:
+            'Connect the channel again. If your Google OAuth consent screen is still in "Testing" mode, Google expires ' +
+            'refresh tokens after 7 days: open Google Cloud Console → "OAuth consent screen" and publish the app to ' +
+            '"In production" (fine for personal use, no review needed for your own account), then reconnect.',
+        },
+      );
     return new PublishError('auth', 'Google rejected the sign-in code.', {
       retryable: false,
-      hint: 'Start the connection again from Settings → Integrations.' + (desc ? ` (Google: ${desc})` : ''),
+      hint:
+        'Start the connection again from Settings → Integrations.' +
+        (desc ? ` (Google: ${desc})` : ''),
     });
   }
   if (code === 'invalid_client' || code === 'unauthorized_client' || reply.status === 401) {
@@ -221,9 +235,13 @@ export function mapTokenError(
     });
   }
   if (reply.status >= 500)
-    return new PublishError('platform', `Google sign-in is having trouble (HTTP ${reply.status}).`, {
-      retryable: true,
-    });
+    return new PublishError(
+      'platform',
+      `Google sign-in is having trouble (HTTP ${reply.status}).`,
+      {
+        retryable: true,
+      },
+    );
   if (reply.status === 429)
     return new PublishError('rate-limit', 'Google is rate limiting sign-in requests.', {
       retryable: true,

@@ -123,9 +123,13 @@ export async function fetchVideoStats(
   const json = await apiGet(ctx, `${apiBase}/videos?${q.toString()}`, tokens, signal);
   const r = videoListSchema.safeParse(json);
   if (!r.success)
-    throw new PublishError('platform', 'YouTube sent a statistics response Clipfern could not read.', {
-      retryable: true,
-    });
+    throw new PublishError(
+      'platform',
+      'YouTube sent a statistics response Clipfern could not read.',
+      {
+        retryable: true,
+      },
+    );
   const v = r.data.items.find((i) => i.id === videoId) ?? r.data.items[0];
   if (!v?.statistics) return null; // deleted / private / not yet processed
   return {

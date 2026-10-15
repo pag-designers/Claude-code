@@ -24,7 +24,7 @@
  */
 import fs from 'node:fs/promises';
 import { z } from 'zod';
-import type { FieldIssue, PostFields, PostStats, TiktokFields } from '@shared/publish';
+import type { FieldIssue, PostFields, PostStats } from '@shared/publish';
 import type {
   OAuthTokens,
   ProviderAccount,
@@ -731,7 +731,6 @@ export function createTiktokProvider(
           if (privacy !== 'SELF_ONLY' && !branded) {
             log('tiktok: app is not audited; retrying as SELF_ONLY');
             notes.push(downgradeNote(f.privacyLevel, 'SELF_ONLY'));
-            privacy = 'SELF_ONLY';
             started = await init('SELF_ONLY');
           } else {
             throw new PublishError(

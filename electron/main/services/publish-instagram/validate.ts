@@ -25,7 +25,10 @@ export const charCount = (t: string): number => [...t].length;
 function textIssues(field: string, label: string, text: string, out: FieldIssue[]): void {
   const n = charCount(text);
   if (n > MAX_CAPTION_CHARS)
-    out.push({ field, message: `${label} is ${n} characters; Instagram allows ${MAX_CAPTION_CHARS}.` });
+    out.push({
+      field,
+      message: `${label} is ${n} characters; Instagram allows ${MAX_CAPTION_CHARS}.`,
+    });
   const h = countHashtags(text);
   if (h > MAX_HASHTAGS)
     out.push({ field, message: `${label} has ${h} hashtags; Instagram allows ${MAX_HASHTAGS}.` });

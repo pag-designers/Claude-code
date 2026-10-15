@@ -38,7 +38,10 @@ export const isAbort = (e: unknown): boolean => e instanceof Error && e.name ===
 
 const lenStr = z.string().optional().catch(undefined);
 const lenNum = z
-  .preprocess((v) => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().finite().optional())
+  .preprocess(
+    (v) => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v),
+    z.number().finite().optional(),
+  )
   .catch(undefined);
 
 const graphErrorSchema = z.object({
@@ -182,7 +185,12 @@ export const SUBCODE_TEXT: Record<number, Known> = {
 };
 
 /** Legacy top-level codes Instagram pairs with the subcodes above. */
-const CODE_TO_SUBCODE: Record<number, number> = { 9004: 2207052, 9007: 2207027, 352: 2207026, 36004: 2207010 };
+const CODE_TO_SUBCODE: Record<number, number> = {
+  9004: 2207052,
+  9007: 2207027,
+  352: 2207026,
+  36004: 2207010,
+};
 
 const AUTH_CODES = new Set([190, 102, 458, 459, 460, 463, 464, 467]);
 const RATE_CODES = new Set([4, 17, 32, 613, 80002]);
@@ -209,7 +217,8 @@ export function mapFailure(a: {
   const parsed = parseErrorBody(a.body);
   const code = parsed?.code ?? null;
   let sub = parsed?.subcode ?? null;
-  if (sub === null && code !== null && CODE_TO_SUBCODE[code] !== undefined) sub = CODE_TO_SUBCODE[code] ?? null;
+  if (sub === null && code !== null && CODE_TO_SUBCODE[code] !== undefined)
+    sub = CODE_TO_SUBCODE[code] ?? null;
   const apiText = parsed?.message ? a.secrets.redact(parsed.message).slice(0, 300) : null;
   const said = apiText ? ` (Instagram said: ${apiText})` : '';
   const mk = (
@@ -220,22 +229,19 @@ export function mapFailure(a: {
 
   // Daily Content Publishing API limit.
   if (sub === 2207042)
-    return mk(
-      'quota',
-      `Instagram's daily limit of API-published posts is reached.${said}`,
-      { retryAfterSec: QUOTA_RECHECK_SEC, hint: 'Posts go out again as older ones leave the rolling 24 hour window.' },
-    );
+    return mk('quota', `Instagram's daily limit of API-published posts is reached.${said}`, {
+      retryAfterSec: QUOTA_RECHECK_SEC,
+      hint: 'Posts go out again as older ones leave the rolling 24 hour window.',
+    });
   if (sub !== null && SUBCODE_TEXT[sub]) {
     const k = SUBCODE_TEXT[sub];
     return mk(k.code, `${k.text}${said}`, { retryable: k.retryable });
   }
   if (a.status === 429 || (code !== null && RATE_CODES.has(code))) {
     const ra = retryAfterSeconds(a.retryAfterHeader, a.now) ?? DEFAULT_RATE_RETRY_SEC;
-    return mk(
-      'rate-limit',
-      `Instagram is limiting requests from this app right now.${said}`,
-      { retryAfterSec: ra },
-    );
+    return mk('rate-limit', `Instagram is limiting requests from this app right now.${said}`, {
+      retryAfterSec: ra,
+    });
   }
   const isPermission = code !== null && (code === 10 || (code >= 200 && code <= 299));
   if (code !== null && (AUTH_CODES.has(code) || isPermission))

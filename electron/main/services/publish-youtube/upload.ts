@@ -6,7 +6,7 @@
  * Protocol recap: POST `…/videos?uploadType=resumable&part=snippet,status` with the metadata → 200 + `Location`
  * (session URI). PUT chunks with `Content-Range: bytes A-B/TOTAL`: 308 + `Range: bytes=0-N` = more please (no Range =
  * nothing stored), 200/201 = done (body = video resource). After a failure, `PUT` empty with
- * `Content-Range: bytes */TOTAL` returns the committed range (or the final resource if it had completed). A session
+ * `Content-Range: bytes STAR/TOTAL` (a literal asterisk) returns the committed range (or the final resource if it had completed). A session
  * URI that expired answers 404 (start over). Every other 4xx is permanent.
  *
  * Bearer tokens only ever go to the configured upload host (the session URI must be on the same origin).
@@ -112,10 +112,11 @@ export async function resumableInsert(a: UploadArgs): Promise<InsertedVideo> {
       retryable: false,
     });
   const total = stat.size;
-  if (total <= 0)
-    throw new PublishError('media', 'The video file is empty.', { retryable: false });
+  if (total <= 0) throw new PublishError('media', 'The video file is empty.', { retryable: false });
   if (total !== a.media.sizeBytes)
-    ctx.log(`youtube: file size on disk (${total}) differs from the probe (${a.media.sizeBytes}); using the disk size`);
+    ctx.log(
+      `youtube: file size on disk (${total}) differs from the probe (${a.media.sizeBytes}); using the disk size`,
+    );
 
   const metadata = {
     snippet: {
@@ -133,7 +134,10 @@ export async function resumableInsert(a: UploadArgs): Promise<InsertedVideo> {
   const fh = await fs.open(a.media.file, 'r');
   try {
     const backoff = (n: number, hint: number | null): number =>
-      Math.max(hint ?? 0, Math.min(tuning.retryMaxMs, tuning.retryBaseMs * 2 ** Math.max(0, n - 1)));
+      Math.max(
+        hint ?? 0,
+        Math.min(tuning.retryMaxMs, tuning.retryBaseMs * 2 ** Math.max(0, n - 1)),
+      );
 
     /** Classifies a non-success reply of the upload host. */
     const classify = (reply: Reply): Retryable | SessionGone | PublishError => {
@@ -311,7 +315,9 @@ export async function resumableInsert(a: UploadArgs): Promise<InsertedVideo> {
           });
         const progressed = out.offset > offset;
         if (out.offset < offset)
-          ctx.log(`youtube: server holds ${out.offset} bytes, fewer than the ${offset} sent; re-sending`);
+          ctx.log(
+            `youtube: server holds ${out.offset} bytes, fewer than the ${offset} sent; re-sending`,
+          );
         offset = out.offset;
         needSync = false;
         if (progressed) failures = 0;
@@ -333,7 +339,9 @@ export async function resumableInsert(a: UploadArgs): Promise<InsertedVideo> {
         if (e instanceof Retryable) {
           failures++;
           if (failures > tuning.maxRetries) throw e.asPublishError;
-          ctx.log(`youtube: upload interrupted (attempt ${failures}); asking YouTube where to resume`);
+          ctx.log(
+            `youtube: upload interrupted (attempt ${failures}); asking YouTube where to resume`,
+          );
           needSync = true;
           await tuning.sleep(backoff(failures, e.waitMs), signal);
           continue;

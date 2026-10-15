@@ -21,7 +21,7 @@ function run(
       args,
       { timeout: timeoutMs, windowsHide: true, maxBuffer: 8 * 1024 * 1024 },
       (err, stdout, stderr) => {
-        if (err) reject(Object.assign(err, { stdout, stderr }));
+        if (err) reject(Object.assign(err, { stdout, stderr, timeoutMs }));
         else resolve({ stdout: String(stdout), stderr: String(stderr) });
       },
     );
@@ -34,8 +34,36 @@ export function ytdlpAssetName(platform = process.platform, arch = process.arch)
   return arch === 'arm64' ? 'yt-dlp_linux_aarch64' : 'yt-dlp_linux';
 }
 
+/**
+ * A message that says WHY a tool did not run (execFile's own "Command failed: <path> --version" says nothing).
+ * Exported for tests.
+ */
+export function describeRunError(e: unknown): string {
+  if (!(e instanceof Error)) return String(e);
+  const x = e as Error & {
+    code?: string | number;
+    killed?: boolean;
+    signal?: string | null;
+    stderr?: string;
+    timeoutMs?: number;
+  };
+  if (x.killed && x.signal === 'SIGTERM')
+    return `It did not answer within ${(x.timeoutMs ?? 0) >= 10_000 ? Math.round((x.timeoutMs ?? 0) / 1000) : ((x.timeoutMs ?? 0) / 1000).toFixed(1)} s. The first start of a freshly downloaded tool can be slow (macOS scans it); press Refresh to try again.`;
+  if (x.code === 'EACCES')
+    return 'The file is not allowed to run (permission denied). Press “Update yt-dlp” to download it again.';
+  if (x.code === 'ENOENT') return 'The file is missing. Press “Update yt-dlp” to download it.';
+  if (x.signal) return `It was stopped by the system (${x.signal}). macOS may have blocked it: press “Update yt-dlp” to download it again.`;
+  const err = (x.stderr ?? '').trim().split(/\r?\n/).slice(-3).join(' ').slice(0, 300);
+  const status = typeof x.code === 'number' ? ` (exit code ${x.code})` : '';
+  return `${x.message.split(/\r?\n/)[0]}${status}${err ? `: ${err}` : ''}`;
+}
+
 export class BinaryService {
   private readonly binDir: string;
+  /** Serialises checks and updates of the downloaded yt-dlp so a check never runs against a half-replaced file. */
+  private ytdlpOp: Promise<unknown> = Promise.resolve();
+  /** First run of the macOS onefile binary unpacks itself and is scanned by the OS; give it time. Tests lower it. */
+  ytdlpCheckTimeoutMs = 60_000;
 
   constructor(
     userDataDir: string,
@@ -92,22 +120,41 @@ export class BinaryService {
     }
   }
 
-  async checkYtdlp(): Promise<ToolStatus> {
+  private withYtdlpLock<T>(fn: () => Promise<T>): Promise<T> {
+    const next = this.ytdlpOp.then(fn, fn);
+    this.ytdlpOp = next.catch(() => {});
+    return next;
+  }
+
+  checkYtdlp(): Promise<ToolStatus> {
+    return this.withYtdlpLock(() => this.checkYtdlpNow());
+  }
+
+  private async checkYtdlpNow(): Promise<ToolStatus> {
     const p = this.ytdlpPath;
     if (!fs.existsSync(p)) return fail('yt-dlp', 'Not downloaded yet', null, 'downloaded');
-    try {
-      const { stdout } = await run(p, ['--version']);
-      return {
-        name: 'yt-dlp',
-        ok: true,
-        version: stdout.trim(),
-        path: p,
-        error: null,
-        source: 'downloaded',
-      };
-    } catch (e) {
-      return fail('yt-dlp', errMsg(e), p, 'downloaded');
+    let last: unknown = null;
+    // A timeout or a kill on the very first launch is often just the OS scanning a new binary: try once more.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const { stdout } = await run(p, ['--version'], this.ytdlpCheckTimeoutMs);
+        return {
+          name: 'yt-dlp',
+          ok: true,
+          version: stdout.trim(),
+          path: p,
+          error: null,
+          source: 'downloaded',
+        };
+      } catch (e) {
+        last = e;
+        const x = e as { killed?: boolean; signal?: string | null };
+        if (!(x.killed || x.signal)) break;
+        this.log(`yt-dlp --version attempt ${attempt + 1} failed: ${describeRunError(e)}`);
+      }
     }
+    this.log(`yt-dlp check failed: ${errMsg(last)}`);
+    return fail('yt-dlp', describeRunError(last), p, 'downloaded');
   }
 
   async checkUv(): Promise<ToolStatus> {
@@ -148,17 +195,21 @@ export class BinaryService {
   }
 
   /** Downloads the latest yt-dlp release binary (or self-updates an existing one). */
-  async updateYtdlp(): Promise<ToolStatus> {
+  updateYtdlp(): Promise<ToolStatus> {
+    return this.withYtdlpLock(() => this.updateYtdlpNow());
+  }
+
+  private async updateYtdlpNow(): Promise<ToolStatus> {
     fs.mkdirSync(this.binDir, { recursive: true });
     const target = this.ytdlpPath;
     if (fs.existsSync(target)) {
       try {
         const { stdout, stderr } = await run(target, ['-U'], 120_000);
         this.log(`yt-dlp -U: ${(stdout + stderr).trim().slice(0, 300)}`);
-        const st = await this.checkYtdlp();
+        const st = await this.checkYtdlpNow();
         if (st.ok) return st;
       } catch (e) {
-        this.log(`yt-dlp -U failed (${errMsg(e)}); re-downloading`);
+        this.log(`yt-dlp -U failed (${describeRunError(e)}); re-downloading`);
       }
     }
     const url = `https://github.com/yt-dlp/yt-dlp/releases/latest/download/${ytdlpAssetName()}`;
@@ -169,7 +220,7 @@ export class BinaryService {
     await pipeline(Readable.fromWeb(res.body as never), fs.createWriteStream(tmp, { mode: 0o755 }));
     fs.renameSync(tmp, target);
     if (process.platform !== 'win32') fs.chmodSync(target, 0o755);
-    return this.checkYtdlp();
+    return this.checkYtdlpNow();
   }
 
   /** First-run helper: make sure yt-dlp exists. Never throws. */

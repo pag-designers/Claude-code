@@ -156,7 +156,7 @@ function ConnectCard({
   const info = PLATFORM_INFO[platform];
   const blurb: Record<Platform, string> = {
     shorts: 'Official YouTube Data API. About 6 uploads a day on the default quota.',
-    reels: 'Business or Creator account linked to a Facebook Page.',
+    reels: 'Instagram Business or Creator account.',
     tiktok: 'Unaudited apps post privately until TikTok approves a free audit.',
   };
   return (

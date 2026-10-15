@@ -66,9 +66,9 @@ const PLATFORMS: Platform[] = [
         body: (
           <>
             Choose <strong>External</strong>, add your own Google account as a test user and add the
-            scope {code('youtube.upload')}. Then click <strong>Publish app</strong>: personal use
-            needs no verification, but apps left in “Testing” have refresh tokens that expire every
-            7 days.
+            scopes {code('youtube.upload')} and {code('youtube.readonly')} (channel name and view
+            counts). Then click <strong>Publish app</strong>: personal use needs no verification,
+            but apps left in “Testing” have refresh tokens that expire every 7 days.
           </>
         ),
       },
@@ -99,38 +99,50 @@ const PLATFORMS: Platform[] = [
     name: 'Instagram Reels',
     icon: InstagramGlyph,
     summary:
-      'Publishes Reels through the Instagram Graph API using a Meta developer app in Development mode.',
+      'Publishes Reels through “Instagram API with Instagram login” using a Meta developer app in Development mode.',
     link: { label: 'Open Meta for Developers', url: 'https://developers.facebook.com/apps/' },
     steps: [
       {
         title: 'Prepare your account',
-        body: 'Switch Instagram to a Business or Creator account and link it to a Facebook Page.',
+        body: 'Switch Instagram to a Business or Creator account (Settings → Account type). No Facebook Page is needed for this login.',
       },
       {
         title: 'Create a Meta app',
-        body: 'At developers.facebook.com create an app of type Business.',
+        body: 'At developers.facebook.com create an app of type Business, then add the product Instagram and open “API setup with Instagram login”.',
       },
       {
         title: 'Add Instagram publishing',
         body: (
           <>
-            Add the Instagram product and request the permissions {code('instagram_basic')},{' '}
-            {code('instagram_content_publish')} and {code('pages_show_list')}.
+            Enable {code('instagram_business_basic')}, {code('instagram_business_content_publish')}{' '}
+            and {code('instagram_business_manage_comments')} (the last is only used for the first
+            comment).
           </>
         ),
       },
       {
-        title: 'Stay in Development mode',
-        body: 'Development mode is enough for your own account as long as you are an admin or tester of the app. No App Review needed.',
+        title: 'Add your account as a tester and stay in Development mode',
+        body: 'App roles → Roles → Instagram testers: add your Instagram account and accept the invite in the Instagram app. Development mode is meant for accounts you own, so no App Review should be needed (Meta does not spell this out; tell us if it asks).',
+      },
+      {
+        title: 'Register the redirect',
+        body: (
+          <>
+            Copy the exact redirect URI shown under “Connected accounts” below into{' '}
+            <strong>Valid OAuth redirect URIs</strong> of the Instagram login settings. Meta may
+            insist on https for this field and refuse an {code('http://127.0.0.1')} address; we
+            could not confirm either way. If it refuses, Connect will not work yet.
+          </>
+        ),
       },
       {
         title: 'Paste the app credentials below',
-        body: 'App settings → Basic holds the App ID and App secret.',
+        body: 'On the same “API setup with Instagram login” page, copy the Instagram app ID and Instagram app secret. They are not the same as the Meta App ID at the top of the app.',
       },
     ],
     fields: [
-      { key: 'meta.appId', label: 'App ID' },
-      { key: 'meta.appSecret', label: 'App secret' },
+      { key: 'meta.appId', label: 'Instagram app ID' },
+      { key: 'meta.appSecret', label: 'Instagram app secret' },
     ],
     notes: (
       <Banner tone="info" title="How media reaches Instagram">
@@ -159,7 +171,7 @@ const PLATFORMS: Platform[] = [
       },
       {
         title: 'Register the redirect',
-        body: 'Copy the exact redirect URI shown under “Connected accounts” below into the app’s Login Kit settings.',
+        body: 'Copy the exact redirect URI shown under “Connected accounts” below into the app’s Login Kit settings. For desktop apps TikTok accepts only http(s) on localhost or 127.0.0.1 with a port, no query string or fragment.',
       },
       {
         title: 'Paste the credentials below',

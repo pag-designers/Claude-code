@@ -1167,7 +1167,7 @@ export class PostingService {
             ? `Sent to your ${PLATFORM_LABEL[platform]} drafts`
             : `Published to ${PLATFORM_LABEL[platform]}`,
         body: [v.title, result.note].filter(Boolean).join(' — '),
-        href: '/scheduler/',
+        href: `/scheduler/?post=${postId}`,
         os: true,
       });
     } catch (e) {
@@ -1228,7 +1228,7 @@ export class PostingService {
       level: 'error',
       title: `Could not post to ${PLATFORM_LABEL[row.platform as Platform]}`,
       body: `${v.title} — ${error.message}${error.hint ? ` ${error.hint}` : ''}`,
-      href: '/scheduler/',
+      href: `/scheduler/?post=${row.id}`,
       os: true,
     });
   }

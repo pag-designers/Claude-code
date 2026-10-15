@@ -99,7 +99,7 @@ test.describe('integrations: redirect URI and accounts', () => {
     await expect(yt).toContainText('@riversideshorts');
     await expect(yt).toContainText('Connected');
     await expect(yt).toContainText('1 scheduled post will go to this account');
-    await expect(yt.getByTestId('quota-meter')).toContainText('3,200 of 10,000 units');
+    await expect(yt.getByTestId('quota-meter')).toContainText('32 of 100 posts');
     await expect(acct(s.page, ACC_TT)).toContainText('unaudited app');
     await expect(card(s.page, 'youtube').getByText('Connected accounts')).toBeVisible();
     clean(s);
@@ -329,15 +329,15 @@ test.describe('integrations: explainers', () => {
     await s.close();
   });
 
-  test('YouTube quota explainer: 10,000 units, ~1,600 per upload, live meter, how to ask for more', async () => {
+  test('YouTube quota explainer: 100 uploads a day, 1 unit each, live meter, how to ask for more', async () => {
     const s = await open(INTEGRATIONS);
     const q = s.page.getByTestId('youtube-quota');
-    await expect(q).toContainText('10,000 units a day');
-    await expect(q).toContainText('≈ 1,600 units');
-    await expect(q).toContainText('roughly 6 Shorts a day');
+    await expect(q).toContainText('100 uploads a day');
+    await expect(q).toContainText('1 unit');
+    await expect(q).toContainText('Older guides say');
     await expect(q).toContainText('Midnight Pacific time');
-    await expect(q.getByTestId('quota-meter')).toContainText('3,200 of 10,000 units');
-    await expect(q).toContainText('Need more than 6 a day? Ask Google, it is free.');
+    await expect(q.getByTestId('quota-meter')).toContainText('32 of 100 posts');
+    await expect(q).toContainText('Need more than 100 a day? Ask Google, it is free.');
     await expect(q).toContainText('Audit and Quota Extension');
     await expect(q).toContainText('If your Shorts upload as private');
     await q.getByRole('button', { name: /YouTube API docs/ }).click();
@@ -350,7 +350,7 @@ test.describe('integrations: explainers', () => {
 
   test('both explainers render without any account (no meter, still readable)', async () => {
     const s = await open(INTEGRATIONS, { accounts: [], seed: false });
-    await expect(s.page.getByTestId('youtube-quota')).toContainText('10,000 units a day');
+    await expect(s.page.getByTestId('youtube-quota')).toContainText('100 uploads a day');
     await expect(s.page.getByTestId('youtube-quota').getByTestId('quota-meter')).toHaveCount(0);
     await expect(s.page.getByTestId('tiktok-audit')).toBeVisible();
     clean(s);

@@ -151,9 +151,11 @@ test.describe('accounts strip', () => {
     await expect(yt).toContainText('@riversideshorts');
     await expect(yt).toContainText('Connected');
     const meter = yt.getByTestId('quota-meter');
-    await expect(meter).toContainText('3,200 of 10,000 units');
-    await expect(meter).toContainText('4 more posts today');
-    await expect(meter.getByTestId('quota-note')).toContainText('1,600 of your 10,000 daily units');
+    await expect(meter).toContainText('32 of 100 posts');
+    await expect(meter).toContainText('68 more posts today');
+    await expect(meter.getByTestId('quota-note')).toContainText(
+      '100 uploads a day for a new project',
+    );
     await expect(meter.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '32');
     await expect(
       cards.filter({ hasText: 'Riverside Reels' }).getByTestId('quota-meter'),

@@ -769,7 +769,7 @@ test.describe('Export panel', () => {
     const s = await host();
     const c = editorControls(s.state);
     await openExport(s);
-    await expect(s.page.getByTestId('export-schedule')).toBeDisabled();
+    await expect(s.page.getByTestId('export-schedule')).toBeEnabled(); // exports first, then opens the schedule dialog
     await s.page.getByTestId('export-start').click();
     const job = async () => {
       await expect
@@ -876,11 +876,8 @@ test.describe('Export panel', () => {
     await c.progress('ex-run', 0.8, 'Muxing');
     await openExport(s);
     await expect(s.page.getByTestId('export-percent')).toHaveText('80%');
-    // the form stays locked until it finishes; Export & Schedule explains CP5
-    const sch = s.page.getByTestId('export-schedule');
-    await expect(sch).toBeDisabled();
-    const t = await tip(s.page, s.page.locator('span[tabindex="0"]').filter({ has: sch }));
-    await expect(t).toContainText('Arrives in checkpoint 5');
+    // the form stays locked until it finishes; "Export & Schedule" is a real button now (its flow: renderer-cp5-entry.spec.ts)
+    await expect(s.page.getByTestId('export-schedule')).toBeVisible();
     expect(problems(s)).toEqual([]);
     await s.close();
   });
@@ -1215,12 +1212,12 @@ test.describe('Library → Exported', () => {
     await s.close();
   });
 
-  test('Export & Schedule is disabled until checkpoint 5', async () => {
+  test('each export card has a Schedule button (finished exports only)', async () => {
     const s = await open('/library/?tab=exported');
-    const btn = s.page.getByTestId('export-card-schedule').first();
-    await expect(btn).toBeDisabled();
-    const t = await tip(s.page, s.page.locator('span[tabindex="0"]').filter({ has: btn }).first());
-    await expect(t).toContainText('Arrives in checkpoint 5');
+    const btns = s.page.getByTestId('export-card-schedule');
+    expect(await btns.count()).toBeGreaterThan(0);
+    // a finished export can be posted; a failed one explains why not
+    await expect(btns.filter({ hasNot: s.page.locator('[disabled]') }).first()).toBeEnabled();
     expect(problems(s)).toEqual([]);
     await s.close();
   });

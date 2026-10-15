@@ -737,14 +737,11 @@ test.describe('Library', () => {
       .getByRole('button', { name: /^Open clip/ })
       .click({ modifiers: ['Shift'] });
     await expect(bar.getByText('4', { exact: true })).toBeVisible();
-    // later-version actions are disabled with the tooltip. "Open in editor" (CP3) needs a single clip: its own
-    // reason ("Select a single clip to open it in the editor") is asserted in renderer-cp3-panels.spec.ts.
-    for (const name of ['Send to scheduler', 'Open in editor']) {
-      await expect(s.page.getByRole('button', { name })).toBeDisabled();
-    }
-    const sched = s.page.getByRole('button', { name: 'Send to scheduler' });
-    const t = await tip(s.page, s.page.locator('span[tabindex="0"]').filter({ has: sched }));
-    await expect(t).toContainText('Coming in a later version');
+    // "Open in editor" (CP3) needs a single clip: its own reason ("Select a single clip to open it in the editor")
+    // is asserted in renderer-cp3-panels.spec.ts. "Schedule…" (CP5) is a real action now: scheduling the rendered
+    // clips of the selection (its dialog is covered by renderer-cp5-*.spec.ts).
+    await expect(s.page.getByRole('button', { name: 'Open in editor' })).toBeDisabled();
+    await expect(s.page.getByTestId('selection-schedule')).toBeVisible();
     await s.page.mouse.move(5, 5);
     // download
     const ids = (await cards(s.page).evaluateAll((els) =>

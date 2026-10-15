@@ -211,12 +211,12 @@ function defaultQuota(accounts: SocialAccount[], now: number): QuotaInfo[] {
           accountId: a.id,
           platform: 'shorts',
           label: 'YouTube API quota',
-          used: 3200,
-          limit: 10000,
-          unit: 'units',
+          used: 32,
+          limit: 100,
+          unit: 'posts',
           resetsAt: now + 7 * HOUR,
-          postsLeft: 4,
-          note: 'An upload costs about 1,600 of your 10,000 daily units. Request more for free in the YouTube API quota form.',
+          postsLeft: 68,
+          note: 'YouTube allows 100 uploads a day for a new project (1 unit each). Request more for free in the YouTube API quota form.',
         }),
       ];
     if (a.platform === 'reels')

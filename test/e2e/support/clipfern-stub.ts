@@ -250,6 +250,22 @@ async function handle(
   if (edp) return edp.value;
   // CP4 baseline: no Brand Kits and no stock-footage keys (the brand specs install richer stubs in front of this one)
   if (channel === 'brand:list') return { items: [] };
+  // CP5 baseline: the top-bar scheduler indicator queries these on every page (no accounts connected).
+  if (channel === 'accounts:list') return { accounts: [], setup: [] };
+  if (channel === 'posts:list') return { items: [] };
+  if (channel === 'scheduler:status')
+    return {
+      active: true,
+      paused: false,
+      trayMode: true,
+      trayAvailable: false,
+      upcoming: 0,
+      nextAt: null,
+      publishing: 0,
+      catchUp: { pending: 0, lastRunAt: null },
+      quota: [],
+      now: Date.now(),
+    };
   if (channel === 'brand:defaultKit') return { id: null };
   if (channel === 'brand:fonts') return { fonts: [] };
   if (channel === 'broll:status') return { pexels: false, pixabay: false };

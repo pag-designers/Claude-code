@@ -23,7 +23,7 @@ const Link = ({ url, children }: { url: string; children: React.ReactNode }) => 
 
 /* ------------------------------------------------------------------------------ YouTube quota ----- */
 
-/** Why YouTube allows about six uploads a day, how to see what is left, and how to ask Google for more (free). */
+/** What YouTube allows per day, how to see what is left, and how to ask Google for more (free). */
 export function YoutubeQuotaExplainer() {
   const now = useNowMs();
   const accounts = useAccounts().data?.accounts.filter((a) => a.platform === 'shorts') ?? [];
@@ -42,13 +42,13 @@ export function YoutubeQuotaExplainer() {
         {[
           [
             'Default allowance',
-            '10,000 units a day',
-            'Per Google Cloud project, shared by every call.',
+            '100 uploads a day',
+            'Per Google Cloud project: uploads have their own bucket. Every other call shares 10,000 units.',
           ],
           [
             'One upload costs',
-            '≈ 1,600 units',
-            'That is roughly 6 Shorts a day. Reading data costs about 1 unit.',
+            '1 unit',
+            'Older guides say ≈ 1,600 of 10,000 units (about 6 a day); YouTube’s quota page now lists a separate upload bucket.',
           ],
           [
             'It resets',
@@ -76,7 +76,7 @@ export function YoutubeQuotaExplainer() {
         </div>
       ) : null}
       <div className="flex flex-col gap-2 text-sm">
-        <p className="font-medium">Need more than 6 a day? Ask Google, it is free.</p>
+        <p className="font-medium">Need more than 100 a day? Ask Google, it is free.</p>
         <ol className="flex list-decimal flex-col gap-1 pl-5 text-muted-foreground">
           <li>
             Open the{' '}

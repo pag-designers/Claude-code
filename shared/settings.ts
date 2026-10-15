@@ -61,6 +61,8 @@ export const settingsSchema = z.object({
   digestHour: z.number().int().min(0).max(23).default(8),
   /** Re-encode out-of-spec media automatically before posting. */
   autoFixMedia: z.boolean().default(true),
+  /** Fixed loopback port of the OAuth redirect (`http://127.0.0.1:<port>/oauth/<platform>`); register that URI in each developer app. */
+  oauthLoopbackPort: z.number().int().min(1024).max(65535).default(53682),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 export type SettingKey = keyof Settings;

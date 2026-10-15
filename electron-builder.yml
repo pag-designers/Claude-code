@@ -17,6 +17,8 @@ files:
 extraResources:
   - from: electron/main/assets/fonts
     to: fonts
+  - from: electron/main/assets/tray
+    to: tray
   - from: sidecar
     to: sidecar
     filter:

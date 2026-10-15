@@ -10,6 +10,8 @@ import type { StyleRegistry } from '../pipeline/styles';
 import type { EditorService } from '../pipeline/editor';
 import type { BrandService } from '../pipeline/brand';
 import type { BrollHub } from '../pipeline/broll';
+import type { PostingService } from '../pipeline/posting';
+import type { SchedulerService } from '../pipeline/scheduler';
 import type { CaptionService } from '../pipeline/contracts';
 import type { PipelineOrchestrator } from '../pipeline/orchestrator';
 import type { UrlInfo } from '@shared/pipeline';
@@ -27,6 +29,8 @@ export interface HostApi {
   editor: EditorService;
   brand: BrandService;
   broll: BrollHub;
+  posting: PostingService;
+  scheduler: SchedulerService;
   styles: StyleRegistry;
   captions: Pick<CaptionService, 'fonts'>;
   fontsDir(): string | null;
@@ -38,10 +42,6 @@ export interface HostApi {
     stop(): Promise<unknown>;
   };
 }
-
-const notWired = (): never => {
-  throw new Error('Posting is not available yet');
-};
 
 export function buildHandlers(svc: Services, host: HostApi): Handlers {
   const ok = { ok: true as const };
@@ -313,25 +313,34 @@ export function buildHandlers(svc: Services, host: HostApi): Handlers {
     'broll:suggest': async ({ text }) => ({ queries: await host.broll.suggest(text) }),
 
     // CP5 INTERIM: replaced by the real posting handlers during integration.
-    'accounts:list': notWired,
-    'accounts:connect': notWired,
-    'accounts:cancelConnect': notWired,
-    'accounts:disconnect': notWired,
-    'accounts:test': notWired,
-    'publish:prefill': notWired,
-    'publish:validate': notWired,
-    'posts:create': notWired,
-    'posts:list': notWired,
-    'posts:get': notWired,
-    'posts:update': notWired,
-    'posts:postNow': notWired,
-    'posts:cancel': notWired,
-    'posts:retry': notWired,
-    'posts:delete': notWired,
-    'posts:refreshStats': notWired,
-    'scheduler:status': notWired,
-    'scheduler:setPaused': notWired,
-    'scheduler:digestNow': notWired,
+    'accounts:list': () => host.posting.listAccounts(),
+    'accounts:connect': async ({ platform }) => ({ account: await host.posting.connect(platform) }),
+    'accounts:cancelConnect': ({ platform }) => {
+      host.posting.cancelConnect(platform);
+      return ok;
+    },
+    'accounts:disconnect': async ({ id }) => {
+      await host.posting.disconnect(id);
+      return ok;
+    },
+    'accounts:test': ({ id }) => host.posting.testAccount(id),
+    'publish:prefill': ({ source, platform }) => host.posting.prefill(source, platform),
+    'publish:validate': (a) => host.posting.validate(a),
+    'posts:create': ({ items }) => host.posting.create(items),
+    'posts:list': (q) => host.posting.list(q),
+    'posts:get': ({ id }) => host.posting.get(id),
+    'posts:update': (a) => host.posting.update(a),
+    'posts:postNow': ({ id }) => host.posting.postNow(id),
+    'posts:cancel': ({ id }) => host.posting.cancel(id),
+    'posts:retry': ({ id }) => host.posting.retry(id),
+    'posts:delete': async ({ ids }) => {
+      await host.posting.delete(ids);
+      return ok;
+    },
+    'posts:refreshStats': ({ ids }) => host.posting.refreshStats(ids),
+    'scheduler:status': () => host.scheduler.status(),
+    'scheduler:setPaused': ({ paused }) => host.scheduler.setPaused(paused),
+    'scheduler:digestNow': () => host.scheduler.digestNow(),
 
     'shell:openExternal': async ({ url }) => {
       if (!/^https?:\/\//i.test(url)) throw new Error('Only http(s) links can be opened');

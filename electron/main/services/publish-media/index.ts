@@ -30,6 +30,7 @@ export interface PublishMediaDeps {
 export interface PublishMediaServiceEx extends PublishMediaService {
   probe(file: string, opts?: Pick<CommonOpts, 'signal'>): Promise<ProbedMediaInfo>;
   validate(a: { info: PostMediaInfo; platform: Platform } & SpecOverrides): MediaReport;
+  fix(a: Parameters<PublishMediaService['fix']>[0]): Promise<ProbedMediaInfo>;
 }
 
 export function createPublishMedia(deps: PublishMediaDeps): PublishMediaServiceEx {

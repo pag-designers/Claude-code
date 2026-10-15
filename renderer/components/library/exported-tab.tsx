@@ -3,7 +3,6 @@
 import * as React from 'react';
 import Link from 'next/link';
 import {
-  CalendarClock,
   CircleAlert,
   CircleCheck,
   Clock,
@@ -24,7 +23,8 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/compone
 import { EmptyState } from '@/components/ui/empty-state';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DisabledTip, Tip } from '@/components/ui/tooltip';
+import { Tip } from '@/components/ui/tooltip';
+import { ScheduleButton } from '@/components/scheduler';
 import { formatBytes, formatClock, timeAgo } from '@/lib/format';
 import { editorHref, libraryHref } from '@/lib/hrefs';
 import { invoke, IpcCallError } from '@/lib/ipc';
@@ -327,17 +327,19 @@ function ExportCard({
                 </Button>
               </Tip>
             </div>
-            <DisabledTip reason="Arrives in checkpoint 5" className="w-full">
-              <Button
-                variant="ghost"
-                size="xs"
-                disabled
-                className="w-full"
-                data-testid="export-card-schedule"
-              >
-                <CalendarClock /> Export &amp; Schedule
-              </Button>
-            </DisabledTip>
+            <ScheduleButton
+              sources={[{ exportId: job.id }]}
+              label="Schedule"
+              variant="ghost"
+              size="xs"
+              className="w-full"
+              testId="export-card-schedule"
+              disabledReason={
+                job.status === 'done' && job.hasFile
+                  ? undefined
+                  : 'Only finished exports can be posted'
+              }
+            />
           </div>
         ) : null}
       </div>

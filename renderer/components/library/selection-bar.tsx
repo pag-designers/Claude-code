@@ -1,14 +1,13 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { CalendarClock, Download, PencilRuler, Star, Trash2, X } from 'lucide-react';
+import { Download, PencilRuler, Star, Trash2, X } from 'lucide-react';
 import type { ClipView } from '@shared/pipeline';
 import { ApplyBrandPopover } from '@/components/brand-apply/apply-popover';
 import { Button } from '@/components/ui/button';
 import { DisabledTip } from '@/components/ui/tooltip';
+import { ScheduleButton } from '@/components/scheduler';
 import { spring } from '@/lib/motion';
-
-const LATER = 'Coming in a later version';
 
 /** Floating bulk-action bar; slides in when at least one clip is selected. */
 export function SelectionBar({
@@ -64,11 +63,20 @@ export function SelectionBar({
             <Star className={allFavorite ? 'fill-current' : undefined} />{' '}
             {allFavorite ? 'Unfavorite' : 'Favorite'}
           </Button>
-          <DisabledTip reason={LATER}>
-            <Button size="sm" variant="ghost" disabled>
-              <CalendarClock /> Send to scheduler
-            </Button>
-          </DisabledTip>
+          <ScheduleButton
+            sources={(selectedClips ?? [])
+              .filter((c) => c.status === 'rendered' && c.hasRender)
+              .map((c) => ({ clipId: c.id }))}
+            label="Schedule…"
+            variant="ghost"
+            size="sm"
+            testId="selection-schedule"
+            disabledReason={
+              (selectedClips ?? []).some((c) => c.status === 'rendered' && c.hasRender)
+                ? undefined
+                : 'Select at least one rendered clip to schedule'
+            }
+          />
           {onOpenEditor ? (
             <Button
               size="sm"

@@ -2,8 +2,8 @@
  * The re-encode plan: pure maths from the probe + the platform spec to ffmpeg arguments. No process is started here.
  *
  * Size rule ("two-pass math from the duration, in one pass"): the video must fit
- *     budget = cap_bytes * 8 / duration - audio bit/s - muxing overhead.
- * ffmpeg then runs constant-quality (CRF) with a VBV ceiling of that budget (`-maxrate`/`-bufsize`): an easy clip keeps its
+ *     budget = (cap_bytes * safety * 8 - audio bit/s * D) / (D + 1)      (D = duration in s; the +1 is the VBV buffer)
+ * ffmpeg then runs constant-quality (CRF) with a VBV ceiling derived from that budget (`-maxrate`, `-bufsize` = 1 s): an easy clip keeps its
  * quality and stays far below the limit, a hard one cannot exceed `maxrate * duration` (+ one buffer), which is what
  * the margin covers. When the budget is too small for the picture size, the picture is scaled DOWN (never up) until
  * each pixel gets a watchable share of bits, and the fix is refused when even the smallest allowed picture cannot.
@@ -105,12 +105,14 @@ export function planFix(
   const audioBps =
     info.audioCodec === null ? 0 : channels === 1 ? AUDIO_BPS_MONO : AUDIO_BPS_STEREO;
   let videoCapBps: number | null = null;
+  // VBV holds at most one buffer (1 s of the ceiling, starting nearly full) more than ceiling x duration, hence D + 1.
+  const D = info.durationSec;
   if (has('size-large') && spec.maxSizeBytes !== null) {
-    const total = (spec.maxSizeBytes * SIZE_SAFETY * 8) / info.durationSec;
-    videoCapBps = Math.floor(total * (1 - MUX_OVERHEAD) - audioBps);
+    const totalBits = spec.maxSizeBytes * SIZE_SAFETY * 8 * (1 - MUX_OVERHEAD);
+    videoCapBps = Math.floor((totalBits - audioBps * D) / (D + 1));
   }
   if (has('bitrate') && spec.maxVideoBitrateBps !== null) {
-    const b = Math.floor(spec.maxVideoBitrateBps * BITRATE_SAFETY - audioBps);
+    const b = Math.floor(((spec.maxVideoBitrateBps * BITRATE_SAFETY - audioBps) * D) / (D + 1));
     videoCapBps = videoCapBps === null ? b : Math.min(videoCapBps, b);
   }
   if (videoCapBps !== null) {
@@ -176,7 +178,7 @@ export function videoEncoderArgs(enc: EncoderName, fps: number, capBps: number |
     setArg(a, '-maxrate', `${k}k`);
   } else {
     setArg(a, '-maxrate', `${k}k`);
-    setArg(a, '-bufsize', `${2 * k}k`);
+    setArg(a, '-bufsize', `${k}k`);
   }
   return a;
 }
@@ -232,6 +234,16 @@ export function buildFixArgs(
       String(plan.audio.channels),
     );
   }
-  args.push('-movflags', '+faststart', '-f', 'mp4', output);
+  // Instagram: "no edit lists, moov atom at the front". Without an edit list the B-frame delay is carried by negative
+  // composition offsets, so video and audio both still start at 0.
+  args.push(
+    '-use_editlist',
+    '0',
+    '-movflags',
+    '+faststart+negative_cts_offsets',
+    '-f',
+    'mp4',
+    output,
+  );
   return args;
 }

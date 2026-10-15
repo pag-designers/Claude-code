@@ -32,7 +32,7 @@ import {
   DEFAULT_UPLOAD_BASE,
   MAX_RETRIES,
   MAX_SESSION_RESTARTS,
-  QUOTA_EXTENSION_HINT,
+  QUOTA_EXTENSION_FORM,
   RETRY_BASE_MS,
   RETRY_MAX_MS,
   SCOPES,
@@ -248,8 +248,7 @@ export function createYoutubeProvider(
         postsLeft: Math.max(0, dailyLimit - used),
         note:
           `YouTube allows ${dailyLimit} uploads a day for this Google project (resets at midnight Pacific Time). ` +
-          'If you need more, request a free quota extension: ' +
-          QUOTA_EXTENSION_HINT.split('. ').slice(1).join('. '),
+          `If you need more, request a free quota extension with ${QUOTA_EXTENSION_FORM}.`,
       };
     },
   };

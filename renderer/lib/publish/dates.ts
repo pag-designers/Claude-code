@@ -137,6 +137,16 @@ export function localZoneId(): string {
 export const formatClockTime = (ms: number): string =>
   new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
+/** "Mon, Oct 20, 6:30 PM": absolute, needs no clock (accessible names). */
+export const formatDateTimeLabel = (ms: number): string =>
+  new Date(ms).toLocaleString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+
 /** "Today 2:30 PM", "Tomorrow 9:00 AM", "Mon, Oct 20 · 6:30 PM", with the year when it is not this year. */
 export function formatWhen(ms: number, now: number): string {
   const d = new Date(ms);

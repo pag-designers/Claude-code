@@ -1,226 +1,104 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
-import { CalendarClock, ChevronLeft, ChevronRight, Link2, ListChecks } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import {
+  CalendarClock,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  ListChecks,
+  Plus,
+} from 'lucide-react';
+import type { PostSource } from '@shared/publish';
+import { AccountsStrip } from '@/components/scheduler/accounts-strip';
+import { SchedulerCalendar } from '@/components/scheduler/calendar';
+import { PickSourceDialog } from '@/components/scheduler/pick-source-dialog';
+import { PostDrawer } from '@/components/scheduler/post-drawer';
+import { PostFilterBar, PostQueue } from '@/components/scheduler/queue';
+import { SchedulePostDialog } from '@/components/scheduler/schedule-dialog';
+import { SchedulerStatusBar } from '@/components/scheduler/status-bar';
+import { Banner } from '@/components/ui/banner';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { EmptyState } from '@/components/ui/empty-state';
 import { Page, PageHeader } from '@/components/ui/page';
 import { Segmented } from '@/components/ui/segmented';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DisabledTip } from '@/components/ui/tooltip';
-import { InstagramGlyph, TiktokGlyph, YoutubeGlyph } from '@/components/ui/brand-icons';
-import { useNow } from '@/lib/clock';
-import { cn } from '@/lib/utils';
+import { usePersistedChoice } from '@/lib/persist';
+import {
+  calendarTitle,
+  localZoneLabel,
+  startOfDay,
+  stepCursor,
+  type CalendarView,
+} from '@/lib/publish/dates';
+import { NO_FILTERS, filterPosts, type PostFilters } from '@/lib/publish/model';
+import { useNowMs } from '@/lib/publish/now';
+import {
+  useAccounts,
+  usePostNow,
+  usePosts,
+  useReschedulePost,
+  useRetryPost,
+  useSchedulerStatus,
+  useSetPaused,
+} from '@/lib/publish/queries';
 
-type View = 'month' | 'week' | 'day';
+type Mode = 'calendar' | 'queue';
+const MODES = ['calendar', 'queue'] as const;
+const VIEWS = ['month', 'week', 'day'] as const;
 
-const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
-const sameDay = (a: Date, b: Date) =>
-  a.getFullYear() === b.getFullYear() &&
-  a.getMonth() === b.getMonth() &&
-  a.getDate() === b.getDate();
-const weekStart = (d: Date) => addDays(startOfDay(d), -startOfDay(d).getDay());
-
-function titleFor(view: View, cursor: Date): string {
-  if (view === 'month')
-    return cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  if (view === 'day')
-    return cursor.toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  const s = weekStart(cursor);
-  const e = addDays(s, 6);
-  const sameMonth = s.getMonth() === e.getMonth();
-  return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${e.toLocaleDateString('en-US', sameMonth ? { day: 'numeric', year: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' })}`;
+/** `?post=<id>` (notification / tray deep link) opens that post's panel on arrival. */
+function initialPostId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return new URLSearchParams(window.location.search).get('post');
+  } catch {
+    return null;
+  }
 }
-
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-function MonthGrid({ cursor, now }: { cursor: Date; now: Date }) {
-  const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
-  const gridStart = addDays(first, -first.getDay());
-  const weeks = Math.ceil(
-    (first.getDay() + new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate()) / 7,
-  );
-  const days = Array.from({ length: weeks * 7 }, (_, i) => addDays(gridStart, i));
-  return (
-    <div
-      role="grid"
-      aria-label={titleFor('month', cursor)}
-      className="overflow-hidden rounded-xl border"
-    >
-      <div role="row" className="grid grid-cols-7 border-b bg-muted/50">
-        {WEEKDAYS.map((w) => (
-          <div
-            key={w}
-            role="columnheader"
-            className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-subtle"
-          >
-            {w}
-          </div>
-        ))}
-      </div>
-      <div
-        className="grid grid-cols-7"
-        style={{ gridTemplateRows: `repeat(${weeks}, minmax(104px, 1fr))` }}
-      >
-        {days.map((d, i) => {
-          const inMonth = d.getMonth() === cursor.getMonth();
-          const today = sameDay(d, now);
-          return (
-            <div
-              key={d.toISOString()}
-              role="gridcell"
-              aria-label={
-                d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) +
-                (today ? ', today' : '')
-              }
-              aria-current={today ? 'date' : undefined}
-              className={cn(
-                'relative border-b border-r p-2',
-                i % 7 === 6 && 'border-r-0',
-                i >= days.length - 7 && 'border-b-0',
-                !inMonth && 'bg-muted/30',
-              )}
-            >
-              <span
-                className={cn(
-                  'inline-flex size-7 items-center justify-center rounded-full text-sm font-medium tabular-nums',
-                  today
-                    ? 'bg-primary text-primary-foreground'
-                    : inMonth
-                      ? 'text-foreground'
-                      : 'text-subtle',
-                )}
-              >
-                {d.getDate()}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function TimeGrid({ days, now }: { days: Date[]; now: Date }) {
-  const hours = Array.from({ length: 24 }, (_, h) => h);
-  const nowTop = ((now.getHours() * 60 + now.getMinutes()) / (24 * 60)) * 100;
-  const ref = React.useRef<HTMLDivElement>(null);
-  React.useEffect(() => {
-    // Open scrolled to the current time so "now" is visible.
-    const el = ref.current;
-    if (el) el.scrollTop = Math.max(0, (el.scrollHeight * nowTop) / 100 - el.clientHeight / 3);
-  }, [nowTop]);
-  const cols = days.length;
-  return (
-    <div className="overflow-hidden rounded-xl border">
-      <div
-        className="grid border-b bg-muted/50"
-        style={{ gridTemplateColumns: `56px repeat(${cols}, 1fr)` }}
-      >
-        <div />
-        {days.map((d) => {
-          const today = sameDay(d, now);
-          return (
-            <div key={d.toISOString()} className="flex items-center gap-2 px-3 py-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-subtle">
-                {WEEKDAYS[d.getDay()]}
-              </span>
-              <span
-                className={cn(
-                  'inline-flex size-6 items-center justify-center rounded-full text-sm font-medium tabular-nums',
-                  today && 'bg-primary text-primary-foreground',
-                )}
-              >
-                {d.getDate()}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-      <div ref={ref} className="scrollbar-thin relative max-h-[520px] overflow-y-auto">
-        <div className="relative grid" style={{ gridTemplateColumns: `56px repeat(${cols}, 1fr)` }}>
-          <div>
-            {hours.map((h) => (
-              <div key={h} className="relative h-14 pr-2 text-right">
-                <span className="relative -top-2 text-2xs tabular-nums text-subtle">
-                  {h === 0
-                    ? ''
-                    : new Date(2000, 0, 1, h).toLocaleTimeString('en-US', { hour: 'numeric' })}
-                </span>
-              </div>
-            ))}
-          </div>
-          {days.map((d) => (
-            <div key={d.toISOString()} className="relative border-l">
-              {hours.map((h) => (
-                <div key={h} className="h-14 border-t" />
-              ))}
-              {sameDay(d, now) ? (
-                <div
-                  className="pointer-events-none absolute inset-x-0 z-10 flex items-center"
-                  style={{ top: `${nowTop}%` }}
-                  aria-hidden
-                >
-                  <span className="-ml-1 size-2 rounded-full bg-danger" />
-                  <span className="h-px flex-1 bg-danger" />
-                </div>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const ACCOUNTS = [
-  {
-    id: 'youtube',
-    name: 'YouTube Shorts',
-    icon: YoutubeGlyph,
-    note: 'Official YouTube Data API, ~6 uploads a day on the default quota.',
-  },
-  {
-    id: 'instagram',
-    name: 'Instagram Reels',
-    icon: InstagramGlyph,
-    note: 'Business or Creator account linked to a Facebook Page.',
-  },
-  {
-    id: 'tiktok',
-    name: 'TikTok',
-    icon: TiktokGlyph,
-    note: 'Unaudited apps post privately until TikTok approves a free audit.',
-  },
-] as const;
 
 export function SchedulerView() {
-  const now = useNow();
-  const [view, setView] = React.useState<View>('month');
-  const [offset, setOffset] = React.useState(0);
+  const nowMs = useNowMs();
+  const accountsQ = useAccounts();
+  const postsQ = usePosts();
+  const statusQ = useSchedulerStatus();
+  const setPaused = useSetPaused();
+  const reschedule = useReschedulePost();
+  const retry = useRetryPost();
+  const postNow = usePostNow();
 
-  const cursor = React.useMemo(() => {
-    if (!now) return null;
-    if (view === 'month') return new Date(now.getFullYear(), now.getMonth() + offset, 1);
-    if (view === 'week') return addDays(now, offset * 7);
-    return addDays(now, offset);
-  }, [now, view, offset]);
+  const [mode, setMode] = usePersistedChoice<Mode>('clipfern.scheduler.mode', MODES, 'calendar');
+  const [view, setView] = usePersistedChoice<CalendarView>(
+    'clipfern.scheduler.view',
+    VIEWS,
+    'month',
+  );
+  const [cursorMs, setCursorMs] = React.useState<number | null>(null);
+  const [filters, setFilters] = React.useState<PostFilters>(NO_FILTERS);
+  const [openId, setOpenId] = React.useState<string | null>(initialPostId);
+  const [pickOpen, setPickOpen] = React.useState(false);
+  const [sched, setSched] = React.useState<{ sources: PostSource[]; at: number | null } | null>(
+    null,
+  );
+  const [pickAt, setPickAt] = React.useState<number | null>(null);
 
-  const days = React.useMemo(() => {
-    if (!cursor) return [];
-    if (view === 'day') return [startOfDay(cursor)];
-    const s = weekStart(cursor);
-    return Array.from({ length: 7 }, (_, i) => addDays(s, i));
-  }, [cursor, view]);
+  const accounts = accountsQ.data?.accounts;
+  const allPosts = postsQ.data?.items;
+  const posts = React.useMemo(() => filterPosts(allPosts ?? [], filters), [allPosts, filters]);
+  const missed = (allPosts ?? []).filter((p) => p.status === 'missed').length;
+  const cursor = React.useMemo(
+    () => (nowMs === null ? null : new Date(cursorMs ?? nowMs)),
+    [cursorMs, nowMs],
+  );
+  const isCurrent = cursorMs === null;
+  const hasConnected = (accounts ?? []).some((a) => a.status === 'connected');
+  const busyId =
+    (retry.isPending ? retry.variables?.id : postNow.isPending ? postNow.variables?.id : null) ??
+    null;
+
+  const openPicker = (at: number | null) => {
+    setPickAt(at);
+    setPickOpen(true);
+  };
 
   return (
     <Page wide>
@@ -228,126 +106,195 @@ export function SchedulerView() {
         title="Scheduler"
         description="Plan posts on a calendar. Clipfern publishes through the official YouTube, Instagram and TikTok APIs while the app is running."
         actions={
-          <DisabledTip reason="Posting arrives in checkpoint 5">
-            <Button variant="primary" disabled>
-              <CalendarClock /> Schedule a post
-            </Button>
-          </DisabledTip>
+          <Button variant="primary" onClick={() => openPicker(null)} data-testid="schedule-new">
+            <CalendarClock /> Schedule a post
+          </Button>
         }
       />
-      <div className="grid grid-cols-[minmax(0,1fr)_340px] items-start gap-6 max-[1180px]:grid-cols-1">
-        <section aria-label="Calendar" className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="icon-sm"
-                aria-label="Previous"
-                onClick={() => setOffset((o) => o - 1)}
-              >
-                <ChevronLeft />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon-sm"
-                aria-label="Next"
-                onClick={() => setOffset((o) => o + 1)}
-              >
-                <ChevronRight />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="ml-1"
-                disabled={offset === 0}
-                onClick={() => setOffset(0)}
-              >
-                Today
-              </Button>
-            </div>
-            <h2 className="min-w-48 font-display text-xl font-semibold" aria-live="polite">
-              {cursor ? titleFor(view, cursor) : <Skeleton className="h-7 w-44" />}
-            </h2>
-            <Segmented
-              className="ml-auto"
-              label="Calendar view"
-              value={view}
-              onValueChange={(v) => {
-                setView(v);
-                setOffset(0);
-              }}
-              options={[
-                { value: 'month', label: 'Month' },
-                { value: 'week', label: 'Week' },
-                { value: 'day', label: 'Day' },
-              ]}
-            />
-          </div>
-          {now && cursor ? (
-            view === 'month' ? (
-              <MonthGrid cursor={cursor} now={now} />
-            ) : (
-              <TimeGrid days={days} now={now} />
-            )
-          ) : (
-            <Skeleton className="h-[560px] rounded-xl" />
-          )}
-          <p className="text-xs text-subtle">
-            All times shown in your local time zone.{' '}
-            {now ? `Today is ${now.toLocaleDateString('en-US', { dateStyle: 'full' })}.` : ''}
-          </p>
-        </section>
 
-        <aside className="flex flex-col gap-6" aria-label="Queue and accounts">
-          <Card>
-            <CardHeader className="pb-1">
-              <CardTitle className="font-display text-lg">Queue</CardTitle>
-              <CardDescription>Posts waiting to go out, soonest first.</CardDescription>
-            </CardHeader>
-            <EmptyState
-              size="sm"
-              icon={ListChecks}
-              title="Nothing scheduled"
-              description="Send a finished clip here and pick a time. Failed posts show the platform's error with a retry."
-            />
-          </Card>
+      <SchedulerStatusBar
+        status={statusQ.data}
+        loading={statusQ.isPending}
+        now={nowMs}
+        missed={missed}
+        pausing={setPaused.isPending}
+        onSetPaused={(p) => setPaused.mutate(p)}
+      />
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-display text-lg">Accounts</CardTitle>
-              <CardDescription>Connect the channels you post to.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-2.5 pt-4">
-              {ACCOUNTS.map((a) => (
-                <div
-                  key={a.id}
-                  className="flex flex-col gap-2.5 rounded-lg border bg-muted/30 p-3.5"
+      {accountsQ.isError ? (
+        <Banner
+          tone="danger"
+          title="Could not load your accounts"
+          action={
+            <Button size="sm" variant="outline" onClick={() => void accountsQ.refetch()}>
+              Retry
+            </Button>
+          }
+        >
+          {accountsQ.error.message}
+        </Banner>
+      ) : (
+        <AccountsStrip
+          accounts={accounts}
+          setup={accountsQ.data?.setup}
+          quota={statusQ.data?.quota}
+          loading={accountsQ.isPending}
+          now={nowMs}
+        />
+      )}
+
+      <section aria-label="Posts" className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+          <Segmented<Mode>
+            label="Scheduler view"
+            value={mode}
+            onValueChange={setMode}
+            options={[
+              { value: 'calendar', label: 'Calendar', icon: <CalendarDays /> },
+              { value: 'queue', label: 'Queue', icon: <ListChecks /> },
+            ]}
+          />
+          {mode === 'calendar' ? (
+            <>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label="Previous"
+                  onClick={() => cursor && setCursorMs(stepCursor(view, cursor, -1).getTime())}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                      <a.icon className="size-[18px]" />
-                    </span>
-                    <p className="min-w-0 flex-1 truncate text-sm font-semibold">{a.name}</p>
-                    <Badge variant="neutral">Not connected</Badge>
-                  </div>
-                  <p className="text-xs leading-4 text-muted-foreground">{a.note}</p>
-                  <DisabledTip
-                    reason="Account connection arrives in checkpoint 5"
-                    className="self-start"
-                  >
-                    <Button size="sm" variant="secondary" disabled>
-                      <Link2 /> Connect
-                    </Button>
-                  </DisabledTip>
-                </div>
-              ))}
-              <Button variant="link" asChild className="mt-1 self-start text-sm">
-                <Link href="/settings/integrations/">Set up developer credentials →</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </aside>
-      </div>
+                  <ChevronLeft />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label="Next"
+                  onClick={() => cursor && setCursorMs(stepCursor(view, cursor, 1).getTime())}
+                >
+                  <ChevronRight />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-1"
+                  disabled={isCurrent}
+                  onClick={() => setCursorMs(null)}
+                >
+                  Today
+                </Button>
+              </div>
+              <h2
+                className="min-w-44 font-display text-xl font-semibold"
+                aria-live="polite"
+                data-testid="calendar-title"
+              >
+                {cursor ? calendarTitle(view, cursor) : <Skeleton className="h-7 w-44" />}
+              </h2>
+              <Segmented<CalendarView>
+                className="ml-auto"
+                label="Calendar view"
+                value={view}
+                onValueChange={(v) => {
+                  setView(v);
+                }}
+                options={[
+                  { value: 'month', label: 'Month' },
+                  { value: 'week', label: 'Week' },
+                  { value: 'day', label: 'Day' },
+                ]}
+              />
+            </>
+          ) : null}
+        </div>
+        <PostFilterBar filters={filters} onChange={setFilters} accounts={accounts ?? []} />
+
+        {mode === 'calendar' ? (
+          <>
+            {hasConnected && allPosts && allPosts.length === 0 ? (
+              <Banner
+                tone="info"
+                title="Pick a clip to schedule"
+                action={
+                  <Button size="sm" variant="primary" onClick={() => openPicker(null)}>
+                    <Plus /> Pick a clip
+                  </Button>
+                }
+              >
+                Your calendar is empty. Choose a rendered clip, tick the accounts, and Clipfern
+                posts it at the time you pick.
+              </Banner>
+            ) : null}
+            {!accountsQ.isPending && accounts && accounts.length === 0 ? (
+              <Banner tone="info" title="Connect an account to start scheduling">
+                Connect YouTube, Instagram or TikTok above. Nothing is posted until you schedule a
+                clip.
+              </Banner>
+            ) : null}
+            {nowMs !== null && cursor && allPosts ? (
+              <SchedulerCalendar
+                view={view}
+                cursor={cursor}
+                now={nowMs}
+                posts={posts}
+                onOpenPost={setOpenId}
+                onAdd={(day, at) => {
+                  openPicker(at ?? withTimeOfDay(day, nowMs));
+                }}
+                onReschedule={(post, at) => reschedule.mutate({ post, at })}
+                onShowDay={(day) => {
+                  setView('day');
+                  setCursorMs(startOfDay(day).getTime());
+                }}
+              />
+            ) : (
+              <Skeleton className="h-[560px] rounded-xl" aria-label="Loading calendar" />
+            )}
+            <p className="text-xs text-subtle">
+              Drag a scheduled post to another day or hour to reschedule it. Times are in your local
+              time zone: {localZoneLabel(nowMs ?? undefined)}.
+            </p>
+          </>
+        ) : (
+          <PostQueue
+            posts={posts}
+            allCount={allPosts?.length ?? 0}
+            filters={filters}
+            now={nowMs}
+            loading={postsQ.isPending}
+            hasAccounts={hasConnected}
+            onOpen={setOpenId}
+            onRetry={(id) => retry.mutate({ id })}
+            onPostNow={(id) => postNow.mutate({ id })}
+            busyId={busyId}
+            onClearFilters={() => setFilters(NO_FILTERS)}
+            onPick={() => openPicker(null)}
+          />
+        )}
+      </section>
+
+      <PostDrawer postId={openId} onClose={() => setOpenId(null)} />
+      <PickSourceDialog
+        open={pickOpen}
+        onOpenChange={setPickOpen}
+        onContinue={(sources) => {
+          setPickOpen(false);
+          setSched({ sources, at: pickAt });
+        }}
+      />
+      {sched ? (
+        <SchedulePostDialog
+          open
+          source={sched.sources}
+          defaultScheduledAt={sched.at}
+          onOpenChange={(o) => !o && setSched(null)}
+        />
+      ) : null}
     </Page>
   );
+}
+
+/** A day clicked in the calendar: noon that day, or an hour from now when it is today. */
+function withTimeOfDay(day: Date, now: number): number {
+  const noon = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 12, 0, 0, 0).getTime();
+  return noon > now + 15 * 60_000 ? noon : now + 60 * 60_000;
 }

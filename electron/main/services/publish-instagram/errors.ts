@@ -233,10 +233,8 @@ export function mapFailure(a: {
       retryAfterSec: QUOTA_RECHECK_SEC,
       hint: 'Posts go out again as older ones leave the rolling 24 hour window.',
     });
-  if (sub !== null && SUBCODE_TEXT[sub]) {
-    const k = SUBCODE_TEXT[sub];
-    return mk(k.code, `${k.text}${said}`, { retryable: k.retryable });
-  }
+  const known = sub !== null ? SUBCODE_TEXT[sub] : undefined;
+  if (known) return mk(known.code, `${known.text}${said}`, { retryable: known.retryable });
   if (a.status === 429 || (code !== null && RATE_CODES.has(code))) {
     const ra = retryAfterSeconds(a.retryAfterHeader, a.now) ?? DEFAULT_RATE_RETRY_SEC;
     return mk('rate-limit', `Instagram is limiting requests from this app right now.${said}`, {
@@ -267,6 +265,8 @@ export function mapFailure(a: {
   return mk(
     'platform',
     apiText ? `Instagram: ${apiText}` : `Instagram refused the request (HTTP ${a.status}).`,
+    // A 4xx answer is a verdict on the request, not a hiccup: repeating it unchanged cannot help.
+    { retryable: false },
   );
 }
 

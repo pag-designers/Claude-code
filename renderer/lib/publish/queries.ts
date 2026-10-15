@@ -6,11 +6,12 @@
  * all read the same data without refetching.
  */
 import * as React from 'react';
-import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { Platform } from '@shared/cp2';
 import type { InvokeInput, InvokeOutput } from '@shared/ipc';
 import type { PostSource, PostView, SchedulerStatus, SocialAccount } from '@shared/publish';
+import type { PostingWindow } from '@shared/brand';
 import { invoke, ipcKey, useIpcEvent, useIpcQuery, type IpcCallError } from '../ipc';
 import { upsertPost } from './model';
 
@@ -48,11 +49,11 @@ export function usePostsOfClip(clipId: string | null) {
 }
 
 export function usePrefill(source: PostSource | null, platform: Platform, enabled = true) {
-  return useIpcQuery(
-    'publish:prefill',
-    source ? { source, platform } : undefined,
-    { enabled: enabled && !!source, staleTime: 60_000, retry: 1 },
-  );
+  return useIpcQuery('publish:prefill', source ? { source, platform } : undefined, {
+    enabled: enabled && !!source,
+    staleTime: 60_000,
+    retry: 1,
+  });
 }
 
 export function useValidate(
@@ -67,6 +68,52 @@ export function useValidate(
     { enabled: enabled && !!source, staleTime: 30_000, retry: 0, placeholderData: (prev) => prev },
   );
 }
+
+/** `publish:prefill` for several source x platform pairs at once (bulk scheduling). Same cache keys as `usePrefill`. */
+export function usePrefills(
+  pairs: readonly { source: PostSource; platform: Platform }[],
+  enabled = true,
+) {
+  return useQueries({
+    queries: pairs.map((p) => ({
+      queryKey: ipcKey('publish:prefill', p),
+      queryFn: () => invoke('publish:prefill', p),
+      enabled,
+      staleTime: 60_000,
+      retry: 1,
+    })),
+  });
+}
+
+/** `publish:validate` for several requests at once (media report + field issues per source and platform). */
+export function useValidations(
+  requests: readonly InvokeInput<'publish:validate'>[],
+  enabled = true,
+) {
+  return useQueries({
+    queries: requests.map((r) => ({
+      queryKey: ipcKey('publish:validate', r),
+      queryFn: () => invoke('publish:validate', r),
+      enabled,
+      staleTime: 30_000,
+      retry: 0,
+      placeholderData: (prev: InvokeOutput<'publish:validate'> | undefined) => prev,
+    })),
+  });
+}
+
+/** Posting windows of the default Brand Kit (empty when there is no kit): the input for smart spacing. */
+export function usePostingWindows(enabled = true): readonly PostingWindow[] {
+  const def = useIpcQuery('brand:defaultKit', undefined, { staleTime: 30_000, enabled });
+  const id = def.data?.id ?? null;
+  const kit = useIpcQuery(
+    'brand:get',
+    { id: id ?? '' },
+    { enabled: enabled && !!id, staleTime: 60_000 },
+  );
+  return kit.data?.kit.spec.defaults.postingWindows ?? EMPTY_WINDOWS;
+}
+const EMPTY_WINDOWS: readonly PostingWindow[] = [];
 
 /* ----------------------------------------------------------------------------------- cache ----- */
 
@@ -97,11 +144,9 @@ export function useSchedulerLive(): void {
 
 const fail = (title: string) => (e: IpcCallError) => toast.error(title, { description: e.message });
 
-function usePostMutation<C extends 'posts:postNow' | 'posts:cancel' | 'posts:retry' | 'posts:update'>(
-  channel: C,
-  errorTitle: string,
-  onDone?: (post: PostView) => void,
-) {
+function usePostMutation<
+  C extends 'posts:postNow' | 'posts:cancel' | 'posts:retry' | 'posts:update',
+>(channel: C, errorTitle: string, onDone?: (post: PostView) => void) {
   const qc = useQueryClient();
   return useMutation<InvokeOutput<C>, IpcCallError, InvokeInput<C>>({
     mutationFn: (p) => invoke(channel, p),
@@ -126,7 +171,12 @@ export const useRetryPost = (onDone?: (p: PostView) => void) =>
 /** Drag-to-reschedule: the calendar moves immediately and snaps back if main refuses. */
 export function useReschedulePost() {
   const qc = useQueryClient();
-  return useMutation<PostView, IpcCallError, { post: PostView; at: number }, { previous: PostView }>({
+  return useMutation<
+    PostView,
+    IpcCallError,
+    { post: PostView; at: number },
+    { previous: PostView }
+  >({
     mutationFn: ({ post, at }) => invoke('posts:update', { id: post.id, scheduledAt: at }),
     onMutate: ({ post, at }) => {
       upsertPostInCache(qc, { ...post, scheduledAt: at });
@@ -176,11 +226,7 @@ export function useSetPaused() {
 
 export function useCreatePosts() {
   const qc = useQueryClient();
-  return useMutation<
-    InvokeOutput<'posts:create'>,
-    IpcCallError,
-    InvokeInput<'posts:create'>
-  >({
+  return useMutation<InvokeOutput<'posts:create'>, IpcCallError, InvokeInput<'posts:create'>>({
     mutationFn: (p) => invoke('posts:create', p),
     onSuccess: (r) => {
       r.posts.forEach((p) => upsertPostInCache(qc, p));
@@ -193,9 +239,7 @@ export function useCreatePosts() {
 /* ---------------------------------------------------------------------------- account connect ----- */
 
 export type ConnectState =
-  | { phase: 'idle' }
-  | { phase: 'waiting' }
-  | { phase: 'error'; message: string };
+  { phase: 'idle' } | { phase: 'waiting' } | { phase: 'error'; message: string };
 
 /**
  * One platform's "Connect account" flow. `accounts:connect` blocks until the browser consent finishes, so the UI shows
@@ -217,7 +261,11 @@ export function useConnect(platform: Platform, onConnected?: (a: SocialAccount) 
       onConnected?.(r.account);
     } catch (e) {
       if (canceled.current) setState({ phase: 'idle' });
-      else setState({ phase: 'error', message: e instanceof Error ? e.message : 'Could not connect.' });
+      else
+        setState({
+          phase: 'error',
+          message: e instanceof Error ? e.message : 'Could not connect.',
+        });
     }
   }, [platform, qc, onConnected]);
 

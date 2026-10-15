@@ -8,7 +8,7 @@
  */
 import { PublishError } from '../publish/errors';
 import { QUOTA_EXTENSION_HINT } from './constants';
-import { TransportError, parseJson, retryAfterSec, scrub, type Reply } from './http';
+import { parseJson, retryAfterSec, scrub, type Reply, type TransportError } from './http';
 import { secondsUntilQuotaReset } from './pacific';
 import { z } from 'zod';
 

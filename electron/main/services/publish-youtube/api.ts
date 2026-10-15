@@ -8,8 +8,24 @@ import type { OAuthTokens, ProviderAccount } from '../../pipeline/contracts5';
 import { PublishError } from '../publish/errors';
 import { mapApiError, transportError } from './errors';
 import { TransportError, parseJson, send, type HttpCtx } from './http';
-import { lenArray, lenNumber, lenString } from '../broll/zod-lenient';
+import { lenNumber, lenString } from '../broll/zod-lenient';
 import { z } from 'zod';
+
+/** A list whose malformed elements are dropped; a missing or non-array `items` (the API omits it when empty) is []. */
+function listOf<S extends z.ZodType>(schema: S) {
+  return z
+    .unknown()
+    .optional()
+    .transform((v): z.output<S>[] => {
+      if (!Array.isArray(v)) return [];
+      const out: z.output<S>[] = [];
+      for (const el of v) {
+        const r = schema.safeParse(el);
+        if (r.success) out.push(r.data);
+      }
+      return out;
+    });
+}
 
 const thumbSchema = z.object({ url: lenString });
 const channelItemSchema = z.object({
@@ -36,7 +52,7 @@ const channelItemSchema = z.object({
     .optional()
     .catch(undefined),
 });
-const channelListSchema = z.object({ items: lenArray(channelItemSchema) });
+const channelListSchema = z.object({ items: listOf(channelItemSchema) });
 
 const videoItemSchema = z.object({
   id: z.string().optional().catch(undefined),
@@ -45,7 +61,7 @@ const videoItemSchema = z.object({
     .optional()
     .catch(undefined),
 });
-const videoListSchema = z.object({ items: lenArray(videoItemSchema) });
+const videoListSchema = z.object({ items: listOf(videoItemSchema) });
 
 export async function apiGet(
   ctx: HttpCtx,

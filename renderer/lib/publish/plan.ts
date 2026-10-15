@@ -2,7 +2,12 @@
  * Smart-spacing glue: turns the user's settings, Brand Kit posting windows and already-scheduled posts into a
  * `planSchedule` call, and keeps the manual adjustments the user makes in the preview. Pure.
  */
-import { DEFAULT_WINDOWS, planSchedule, type PlanAccount, type PlanWindow } from '@shared/scheduling';
+import {
+  DEFAULT_WINDOWS,
+  planSchedule,
+  type PlanAccount,
+  type PlanWindow,
+} from '@shared/scheduling';
 import type { PostingWindow } from '@shared/brand';
 import type { PostView } from '@shared/publish';
 import { dayKey } from './dates';
@@ -53,6 +58,8 @@ export interface BulkPlanInput {
   existing: readonly PostView[];
   /** Stable seed so the preview does not reshuffle on every render. */
   seed: number;
+  /** Do not place anything before this time (the user's "start no earlier than"). */
+  notBefore?: number | null;
 }
 
 export interface BulkPlan {
@@ -67,7 +74,7 @@ export function planBulk(i: BulkPlanInput): BulkPlan {
   const res = planSchedule({
     clips: i.clips,
     accounts: i.accounts,
-    startAt: earliestStart(i.now),
+    startAt: Math.max(earliestStart(i.now), i.notBefore ?? 0),
     timeZone: i.timeZone,
     windows: kitWindows,
     minGapMinutes: i.minGapMinutes,
@@ -90,7 +97,10 @@ export function planBulk(i: BulkPlanInput): BulkPlan {
 }
 
 /** Applies manual time edits (by row key) over a plan; rows the plan could not place are dropped. */
-export function applyOverrides(rows: readonly PlanRow[], overrides: Readonly<Record<string, number>>) {
+export function applyOverrides(
+  rows: readonly PlanRow[],
+  overrides: Readonly<Record<string, number>>,
+) {
   return rows
     .map((r) => {
       const o = overrides[r.key];
@@ -124,7 +134,8 @@ export function rowWarnings(
       continue;
     }
     const sameDay = mine.filter((t) => dayKey(t) === dayKey(r.at)).length + 1;
-    if (sameDay > opts.maxPerDay) out[r.key] = `More than ${opts.maxPerDay} posts that day on this account.`;
+    if (sameDay > opts.maxPerDay)
+      out[r.key] = `More than ${opts.maxPerDay} posts that day on this account.`;
   }
   return out;
 }

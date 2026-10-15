@@ -156,6 +156,11 @@ export function toHexChallenge(challenge: string): string {
 const seconds = (n: number | undefined, fallback: number): number =>
   n !== undefined && Number.isFinite(n) && n > 0 ? n : fallback;
 
+/** Carries TikTok's final FAILED verdict out of the polling `try` so it is not mistaken for a transient error. */
+class TerminalFailure {
+  constructor(readonly error: PublishError) {}
+}
+
 function isAbort(e: unknown): boolean {
   return e instanceof Error && e.name === 'AbortError';
 }
@@ -430,11 +435,12 @@ export function createTiktokProvider(
           case 'SEND_TO_USER_INBOX':
             return { status: s.status, postIds };
           case 'FAILED':
-            throw mapFailReason(s.fail_reason);
+            throw new TerminalFailure(mapFailReason(s.fail_reason));
           default:
             a.onProgress(null, 'TikTok is processing the video');
         }
       } catch (e) {
+        if (e instanceof TerminalFailure) throw e.error; // TikTok's final verdict: never retried as a hiccup
         if (isAbort(e)) throw e;
         if (!isPublishError(e)) throw e;
         if (e.code === 'rate-limit') delay = Math.max(delay, (e.retryAfterSec ?? 30) * 1000);
@@ -722,12 +728,7 @@ export function createTiktokProvider(
       try {
         started = await init(privacy);
       } catch (e) {
-        if (
-          direct &&
-          isPublishError(e) &&
-          e.code === 'validation' &&
-          /unaudited|audit/i.test(`${e.hint ?? ''} ${e.message}`)
-        ) {
+        if (direct && isPublishError(e) && e.code === 'validation' && e.hint === AUDIT_HINT) {
           if (privacy !== 'SELF_ONLY' && !branded) {
             log('tiktok: app is not audited; retrying as SELF_ONLY');
             notes.push(downgradeNote(f.privacyLevel, 'SELF_ONLY'));

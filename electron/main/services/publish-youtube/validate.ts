@@ -49,7 +49,7 @@ export function validateShortsFields(fields: PostFields): FieldIssue[] {
   const parsed = shortsFieldsSchema.safeParse(fields);
   if (!parsed.success) {
     for (const i of parsed.error.issues)
-      issues.push({ field: label(i.path), message: schemaMessage(i.path, i.code, i.message) });
+      issues.push({ field: label(i.path), message: schemaMessage(i) });
     return issues; // the API rules below assume a well-formed object
   }
   const f = parsed.data;
@@ -109,10 +109,16 @@ export function validateShortsFields(fields: PostFields): FieldIssue[] {
   return issues;
 }
 
-function schemaMessage(path: PropertyKey[], code: string, fallback: string): string {
-  const where = label(path);
-  if (code === 'too_big') return `${where}: too long.`;
-  if (code === 'too_small') return `${where}: missing or too short.`;
-  if (code === 'invalid_type') return `${where}: has the wrong type or is missing.`;
-  return `${where}: ${fallback}`;
+function schemaMessage(issue: {
+  path: PropertyKey[];
+  code: string;
+  message: string;
+  maximum?: unknown;
+}): string {
+  const where = label(issue.path);
+  if (issue.code === 'too_big')
+    return `${where}: too long${typeof issue.maximum === 'number' ? ` (at most ${issue.maximum})` : ''}.`;
+  if (issue.code === 'too_small') return `${where}: missing or too short.`;
+  if (issue.code === 'invalid_type') return `${where}: has the wrong type or is missing.`;
+  return `${where}: ${issue.message}`;
 }

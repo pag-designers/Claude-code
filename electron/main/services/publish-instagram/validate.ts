@@ -14,7 +14,7 @@ export const MAX_COLLABORATORS = 3;
 /** A hashtag: `#` not glued to a word character / another `#` / `&` (HTML entities) / `/` (URL fragments). */
 const HASHTAG = /(?<![\p{L}\p{N}_#&/])#[\p{L}\p{N}_]+/gu;
 /** A mention: `@name` (1-30 of letters, digits, `.`, `_`), not part of an e-mail address or a word. */
-const MENTION = /(?<![\p{L}\p{N}_.@])@[A-Za-z0-9._]{1,30}/g;
+const MENTION = /(?<![\p{L}\p{N}_.@])@[A-Za-z0-9._]{1,30}/gu;
 const USERNAME = /^[A-Za-z0-9._]{1,30}$/;
 
 export const countHashtags = (t: string): number => t.match(HASHTAG)?.length ?? 0;

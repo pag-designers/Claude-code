@@ -7,12 +7,7 @@ import type { MediaReport } from '@shared/publish';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
-import {
-  PLATFORM_INFO,
-  describeMedia,
-  reportBlocks,
-  reportNeedsFix,
-} from '@/lib/publish/model';
+import { PLATFORM_INFO, describeMedia, reportBlocks, reportNeedsFix } from '@/lib/publish/model';
 import { cn } from '@/lib/utils';
 
 /**
@@ -43,7 +38,11 @@ export function MediaReportView({
   const name = PLATFORM_INFO[platform].name;
   if (loading && !report)
     return (
-      <div className={cn('flex flex-col gap-2', className)} aria-busy aria-label="Checking the video">
+      <div
+        className={cn('flex flex-col gap-2', className)}
+        aria-busy
+        aria-label="Checking the video"
+      >
         <Skeleton className="h-4 w-3/4" />
         <Skeleton className="h-4 w-1/2" />
       </div>

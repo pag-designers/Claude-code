@@ -53,8 +53,15 @@ import { parseJson } from './views';
 
 export const JOB_PUBLISH = 'posts.publish';
 
-/** Refresh tokens that expire within this window before using them. */
-const REFRESH_SKEW_MS = 3 * 60_000;
+/**
+ * Refresh tokens that expire within this window before using them. Instagram's long-lived tokens last 60 days and can
+ * only be refreshed after 24 h, so they are renewed a week ahead (the provider returns a too-young token unchanged).
+ */
+const REFRESH_SKEW_MS: Record<Platform, number> = {
+  shorts: 3 * 60_000,
+  tiktok: 5 * 60_000,
+  reels: 7 * 24 * 3_600_000,
+};
 const MAX_ATTEMPTS = 4;
 
 /** Platform-side quota day: YouTube resets at midnight Pacific; the others are metered on a rolling/UTC basis. */
@@ -326,7 +333,7 @@ export class PostingService {
         retryable: false,
         hint: 'Settings → Integrations → Connect.',
       });
-    if (tokens.expiresAt !== null && tokens.expiresAt - this.now() < REFRESH_SKEW_MS) {
+    if (tokens.expiresAt !== null && tokens.expiresAt - this.now() < REFRESH_SKEW_MS[platform]) {
       tokens = await this.d.providers[platform].refresh(tokens, { signal });
       this.d.tokens.set(row.id, tokens);
       this.d.log(`token refreshed: ${platform} (${row.id})`);

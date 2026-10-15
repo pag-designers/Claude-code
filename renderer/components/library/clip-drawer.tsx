@@ -24,6 +24,7 @@ import { StarButton } from '@/components/ui/star-button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DisabledTip, Tip } from '@/components/ui/tooltip';
 import { DrawerBrandChip } from '@/components/brand-apply/drawer-chip';
+import { PostedLinks, ScheduleButton } from '@/components/scheduler';
 import { ChatLauncher } from '@/components/chat/chat-launcher';
 import { OpenInEditorButton } from '@/components/editor/panels/open-in-editor';
 import { DRAWER_VIEWS, isDrawerView, useClipUi, type DrawerView } from '@/lib/cp2-clips';
@@ -355,6 +356,7 @@ export function ClipDrawer({
                       ) : null}
                       <DrawerBrandChip clip={clip} onOpen={() => setView('reframe')} />
                     </div>
+                    <PostedLinks clipId={clip.id} />
                   </div>
                 </div>
 
@@ -465,6 +467,18 @@ export function ClipDrawer({
                   >
                     <Download /> Download
                   </Button>
+                  <ScheduleButton
+                    sources={[{ clipId: clip.id }]}
+                    label="Post…"
+                    variant="outline"
+                    size="md"
+                    testId="drawer-post"
+                    disabledReason={
+                      clip.status === 'rendered' && clip.hasRender
+                        ? undefined
+                        : 'Render the clip before posting it'
+                    }
+                  />
                   <Button
                     variant="outline"
                     loading={rerender.isPending || busy}

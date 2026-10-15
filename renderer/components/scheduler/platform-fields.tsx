@@ -211,7 +211,10 @@ function ShortsEditor({
         aria-describedby={`${id}-kids-hint`}
       >
         <legend className="text-sm font-medium">
-          Is this video made for kids?<span className="ml-0.5 text-danger" aria-hidden>*</span>
+          Is this video made for kids?
+          <span className="ml-0.5 text-danger" aria-hidden>
+            *
+          </span>
         </legend>
         <p id={`${id}-kids-hint`} className="text-xs text-muted-foreground">
           YouTube requires this answer for every upload (COPPA). Kids&apos; videos get limited
@@ -337,7 +340,10 @@ function ReelsEditor({
               onChange={(e) => set({ ...f, caption: e.target.value })}
               placeholder="Write a caption…"
             />
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1" data-testid="reels-counters">
+            <div
+              className="flex flex-wrap items-center gap-x-4 gap-y-1"
+              data-testid="reels-counters"
+            >
               <span className="inline-flex items-center gap-1.5 text-2xs text-subtle">
                 Hashtags <CounterText counter={c.hashtags!} />
               </span>
@@ -495,7 +501,11 @@ function TiktokEditor({
             value={unaudited ? 'SELF_ONLY' : f.privacyLevel}
             onValueChange={(v) => set({ ...f, privacyLevel: v as TiktokFields['privacyLevel'] })}
           >
-            <SelectTrigger id={`${id}-privacy`} aria-label="Who can watch this video" className="w-72">
+            <SelectTrigger
+              id={`${id}-privacy`}
+              aria-label="Who can watch this video"
+              className="w-72"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

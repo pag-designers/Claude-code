@@ -41,7 +41,7 @@ import {
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { DisabledTip } from '@/components/ui/tooltip';
+import { SchedulePostDialog } from '@/components/scheduler';
 import { useEditorStore } from '@/lib/editor/core';
 import {
   AUDIO_KBPS_CHOICES,
@@ -361,6 +361,19 @@ export function ExportPanel({
     : undefined;
   const running = starting || (!!job && isActiveExport(job)) || (!!activeId && !job);
   const locked = running || !!job;
+
+  /* "Export & Schedule": export first, then open the schedule dialog with the finished export */
+  const [scheduleAfter, setScheduleAfter] = React.useState(false);
+  const [scheduleOpen, setScheduleOpen] = React.useState(false);
+  if (scheduleAfter && job?.status === 'done') {
+    setScheduleAfter(false);
+    setScheduleOpen(true);
+  } else if (
+    scheduleAfter &&
+    (startError || job?.status === 'failed' || job?.status === 'canceled')
+  ) {
+    setScheduleAfter(false);
+  }
 
   const issues = React.useMemo(
     () => validateExport(settings, { durationSec, canvas, hasSubtitles }),
@@ -862,11 +875,27 @@ export function ExportPanel({
         </DialogBody>
 
         <DialogFooter className="justify-between">
-          <DisabledTip reason="Arrives in checkpoint 5">
-            <Button variant="outline" disabled data-testid="export-schedule">
-              <CalendarClock /> Export &amp; Schedule
-            </Button>
-          </DisabledTip>
+          <Button
+            variant="outline"
+            disabled={
+              job?.status === 'done'
+                ? false
+                : scheduleAfter || blocked || !projectId || emptyTimeline || starting
+            }
+            loading={scheduleAfter && running}
+            onClick={() => {
+              if (job?.status === 'done') {
+                setScheduleOpen(true);
+                return;
+              }
+              setScheduleAfter(true);
+              if (!running) void start();
+            }}
+            data-testid="export-schedule"
+          >
+            {scheduleAfter && running ? null : <CalendarClock />}{' '}
+            {scheduleAfter && running ? 'Scheduling when done…' : 'Export & Schedule'}
+          </Button>
           <div className="flex items-center gap-2">
             <Button
               variant={starting || !locked ? 'ghost' : 'primary'}
@@ -888,6 +917,13 @@ export function ExportPanel({
             ) : null}
           </div>
         </DialogFooter>
+        {job?.status === 'done' ? (
+          <SchedulePostDialog
+            source={{ exportId: job.id }}
+            open={scheduleOpen}
+            onOpenChange={setScheduleOpen}
+          />
+        ) : null}
       </DialogContent>
     </Dialog>
   );

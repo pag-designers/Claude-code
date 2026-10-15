@@ -43,25 +43,28 @@ export const PLATFORM_INFO: Record<Platform, PlatformInfo> = {
  */
 export const PLATFORM_STYLE: Record<
   Platform,
-  { text: string; bar: string; soft: string; border: string }
+  { text: string; bar: string; soft: string; border: string; edge: string }
 > = {
   shorts: {
     text: 'text-danger',
     bar: 'bg-danger',
     soft: 'bg-danger-soft',
     border: 'border-danger/45',
+    edge: 'border-l-danger',
   },
   reels: {
     text: 'text-viral-text',
     bar: 'bg-viral-text',
     soft: 'bg-[color-mix(in_srgb,var(--viral-text)_13%,transparent)]',
     border: 'border-viral-text/45',
+    edge: 'border-l-viral-text',
   },
   tiktok: {
     text: 'text-info',
     bar: 'bg-info',
     soft: 'bg-info-soft',
     border: 'border-info/45',
+    edge: 'border-l-info',
   },
 };
 
@@ -166,7 +169,9 @@ export function postsByDay(posts: readonly PostView[]): Map<string, PostView[]> 
     else map.set(key, [p]);
   }
   for (const list of map.values())
-    list.sort((a, b) => (calendarTime(a) ?? 0) - (calendarTime(b) ?? 0) || a.id.localeCompare(b.id));
+    list.sort(
+      (a, b) => (calendarTime(a) ?? 0) - (calendarTime(b) ?? 0) || a.id.localeCompare(b.id),
+    );
   return map;
 }
 
@@ -273,7 +278,8 @@ export const byteLength = (s: string): number => new TextEncoder().encode(s).len
 /** UTF-16 code units, which is how TikTok counts the caption. */
 export const unitLength = (s: string): number => s.length;
 
-export const countHashtags = (s: string): number => (s.match(/(^|\s)#[\p{L}\p{N}_]+/gu) ?? []).length;
+export const countHashtags = (s: string): number =>
+  (s.match(/(^|\s)#[\p{L}\p{N}_]+/gu) ?? []).length;
 export const countMentions = (s: string): number => (s.match(/(^|\s)@[\w.]+/g) ?? []).length;
 
 export const tagsLength = (tags: readonly string[]): number =>
@@ -298,7 +304,12 @@ export function fieldCounters(f: PostFields): Record<string, Counter> {
           max: LIMITS.shorts.descriptionBytes,
           unit: 'bytes',
         },
-        tags: { label: 'Tags', value: tagsLength(f.tags), max: LIMITS.shorts.tagChars, unit: 'chars' },
+        tags: {
+          label: 'Tags',
+          value: tagsLength(f.tags),
+          max: LIMITS.shorts.tagChars,
+          unit: 'chars',
+        },
       };
     case 'reels':
       return {
@@ -352,10 +363,14 @@ export function localFieldIssues(f: PostFields): { field: string; message: strin
   const counters = fieldCounters(f);
   for (const [field, c] of Object.entries(counters))
     if (counterState(c) === 'over')
-      out.push({ field, message: `${c.label} is ${c.value - c.max} ${c.unit} over the ${c.max} limit.` });
+      out.push({
+        field,
+        message: `${c.label} is ${c.value - c.max} ${c.unit} over the ${c.max} limit.`,
+      });
   if (f.platform === 'shorts') {
     if (f.title.trim() === '') out.push({ field: 'title', message: 'A title is required.' });
-    if (/[<>]/.test(f.title)) out.push({ field: 'title', message: 'Titles cannot contain < or >.' });
+    if (/[<>]/.test(f.title))
+      out.push({ field: 'title', message: 'Titles cannot contain < or >.' });
   }
   if (f.platform === 'reels' && f.collaborators.length > LIMITS.reels.collaborators)
     out.push({ field: 'collaborators', message: 'Instagram allows up to 3 collaborators.' });
@@ -384,7 +399,6 @@ export const providerOf = (platform: Platform) => PLATFORM_PROVIDER[platform];
 
 /* ------------------------------------------------------------------------------ media report ----- */
 
-
 /** Does the media report stop a post (errors the auto-fix cannot or may not repair)? */
 export function reportBlocks(report: MediaReport | null | undefined, autoFix: boolean): boolean {
   if (!report) return false;
@@ -401,7 +415,12 @@ export function describeMedia(m: PostMediaInfo): string {
   const s = Math.max(0, Math.round(m.durationSec));
   const clock = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   const mb = m.sizeBytes / 1e6;
-  const size = mb >= 100 ? `${mb.toFixed(0)} MB` : mb >= 1 ? `${mb.toFixed(1)} MB` : `${(m.sizeBytes / 1e3).toFixed(0)} KB`;
+  const size =
+    mb >= 100
+      ? `${mb.toFixed(0)} MB`
+      : mb >= 1
+        ? `${mb.toFixed(1)} MB`
+        : `${(m.sizeBytes / 1e3).toFixed(0)} KB`;
   const codec = (c: string | null) => c?.toUpperCase() ?? null;
   return [
     clock,
@@ -416,7 +435,6 @@ export function describeMedia(m: PostMediaInfo): string {
 
 /* ---------------------------------------------------------------------------------- errors ----- */
 
-
 export const ERROR_LABEL: Record<PublishErrorCode, string> = {
   auth: 'Sign-in problem',
   'rate-limit': 'Rate limited',
@@ -430,3 +448,42 @@ export const ERROR_LABEL: Record<PublishErrorCode, string> = {
 
 /** Does fixing this error need the account to be reconnected? */
 export const needsReconnect = (code: PublishErrorCode): boolean => code === 'auth';
+
+/* --------------------------------------------------------------------- bulk (shared settings) ----- */
+
+/**
+ * Settings that make sense to apply to MANY clips at once (everything except per-clip text, cover frames,
+ * collaborators and locations). Bulk scheduling edits one "shared" object and merges it into each clip's own
+ * prefilled fields.
+ */
+export function mergeShared(own: PostFields, shared: PostFields): PostFields {
+  if (own.platform === 'shorts' && shared.platform === 'shorts')
+    return {
+      ...own,
+      visibility: shared.visibility,
+      madeForKids: shared.madeForKids,
+      categoryId: shared.categoryId,
+      notifySubscribers: shared.notifySubscribers,
+      addShortsTag: shared.addShortsTag,
+    };
+  if (own.platform === 'reels' && shared.platform === 'reels')
+    return { ...own, shareToFeed: shared.shareToFeed };
+  if (own.platform === 'tiktok' && shared.platform === 'tiktok')
+    return {
+      ...own,
+      mode: shared.mode,
+      privacyLevel: shared.privacyLevel,
+      allowComment: shared.allowComment,
+      allowDuet: shared.allowDuet,
+      allowStitch: shared.allowStitch,
+      commercial: shared.commercial,
+      aigc: shared.aigc,
+    };
+  return own;
+}
+
+/** Forces what an unaudited TikTok app is allowed to do (private only). */
+export function enforceTiktokAudit(f: PostFields, unaudited: boolean): PostFields {
+  if (f.platform !== 'tiktok') return f;
+  return unaudited ? { ...f, privacyLevel: 'SELF_ONLY' } : f;
+}

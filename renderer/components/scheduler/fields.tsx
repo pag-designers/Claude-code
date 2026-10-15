@@ -173,10 +173,7 @@ export function TokenInput({
 }) {
   const [draft, setDraft] = React.useState('');
   const commit = (raw: string) => {
-    const parts = raw
-      .split(',')
-      .map(normalize)
-      .filter(Boolean);
+    const parts = raw.split(',').map(normalize).filter(Boolean);
     if (!parts.length) {
       setDraft('');
       return;

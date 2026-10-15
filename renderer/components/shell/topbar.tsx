@@ -7,6 +7,7 @@ import { titleForPath } from '@/lib/nav';
 import { useUi } from '@/lib/store';
 import { CostChip } from './cost-chip';
 import { NotificationsPopover } from './notifications-popover';
+import { SchedulerIndicator } from './scheduler-indicator';
 import { ThemeToggle } from './theme-toggle';
 
 export function Topbar() {
@@ -37,6 +38,7 @@ export function Topbar() {
           <span className="flex-1 truncate text-left">Search or run a command…</span>
           <Kbd keys={['mod', 'K']} />
         </button>
+        <SchedulerIndicator />
         <CostChip />
         <NotificationsPopover />
         <ThemeToggle />

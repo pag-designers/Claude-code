@@ -29,9 +29,9 @@ export const UPLOAD_COST_UNITS = 1;
 export const DEFAULT_DAILY_UPLOAD_LIMIT = 100;
 
 /** Where to ask for more quota (free). */
-export const QUOTA_EXTENSION_HINT =
-  'Google resets the quota at midnight Pacific Time. To post more per day you can request more quota for free ' +
-  'with the "YouTube API Services - Audit and Quota Extension" form (search for it on support.google.com/youtube).';
+export const QUOTA_EXTENSION_FORM =
+  'the "YouTube API Services - Audit and Quota Extension" form (search for it on support.google.com/youtube)';
+export const QUOTA_EXTENSION_HINT = `Google resets the quota at midnight Pacific Time. To post more per day you can request more quota for free with ${QUOTA_EXTENSION_FORM}.`;
 
 export const SHORTS_URL = (id: string): string => `https://youtube.com/shorts/${id}`;
 

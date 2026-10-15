@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { OAuthTokens, ProviderAccount, PublisherProvider } from '@main/pipeline/contracts5';
-import { isPublishError, PublishError } from '@main/services/publish/errors';
+import { isPublishError, type PublishError } from '@main/services/publish/errors';
 import { nextPacificMidnight } from '@main/services/publish-youtube';
 import { startFakeYoutube, type FakeYoutube } from '../support/fake-youtube';
 import {

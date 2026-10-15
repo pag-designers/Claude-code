@@ -487,8 +487,12 @@ export class PostingService {
     };
   }
 
-  private fieldIssues(fields: PostFields): FieldIssue[] {
-    return this.d.providers[fields.platform].validateFields(fields);
+  /** Provider rules; `account` lets TikTok check the privacy levels this creator is actually offered. */
+  private fieldIssues(fields: PostFields, account?: AccountRow): FieldIssue[] {
+    return this.d.providers[fields.platform].validateFields(
+      fields,
+      account ? { account: { info: parseJson<ProviderAccount['info']>(account.info, {}) } } : undefined,
+    );
   }
 
   async validate(args: { source: PostSource; platform: Platform; fields?: PostFields }): Promise<{
@@ -607,7 +611,7 @@ export class PostingService {
           });
           continue;
         }
-        const issues = this.fieldIssues(item.fields);
+        const issues = this.fieldIssues(item.fields, account);
         if (issues.length) {
           refused.push({
             index,
@@ -714,7 +718,8 @@ export class PostingService {
     if (args.fields) {
       if (args.fields.platform !== row.platform)
         throw new AppError('INVALID', 'The fields do not match the post platform.');
-      const issues = this.fieldIssues(args.fields);
+      const owner = await this.d.db.socialAccount.findUnique({ where: { id: row.accountId } });
+      const issues = this.fieldIssues(args.fields, owner ?? undefined);
       if (issues.length) throw new AppError('INVALID', issues.map((i) => i.message).join(' '));
       fields = args.fields;
       data.fields = JSON.stringify(fields);

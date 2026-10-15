@@ -116,7 +116,7 @@ export interface PublisherProvider {
     account: ProviderAccount | null;
   }>;
   /** Platform rules beyond the zod schema (title characters, tag budget, hashtag/mention counts, privacy options…). */
-  validateFields(fields: PostFields): FieldIssue[];
+  validateFields(fields: PostFields, ctx?: { account?: { info: ProviderAccount['info'] } }): FieldIssue[];
   /** Quota units one post of these fields costs (0 when the platform meters posts instead of units). */
   quotaCost(fields: PostFields): number;
   publish(a: PublishArgs): Promise<PublishResult>;

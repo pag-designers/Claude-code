@@ -1,0 +1,9 @@
+node_modules
+dist-electron
+release
+renderer/out
+renderer/.next
+pnpm-lock.yaml
+index.html
+BRIEF.md
+prisma/migrations

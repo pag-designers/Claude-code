@@ -1,0 +1,73 @@
+appId: app.clipfern.desktop
+productName: Clipfern
+copyright: Copyright © Clipfern
+directories:
+  output: release
+  buildResources: build
+files:
+  # Positive patterns first: a leading negation makes electron-builder prepend `**/*` (packs all sources).
+  - dist-electron/**
+  - renderer/out/**
+  - package.json
+  - from: node_modules/.prisma
+    to: node_modules/.prisma
+  - '!**/*.map'
+  - '!**/*.d.ts'
+  - '!node_modules/@prisma/client/runtime/*{mysql,postgresql,sqlserver,cockroachdb}*'
+extraResources:
+  - from: electron/main/assets/fonts
+    to: fonts
+  - from: electron/main/assets/tray
+    to: tray
+  - from: sidecar
+    to: sidecar
+    filter:
+      - '**/*'
+      - '!.venv/**'
+      - '!**/__pycache__/**'
+asarUnpack:
+  - node_modules/ffmpeg-static/**
+  - node_modules/ffprobe-static/**
+  - node_modules/@libsql/**
+  - node_modules/libsql/**
+  - node_modules/.prisma/**
+  - node_modules/@prisma/client/**
+mac:
+  files:
+    - dist-electron/**
+    - renderer/out/**
+    - package.json
+    - from: node_modules/.prisma
+      to: node_modules/.prisma
+    - '!node_modules/ffprobe-static/bin/{linux,win32}/**'
+  category: public.app-category.video
+  target: [dmg, zip]
+  hardenedRuntime: true
+  gatekeeperAssess: false
+win:
+  files:
+    - dist-electron/**
+    - renderer/out/**
+    - package.json
+    - from: node_modules/.prisma
+      to: node_modules/.prisma
+    - '!node_modules/ffprobe-static/bin/{linux,darwin}/**'
+  target: [nsis]
+linux:
+  files:
+    - dist-electron/**
+    - renderer/out/**
+    - package.json
+    - from: node_modules/.prisma
+      to: node_modules/.prisma
+    - '!node_modules/ffprobe-static/bin/{darwin,win32}/**'
+    - '!node_modules/ffprobe-static/bin/linux/ia32/**'
+  target: [AppImage, deb]
+  category: AudioVideo
+  maintainer: Clipfern <noreply@clipfern.app>
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+protocols:
+  - name: Clipfern
+    schemes: [clipfern]

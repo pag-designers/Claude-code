@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7a5df6"/>
+      <stop offset="1" stop-color="#4a2fd0"/>
+    </linearGradient>
+    <linearGradient id="fg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e2dcff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="232" fill="url(#bg)"/>
+  <!-- open "C" ring (a clip cut open on the right) -->
+  <path d="M742 330 A 262 262 0 1 0 742 694" fill="none" stroke="url(#fg)" stroke-width="84" stroke-linecap="round"/>
+  <!-- play triangle -->
+  <path d="M452 392 L452 632 Q452 664 480 648 L664 528 Q688 512 664 496 L480 376 Q452 360 452 392 Z" fill="url(#fg)" transform="translate(6 0)"/>
+</svg>

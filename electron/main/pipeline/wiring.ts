@@ -1,0 +1,329 @@
+import path from 'node:path';
+import type { SidecarManager } from '../services/sidecar';
+import type { Services } from '../services/context';
+import { createAnalysisService } from '../services/analysis';
+import { createCaptionService, createSubtitleService } from '../services/captions';
+import { createLlmService } from '../services/llm';
+import { createMediaService } from '../services/media/ffmpeg';
+import { createIngestService } from '../services/media/ytdlp';
+import { createMomentService } from '../services/moments';
+import { createReframeService, facesFromSidecar } from '../services/reframe';
+import { createEditorMedia } from '../services/editor-media';
+import { createBrandMedia } from '../services/brand-media';
+import { createBrandFinisher } from '../services/brand-finish';
+import { createBrollService } from '../services/broll';
+import { createExportCompiler } from '../services/editor-export';
+import {
+  createRenderService,
+  createThumbnailService,
+  extractThumbnail,
+  renderCleanFrame,
+} from '../services/render';
+import { logger } from '../logger';
+import type { ChatEvent, MomentRun } from '@shared/cp2';
+import type { ExportJob } from '@shared/editor';
+import { BrandService } from './brand';
+import { BrollHub } from './broll';
+import type { BrandMediaService, FontsHub, SvgRasterizer } from './contracts4';
+import { ChatService } from './chat';
+import { Cp2Service } from './cp2';
+import { EditorService } from './editor';
+import { LibraryService } from './library';
+import { StyleRegistry } from './styles';
+import { PipelineOrchestrator } from './orchestrator';
+
+export interface PipelineHost {
+  emit: ConstructorParameters<typeof PipelineOrchestrator>[0]['emit'] & {
+    chat(e: ChatEvent): void;
+    momentRun(r: MomentRun): void;
+    editorExport(j: ExportJob): void;
+    markers(videoId: string): void;
+    brandChanged(kitId: string | null): void;
+    brandProgress(p: {
+      kitId: string;
+      name: string;
+      fraction: number | null;
+      stage: string;
+      done: boolean;
+    }): void;
+  };
+  /** Save dialog + write a text file; null = canceled. */
+  /** Open dialog for importing media into a project; [] = canceled. */
+  chooseFiles(opts: {
+    title: string;
+    extensions: { name: string; extensions: string[] }[];
+  }): Promise<string[]>;
+  saveText(
+    opts: { title: string; defaultName: string; extension: string },
+    content: string,
+  ): Promise<string | null>;
+  chooseDirectory(): Promise<string | null>;
+  /** Directory with fonts for libass (null = system fonts). */
+  fontsDir(): string | null;
+  /** Merged fonts directory manager (shipped + Brand Kit fonts). */
+  fontsHub: FontsHub;
+  /** SVG → PNG through an offscreen Electron window. */
+  rasterizeSvg: SvgRasterizer;
+}
+
+/** Builds every CP1 service from the main services + host (Electron-specific bits injected). */
+export function createPipeline(svc: Services, sidecar: SidecarManager, host: PipelineHost) {
+  const log = (m: string) => logger.scoped('pipeline').info(m);
+  const ffmpegPath = () => {
+    const p = svc.binaries.ffmpegPath();
+    if (!p) throw new Error('ffmpeg is not available.');
+    return p;
+  };
+  const ffprobePath = () => {
+    const p = svc.binaries.ffprobePath();
+    if (!p) throw new Error('ffprobe is not available.');
+    return p;
+  };
+  const ytdlpPath = () => svc.binaries.ytdlpPath;
+
+  // yt-dlp needs a JS runtime for YouTube; Electron's own binary can act as Node (ELECTRON_RUN_AS_NODE).
+  const ingest = createIngestService({
+    ytdlpPath,
+    ffmpegPath,
+    log,
+    jsRuntime: () => ({ path: process.execPath, name: 'node', electronAsNode: true }),
+  });
+  const media = createMediaService({ ffmpegPath, ffprobePath, log });
+  const llm = createLlmService({
+    getApiKey: () => svc.secrets.get('anthropic.apiKey'),
+    getSettings: () => svc.settings.get(),
+    cost: svc.cost,
+    // Dev/test only (stub server). NOT the SDK's ANTHROPIC_BASE_URL: that one is often set by other tools.
+    baseUrl: process.env.CLIPFERN_ANTHROPIC_BASE_URL || undefined,
+    log: (m) => logger.scoped('llm').info(m),
+    onBudget: (level) => {
+      if (level === 'hard-cap') return; // surfaced as a pipeline failure notification
+      void svc.notifications.create({
+        kind: 'system',
+        level: 'warning',
+        title:
+          level === 'warn'
+            ? 'AI spend at 80% of your monthly target'
+            : 'AI spend passed your monthly target',
+        body: 'Clipfern will use the cheaper model for low-value tasks and find fewer candidates. Adjust the budget in Settings → Models & Budget.',
+        href: '/settings/models/',
+        os: level !== 'warn',
+      });
+    },
+  });
+
+  const captions = createCaptionService({ fontsDir: host.fontsDir() });
+  const subtitles = createSubtitleService();
+  const thumbnails = createThumbnailService();
+  const moments = createMomentService();
+  const styles = new StyleRegistry(svc.dbHandle.prisma, captions);
+  // Late-bound: the subtitle-edit store lives in Cp2Service, which needs the orchestrator.
+  let cp2Ref: Cp2Service | null = null;
+
+  const render = createRenderService();
+
+  // CP4: Brand Kits. Media tools are resolved lazily (the binaries may still be settling at startup).
+  let brandMediaImpl: BrandMediaService | null = null;
+  const brandMedia: BrandMediaService = {
+    process: (a) => {
+      brandMediaImpl ??= createBrandMedia({
+        ffmpegPath: ffmpegPath(),
+        ffprobePath: ffprobePath(),
+        rasterizeSvg: host.rasterizeSvg,
+        log,
+      });
+      return brandMediaImpl.process(a);
+    },
+    extractColors: (f, n) => {
+      brandMediaImpl ??= createBrandMedia({
+        ffmpegPath: ffmpegPath(),
+        ffprobePath: ffprobePath(),
+        rasterizeSvg: host.rasterizeSvg,
+        log,
+      });
+      return brandMediaImpl.extractColors(f, n);
+    },
+  };
+  // Late-bound: re-rendering a clip needs the orchestrator, which needs the brand service.
+  let orchestratorRef: PipelineOrchestrator | null = null;
+  const brand = new BrandService({
+    db: svc.dbHandle.prisma,
+    getStorage: () => svc.storage.get(),
+    invalidateStorage: () => svc.storageUsage.invalidate(),
+    cacheDir: path.join(svc.userDataDir, 'cache'),
+    media: brandMedia,
+    fonts: host.fontsHub,
+    styles,
+    chooseFiles: host.chooseFiles,
+    rerenderClip: (id) => {
+      if (!orchestratorRef) throw new Error('Pipeline not ready');
+      return orchestratorRef.rerenderClip(id);
+    },
+    emit: { changed: host.emit.brandChanged, progress: host.emit.brandProgress },
+    log,
+  });
+  const orchestrator = new PipelineOrchestrator({
+    brand,
+    finisher: createBrandFinisher(),
+    db: svc.dbHandle.prisma,
+    queue: svc.queue,
+    settings: svc.settings,
+    notifications: svc.notifications,
+    ingest,
+    media,
+    analysis: createAnalysisService(),
+    llm,
+    moments,
+    reframe: createReframeService(),
+    captions,
+    subtitles,
+    thumbnails,
+    styles,
+    loadSubtitleEdits: (videoId) => {
+      if (!cp2Ref) throw new Error('CP2 service not ready');
+      return cp2Ref.loadEdits(videoId);
+    },
+    emitRun: (r) => host.emit.momentRun(r),
+    render,
+    sidecar,
+    toFaceSamples: (wire) => facesFromSidecar(wire as Parameters<typeof facesFromSidecar>[0]),
+    thumbnail: extractThumbnail,
+    cleanFrame: renderCleanFrame,
+    cacheDir: path.join(svc.userDataDir, 'cache'),
+    ffmpegPath,
+    fontsDir: host.fontsDir,
+    getStorage: () => svc.storage.get(),
+    invalidateStorage: () => svc.storageUsage.invalidate(),
+    whisperModel: () => process.env.CLIPFERN_WHISPER_MODEL || svc.currentWhisperModel(),
+    cookiesFromBrowser: () => svc.currentCookies(),
+    emit: host.emit,
+    log,
+    async checkReady() {
+      if (!llm.isConfigured()) return 'Add your Anthropic API key in Settings → API Keys.';
+      await svc.storage.refresh();
+      if (!svc.storage.get())
+        return 'Connect object storage first: add your Cloudflare R2 (or Backblaze B2) details in Settings → Storage.';
+      const [ff, yt] = await Promise.all([svc.binaries.checkFfmpeg(), svc.binaries.checkYtdlp()]);
+      if (!ff.ok) return `ffmpeg is not working: ${ff.error ?? 'unknown error'}`;
+      if (!yt.ok)
+        return 'yt-dlp is still being downloaded. Try again in a moment (Settings → Diagnostics shows its status).';
+      const st = sidecar.getStatus();
+      if (!st.installed || !st.modelReady)
+        return 'Install the transcription engine first: Settings → Compute → Install.';
+      return null;
+    },
+  });
+
+  orchestratorRef = orchestrator;
+
+  const library = new LibraryService({
+    db: svc.dbHandle.prisma,
+    orchestrator,
+    getStorage: () => svc.storage.get(),
+    invalidateStorage: () => svc.storageUsage.invalidate(),
+    cacheDir: path.join(svc.userDataDir, 'cache'),
+    chooseDirectory: host.chooseDirectory,
+    log,
+  });
+
+  const cp2 = new Cp2Service({
+    db: svc.dbHandle.prisma,
+    queue: svc.queue,
+    orchestrator,
+    styles,
+    captions,
+    subtitles,
+    thumbnails,
+    moments,
+    llm,
+    frameScorer: async (files, signal) => {
+      await sidecar.start();
+      return sidecar.scoreFrames(files, { signal });
+    },
+    getStorage: () => svc.storage.get(),
+    invalidateStorage: () => svc.storageUsage.invalidate(),
+    cacheDir: path.join(svc.userDataDir, 'cache'),
+    ffmpegPath,
+    fontsDir: host.fontsDir,
+    saveText: host.saveText,
+    emit: { markers: host.emit.markers },
+    log,
+  });
+  cp2Ref = cp2;
+  cp2.registerJobs();
+
+  const chat = new ChatService({
+    db: svc.dbHandle.prisma,
+    cp2,
+    orchestrator,
+    moments,
+    llm,
+    emit: host.emit.chat,
+    checkLlmReady: () =>
+      llm.isConfigured() ? null : 'Add your Anthropic API key in Settings → API Keys.',
+    log,
+  });
+
+  const editorMedia = createEditorMedia({ ffmpegPath, ffprobePath, log });
+  const editor = new EditorService({
+    brand,
+    db: svc.dbHandle.prisma,
+    queue: svc.queue,
+    notifications: svc.notifications,
+    getStorage: () => svc.storage.get(),
+    invalidateStorage: () => svc.storageUsage.invalidate(),
+    cacheDir: path.join(svc.userDataDir, 'cache'),
+    ffmpegPath,
+    fontsDir: host.fontsDir,
+    orchestrator,
+    loadSubtitleEdits: (videoId) => cp2.loadEdits(videoId),
+    subtitles,
+    styles,
+    captions,
+    reframe: createReframeService(),
+    toFaceSamples: (wire) => facesFromSidecar(wire as Parameters<typeof facesFromSidecar>[0]),
+    sidecar,
+    media: editorMedia,
+    compiler: createExportCompiler({ ffmpegPath: svc.binaries.ffmpegPath() ?? undefined }),
+    detectEncoder: (ff) => render.detectEncoder(ff),
+    thumbnail: extractThumbnail,
+    whisperModel: () => process.env.CLIPFERN_WHISPER_MODEL || svc.currentWhisperModel(),
+    chooseFiles: host.chooseFiles,
+    chooseDirectory: host.chooseDirectory,
+    emit: { export: host.emit.editorExport },
+    log,
+  });
+  editor.registerJobs();
+
+  const brollService = createBrollService({
+    getKey: (p) =>
+      svc.secrets.get(p === 'pexels' ? 'pexels.apiKey' : 'pixabay.apiKey')?.trim() || null,
+    // Dev/test only: point at a fake provider.
+    baseUrls: {
+      pexels: process.env.CLIPFERN_PEXELS_BASE_URL || undefined,
+      pixabay: process.env.CLIPFERN_PIXABAY_BASE_URL || undefined,
+    },
+    log: (m) => logger.scoped('broll').info(m),
+  });
+  const broll = new BrollHub({
+    broll: brollService,
+    brand,
+    editor,
+    llm,
+    cacheDir: path.join(svc.userDataDir, 'cache'),
+    log,
+  });
+
+  return {
+    orchestrator,
+    library,
+    cp2,
+    editor,
+    brand,
+    broll,
+    chat,
+    styles,
+    captions,
+    probeUrl: (url: string) => ingest.probe(url, { cookiesFromBrowser: svc.currentCookies() }),
+  };
+}

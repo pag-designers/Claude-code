@@ -1,0 +1,354 @@
+// Clipfern schema v1 (metadata only — videos never live on local disk, see BRIEF §3).
+// ownerId is a multi-user hook: always "local" for now (ADR-011).
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+  engineType      = "client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Setting {
+  key       String   @id
+  value     String // JSON
+  updatedAt DateTime @updatedAt
+}
+
+model Job {
+  id          String    @id @default(cuid())
+  ownerId     String    @default("local")
+  kind        String
+  status      String    @default("queued") // queued | running | succeeded | failed | canceled
+  priority    Int       @default(0)
+  payload     String    @default("{}") // JSON
+  result      String? // JSON
+  progress    Float     @default(0)
+  stage       String?
+  error       String?
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  runAfter    DateTime  @default(now()) // backoff / scheduling
+  heartbeatAt DateTime?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  groupKey    String? // e.g. projectId — lets stages of one pipeline be listed together
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, runAfter, priority])
+  @@index([groupKey])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  ownerId   String    @default("local")
+  kind      String
+  level     String    @default("info")
+  title     String
+  body      String?
+  href      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([readAt, createdAt])
+}
+
+model CostEvent {
+  id           String   @id @default(cuid())
+  ownerId      String   @default("local")
+  provider     String   @default("anthropic")
+  model        String
+  purpose      String
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  cachedTokens Int      @default(0) // cache reads
+  cacheWrites  Int      @default(0)
+  costUsd      Float    @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model StorageSnapshot {
+  id          String   @id @default(cuid())
+  ownerId     String   @default("local")
+  provider    String
+  usedBytes   BigInt   @default(0)
+  objectCount Int      @default(0)
+  breakdown   String   @default("{}") // JSON {category: bytes}
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// ---- Domain tables used from CP1 onward (created now so schema v1 is stable) ----
+
+model Video {
+  id          String   @id @default(cuid())
+  ownerId     String   @default("local")
+  sourceUrl   String
+  sourceId    String? // e.g. YouTube video id
+  title       String
+  channel     String?
+  durationSec Float?
+  thumbnail   String?
+  status      String   @default("new") // new | ingesting | processing | ready | failed
+  contentHash String?
+  storageKeys String   @default("{}") // JSON {source, proxy, audio, transcript, ...} -> object keys
+  metadata    String   @default("{}") // JSON (yt-dlp info, chapters...)
+  favorite    Boolean  @default(false)
+  stage       String? // current pipeline stage
+  progress    Float? // 0..1 within the stage
+  error       String?
+  options     String   @default("{}") // JSON PipelineOptions
+  stages      String   @default("[]") // JSON StageState[]
+  subtitleRev Int      @default(0) // bumped when subtitle edits are saved
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  clips       Clip[]
+
+  @@index([sourceId])
+  @@index([createdAt])
+}
+
+model Clip {
+  id             String   @id @default(cuid())
+  ownerId        String   @default("local")
+  videoId        String
+  video          Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  title          String
+  hook           String?
+  startSec       Float
+  endSec         Float
+  score          Int? // virality 0-100
+  scoreDetail    String? // JSON breakdown
+  status         String   @default("candidate") // candidate | queued | rendering | rendered | failed
+  rank           Int?
+  error          String?
+  renderProgress Float?
+  aspect         String   @default("9:16")
+  kind           String   @default("clip") // clip | highlight
+  runId          String? // MomentRun that found it (null = initial automatic run)
+  captionStyleId String   @default("clean-pop")
+  reframeMode    String   @default("auto")
+  layout         String? // layout used by the last render: single | split | screen-face
+  subtitleRev    Int      @default(0) // subtitle revision the last render was built from
+  brandKitId     String? // CP4: explicit Brand Kit override ('none' | kit id); null = inherit from the video options
+  favorite       Boolean  @default(false)
+  tags           String   @default("[]") // JSON string[]
+  storageKeys    String   @default("{}") // JSON
+  metadata       String   @default("{}") // JSON
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([videoId])
+  @@index([score])
+}
+
+// ---- CP2 ----
+
+model MomentRun {
+  id         String    @id @default(cuid())
+  ownerId    String    @default("local")
+  videoId    String
+  prompt     String
+  options    String    @default("{}") // JSON PipelineOptions used
+  status     String    @default("running") // running | done | failed | canceled
+  found      Int       @default(0)
+  error      String?
+  createdAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  @@index([videoId])
+}
+
+model CaptionStylePreset {
+  id         String   @id @default(cuid())
+  ownerId    String   @default("local")
+  brandKitId String? // CP4: belongs to a brand kit
+  name       String
+  spec       String // JSON CaptionStyle
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model ChatThread {
+  id        String        @id @default(cuid())
+  ownerId   String        @default("local")
+  videoId   String
+  clipId    String?
+  title     String        @default("New chat")
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  ChatMessage[]
+
+  @@index([videoId])
+}
+
+model ChatMessage {
+  id        String     @id @default(cuid())
+  threadId  String
+  thread    ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  role      String // user | assistant
+  text      String
+  citations String     @default("[]") // JSON Citation[]
+  actions   String     @default("[]") // JSON ChatAction[]
+  createdAt DateTime   @default(now())
+
+  @@index([threadId])
+}
+
+model Marker {
+  id        String   @id @default(cuid())
+  ownerId   String   @default("local")
+  videoId   String
+  atSec     Float
+  label     String
+  createdAt DateTime @default(now())
+
+  @@index([videoId])
+}
+
+// ---- CP3: editor ----
+
+model EditorProject {
+  id          String          @id @default(cuid())
+  ownerId     String          @default("local")
+  name        String
+  clipId      String? // library clip it was opened from (informational)
+  videoId     String? // library video it was opened from (informational)
+  data        String // JSON Project (shared/editor.ts)
+  rev         Int             @default(1)
+  durationSec Float           @default(0)
+  aspect      String          @default("9:16")
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  versions    EditorVersion[]
+
+  @@index([updatedAt])
+}
+
+model EditorVersion {
+  id        String        @id @default(cuid())
+  projectId String
+  project   EditorProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  rev       Int
+  label     String?
+  kind      String        @default("auto") // auto | manual | restore
+  data      String // JSON Project snapshot
+  createdAt DateTime      @default(now())
+
+  @@index([projectId])
+}
+
+model EditorExport {
+  id          String    @id @default(cuid())
+  ownerId     String    @default("local")
+  projectId   String? // null once the project is deleted
+  name        String
+  status      String    @default("queued") // queued | rendering | done | failed | canceled
+  progress    Float?
+  message     String?
+  error       String?
+  settings    String    @default("{}") // JSON ExportSettings
+  durationSec Float?
+  sizeBytes   Int?
+  storageKeys String    @default("{}") // JSON { video, thumb, srt, vtt }
+  createdAt   DateTime  @default(now())
+  finishedAt  DateTime?
+
+  @@index([createdAt])
+}
+
+// ---- CP4 ----
+
+model BrandKit {
+  id        String   @id @default(cuid())
+  ownerId   String   @default("local")
+  name      String
+  isDefault Boolean  @default(false)
+  spec      String   @default("{}") // JSON BrandKitSpec
+  rev       Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BrandAsset {
+  id        String   @id @default(cuid())
+  ownerId   String   @default("local")
+  kitId     String
+  kind      String // logo | image | video | audio | font
+  name      String
+  ext       String
+  bytes     Int      @default(0)
+  data      String   @default("{}") // JSON: storage keys, probed metadata, font info, credit
+  createdAt DateTime @default(now())
+
+  @@index([kitId])
+}
+
+// ---- CP5 ----
+
+model SocialAccount {
+  id            String   @id @default(cuid())
+  ownerId       String   @default("local")
+  platform      String // shorts | reels | tiktok
+  externalId    String // channel id / IG business account id / TikTok open_id
+  displayName   String
+  handle        String?
+  avatarUrl     String?
+  status        String   @default("connected") // connected | needs-reauth | error
+  statusMessage String?
+  scopes        String   @default("[]") // JSON string[]
+  info          String   @default("{}") // JSON platform extras
+  connectedAt   DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([platform, externalId])
+}
+
+model Post {
+  id            String    @id @default(cuid())
+  ownerId       String    @default("local")
+  accountId     String
+  platform      String
+  clipId        String?
+  exportId      String?
+  title         String
+  status        String    @default("draft") // draft | scheduled | queued | publishing | published | failed | missed | canceled
+  scheduledAt   DateTime?
+  publishedAt   DateTime?
+  nextAttemptAt DateTime?
+  attempts      Int       @default(0)
+  fields        String // JSON PostFields
+  media         String? // JSON PostMediaInfo of the file that will be uploaded
+  mediaKey      String // storage key of the source mp4
+  fixedMediaKey String? // storage key of the auto-fixed (re-encoded) copy
+  autoFix       Boolean   @default(true)
+  error         String? // JSON PostError
+  result        String? // JSON { platformPostId, url, outcome, note }
+  stats         String? // JSON PostStats
+  groupId       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status, scheduledAt])
+  @@index([accountId])
+  @@index([clipId])
+}
+
+model QuotaUsage {
+  id        String   @id @default(cuid())
+  ownerId   String   @default("local")
+  accountId String
+  day       String // YYYY-MM-DD in the platform's quota time zone
+  units     Int      @default(0)
+  posts     Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([accountId, day])
+}

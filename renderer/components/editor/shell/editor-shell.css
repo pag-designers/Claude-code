@@ -1,0 +1,16 @@
+/* Editor top bar: clear the macOS traffic lights (left) and the Windows/Linux caption buttons (right). */
+.editor-topbar {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+html[data-platform='darwin'] .editor-topbar {
+  padding-left: 96px;
+}
+html[data-platform='win32'] .editor-topbar,
+html[data-platform='linux'] .editor-topbar {
+  padding-right: max(
+    12px,
+    calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw)),
+    138px
+  );
+}

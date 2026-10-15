@@ -1,0 +1,10 @@
+# Direct dependencies of the Clipfern sidecar (Python 3.11).
+# `requirements.txt` is the fully pinned, cross-platform lock generated from this file:
+#   cd sidecar && uv pip compile requirements.in --universal --python-version 3.11 -o requirements.txt
+fastapi==0.143.0
+uvicorn==0.54.0
+faster-whisper==1.2.1
+mediapipe==1.1.0
+scenedetect==0.7.2
+huggingface_hub==2.2.0
+numpy==2.4.6

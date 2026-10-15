@@ -101,10 +101,10 @@ export function SchedulerView() {
   };
 
   return (
-    <Page wide>
+    <Page wide className="gap-5">
       <PageHeader
         title="Scheduler"
-        description="Plan posts on a calendar. Clipfern publishes through the official YouTube, Instagram and TikTok APIs while the app is running."
+        description="Plan posts and let Clipfern publish them through the official APIs while the app is running."
         actions={
           <Button variant="primary" onClick={() => openPicker(null)} data-testid="schedule-new">
             <CalendarClock /> Schedule a post

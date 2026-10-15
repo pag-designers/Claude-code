@@ -863,54 +863,77 @@ function Inner({
                   {w}
                 </Banner>
               ))}
-              <ul className="divide-y overflow-hidden rounded-xl border" aria-label="Planned times">
-                {rows.map((r) => {
-                  const x = planned.find((q) => q.key === r.key);
-                  const idx = Number(r.key.split(':')[0]);
-                  const acc = selectedAccounts.find((a) => a.id === r.accountId);
-                  const w = warnings[r.key];
-                  if (!acc || done.has(r.key)) return null;
+              <div className="flex flex-col gap-2.5" aria-label="Planned times" role="group">
+                {rows.length === 0 ? (
+                  <p className="rounded-xl border px-3.5 py-4 text-sm text-muted-foreground">
+                    Choose an account to see the plan.
+                  </p>
+                ) : null}
+                {metas.map((m, idx) => {
+                  const mine = rows.filter(
+                    (r) =>
+                      r.clipIndex === idx &&
+                      !done.has(r.key) &&
+                      selectedAccounts.some((a) => a.id === r.accountId),
+                  );
+                  if (!mine.length) return null;
                   return (
-                    <li
-                      key={r.key}
-                      className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-3.5 py-2.5"
-                      data-testid="plan-row"
-                      data-key={r.key}
+                    <div
+                      key={sourceKey(m.source)}
+                      className="overflow-hidden rounded-xl border"
+                      data-testid="plan-group"
                     >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">
-                          {metas[idx]?.title ?? 'Clip'}
-                        </p>
-                        <p className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
-                          <PlatformIcon platform={acc.platform} className="size-3" />
-                          {acc.displayName}
-                          {r.edited ? <span className="text-primary-text">· adjusted</span> : null}
-                        </p>
+                      <div className="flex items-center gap-2.5 border-b bg-muted/40 px-3.5 py-2">
+                        <SourceThumb meta={m} className="w-5 rounded-sm" />
+                        <p className="min-w-0 flex-1 truncate text-sm font-medium">{m.title}</p>
                       </div>
-                      <DateTimeField
-                        id={`plan-${r.key}`}
-                        label={`Time for ${metas[idx]?.title ?? 'clip'} on ${acc.displayName}`}
-                        value={x?.scheduledAt ?? r.at}
-                        min={now ?? undefined}
-                        onChange={(v) => v !== null && setOverrides((o) => ({ ...o, [r.key]: v }))}
-                        hideZone
-                        invalid={!!w}
-                        className="w-56"
-                      />
-                      {w ? (
-                        <p className="col-span-2 text-xs text-warning" data-testid="plan-warning">
-                          {w}
-                        </p>
-                      ) : null}
-                    </li>
+                      <ul className="divide-y">
+                        {mine.map((r) => {
+                          const x = planned.find((q) => q.key === r.key);
+                          const acc = selectedAccounts.find((a) => a.id === r.accountId)!;
+                          const w = warnings[r.key];
+                          return (
+                            <li
+                              key={r.key}
+                              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-3.5 py-2"
+                              data-testid="plan-row"
+                              data-key={r.key}
+                            >
+                              <p className="flex min-w-0 items-center gap-2 truncate text-sm">
+                                <PlatformIcon platform={acc.platform} />
+                                <span className="truncate">{acc.displayName}</span>
+                                {r.edited ? (
+                                  <span className="text-xs text-primary-text">adjusted</span>
+                                ) : null}
+                              </p>
+                              <DateTimeField
+                                id={`plan-${r.key}`}
+                                label={`Time for ${m.title} on ${acc.displayName}`}
+                                value={x?.scheduledAt ?? r.at}
+                                min={now ?? undefined}
+                                onChange={(v) =>
+                                  v !== null && setOverrides((o) => ({ ...o, [r.key]: v }))
+                                }
+                                hideZone
+                                invalid={!!w}
+                                className="w-56"
+                              />
+                              {w ? (
+                                <p
+                                  className="col-span-2 text-xs text-warning"
+                                  data-testid="plan-warning"
+                                >
+                                  {w}
+                                </p>
+                              ) : null}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
                   );
                 })}
-                {rows.length === 0 ? (
-                  <li className="px-3.5 py-4 text-sm text-muted-foreground">
-                    Choose an account to see the plan.
-                  </li>
-                ) : null}
-              </ul>
+              </div>
             </div>
           ) : null}
           {whenMode !== 'now' ? (

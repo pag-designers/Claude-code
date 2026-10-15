@@ -43,12 +43,14 @@ export function QuotaMeter({ quota, now }: { quota: QuotaInfo; now: number | nul
   const tone = quotaTone(quota);
   const left = postsLeftLabel(quota);
   return (
-    <div className="flex flex-col gap-1.5" data-testid="quota-meter" data-tone={tone}>
+    <div className="flex flex-col gap-1" data-testid="quota-meter" data-tone={tone}>
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-2xs font-semibold uppercase tracking-wider text-subtle">
+        <span className="truncate text-2xs font-semibold uppercase tracking-wider text-subtle">
           {quota.label}
         </span>
-        <span className="text-xs tabular-nums text-muted-foreground">{describeQuota(quota)}</span>
+        <span className="shrink-0 text-2xs tabular-nums text-muted-foreground">
+          {describeQuota(quota)}
+        </span>
       </div>
       <Progress
         value={quotaFraction(quota) * 100}
@@ -61,7 +63,7 @@ export function QuotaMeter({ quota, now }: { quota: QuotaInfo; now: number | nul
         {now !== null ? <span>Resets {formatUntil(quota.resetsAt, now)}</span> : null}
       </p>
       {quota.note ? (
-        <p className="text-2xs leading-4 text-subtle" data-testid="quota-note">
+        <p className="truncate text-2xs text-subtle" data-testid="quota-note" title={quota.note}>
           {quota.note}
         </p>
       ) : null}
@@ -84,7 +86,7 @@ function AccountCard({
   return (
     <li
       className={cn(
-        'flex min-w-0 flex-col gap-3 rounded-xl border bg-card p-4 shadow-xs',
+        'flex min-w-0 flex-col gap-2.5 rounded-xl border bg-card px-4 py-3.5 shadow-xs',
         account.status !== 'connected' && 'border-warning/40',
       )}
       data-testid="account-card"
@@ -93,7 +95,7 @@ function AccountCard({
     >
       <div className="flex items-center gap-3">
         <div className="relative">
-          <AccountAvatar account={account} className="size-10" />
+          <AccountAvatar account={account} className="size-9" />
           <PlatformMark
             platform={account.platform}
             size="sm"
@@ -159,7 +161,7 @@ function ConnectCard({
   };
   return (
     <li
-      className="flex min-w-0 flex-col gap-3 rounded-xl border border-dashed border-border-strong bg-card/50 p-4"
+      className="flex min-w-0 flex-col gap-2.5 rounded-xl border border-dashed border-border-strong bg-card/50 px-4 py-3.5"
       data-testid="connect-card"
       data-platform={platform}
     >
@@ -209,9 +211,9 @@ export function AccountsStrip({
     );
   const setupOf = (p: Platform) => setup?.find((s) => s.platform === p);
   return (
-    <section aria-label="Connected accounts" className="flex flex-col gap-3">
+    <section aria-label="Connected accounts" className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="font-display text-lg font-semibold">Accounts</h2>
+        <h2 className="font-display text-md font-semibold">Accounts</h2>
         <Button variant="ghost" size="xs" asChild>
           <Link href="/settings/integrations/">
             <Settings2 /> Manage in Settings

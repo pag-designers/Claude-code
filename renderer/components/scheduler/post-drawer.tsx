@@ -151,7 +151,11 @@ function Body({ post, onClose }: { post: PostView; onClose: () => void }) {
   const info = PLATFORM_INFO[post.platform];
   const unaudited = account ? isTiktokUnaudited(account) : post.platform === 'tiktok';
   const busy = update.isPending || postNow.isPending || cancel.isPending || retry.isPending;
-  const timeInPast = now !== null && draft.scheduledAt !== null && draft.scheduledAt <= now;
+  const timeInPast =
+    now !== null &&
+    draft.scheduledAt !== null &&
+    draft.scheduledAt !== post.scheduledAt &&
+    draft.scheduledAt <= now;
 
   const save = () =>
     update.mutate({

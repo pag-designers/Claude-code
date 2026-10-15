@@ -116,7 +116,10 @@ export interface PublisherProvider {
     account: ProviderAccount | null;
   }>;
   /** Platform rules beyond the zod schema (title characters, tag budget, hashtag/mention counts, privacy options…). */
-  validateFields(fields: PostFields, ctx?: { account?: { info: ProviderAccount['info'] } }): FieldIssue[];
+  validateFields(
+    fields: PostFields,
+    ctx?: { account?: { info: ProviderAccount['info'] } },
+  ): FieldIssue[];
   /** Quota units one post of these fields costs (0 when the platform meters posts instead of units). */
   quotaCost(fields: PostFields): number;
   publish(a: PublishArgs): Promise<PublishResult>;
@@ -142,7 +145,12 @@ export interface PublishMediaService {
   /** ffprobe → size/codec/fps summary. Throws a user-readable Error for unreadable files. */
   probe(file: string, opts?: Pick<CommonOpts, 'signal'>): Promise<PostMediaInfo>;
   /** Checks the file against the platform's published limits (shared/platform-specs.ts). Pure given `info`. */
-  validate(a: { info: PostMediaInfo; platform: Platform }): MediaReport;
+  validate(a: {
+    info: PostMediaInfo;
+    platform: Platform;
+    /** TikTok: the creator's own `max_video_post_duration_sec` from creator_info (else the platform ceiling applies). */
+    maxDurationSec?: number;
+  }): MediaReport;
   /**
    * Re-encodes `file` to `outFile` so that every FIXABLE issue of `report` is gone (H.264 yuv420p + AAC, fps cap,
    * resolution cap, bitrate to fit the size limit, faststart) without cropping or trimming. Throws when an issue is

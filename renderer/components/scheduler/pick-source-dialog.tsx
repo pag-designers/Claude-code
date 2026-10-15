@@ -73,7 +73,7 @@ function ItemRow({
           </span>
           {scheduledCount > 0 ? (
             <Badge variant="outline" className="shrink-0">
-              Already posted or scheduled ×{scheduledCount}
+              Used in {scheduledCount} {scheduledCount === 1 ? 'post' : 'posts'}
             </Badge>
           ) : null}
         </label>

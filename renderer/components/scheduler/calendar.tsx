@@ -416,7 +416,10 @@ function TimeGrid(p: CalendarProps & { days: Date[] }) {
           );
         })}
       </div>
-      <div ref={scroller} className="scrollbar-thin max-h-[640px] overflow-y-auto">
+      <div
+        ref={scroller}
+        className="scrollbar-thin max-h-[min(640px,calc(100dvh-220px))] overflow-y-auto"
+      >
         {HOURS.map((h) => (
           <div
             key={h}

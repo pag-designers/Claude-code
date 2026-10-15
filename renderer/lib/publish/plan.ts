@@ -133,8 +133,9 @@ export function rowWarnings(
       out[r.key] = `Closer than ${opts.minGapMinutes} min to another post on this account.`;
       continue;
     }
-    const sameDay = mine.filter((t) => dayKey(t) === dayKey(r.at)).length + 1;
-    if (sameDay > opts.maxPerDay)
+    // only the posts that come AFTER the cap-th one of that day are over the limit
+    const earlierThatDay = mine.filter((t) => dayKey(t) === dayKey(r.at) && t < r.at).length;
+    if (earlierThatDay + 1 > opts.maxPerDay)
       out[r.key] = `More than ${opts.maxPerDay} posts that day on this account.`;
   }
   return out;

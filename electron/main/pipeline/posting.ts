@@ -126,7 +126,10 @@ const LOCAL_QUOTA: Record<Platform, { limit: number; unit: 'units' | 'posts' }> 
 
 /** Accounts, posts and the publish job (BRIEF §9). The scheduler loop (scheduler.ts) only decides WHEN to dispatch. */
 export class PostingService {
-  private readonly progress = new Map<string, { fraction: number | null; message: string | null }>();
+  private readonly progress = new Map<
+    string,
+    { fraction: number | null; message: string | null }
+  >();
   private readonly quotaCache = new Map<string, { at: number; q: QuotaInfo }>();
 
   constructor(private readonly d: PostingDeps) {}
@@ -202,8 +205,7 @@ export class PostingService {
     try {
       granted = await this.d.oauth.authorize(platform, (a) => provider.authUrl(a));
     } catch (e) {
-      if (e instanceof OAuthFlowError)
-        throw new AppError('FAILED', e.message);
+      if (e instanceof OAuthFlowError) throw new AppError('FAILED', e.message);
       throw e;
     }
     let exchanged;
@@ -370,8 +372,7 @@ export class PostingService {
     }
     const ex = await this.d.db.editorExport.findUnique({ where: { id: source.exportId } });
     if (!ex) throw new AppError('NOT_FOUND', 'That export no longer exists.');
-    if (ex.status !== 'done')
-      throw new AppError('CONFLICT', 'That export has not finished yet.');
+    if (ex.status !== 'done') throw new AppError('CONFLICT', 'That export has not finished yet.');
     const k = parseJson<Record<string, string>>(ex.storageKeys, {});
     return {
       key: k.video ?? keysEditor.exportFile(ex.id),
@@ -398,7 +399,10 @@ export class PostingService {
   private async localCopy(key: string, signal?: AbortSignal): Promise<string> {
     const storage = this.requireStorage();
     const head = await storage.head(key);
-    if (!head) throw new PublishError('media', 'The video file is missing from storage.', { retryable: false });
+    if (!head)
+      throw new PublishError('media', 'The video file is missing from storage.', {
+        retryable: false,
+      });
     const dir = path.join(this.d.cacheDir, 'publish');
     fs.mkdirSync(dir, { recursive: true });
     const file = path.join(
@@ -487,11 +491,20 @@ export class PostingService {
     };
   }
 
+  /** Per-creator limit stored with the account (TikTok `creator_info`), for the media check. */
+  private maxDurationOf(account: AccountRow | null | undefined): number | undefined {
+    if (!account) return undefined;
+    const v = parseJson<Record<string, unknown>>(account.info, {}).maxDurationSec;
+    return typeof v === 'number' && v > 0 ? v : undefined;
+  }
+
   /** Provider rules; `account` lets TikTok check the privacy levels this creator is actually offered. */
   private fieldIssues(fields: PostFields, account?: AccountRow): FieldIssue[] {
     return this.d.providers[fields.platform].validateFields(
       fields,
-      account ? { account: { info: parseJson<ProviderAccount['info']>(account.info, {}) } } : undefined,
+      account
+        ? { account: { info: parseJson<ProviderAccount['info']>(account.info, {}) } }
+        : undefined,
     );
   }
 
@@ -504,7 +517,11 @@ export class PostingService {
     return { report, fieldIssues: args.fields ? this.fieldIssues(args.fields) : [] };
   }
 
-  private async mediaReport(key: string, platform: Platform): Promise<MediaReport> {
+  private async mediaReport(
+    key: string,
+    platform: Platform,
+    maxDurationSec?: number,
+  ): Promise<MediaReport> {
     let file: string;
     try {
       file = await this.localCopy(key);
@@ -513,7 +530,7 @@ export class PostingService {
       throw e;
     }
     const info = await this.d.media.probe(file);
-    return this.d.media.validate({ info, platform });
+    return this.d.media.validate({ info, platform, maxDurationSec });
   }
 
   /* --------------------------------------------------------------------------------- posts ---- */
@@ -525,15 +542,13 @@ export class PostingService {
 
   private async toView(r: PostRow, names?: Map<string, string>): Promise<PostView> {
     const map = names ?? (await this.accountNames());
-    const fields = postFieldsSchema.catch(
-      defaultFieldsFrom(r.platform as Platform, null, r.title),
-    ).parse(parseJson<unknown>(r.fields, {}));
+    const fields = postFieldsSchema
+      .catch(defaultFieldsFrom(r.platform as Platform, null, r.title))
+      .parse(parseJson<unknown>(r.fields, {}));
     const err = r.error ? postErrorSchema.safeParse(parseJson<unknown>(r.error, null)) : null;
     const media = r.media ? postMediaInfoSchema.safeParse(parseJson<unknown>(r.media, null)) : null;
     const stats = r.stats ? postStatsSchema.safeParse(parseJson<unknown>(r.stats, null)) : null;
-    const result = r.result
-      ? parseJson<PostView['result']>(r.result, null)
-      : null;
+    const result = r.result ? parseJson<PostView['result']>(r.result, null) : null;
     let thumbUrl: string | null = null;
     const storage = this.d.getStorage();
     if (storage) {
@@ -599,7 +614,12 @@ export class PostingService {
       try {
         const account = await this.d.db.socialAccount.findUnique({ where: { id: item.accountId } });
         if (!account) {
-          refused.push({ index, reason: 'That account is no longer connected.', report: null, fieldIssues: [] });
+          refused.push({
+            index,
+            reason: 'That account is no longer connected.',
+            report: null,
+            fieldIssues: [],
+          });
           continue;
         }
         if (account.platform !== item.fields.platform) {
@@ -622,7 +642,11 @@ export class PostingService {
           continue;
         }
         const src = await this.resolveSource(item.source);
-        const report = await this.mediaReport(src.key, item.fields.platform);
+        const report = await this.mediaReport(
+          src.key,
+          item.fields.platform,
+          this.maxDurationOf(account),
+        );
         const blocking = report.issues.filter((i) => i.severity === 'error');
         const fixable = blocking.every((i) => i.fixable);
         if (blocking.length && !(item.autoFix && fixable)) {
@@ -746,7 +770,13 @@ export class PostingService {
       throw new AppError('CONFLICT', `A ${row.status} post cannot be posted now.`);
     await this.d.db.post.update({
       where: { id },
-      data: { status: 'queued', scheduledAt: new Date(this.now()), nextAttemptAt: null, attempts: 0, error: null },
+      data: {
+        status: 'queued',
+        scheduledAt: new Date(this.now()),
+        nextAttemptAt: null,
+        attempts: 0,
+        error: null,
+      },
     });
     await this.enqueue(id);
     return this.emitPost(id);
@@ -885,7 +915,7 @@ export class PostingService {
         orderBy: [{ nextAttemptAt: 'asc' }, { scheduledAt: 'asc' }],
       }),
     ]);
-    const nextAt = next ? (next.nextAttemptAt ?? next.scheduledAt)?.getTime() ?? null : null;
+    const nextAt = next ? ((next.nextAttemptAt ?? next.scheduledAt)?.getTime() ?? null) : null;
     return { upcoming, nextAt, publishing };
   }
 
@@ -998,8 +1028,12 @@ export class PostingService {
     if (row.status === 'published' || row.status === 'canceled') return;
     const platform = row.platform as Platform;
     const account = await this.d.db.socialAccount.findUnique({ where: { id: row.accountId } });
+    const maxDurationSec = this.maxDurationOf(account);
     if (!account) {
-      await this.finishFailed(row, this.errorOf('auth', 'The account is no longer connected.', false));
+      await this.finishFailed(
+        row,
+        this.errorOf('auth', 'The account is no longer connected.', false),
+      );
       return;
     }
     await this.d.db.post.update({
@@ -1017,21 +1051,20 @@ export class PostingService {
       let mediaKey = row.fixedMediaKey ?? row.mediaKey;
       let file = await this.localCopy(mediaKey, signal);
       let info: PostMediaInfo = await this.d.media.probe(file, { signal });
-      let report = this.d.media.validate({ info, platform });
+      let report = this.d.media.validate({ info, platform, maxDurationSec });
       const blocking = report.issues.filter((i) => i.severity === 'error');
       if (blocking.length) {
         if (!row.autoFix || !blocking.every((i) => i.fixable))
-          throw new PublishError(
-            'media',
-            blocking.map((i) => i.message).join(' '),
-            {
-              retryable: false,
-              hint: blocking.every((i) => i.fixable)
-                ? 'Switch on “Fix the video automatically” for this post.'
-                : 'Re-render the clip in a different format.',
-            },
-          );
-        this.progress.set(postId, { fraction: null, message: 'Re-encoding to fit the platform rules' });
+          throw new PublishError('media', blocking.map((i) => i.message).join(' '), {
+            retryable: false,
+            hint: blocking.every((i) => i.fixable)
+              ? 'Switch on “Fix the video automatically” for this post.'
+              : 'Re-render the clip in a different format.',
+          });
+        this.progress.set(postId, {
+          fraction: null,
+          message: 'Re-encoding to fit the platform rules',
+        });
         const outFile = path.join(this.d.cacheDir, 'publish', `${postId}.fixed.mp4`);
         info = await this.d.media.fix({
           file,
@@ -1040,12 +1073,14 @@ export class PostingService {
           report,
           ffmpegPath: this.d.ffmpegPath(),
           signal,
+          onProgress: (fraction, message) =>
+            this.progress.set(postId, { fraction, message: message ?? 'Re-encoding' }),
         });
         mediaKey = `posts/${postId}/media.mp4`;
         await storage.putFile(mediaKey, outFile, { contentType: 'video/mp4' });
         fs.rmSync(outFile, { force: true });
         file = await this.localCopy(mediaKey, signal);
-        report = this.d.media.validate({ info, platform });
+        report = this.d.media.validate({ info, platform, maxDurationSec });
         await this.d.db.post.update({
           where: { id: postId },
           data: { fixedMediaKey: mediaKey, media: JSON.stringify(info) },

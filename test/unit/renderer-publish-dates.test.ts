@@ -67,7 +67,7 @@ describe('month / week / day grids', () => {
   it('titles read well', () => {
     expect(calendarTitle('month', new Date(2026, 9, 14))).toBe('October 2026');
     expect(calendarTitle('week', new Date(2026, 9, 14))).toBe('Oct 11 – 17, 2026');
-    expect(calendarTitle('week', new Date(2026, 9, 28))).toBe('Oct 25 – Oct 31, 2026');
+    expect(calendarTitle('week', new Date(2026, 8, 30))).toBe('Sep 27 – Oct 3, 2026');
     expect(calendarTitle('week', new Date(2026, 10, 1))).toBe('Nov 1 – 7, 2026');
     expect(calendarTitle('day', new Date(2026, 9, 14))).toMatch(/Wednesday, October 14, 2026/);
   });

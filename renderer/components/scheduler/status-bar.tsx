@@ -79,20 +79,20 @@ export function SchedulerStatusBar({
       : tone === 'paused'
         ? 'Scheduler paused'
         : 'Scheduler not running';
+  const trayOn = status.trayMode && status.trayAvailable;
   const detail =
     tone === 'active'
-      ? 'Posting on schedule while Clipfern is open.'
+      ? trayOn
+        ? 'Posting on schedule. Closing the window keeps it running in the system tray.'
+        : 'Posting on schedule while Clipfern is open.'
       : tone === 'paused'
         ? 'Nothing is published until you resume.'
         : 'Restart Clipfern to start the scheduler.';
+  // only what needs attention gets its own row; the normal tray note lives in the detail line above
   const hints: React.ReactNode[] = [];
-  if (status.trayMode && status.trayAvailable)
-    hints.push(
-      'Closing the window keeps Clipfern running in the system tray, so scheduled posts still go out.',
-    );
-  else if (!status.trayAvailable)
+  if (!status.trayAvailable)
     hints.push('The system tray is not available here, so keep Clipfern open for posts to go out.');
-  else
+  else if (!status.trayMode)
     hints.push(
       <>
         Closing the window stops the scheduler.{' '}
@@ -116,7 +116,7 @@ export function SchedulerStatusBar({
       data-tone={tone}
       className="overflow-hidden rounded-xl border bg-card shadow-xs"
     >
-      <div className="flex flex-wrap items-center gap-x-8 gap-y-3 px-5 py-4">
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-3 px-5 py-3.5">
         <div className="flex min-w-0 items-center gap-3">
           <StatusDot tone={tone} />
           <div className="min-w-0">
@@ -126,7 +126,7 @@ export function SchedulerStatusBar({
             >
               {title}
             </p>
-            <p className="text-xs text-muted-foreground">{detail}</p>
+            <p className="max-w-[34rem] text-xs text-muted-foreground">{detail}</p>
           </div>
         </div>
         <dl className="flex min-w-0 flex-1 flex-wrap items-center gap-x-8 gap-y-2">

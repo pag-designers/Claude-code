@@ -213,6 +213,9 @@ describe('planSchedule invariants (random inputs)', () => {
       for (let i = 1; i < res.slots.length; i++)
         expect(res.slots[i]!.at, tag).toBeGreaterThanOrEqual(res.slots[i - 1]!.at);
     }
+    // the random cases really exercise the planner (many slots) and its limits (some cannot place everything)
+    expect(planned).toBeGreaterThan(3000);
+    expect(withWarnings).toBeGreaterThan(5);
   }, 60_000);
 });
 

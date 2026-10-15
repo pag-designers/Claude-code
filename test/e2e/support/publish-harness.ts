@@ -9,12 +9,7 @@ import { invokeContract, type InvokeChannel } from '../../../shared/ipc';
 import { createHarnessB, canRunB, type HarnessB } from './cp2b-harness';
 import { installClipfernStub, makeState, type Scenario } from './clipfern-stub';
 import { STUB_B_CHANNELS, controls, stubB } from './cp2-stub-b';
-import {
-  FIXED_NOW,
-  installPublishLib,
-  type InstallOptions,
-  type PublishLib,
-} from './publish-stub';
+import { FIXED_NOW, installPublishLib, type InstallOptions, type PublishLib } from './publish-stub';
 import type { Page } from '@playwright/test';
 import type { StubState } from './clipfern-stub';
 

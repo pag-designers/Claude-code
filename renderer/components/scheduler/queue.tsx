@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ListChecks, RotateCcw, Search, Send, SearchX, X } from 'lucide-react';
+import { Film, ListChecks, RotateCcw, Search, Send, SearchX, X } from 'lucide-react';
 import type { PostView, SocialAccount } from '@shared/publish';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -152,16 +152,18 @@ function QueueRow({
     <li
       className={cn(
         'group/row relative grid grid-cols-[40px_minmax(0,1fr)_auto_auto] items-center gap-x-4 gap-y-1 px-4 py-3 transition-colors duration-(--duration-fast) hover:bg-accent/50',
-        'min-[1100px]:grid-cols-[40px_minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_auto_auto]',
+        'min-[1100px]:grid-cols-[40px_minmax(0,1.8fr)_minmax(0,1fr)_minmax(0,0.9fr)_176px_96px]',
       )}
       data-testid="queue-row"
       data-post-id={post.id}
       data-status={post.status}
     >
-      <div className="relative aspect-[9/16] w-10 overflow-hidden rounded-md border bg-black">
+      <div className="relative flex aspect-[9/16] w-10 items-center justify-center overflow-hidden rounded-md border bg-muted text-subtle">
         {post.thumbUrl ? (
           <img src={post.thumbUrl} alt="" className="size-full object-cover" />
-        ) : null}
+        ) : (
+          <Film className="size-4" aria-hidden />
+        )}
       </div>
       <div className="min-w-0">
         <button

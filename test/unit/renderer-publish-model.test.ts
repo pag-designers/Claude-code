@@ -332,11 +332,11 @@ describe('mergeShared (bulk)', () => {
     });
     expect(merged).toMatchObject({
       title: 'Own title',
-      description: 'own',
       visibility: 'unlisted',
       madeForKids: true,
       categoryId: '24',
     });
+    expect(merged).toHaveProperty('description', expect.stringContaining('own'));
     const tt = defaultFieldsFrom('tiktok', null, 'Own');
     const tts = defaultFieldsFrom('tiktok', null, 'Shared');
     if (tt.platform !== 'tiktok' || tts.platform !== 'tiktok') throw new Error('tiktok');

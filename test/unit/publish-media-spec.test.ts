@@ -451,3 +451,16 @@ describe('fix plan (pure maths)', () => {
     expect(t[t.indexOf('-maxrate') + 1]).toBe('4000k');
   });
 });
+
+describe('service wiring', () => {
+  it('validate() passes the per-creator TikTok duration limit through', async () => {
+    const { createPublishMedia } = await import('../../electron/main/services/publish-media');
+    const svc = createPublishMedia({ ffprobePath: () => '/unused' });
+    const info = ok({ durationSec: 400 });
+    expect(svc.validate({ info, platform: 'tiktok' }).ok).toBe(true);
+    const r = svc.validate({ info, platform: 'tiktok', maxDurationSec: 300 });
+    expect(r.ok).toBe(false);
+    expect(r.issues[0]).toMatchObject({ code: 'duration-long', fixable: false });
+    expect(r.issues[0]!.message).toContain('up to 5:00');
+  });
+});

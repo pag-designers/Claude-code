@@ -73,14 +73,12 @@ export function calendarTitle(view: CalendarView, cursor: Date): string {
     });
   const s = weekStart(cursor);
   const e = addDays(s, 6);
-  const sameMonth = s.getMonth() === e.getMonth();
-  const head = s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const tail = e.toLocaleDateString(
-    'en-US',
-    sameMonth
-      ? { day: 'numeric', year: 'numeric' }
-      : { month: 'short', day: 'numeric', year: 'numeric' },
-  );
+  const month = (d: Date) => d.toLocaleDateString('en-US', { month: 'short' });
+  const head = `${month(s)} ${s.getDate()}`;
+  const tail =
+    s.getMonth() === e.getMonth()
+      ? `${e.getDate()}, ${e.getFullYear()}`
+      : `${month(e)} ${e.getDate()}, ${e.getFullYear()}`;
   return `${head} – ${tail}`;
 }
 
@@ -168,8 +166,8 @@ export function formatWhen(ms: number, now: number): string {
 export function formatUntil(ms: number, now: number): string {
   const diff = ms - now;
   if (diff < -60_000) return 'overdue';
+  if (diff < 45_000) return 'now';
   const min = Math.round(diff / 60_000);
-  if (min <= 0) return 'now';
   if (min < 60) return `in ${min} min`;
   const h = Math.round(min / 60);
   if (h < 24) return `in ${h} h`;

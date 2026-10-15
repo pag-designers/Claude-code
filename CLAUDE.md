@@ -31,6 +31,12 @@ CP3 editor: `test/e2e/editor-parity.spec.ts` (preview vs export frames), `editor
 CLIPFERN_E2E_CP1_VIDEO=<mp4> CLIPFERN_E2E_SIDECAR_USERDATA=<ud> CLIPFERN_E2E_OUT=<dir> xvfb-run -a pnpm exec playwright test test/e2e/cp3-editor.spec.ts
 ```
 
+CP4 real-media e2e (7 tests: a kit built from real PNG/SVG/intro/music/WOFF-font files, a branded pipeline run inspected frame by frame, apply/remove/re-apply, a new editor project with the kit + REAL export, stock B-roll from a local fake Pexels, the Brand Kit page, deleting a kit). Brand specs on the static export: `test/e2e/support/brand-build.sh <work> <out>` then `CLIPFERN_E2E_OUT=<out> npx playwright test test/e2e/renderer-cp4-*.spec.ts` (inspector specs still need the lab build):
+
+```bash
+CLIPFERN_E2E_CP1_VIDEO=<mp4> CLIPFERN_E2E_SIDECAR_USERDATA=<ud> CLIPFERN_E2E_OUT=<dir> xvfb-run -a pnpm exec playwright test test/e2e/cp4-brand.spec.ts
+```
+
 CP1 real-media e2e (real yt-dlp/ffmpeg/faster-whisper/render; only the Claude answers are scripted — no key needed):
 
 ```bash
@@ -47,6 +53,7 @@ Dev/test-only env: `CLIPFERN_S3_ENDPOINT_OVERRIDE`, `CLIPFERN_ALLOW_ANY_URL=1`, 
 - `electron/main/` services: db (Prisma+libsql), queue (durable), secrets (safeStorage), storage (S3Provider R2/B2), notifications, binaries (ffmpeg/yt-dlp), sidecar (uv/venv/faster-whisper), validators, ipc handlers.
 - `electron/main/pipeline/` (CP1+CP2): `cp2.ts` (caption-style/subtitle/highlight/hook/meta/thumbnail/marker service), `chat.ts` (AI Chat + tool executors), `styles.ts` (caption style registry), `contracts2.ts` (CP2 module interfaces), `contracts.ts` (module interfaces), `orchestrator.ts` (windowed streaming pipeline on the queue), `render-worker.ts` (one clip: reframe → captions → hook → ffmpeg → upload), `library.ts` (list/favorite/delete/download), `wiring.ts` (builds all services), `state.ts`, `views.ts`, `signals-merge.ts`.
 - `shared/editor.ts` (Project JSON) + `shared/editor-eval.ts` (pure evaluator used by BOTH the WebGL preview and the FFmpeg exporter — change semantics there only). `electron/main/pipeline/{editor,editor-projects,contracts3}.ts` (EditorService: CRUD/versions/open-from-clip/export job), `electron/main/services/{editor-export,editor-media}/` (project→FFmpeg compiler, waveform/beats/strips). `renderer/lib/editor/{core,compositor,playback}`, `renderer/components/editor/**`, `renderer/app/editor/page.tsx`.
+- CP4 Brand Kit: `shared/brand.ts` (kit/asset model, `watermarkRect`, `resolveBrandKitId`, storage keys `keysBrand`) + `shared/brand-apply.ts` (pure `applyBrandToProject`, used by the editor and by new projects). `electron/main/pipeline/{brand,broll,brand-util,contracts4}.ts` (BrandService: kits/assets/fonts/styles/apply; BrollHub: stock import), `electron/main/services/{brand-media,brand-finish,broll}/` (upload processing + fonts hub + SVG rasteriser, FFmpeg finisher: watermark/intro/outro/ducked music, Pexels/Pixabay clients), render worker brand pass (`render-worker.ts`), data-driven hook card (`captions/hook.ts`). Renderer: `renderer/components/{brand,brand-apply,broll}/**`, `renderer/lib/{brand,broll}/**`, editor brand panels in `renderer/components/editor/panels/brand-*.tsx`.
 - `electron/main/services/{media,analysis,llm,moments,reframe,captions,subtitles,thumbnails,chat,render}/` (CP1+CP2): yt-dlp+ffmpeg, audio signals/sentences, Claude layer, candidate moments, face-tracked crop path, ASS captions (Clean Pop), FFmpeg render.
 - `electron/preload/` strict contextBridge: only contract channels.
 - `renderer/` Next 15 static export, Tailwind v4, shadcn/ui, Zustand, TanStack Query. Never sees secrets.
@@ -71,7 +78,7 @@ Dev/test-only env: `CLIPFERN_S3_ENDPOINT_OVERRIDE`, `CLIPFERN_ALLOW_ANY_URL=1`, 
 | 1   | YouTube → clips (core)      | **DONE (Linux-verified) — awaiting "go"** |
 | 2   | Clip intelligence depth     | **DONE (Linux-verified) — awaiting "go"** |
 | 3   | Full editor                 | **DONE (Linux-verified) — awaiting "go"** |
-| 4   | Brand Kit                   | not started                               |
+| 4   | Brand Kit                   | **DONE (Linux-verified) — awaiting "go"** |
 | 5   | Posting + Scheduler         | not started                               |
 | 6   | Whop                        | not started                               |
 | 7   | Live Clipping               | not started                               |

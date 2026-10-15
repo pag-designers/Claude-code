@@ -159,6 +159,8 @@ export function seedLibrary(state: Cp1State, now = Date.now()): void {
   // ---- v1: the interview, fully processed -------------------------------------------------------------------------
   const tr1 = buildTranscript(INTERVIEW, 176);
   const v1Title = 'Community Conversations: Autism Awareness & Local Art';
+  // "3 hours ago", but never before midnight: the Library's "created today" filter must keep working at 01:00
+  const V1_AT = Math.max(now - 3 * HOUR, new Date(now).setHours(0, 0, 0, 0) + 2 * MIN);
   const v1 = videoView({
     id: 'vid-interview',
     sourceId: 'Ab3dEf9GhIj',
@@ -169,13 +171,13 @@ export function seedLibrary(state: Cp1State, now = Date.now()): void {
     thumbnail: asset(s, thumbOf(0)),
     status: 'ready',
     favorite: true,
-    createdAt: now - 3 * HOUR,
-    updatedAt: now - 2.8 * HOUR,
+    createdAt: V1_AT,
+    updatedAt: V1_AT + 12 * MIN,
     hasProxy: true,
   });
   s.transcripts[v1.id] = tr1;
   s.analyses[v1.id] = interviewAnalysis(tr1);
-  s.stages[v1.id] = doneStages(now - 3 * HOUR);
+  s.stages[v1.id] = doneStages(V1_AT);
   const c1 = CLIP_TEMPLATES.map((tpl, i) => {
     const id = `${v1.id}-c${i + 1}`;
     s.clipAssets[id] = { thumb: tpl.thumb, render: tpl.render };
@@ -184,7 +186,7 @@ export function seedLibrary(state: Cp1State, now = Date.now()): void {
       id,
       videoId: v1.id,
       videoTitle: v1Title,
-      createdAt: now - 3 * HOUR + (i + 1) * 90_000,
+      createdAt: V1_AT + (i + 1) * 90_000,
       rank: i + 1,
       status: failed ? 'failed' : 'rendered',
       favorite: i === 0 || i === 3,

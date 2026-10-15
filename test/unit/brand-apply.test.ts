@@ -282,7 +282,7 @@ describe('brandPartsFromDefaults', () => {
       musicBed: {},
       textStyles: [],
     });
-    expect(brandPartsFromDefaults(none.spec)).toEqual(['subtitles']);
+    expect(brandPartsFromDefaults(none.spec)).toEqual(['subtitles', 'hook']);
     const full = makeKit('k1', {
       defaults: {
         watermarkOn: true,
@@ -307,7 +307,7 @@ describe('brandPartsFromDefaults', () => {
       musicBed: {},
       watermark: {},
     });
-    expect(brandPartsFromDefaults(noAssets.spec)).toEqual(['subtitles']);
+    expect(brandPartsFromDefaults(noAssets.spec)).toEqual(['subtitles', 'hook']);
     const wmOff = makeKit('k3', { defaults: { watermarkOn: false } });
     expect(brandPartsFromDefaults(wmOff.spec)).not.toContain('watermark');
   });

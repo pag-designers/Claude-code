@@ -122,7 +122,8 @@ export function brandPartsFromDefaults(spec: BrandKitSpec): BrandPart[] {
   if (d.introOn && spec.introAssetId) parts.push('intro');
   if (d.outroOn && spec.outroAssetId) parts.push('outro');
   parts.push('subtitles');
-  if (d.hookTextStyleId) parts.push('hook');
+  // the hook card look (kit `hook` style, or a chosen hook text style) always follows the kit, like a rendered clip's card
+  parts.push('hook');
   if (d.musicOn && spec.musicBed.assetId) parts.push('music');
   return parts;
 }

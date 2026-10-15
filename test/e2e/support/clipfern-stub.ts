@@ -248,6 +248,11 @@ async function handle(
   if (edt) return edt.value;
   const edp = await handleEditorPanels(state, channel, payload); // CP3 panels: projects, versions, exports
   if (edp) return edp.value;
+  // CP4 baseline: no Brand Kits and no stock-footage keys (the brand specs install richer stubs in front of this one)
+  if (channel === 'brand:list') return { items: [] };
+  if (channel === 'brand:defaultKit') return { id: null };
+  if (channel === 'brand:fonts') return { fonts: [] };
+  if (channel === 'broll:status') return { pexels: false, pixabay: false };
   switch (channel) {
     case 'app:info':
       return {

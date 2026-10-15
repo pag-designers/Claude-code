@@ -811,6 +811,12 @@ test('a new editor project takes the default kit (intro, watermark track, music 
       45,
     ),
   ).toBeGreaterThan(200);
+  // the hook text of the opened clip follows the kit's card colours, like a rendered clip's card
+  if (c!.hookApplied) {
+    expect(
+      f1.count({ x0: 0, y0: 1920 * 0.1, x1: 1080, y1: 1920 * 0.26 }, hexRgb(HOOK_CARD), 40),
+    ).toBeGreaterThan(1500);
+  }
   expect(measureEbur(mp4).lufs).toBeGreaterThan(-18);
 });
 
@@ -897,7 +903,7 @@ const bucketKeys = (): string[] => {
   return out;
 };
 
-test('deleting assets clears kit references; deleting the kit removes its files but keeps what an editor project uses', async () => {
+test('deleting assets clears kit references; files an editor project still uses are kept, the rest are removed with the kit', async () => {
   test.setTimeout(120_000);
   // the music asset is referenced by the kit's music bed: deleting it clears that reference
   const r = await invoke<{ deleted: number; clearedRefs: string[] }>('brand:deleteAssets', {
@@ -907,7 +913,8 @@ test('deleting assets clears kit references; deleting the kit removes its files 
   expect(
     (await invoke<{ kit: BrandKit }>('brand:get', { id: kit.id })).kit.spec.musicBed.assetId,
   ).toBeNull();
-  expect(bucketKeys().some((k) => k.includes(assets.music.id))).toBe(false);
+  // …but the editor project from the previous test uses that music file, so its objects are kept
+  expect(bucketKeys().some((k) => k.includes(assets.music.id))).toBe(true);
 
   // the project from the previous test still references the logo / intro files
   const before = bucketKeys().filter(

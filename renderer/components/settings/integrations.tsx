@@ -2,17 +2,18 @@
 
 import * as React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronDown, ExternalLink, Link2 } from 'lucide-react';
+import { ChevronDown, ExternalLink } from 'lucide-react';
+import type { Platform as PostPlatform } from '@shared/cp2';
 import type { SecretKey } from '@shared/secrets';
 import { Banner } from '@/components/ui/banner';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { InstagramGlyph, TiktokGlyph, YoutubeGlyph } from '@/components/ui/brand-icons';
 import { SecretInput } from '@/components/ui/secret-input';
-import { DisabledTip } from '@/components/ui/tooltip';
 import { useSecretActions, useSecrets } from '@/lib/settings';
 import { cn } from '@/lib/utils';
 import { SettingsCard, openExternal } from './common';
+import { PlatformAccounts } from './platform-accounts';
+import { TiktokAuditChecklist, YoutubeQuotaExplainer } from './platform-guides';
 import { SettingsHeading } from './settings-shell';
 
 interface Step {
@@ -21,12 +22,16 @@ interface Step {
 }
 interface Platform {
   id: string;
+  /** The posting platform id this card connects accounts for. */
+  platform: PostPlatform;
   name: string;
   icon: typeof YoutubeGlyph;
   summary: string;
   steps: Step[];
   fields: { key: SecretKey; label: string }[];
   notes: React.ReactNode;
+  /** Explainer rendered under the accounts (YouTube quota, TikTok audit checklist). */
+  extra?: React.ReactNode;
   link: { label: string; url: string };
 }
 
@@ -37,6 +42,7 @@ const code = (t: string) => (
 const PLATFORMS: Platform[] = [
   {
     id: 'youtube',
+    platform: 'shorts',
     name: 'YouTube Shorts',
     icon: YoutubeGlyph,
     summary: 'Uploads through the YouTube Data API v3 with your own free Google Cloud project.',
@@ -83,16 +89,12 @@ const PLATFORMS: Platform[] = [
       { key: 'google.clientId', label: 'Client ID' },
       { key: 'google.clientSecret', label: 'Client secret' },
     ],
-    notes: (
-      <Banner tone="info" title="Daily quota">
-        The default quota is 10,000 units a day and each upload costs about 1,600, so roughly{' '}
-        <strong>6 uploads a day</strong>. You can request more for free through Google&apos;s
-        YouTube API quota extension form.
-      </Banner>
-    ),
+    notes: null,
+    extra: <YoutubeQuotaExplainer />,
   },
   {
     id: 'instagram',
+    platform: 'reels',
     name: 'Instagram Reels',
     icon: InstagramGlyph,
     summary:
@@ -138,6 +140,7 @@ const PLATFORMS: Platform[] = [
   },
   {
     id: 'tiktok',
+    platform: 'tiktok',
     name: 'TikTok',
     icon: TiktokGlyph,
     summary: 'Posts through the TikTok Content Posting API.',
@@ -155,7 +158,7 @@ const PLATFORMS: Platform[] = [
       },
       {
         title: 'Register the redirect',
-        body: 'Clipfern shows the exact redirect URI to register when you connect your account (checkpoint 5).',
+        body: 'Copy the exact redirect URI shown under “Connected accounts” below into the app’s Login Kit settings.',
       },
       {
         title: 'Paste the credentials below',
@@ -170,9 +173,10 @@ const PLATFORMS: Platform[] = [
       <Banner tone="warning" title="Unaudited apps post privately">
         Until TikTok approves your app in their free audit, every post is{' '}
         <strong>private (visible only to you)</strong>. Clipfern can instead upload to your TikTok
-        drafts so you publish from the TikTok app, and will walk you through the audit checklist.
+        drafts so you publish from the TikTok app. The audit checklist below walks you through it.
       </Banner>
     ),
+    extra: <TiktokAuditChecklist />,
   },
 ];
 
@@ -277,16 +281,8 @@ export function IntegrationsSettings() {
                 />
               ))}
             </div>
-            <div className="flex items-center gap-3 border-t pt-5">
-              <DisabledTip reason="Account connection arrives in checkpoint 5">
-                <Button variant="secondary" disabled>
-                  <Link2 /> Connect account
-                </Button>
-              </DisabledTip>
-              <span className="text-xs text-muted-foreground">
-                Save the credentials first, then connect in checkpoint 5.
-              </span>
-            </div>
+            <PlatformAccounts platform={p.platform} />
+            {p.extra}
           </SettingsCard>
         );
       })}

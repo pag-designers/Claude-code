@@ -119,7 +119,7 @@ const PLATFORM_LABEL: Record<Platform, string> = {
 
 /** Local fallbacks for the quota meter when the platform cannot be asked. */
 const LOCAL_QUOTA: Record<Platform, { limit: number; unit: 'units' | 'posts' }> = {
-  shorts: { limit: 10_000, unit: 'units' },
+  shorts: { limit: 100, unit: 'posts' }, // videos.insert has its own bucket: 100/day, 1 unit each (YouTube quota page, 2026)
   reels: { limit: 100, unit: 'posts' },
   tiktok: { limit: 15, unit: 'posts' },
 };
@@ -203,7 +203,7 @@ export class PostingService {
       granted = await this.d.oauth.authorize(platform, (a) => provider.authUrl(a));
     } catch (e) {
       if (e instanceof OAuthFlowError)
-        throw new AppError(e.kind === 'canceled' ? 'CANCELED' : 'FAILED', e.message);
+        throw new AppError('FAILED', e.message);
       throw e;
     }
     let exchanged;
@@ -714,16 +714,14 @@ export class PostingService {
     if (!EDITABLE_POST_STATUSES.includes(row.status as PostStatus))
       throw new AppError('CONFLICT', `A ${row.status} post can no longer be edited.`);
     const data: Record<string, unknown> = {};
-    let fields: PostFields | null = null;
     if (args.fields) {
       if (args.fields.platform !== row.platform)
-        throw new AppError('INVALID', 'The fields do not match the post platform.');
+        throw new AppError('VALIDATION', 'The fields do not match the post platform.');
       const owner = await this.d.db.socialAccount.findUnique({ where: { id: row.accountId } });
       const issues = this.fieldIssues(args.fields, owner ?? undefined);
-      if (issues.length) throw new AppError('INVALID', issues.map((i) => i.message).join(' '));
-      fields = args.fields;
-      data.fields = JSON.stringify(fields);
-      data.title = postTitleOf(fields);
+      if (issues.length) throw new AppError('VALIDATION', issues.map((i) => i.message).join(' '));
+      data.fields = JSON.stringify(args.fields);
+      data.title = postTitleOf(args.fields);
     }
     if (args.autoFix !== undefined) data.autoFix = args.autoFix;
     if (args.scheduledAt !== undefined) {

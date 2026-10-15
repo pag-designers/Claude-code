@@ -90,7 +90,6 @@ export async function fixMedia(a: FixArgs, deps: FixDeps): Promise<ProbedMediaIn
     report(1, 'Done');
     return { ...out, sizeBytes: out.sizeBytes };
   } catch (e) {
-    await cleanup();
     throw e;
   }
 }

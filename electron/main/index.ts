@@ -7,9 +7,12 @@ import {
   dialog,
   nativeTheme,
   net,
+  Menu,
   Notification,
+  nativeImage,
   protocol,
   safeStorage,
+  Tray,
   session,
   shell,
   type IpcMainInvokeEvent,
@@ -23,6 +26,8 @@ import { createServices, JOB_KINDS, type Services } from './services/context';
 import { pickCipher } from './services/secrets';
 import { SidecarManager } from './services/sidecar';
 import { createPipeline } from './pipeline/wiring';
+import { createPosting } from './pipeline/wiring5';
+import { TrayController } from './tray';
 import { createFontsHub } from './services/brand-media';
 import { createElectronSvgRasterizer } from './services/brand-media/svg-electron';
 import { fontBook } from './services/captions/fontbook';
@@ -45,6 +50,11 @@ protocol.registerSchemesAsPrivileged([
 let mainWindow: BrowserWindow | null = null;
 let services: Services | null = null;
 let sidecar: SidecarManager | null = null;
+let tray: TrayController | null = null;
+let stopScheduler: (() => Promise<void>) | null = null;
+let quitting = false;
+/** Live view of the scheduler for the close-to-tray and quit decisions (set during bootstrap). */
+let schedulerSnapshot: { trayMode: boolean; upcoming: number } = { trayMode: false, upcoming: 0 };
 const log = logger.scoped('main');
 
 function send<E extends EventChannel>(event: E, payload: EventPayload<E>): void {
@@ -180,6 +190,13 @@ function createWindow(initialDark: boolean): BrowserWindow {
     if (choice === 1) e.preventDefault();
   });
 
+  // Closing the window keeps the app (and the scheduler) alive in the tray / menu bar when tray mode is on.
+  win.on('close', (e) => {
+    if (quitting || !schedulerSnapshot.trayMode || !tray?.active) return;
+    e.preventDefault();
+    win.hide();
+  });
+
   void win.loadURL(DEV_URL ?? `app://${APP_HOST}/`);
   return win;
 }
@@ -306,6 +323,43 @@ async function bootstrap(): Promise<void> {
     },
     fontsDir: () => fontsHub.dir() ?? pipelineFontsDir(),
   });
+  const showMainWindow = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      mainWindow = createWindow(nativeTheme.shouldUseDarkColors);
+      return;
+    }
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  };
+  tray = new TrayController({
+    electron: { Tray, Menu, nativeImage },
+    iconDir: app.isPackaged
+      ? path.join(process.resourcesPath, 'tray')
+      : path.join(app.getAppPath(), 'electron', 'main', 'assets', 'tray'),
+    platform: process.platform,
+    showWindow: showMainWindow,
+    setPaused: (paused) => void posting.scheduler.setPaused(paused),
+    quit: () => app.quit(),
+    log: (m) => logger.scoped('tray').info(m),
+  });
+  const posting = createPosting(svc, {
+    cipher,
+    openExternal: (url) => shell.openExternal(url),
+    trayAvailable: () => tray?.supported ?? false,
+    brand: pipeline.brand,
+    emit: {
+      post: (p) => send('posts:updated', p),
+      accountsChanged: (platform) => send('accounts:changed', { platform }),
+      scheduler: (s) => {
+        schedulerSnapshot = { trayMode: s.trayMode, upcoming: s.upcoming };
+        if (s.trayMode) tray?.ensure();
+        else tray?.destroy();
+        tray?.update(s);
+        send('scheduler:status', s);
+      },
+    },
+  });
   pipeline.orchestrator.registerJobs();
   void pipeline.brand.reconcileOnStart().catch((e) => log.warn(`brand fonts: ${String(e)}`));
   await pipeline.editor.primeStyles();
@@ -319,6 +373,8 @@ async function bootstrap(): Promise<void> {
       editor: pipeline.editor,
       brand: pipeline.brand,
       broll: pipeline.broll,
+      posting: posting.posting,
+      scheduler: posting.scheduler,
       styles: pipeline.styles,
       captions: pipeline.captions,
       fontsDir: () => fontsHub.dir() ?? pipelineFontsDir(),
@@ -358,6 +414,8 @@ async function bootstrap(): Promise<void> {
   const { recovered } = await svc.queue.start();
   await pipeline.orchestrator.reconcileOnStart();
   await pipeline.editor.reconcileOnStart();
+  await posting.scheduler.start();
+  stopScheduler = () => posting.scheduler.stop();
   if (recovered) log.info(`re-queued ${recovered} job(s) interrupted by the last shutdown`);
   // Real background work through the durable queue: make sure yt-dlp exists; read bucket usage.
   await svc.queue.enqueue({ kind: JOB_KINDS.ensureYtdlp, priority: 5 });
@@ -403,16 +461,43 @@ if (!gotLock) {
   });
 
   app.on('window-all-closed', () => {
+    // With tray mode the window is hidden, not closed, so this only fires when there is no tray to live in.
     if (process.platform !== 'darwin') app.quit();
   });
 
   let shuttingDown = false;
   app.on('before-quit', (e) => {
     if (shuttingDown) return;
+    quitting = true;
+    // Scheduled posts only go out while Clipfern runs: say so before quitting (skipped in automated tests).
+    if (
+      schedulerSnapshot.upcoming > 0 &&
+      process.env.CLIPFERN_SKIP_QUIT_CONFIRM !== '1' &&
+      !process.env.CLIPFERN_E2E
+    ) {
+      const n = schedulerSnapshot.upcoming;
+      const choice = dialog.showMessageBoxSync({
+        type: 'question',
+        buttons: ['Quit anyway', 'Keep running'],
+        defaultId: 1,
+        cancelId: 1,
+        title: 'Scheduled posts',
+        message: `${n} post${n === 1 ? ' is' : 's are'} scheduled.`,
+        detail:
+          'They are only published while Clipfern is running. If you quit now, anything due while it is closed will be handled when you open it again (or marked as missed if it is too late).',
+      });
+      if (choice === 1) {
+        e.preventDefault();
+        quitting = false;
+        return;
+      }
+    }
     shuttingDown = true;
     e.preventDefault();
     void (async () => {
       try {
+        await stopScheduler?.();
+        tray?.destroy();
         await sidecar?.stop();
         await services?.queue.stop();
         await services?.dbHandle.close();

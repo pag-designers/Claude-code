@@ -276,7 +276,9 @@ export function specSummary(spec: PlatformSpec): string {
     parts.push(`${formatDurationShort(min)} – ${formatDurationShort(max)}`);
   else if (max !== null) parts.push(`up to ${formatDurationShort(max)}`);
   else if (min !== null) parts.push(`at least ${formatDurationShort(min)}`);
-  if (spec.maxSizeBytes !== null) parts.push(`up to ${formatBytes(spec.maxSizeBytes)}`);
+  // a limit of tens of GB is no limit for a short clip: not worth a line in the UI
+  if (spec.maxSizeBytes !== null && spec.maxSizeBytes < 50e9)
+    parts.push(`up to ${formatBytes(spec.maxSizeBytes)}`);
   if (spec.aspect.max !== null && spec.aspect.max <= 1)
     parts.push('vertical or square, 9:16 recommended');
   else parts.push('9:16 recommended');

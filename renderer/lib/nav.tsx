@@ -128,6 +128,22 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     keywords: ['oauth', 'youtube', 'instagram', 'tiktok', 'social'],
   },
   {
+    slug: 'scheduler',
+    label: 'Scheduler',
+    icon: CalendarClock,
+    description: 'Tray mode, catch-up, smart spacing, digest',
+    keywords: [
+      'tray',
+      'menu bar',
+      'catch-up',
+      'spacing',
+      'digest',
+      'posting',
+      'auto-fix',
+      'schedule',
+    ],
+  },
+  {
     slug: 'diagnostics',
     label: 'Diagnostics',
     icon: Info,

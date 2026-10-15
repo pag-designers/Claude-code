@@ -46,6 +46,7 @@ export class SchedulerService {
   private ticking = false;
   private paused = false;
   private lastStatus: SchedulerStatus | null = null;
+  private readonly inflight = new Set<Promise<unknown>>();
   private catchUp = { pending: 0, lastRunAt: null as number | null };
 
   constructor(private readonly d: SchedulerDeps) {}
@@ -79,15 +80,26 @@ export class SchedulerService {
     this.paused = await this.readSetting<boolean>(KEY_PAUSED, false);
     this.d.posting.sweepCache();
     await this.runCatchUp();
-    this.timer = setInterval(() => void this.tick(), this.d.tickMs ?? TICK_MS);
+    this.timer = setInterval(() => void this.track(this.tick()), this.d.tickMs ?? TICK_MS);
     this.timer.unref?.();
-    void this.publishStatus();
+    await this.publishStatus();
   }
 
-  stop(): void {
+  /** Stops the loop and waits for work in flight, so nothing touches the database after the caller closes it. */
+  async stop(): Promise<void> {
     this.running = false;
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+    await Promise.allSettled([...this.inflight]);
+  }
+
+  private track<T>(p: Promise<T>): Promise<T> {
+    this.inflight.add(p);
+    void p.then(
+      () => this.inflight.delete(p),
+      () => this.inflight.delete(p),
+    );
+    return p;
   }
 
   /** First pass after launch: handles everything that came due while the app was closed. */
@@ -146,7 +158,7 @@ export class SchedulerService {
   async setPaused(paused: boolean): Promise<SchedulerStatus> {
     this.paused = paused;
     await this.writeSetting(KEY_PAUSED, paused);
-    if (!paused) void this.tick();
+    if (!paused) void this.track(this.tick());
     return this.publishStatus(true);
   }
 

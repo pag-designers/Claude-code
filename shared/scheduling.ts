@@ -453,8 +453,9 @@ export function planSchedule(input: PlanInput): PlanResult {
           continue;
         }
 
-        // the piece closest to the middle of what is left of the window, then the middle of that piece
-        const mid = (lo + hi) / 2;
+        // the middle of what is left of the window (lo..hi are whole minutes, hi inclusive); the piece nearest to it, and
+        // the middle itself when it lies in that piece, else the piece's own middle
+        const mid = (lo + hi + 1) / 2;
         let best = pieces[0]!;
         let bestDist = Infinity;
         for (const pc of pieces) {
@@ -468,7 +469,9 @@ export function planSchedule(input: PlanInput): PlanResult {
         const offset = jitter
           ? Math.round((hash01(`${input.seed}|${acc.id}|${clipIndex}`) * 2 - 1) * jitter)
           : 0;
-        const centre = Math.floor((best[0] + best[1]) / 2);
+        const centre = Math.floor(
+          mid >= best[0] && mid <= best[1] ? mid : (best[0] + best[1] + 1) / 2,
+        );
         const minute = Math.min(best[1], Math.max(best[0], centre + offset));
         const at = minute * MIN_MS;
 

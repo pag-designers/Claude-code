@@ -30,8 +30,8 @@ export function RedirectUri({ uri, platform }: { uri: string; platform: Platform
     <div className="flex flex-col gap-1.5" data-testid={`redirect-${platform}`}>
       <p className="text-sm font-medium">Redirect URI to register</p>
       <p className="text-xs text-muted-foreground">
-        Add this exact address as an authorised redirect in your {info.short} developer app. It never
-        leaves your computer: {info.short} sends you back to Clipfern on this local port.
+        Add this exact address as an authorised redirect in your {info.short} developer app. It
+        never leaves your computer: {info.short} sends you back to Clipfern on this local port.
       </p>
       <div className="flex items-center gap-2">
         <code
@@ -50,7 +50,10 @@ export function RedirectUri({ uri, platform }: { uri: string; platform: Platform
             if (ok) {
               setCopied(true);
               window.setTimeout(() => setCopied(false), 1800);
-            } else toast.error('Could not copy', { description: 'Select the address and copy it by hand.' });
+            } else
+              toast.error('Could not copy', {
+                description: 'Select the address and copy it by hand.',
+              });
           }}
           data-testid="redirect-copy"
         >
@@ -64,8 +67,7 @@ export function RedirectUri({ uri, platform }: { uri: string; platform: Platform
 /* -------------------------------------------------------------------------------- account row ----- */
 
 type TestOutcome =
-  | { phase: 'running' }
-  | { phase: 'done'; ok: boolean; message: string; detail: string | null };
+  { phase: 'running' } | { phase: 'done'; ok: boolean; message: string; detail: string | null };
 
 function AccountRow({
   account,
@@ -114,7 +116,11 @@ function AccountRow({
           <p className="truncate text-xs text-muted-foreground">
             {account.handle ? `@${account.handle} · ` : ''}
             connected {now !== null ? timeAgo(account.connectedAt, now) : ''}
-            {account.platform === 'tiktok' ? (unaudited ? ' · unaudited app' : ' · audited app') : ''}
+            {account.platform === 'tiktok'
+              ? unaudited
+                ? ' · unaudited app'
+                : ' · audited app'
+              : ''}
           </p>
         </div>
         <AccountStatusChip account={account} />
@@ -129,7 +135,13 @@ function AccountRow({
             <PlugZap /> Test connection
           </Button>
           {account.status !== 'connected' ? (
-            <ConnectControl platform={account.platform} configured={configured} reconnect size="sm" variant="primary" />
+            <ConnectControl
+              platform={account.platform}
+              configured={configured}
+              reconnect
+              size="sm"
+              variant="primary"
+            />
           ) : null}
           <Button
             variant="danger-ghost"
@@ -156,7 +168,9 @@ function AccountRow({
           <Badge variant={test.ok ? 'success' : 'danger'}>
             {test.ok ? <Check /> : <X />} {test.ok ? 'Works' : 'Failed'}
           </Badge>
-          <span className={cn(test.ok ? 'text-muted-foreground' : 'text-danger')}>{test.message}</span>
+          <span className={cn(test.ok ? 'text-muted-foreground' : 'text-danger')}>
+            {test.message}
+          </span>
           {test.detail ? <span className="text-subtle">{test.detail}</span> : null}
         </div>
       ) : null}
@@ -180,7 +194,9 @@ export function PlatformAccounts({ platform }: { platform: Platform }) {
   const postsQ = usePosts();
   const [target, setTarget] = React.useState<SocialAccount | null>(null);
   const [busy, setBusy] = React.useState(false);
-  const setup: PlatformSetup | undefined = accountsQ.data?.setup.find((s) => s.platform === platform);
+  const setup: PlatformSetup | undefined = accountsQ.data?.setup.find(
+    (s) => s.platform === platform,
+  );
   const accounts = (accountsQ.data?.accounts ?? []).filter((a) => a.platform === platform);
   const info = PLATFORM_INFO[platform];
   const scheduledFor = (id: string) =>
@@ -201,7 +217,9 @@ export function PlatformAccounts({ platform }: { platform: Platform }) {
         qc.invalidateQueries({ queryKey: ['scheduler:status'] }),
       ]);
     } catch (e) {
-      toast.error('Could not disconnect', { description: e instanceof Error ? e.message : undefined });
+      toast.error('Could not disconnect', {
+        description: e instanceof Error ? e.message : undefined,
+      });
     } finally {
       setBusy(false);
     }
@@ -226,7 +244,9 @@ export function PlatformAccounts({ platform }: { platform: Platform }) {
         <Plug className="size-4 text-muted-foreground" aria-hidden />
         <h3 className="text-sm font-semibold">
           Connected accounts{' '}
-          <span className="font-normal text-muted-foreground tabular-nums">({accounts.length})</span>
+          <span className="font-normal text-muted-foreground tabular-nums">
+            ({accounts.length})
+          </span>
         </h3>
       </div>
       {setup ? <RedirectUri uri={setup.redirectUri} platform={platform} /> : null}
